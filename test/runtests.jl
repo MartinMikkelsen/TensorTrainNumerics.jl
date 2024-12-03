@@ -1,6 +1,10 @@
 using TensorTrainNumerics
 using Test
 
-@testset "TensorTrainNumerics.jl" begin
-    # Write your tests here.
-end
+include("test_tt_tools.jl")
+include("test_als.jl")
+include("test_interpolations.jl")
+include("test_mals.jl")
+include("test_dmrg.jl")
+
+

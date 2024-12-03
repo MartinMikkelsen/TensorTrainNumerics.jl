@@ -540,3 +540,49 @@ function visualize(tt::TToperator)
     # Display the diagram
     println(diagram)
 end
+
+"""
+returns the singular values of the reshaped tensor x[μ_1⋯μ_k;μ_{k+1}⋯μ_d] for all 1≤ k ≤ d
+"""
+function tt_svdvals(x_tt::TTvector{T,N};tol=1e-14) where {T<:Number,N}
+	d = x_tt.N
+	Σ = Array{Array{Float64,1},1}(undef,d-1)
+	y_tt = orthogonalize(x_tt)
+	y_rks = y_tt.ttv_rks
+	for j in 1:d-1
+		A = zeros(y_tt.ttv_dims[j],y_rks[j],y_tt.ttv_dims[j+1],y_rks[j+2])
+		@tensor A[a,b,c,d] = y_tt.ttv_vec[j][a,b,z]*y_tt.ttv_vec[j+1][c,z,d]
+		u,s,v = svd(reshape(A,size(A,1)*size(A,2),:),alg=LinearAlgebra.QRIteration())
+		Σ[j],y_rks[j+1] = floor(s,tol)
+		y_tt.ttv_vec[j+1] = permutedims(reshape(Diagonal(Σ[j])*v'[s.>tol,:],:,y_tt.ttv_dims[j+1],y_rks[j+2]),[2 1 3])
+	end
+	return Σ
+end
+
+function unfold(qtt::TTvector{Float64})
+    full_tensor = ttv_to_tensor(qtt)
+    n = size(full_tensor, 1)
+    values = zeros(n)
+
+    for i in 1:n
+        x = i - 1
+        index_bits = bitstring(x)[end-qtt.N+1:end]  # Binary representation
+        indices = [parse(Int, bit) + 1 for bit in index_bits]  # Indices for CartesianIndex
+        values[i] = full_tensor[CartesianIndex(indices...)]
+    end
+    values
+end
+
+function matricize(qtt::TTvector{Float64}, core::Int)::Vector{Float64}
+    full_tensor = ttv_to_tensor(qtt)
+    n = 2^core
+    values = zeros(n)
+
+    for i in 1:n
+        x_le_p = sum(((i >> (k-1)) & 1) / 2^k for k in 1:core)  # Calculate the dyadic point
+        index_bits = bitstring(i - 1)[end-core+1:end]  # Binary representation
+        indices = [parse(Int, bit) + 1 for bit in index_bits]  # Indices for CartesianIndex
+        values[i] = full_tensor[CartesianIndex(indices...)]
+    end
+    values
+end
