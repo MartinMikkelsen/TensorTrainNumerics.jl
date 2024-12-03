@@ -66,7 +66,6 @@ function Base.complex(v::TTvector{T,N}) where {T,N}
 	return TTvector{Complex{T},N}(v.N,complex(v.ttv_vec),v.ttv_dims,v.ttv_rks,v.ttv_ot)
 end
 
-
 function QTTvector(vec::Vector{<:Array{<:Number, 3}}, rks::Vector{Int64}, ot::Vector{Int64})
     T = eltype(eltype(vec))
     N = length(vec)
@@ -93,8 +92,6 @@ end
 function is_qtt_operator(op::TToperator)
     all(dim == 2 for dim in op.tto_dims)
 end
-
-
 
 """
 returns a zero TTvector with dimensions `dims` and ranks `rks`
@@ -300,20 +297,6 @@ function ttv_to_tensor(x_tt :: TTvector{T,N}) where {T<:Number,N}
 		tensor[t] = curr[1]
 	end
 	return tensor
-end
-
-"""
-Returns a left-canonical TT representation
-"""
-function vidal_to_left_canonical(x_v::TT_vidal{T,N}) where {T<:Number,N}
-	x_tt = zeros_tt(T,x_v.dims,x_v.rks,ot=vcat(ones(length(x_v.dims)), 0))
-	x_tt.ttv_vec[1] = x_v.core[1]
-	for i in 2:length(x_v.dims)
-		for j in 1:x_v.dims[i]
-			x_tt.ttv_vec[i][j,:,:] = Diagonal(x_v.Σ[i-1])*x_v.core[i][j,:,:]
-		end
-	end
-	return x_tt
 end
 
 """
@@ -557,32 +540,4 @@ function tt_svdvals(x_tt::TTvector{T,N};tol=1e-14) where {T<:Number,N}
 		y_tt.ttv_vec[j+1] = permutedims(reshape(Diagonal(Σ[j])*v'[s.>tol,:],:,y_tt.ttv_dims[j+1],y_rks[j+2]),[2 1 3])
 	end
 	return Σ
-end
-
-function unfold(qtt::TTvector{Float64})
-    full_tensor = ttv_to_tensor(qtt)
-    n = size(full_tensor, 1)
-    values = zeros(n)
-
-    for i in 1:n
-        x = i - 1
-        index_bits = bitstring(x)[end-qtt.N+1:end]  # Binary representation
-        indices = [parse(Int, bit) + 1 for bit in index_bits]  # Indices for CartesianIndex
-        values[i] = full_tensor[CartesianIndex(indices...)]
-    end
-    values
-end
-
-function matricize(qtt::TTvector{Float64}, core::Int)::Vector{Float64}
-    full_tensor = ttv_to_tensor(qtt)
-    n = 2^core
-    values = zeros(n)
-
-    for i in 1:n
-        x_le_p = sum(((i >> (k-1)) & 1) / 2^k for k in 1:core)  # Calculate the dyadic point
-        index_bits = bitstring(i - 1)[end-core+1:end]  # Binary representation
-        indices = [parse(Int, bit) + 1 for bit in index_bits]  # Indices for CartesianIndex
-        values[i] = full_tensor[CartesianIndex(indices...)]
-    end
-    values
 end

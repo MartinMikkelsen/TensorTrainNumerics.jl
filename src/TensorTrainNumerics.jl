@@ -1,6 +1,6 @@
 module TensorTrainNumerics
 
-export TTvector,TToperator,QTTvector,QTToperator,ttv_decomp,tto_decomp,ttv_to_tensor,tto_to_tensor,zeros_tt,zeros_tto,rand_tt,rand_tto,tt_to_vidal,vidal_to_tensor,vidal_to_left_canonical, json_to_mps, json_to_mpo, is_qtt, is_qtt_operator,visualize,tt_svdvals, unfold, matricize
+export TTvector,TToperator,QTTvector,QTToperator,ttv_decomp,tto_decomp,ttv_to_tensor,tto_to_tensor,zeros_tt,zeros_tto,rand_tt,rand_tto, is_qtt, is_qtt_operator,visualize,tt_svdvals, unfold, matricize
 include("tt_tools.jl")
 
 export *, +, dot, -, /, outer_product, concatenate
