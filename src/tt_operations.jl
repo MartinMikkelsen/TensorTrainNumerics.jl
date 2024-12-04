@@ -266,3 +266,114 @@ function concatenate(tt::TTvector{T, N}, other::Union{TTvector{T}, Vector{Array{
     
     return tt_new
 end
+
+using LinearAlgebra
+using TensorOperations
+"""
+    rank_chop(s::Vector{T}, eps::T) -> Int
+
+Chop the rank based on the cumulative sum of the squared singular values.
+
+# Arguments
+- `s::Vector{T}`: Vector of singular values.
+- `eps::T`: Desired accuracy.
+
+# Returns
+- `Int`: The rank.
+
+# Throws
+- `ArgumentError`: If `eps` is negative.
+
+"""
+function rank_chop(s::Vector{T}, eps::T) where {T<:Real}
+    if norm(s) == 0.0
+        return 1
+    end
+
+    if eps <= 0.0
+        return length(s)
+    end
+
+    R = length(s) - 1
+    sc = cumsum(abs2.(reverse(s)))[end:-1:1]
+    idx = findfirst(x -> x < eps^2, sc)
+    R = idx === nothing ? length(s) : idx - 1
+
+    R = R > 0 ? R : 1
+    R = sc[end] > eps^2 ? length(s) : R
+
+    return R
+end
+
+using LinearAlgebra
+using TensorOperations
+
+# The rank_chop function remains the same
+function rank_chop(s::AbstractVector{<:Real}, eps::Real)
+    if norm(s) == 0.0
+        return 1
+    end
+    if eps <= 0.0
+        return length(s)
+    end
+    sc = reverse(cumsum(reverse(abs.(s).^2)))
+    idx = findfirst(x -> x < eps^2, sc)
+    R = idx === nothing ? length(s) : idx
+    if sc[end] > eps^2
+        R = length(s)
+    end
+    R = max(R, 1)
+    R = min(R, length(s))
+    return R
+end
+
+function swap_cores(tt::TTvector{T}, i::Int) where {T<:Real}
+
+    N = tt.N
+    @assert 1 ≤ i < N "Index i must be between 1 and N-1"
+
+    new_tt_vec = copy(tt.ttv_vec)
+    new_tt_rks = copy(tt.ttv_rks)
+    new_tt_dims = ntuple(k -> tt.ttv_dims[k], N)
+    new_tt_ot = copy(tt.ttv_ot)
+
+    new_tt_vec[i], new_tt_vec[i+1] = new_tt_vec[i+1], new_tt_vec[i]
+
+    new_tt_dims = ntuple(k -> k == i ? tt.ttv_dims[i+1] : (k == i+1 ? tt.ttv_dims[i] : tt.ttv_dims[k]), N)
+
+    new_tt_rks[i+1], new_tt_rks[i+1] = new_tt_rks[i+1], new_tt_rks[i+1]  # No change needed here
+
+    new_tt_rks[i], new_tt_rks[i+1] = new_tt_rks[i+1], new_tt_rks[i]
+
+    new_tt = TTvector{T, N}(N, new_tt_vec, new_tt_dims, new_tt_rks, new_tt_ot)
+
+    return new_tt
+end
+
+function swap_cores(tt::TToperator{T,M}, i::Int) where {T<:Number, M}
+    N = tt.N
+    @assert 1 ≤ i < N "Index i must be between 1 and N-1"
+
+    new_tto_vec = copy(tt.tto_vec)
+    new_tto_rks = copy(tt.tto_rks)
+    new_tto_dims = ntuple(k -> tt.tto_dims[k], M)
+    new_tto_ot = copy(tt.tto_ot)
+
+    new_tto_vec[i], new_tto_vec[i+1] = new_tto_vec[i+1], new_tto_vec[i]
+
+    new_tto_dims = ntuple(k -> k == i ? tt.tto_dims[i+1] : (k == i+1 ? tt.tto_dims[i] : tt.tto_dims[k]), M)
+
+    new_tto_rks[i], new_tto_rks[i+1] = new_tto_rks[i+1], new_tto_rks[i]
+
+    new_tt = TToperator{T,M}(N, new_tto_vec, new_tto_dims, new_tto_rks, new_tto_ot)
+
+    return new_tt
+end
+
+n_dims = (4, 5, 6)
+tt_op = rand_tto(n_dims,5)
+visualize(tt_op)
+# Swap cores at positions 1 and 2
+i = 2
+tt_op_swapped = swap_cores(tt_op, i)
+visualize(tt_op_swapped)
