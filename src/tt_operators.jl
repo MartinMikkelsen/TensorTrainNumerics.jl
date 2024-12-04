@@ -246,7 +246,6 @@ function Jacobian_tto(n, d, ∇_func)
     return TToperator{Float64, d}(d, H_vec, dims, rks, zeros(Int64, d))
 end
 
-
 function matricize(tt::TToperator{T, M}) where {T, M}
     first_core = tt.tto_vec[1]
     if prod(size(first_core)) != tt.tto_dims[1] * tt.tto_dims[1] * tt.tto_rks[2]
@@ -266,6 +265,23 @@ function matricize(tt::TToperator{T, M}) where {T, M}
     return reshape(tt_mat, m, n)
 end
 
+function matricize(tt::TTvector{T, M}) where {T, M}
+    first_core = tt.ttv_vec[1]
+    if prod(size(first_core)) != tt.ttv_dims[1] * tt.ttv_rks[2]
+        error("First core size mismatch: expected $(tt.ttv_dims[1] * tt.ttv_rks[2]), got $(prod(size(first_core)))")
+    end
+    tt_mat = reshape(first_core, (tt.ttv_dims[1], tt.ttv_rks[2]))
+
+    for i in 2:tt.N
+        next_core = tt.ttv_vec[i]
+        @tensor temp[a, b, r2] := tt_mat[a, r1] * next_core[b, r1, r2]
+        tt_mat = permutedims(temp, (1, 3, 2))
+        tt_mat = reshape(tt_mat, prod(tt.ttv_dims[1:i]), tt.ttv_rks[i+1])
+    end
+
+    m = prod(tt.ttv_dims)
+    return reshape(tt_mat, m * tt.ttv_rks[end])
+end
 
 function tt2qtt(tt_tensor::TToperator{T,N}, row_dims::Vector{Vector{Int}}, col_dims::Vector{Vector{Int}}, threshold::Float64=0.0) where {T<:Number,N}
     
@@ -353,3 +369,101 @@ function tt2qtt(tt_tensor::TToperator{T,N}, row_dims::Vector{Vector{Int}}, col_d
 
     return qtt_tensor
 end
+
+function tt2qtt(tt_tensor::TTvector{T,N}, dims::Vector{Vector{Int}}, threshold::Float64=0.0) where {T<:Number,N}
+    
+    qtt_cores = Array{Array{T,3}}(undef, 0)
+    ttv_rks = [1]
+    ttv_dims = Int64[]
+
+    # For each core in tt_tensor
+    for i in 1:tt_tensor.N
+
+        # Get core, rank_prev, rank_next, dim
+        core = permutedims(tt_tensor.ttv_vec[i], (2,1,3))  # Now core is (r_{k-1}, n_k, r_k)
+        rank_prev = ttv_rks[end]
+        rank_next = tt_tensor.ttv_rks[i+1]
+        dim = tt_tensor.ttv_dims[i]
+
+        # Begin splitting
+        for j in 1:(length(dims[i]) - 1)
+
+            # Update dim
+            dim = div(dim, dims[i][j])
+
+            # Reshape and permute core
+            core = reshape(core, (rank_prev, dims[i][j], dim, rank_next))
+            core = permutedims(core, (1,2,3,4))  # Now core is (r_{k-1}, dims[i][j], dim, r_k)
+
+            # Reshape core into 2D matrix for SVD
+            core_reshaped = reshape(core, (rank_prev * dims[i][j], dim * rank_next))
+
+            # Compute SVD
+            F = svd(core_reshaped; full=false)
+            U = F.U
+            S = F.S
+            Vt = F.Vt
+
+            # Rank reduction
+            if threshold != 0.0
+                indices = findall(S ./ S[1] .> threshold)
+                U = U[:, indices]
+                S = S[indices]
+                Vt = Vt[indices, :]
+            end
+
+            # Update rank
+            new_rank = length(S)
+
+            # Reshape U into core and append to qtt_cores
+            U_reshaped = reshape(U, (rank_prev, dims[i][j], new_rank))
+            # Permute back to (n_k, r_{k-1}, r_k)
+            core_to_append = permutedims(U_reshaped, (2,1,3))
+            push!(qtt_cores, core_to_append)
+
+            # Update ttv_rks
+            push!(ttv_rks, new_rank)
+
+            # Update ttv_dims
+            push!(ttv_dims, dims[i][j])
+
+            # Update core for next iteration
+            core = Diagonal(S) * Vt
+            rank_prev = new_rank
+        end
+
+        # For the last QTT core
+        core = reshape(core, (rank_prev, dim, rank_next))
+        core_to_append = permutedims(core, (2,1,3))
+        push!(qtt_cores, core_to_append)
+
+        # Update ttv_dims
+        push!(ttv_dims, dim)
+
+        # Update ttv_rks
+        push!(ttv_rks, rank_next)
+    end
+
+    N_qtt = length(qtt_cores)
+    M = length(ttv_dims)
+    ttv_ot = zeros(Int64, N_qtt)
+
+    qtt_tensor = TTvector{T,M}(N_qtt, qtt_cores, Tuple(ttv_dims), ttv_rks, ttv_ot)
+
+    return qtt_tensor
+end
+
+using LinearAlgebra
+
+# Define the TTvector
+dims = (4, 8, 16)
+rks = [1, 2, 2, 1]
+tt_vec = [randn(Float64, dims[i], rks[i], rks[i+1]) for i in 1:length(dims)]
+tt = TTvector{Float64, 3}(3, tt_vec, dims, rks, zeros(Int64, 3))
+
+# Define the dimensions for QTT
+qtt_dims = [[2, 2], [2, 2, 2], [2, 2, 2, 2]]
+
+# Convert TTvector to QTTvector
+qtt = tt2qtt(tt, qtt_dims)
+

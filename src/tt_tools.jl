@@ -86,7 +86,7 @@ function QTToperator(vec::Vector{Array{T,4}}, rks::Vector{Int64}, ot::Vector{Int
     for core in vec
         @assert size(core, 1) == 2 && size(core, 2) == 2 "Each core must have physical dimension 2."
     end
-    return QTToperator{T,N}(N, vec, rks, ot)
+    return TToperator{T,N}(N, vec, dims, rks, ot)
 end
 
 function is_qtt_operator(op::TToperator)
@@ -540,4 +540,34 @@ function tt_svdvals(x_tt::TTvector{T,N};tol=1e-14) where {T<:Number,N}
 		y_tt.ttv_vec[j+1] = permutedims(reshape(Diagonal(Σ[j])*v'[s.>tol,:],:,y_tt.ttv_dims[j+1],y_rks[j+2]),[2 1 3])
 	end
 	return Σ
+end
+
+"""
+	concatenate(tt1::TTvector, tt2::TTvector) -> TTvector
+
+Concatenates two TTvector objects `tt1` and `tt2` into a single TTvector. 
+
+# Arguments
+- `tt1::TTvector`: The first TTvector to concatenate.
+- `tt2::TTvector`: The second TTvector to concatenate.
+
+# Returns
+- `TTvector`: A new TTvector that is the result of concatenating `tt1` and `tt2`.
+
+# Throws
+- `ArgumentError`: If the final rank of `tt1` does not equal the initial rank of `tt2`.
+
+"""
+function concatenate(tt1::TTvector, tt2::TTvector)
+    if tt1.ttv_rks[end] != tt2.ttv_rks[1]
+        throw(ArgumentError("The final rank of the first TTvector must equal the initial rank of the second TTvector."))
+    end
+
+    N = tt1.N + tt2.N  
+    ttv_vec = vcat(tt1.ttv_vec, tt2.ttv_vec)  
+    ttv_dims = (tt1.ttv_dims..., tt2.ttv_dims...)  
+    ttv_rks = vcat(tt1.ttv_rks[1:end-1], tt2.ttv_rks)  
+    ttv_ot = vcat(tt1.ttv_ot, tt2.ttv_ot) 
+
+    return TTvector{eltype(tt1), length(ttv_dims)}(N, ttv_vec, ttv_dims, ttv_rks, ttv_ot)
 end

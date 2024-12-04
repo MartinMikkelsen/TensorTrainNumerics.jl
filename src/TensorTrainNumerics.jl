@@ -1,9 +1,9 @@
 module TensorTrainNumerics
 
-export TTvector,TToperator,QTTvector,QTToperator,ttv_decomp,tto_decomp,ttv_to_tensor,tto_to_tensor,zeros_tt,zeros_tto,rand_tt,rand_tto, is_qtt, is_qtt_operator,visualize,tt_svdvals, unfold, matricize
+export TTvector,TToperator,QTTvector,QTToperator,ttv_decomp,tto_decomp,ttv_to_tensor,tto_to_tensor,zeros_tt,zeros_tto,rand_tt,rand_tto, is_qtt, is_qtt_operator,visualize,tt_svdvals, matricize, concatenate, ones_tt
 include("tt_tools.jl")
 
-export *, +, dot, -, /, outer_product, concatenate
+export *, +, dot, -, /, outer_product
 include("tt_operations.jl")
 
 export als_linsolv, als_eigsolv, als_gen_eigsolv
