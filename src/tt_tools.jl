@@ -542,6 +542,213 @@ function tt_svdvals(x_tt::TTvector{T,N};tol=1e-14) where {T<:Number,N}
 	return Σ
 end
 
+function tt2qtt(tt_tensor::TToperator{T,N}, row_dims::Vector{Vector{Int}}, col_dims::Vector{Vector{Int}}, threshold::Float64=0.0) where {T<:Number,N}
+    
+    qtt_cores = Array{Array{T,4}}(undef, 0)
+    tto_rks = [1]
+    tto_dims = Int64[]
+
+    # For each core in tt_tensor
+    for i in 1:tt_tensor.N
+
+        # Get core, rank_prev, rank_next, row_dim, col_dim
+        core = permutedims(tt_tensor.tto_vec[i], (3,1,2,4))  # Now core is (r_{k-1}, n_k_row, n_k_col, r_k)
+        rank_prev = tto_rks[end]
+        rank_next = tt_tensor.tto_rks[i+1]
+        row_dim = tt_tensor.tto_dims[i]
+        col_dim = tt_tensor.tto_dims[i]  # Assuming square dimensions
+
+        # Begin splitting
+        for j in 1:(length(row_dims[i]) - 1)
+
+            # Update row_dim and col_dim
+            row_dim = div(row_dim, row_dims[i][j])
+            col_dim = div(col_dim, col_dims[i][j])
+
+            # Reshape and permute core
+            core = reshape(core, (rank_prev, row_dims[i][j], row_dim, col_dims[i][j], col_dim, rank_next))
+            core = permutedims(core, (1,2,4,3,5,6))  # Now core is (r_{k-1}, row_dims[i][j], col_dims[i][j], row_dim, col_dim, r_k)
+
+            # Reshape core into 2D matrix for SVD
+            core_reshaped = reshape(core, (rank_prev * row_dims[i][j] * col_dims[i][j], row_dim * col_dim * rank_next))
+
+            # Compute SVD
+            F = svd(core_reshaped; full=false)
+            U = F.U
+            S = F.S
+            Vt = F.Vt
+
+            # Rank reduction
+            if threshold != 0.0
+                indices = findall(S ./ S[1] .> threshold)
+                U = U[:, indices]
+                S = S[indices]
+                Vt = Vt[indices, :]
+            end
+
+            # Update rank
+            new_rank = length(S)
+
+            # Reshape U into core and append to qtt_cores
+            U_reshaped = reshape(U, (rank_prev, row_dims[i][j], col_dims[i][j], new_rank))
+            # Permute back to (n_k_row, n_k_col, r_{k-1}, r_k)
+            core_to_append = permutedims(U_reshaped, (2,3,1,4))
+            push!(qtt_cores, core_to_append)
+
+            # Update tto_rks
+            push!(tto_rks, new_rank)
+
+            # Update tto_dims
+            push!(tto_dims, row_dims[i][j])
+            push!(tto_dims, col_dims[i][j])
+
+            # Update core for next iteration
+            core = Diagonal(S) * Vt
+            rank_prev = new_rank
+        end
+
+        # For the last QTT core
+        core = reshape(core, (rank_prev, row_dim, col_dim, rank_next))
+        core_to_append = permutedims(core, (2,3,1,4))
+        push!(qtt_cores, core_to_append)
+
+        # Update tto_dims
+        push!(tto_dims, row_dim)
+        push!(tto_dims, col_dim)
+
+        # Update tto_rks
+        push!(tto_rks, rank_next)
+    end
+
+    N_qtt = length(qtt_cores)
+    M = length(tto_dims)
+    tto_ot = zeros(Int64, N_qtt)
+
+    qtt_tensor = TToperator{T,M}(N_qtt, qtt_cores, Tuple(tto_dims), tto_rks, tto_ot)
+
+    return qtt_tensor
+end
+
+function tt2qtt(tt_tensor::TTvector{T,N}, dims::Vector{Vector{Int}}, threshold::Float64=0.0) where {T<:Number,N}
+    
+    qtt_cores = Array{Array{T,3}}(undef, 0)
+    ttv_rks = [1]
+    ttv_dims = Int64[]
+
+    # For each core in tt_tensor
+    for i in 1:tt_tensor.N
+
+        # Get core, rank_prev, rank_next, dim
+        core = permutedims(tt_tensor.ttv_vec[i], (2,1,3))  # Now core is (r_{k-1}, n_k, r_k)
+        rank_prev = ttv_rks[end]
+        rank_next = tt_tensor.ttv_rks[i+1]
+        dim = tt_tensor.ttv_dims[i]
+
+        # Begin splitting
+        for j in 1:(length(dims[i]) - 1)
+
+            # Update dim
+            dim = div(dim, dims[i][j])
+
+            # Reshape and permute core
+            core = reshape(core, (rank_prev, dims[i][j], dim, rank_next))
+            core = permutedims(core, (1,2,3,4))  # Now core is (r_{k-1}, dims[i][j], dim, r_k)
+
+            # Reshape core into 2D matrix for SVD
+            core_reshaped = reshape(core, (rank_prev * dims[i][j], dim * rank_next))
+
+            # Compute SVD
+            F = svd(core_reshaped; full=false)
+            U = F.U
+            S = F.S
+            Vt = F.Vt
+
+            # Rank reduction
+            if threshold != 0.0
+                indices = findall(S ./ S[1] .> threshold)
+                U = U[:, indices]
+                S = S[indices]
+                Vt = Vt[indices, :]
+            end
+
+            # Update rank
+            new_rank = length(S)
+
+            # Reshape U into core and append to qtt_cores
+            U_reshaped = reshape(U, (rank_prev, dims[i][j], new_rank))
+            # Permute back to (n_k, r_{k-1}, r_k)
+            core_to_append = permutedims(U_reshaped, (2,1,3))
+            push!(qtt_cores, core_to_append)
+
+            # Update ttv_rks
+            push!(ttv_rks, new_rank)
+
+            # Update ttv_dims
+            push!(ttv_dims, dims[i][j])
+
+            # Update core for next iteration
+            core = Diagonal(S) * Vt
+            rank_prev = new_rank
+        end
+
+        # For the last QTT core
+        core = reshape(core, (rank_prev, dim, rank_next))
+        core_to_append = permutedims(core, (2,1,3))
+        push!(qtt_cores, core_to_append)
+
+        # Update ttv_dims
+        push!(ttv_dims, dim)
+
+        # Update ttv_rks
+        push!(ttv_rks, rank_next)
+    end
+
+    N_qtt = length(qtt_cores)
+    M = length(ttv_dims)
+    ttv_ot = zeros(Int64, N_qtt)
+
+    qtt_tensor = TTvector{T,M}(N_qtt, qtt_cores, Tuple(ttv_dims), ttv_rks, ttv_ot)
+
+    return qtt_tensor
+end
+
+function matricize(tt::TToperator{T, M}) where {T, M}
+    first_core = tt.tto_vec[1]
+    if prod(size(first_core)) != tt.tto_dims[1] * tt.tto_dims[1] * tt.tto_rks[2]
+        error("First core size mismatch: expected $(tt.tto_dims[1] * tt.tto_dims[1] * tt.tto_rks[2]), got $(prod(size(first_core)))")
+    end
+    tt_mat = reshape(first_core, (tt.tto_dims[1], tt.tto_dims[1], tt.tto_rks[2]))
+
+    for i in 2:tt.N
+        next_core = tt.tto_vec[i]
+        @tensor temp[a, b, c, d, r2] := tt_mat[a, b, r1] * next_core[c, d, r1, r2]
+        tt_mat = permutedims(temp, (1, 3, 2, 4, 5))
+        tt_mat = reshape(tt_mat, prod(tt.tto_dims[1:i]), prod(tt.tto_dims[1:i]), tt.tto_rks[i+1])
+    end
+
+    m = prod(tt.tto_dims)
+    n = prod(tt.tto_dims)
+    return reshape(tt_mat, m, n)
+end
+
+function matricize(tt::TTvector{T, M}) where {T, M}
+    first_core = tt.ttv_vec[1]
+    if prod(size(first_core)) != tt.ttv_dims[1] * tt.ttv_rks[2]
+        error("First core size mismatch: expected $(tt.ttv_dims[1] * tt.ttv_rks[2]), got $(prod(size(first_core)))")
+    end
+    tt_mat = reshape(first_core, (tt.ttv_dims[1], tt.ttv_rks[2]))
+
+    for i in 2:tt.N
+        next_core = tt.ttv_vec[i]
+        @tensor temp[a, b, r2] := tt_mat[a, r1] * next_core[b, r1, r2]
+        tt_mat = permutedims(temp, (1, 3, 2))
+        tt_mat = reshape(tt_mat, prod(tt.ttv_dims[1:i]), tt.ttv_rks[i+1])
+    end
+
+    m = prod(tt.ttv_dims)
+    return reshape(tt_mat, m * tt.ttv_rks[end])
+end
+
 """
 	concatenate(tt1::TTvector, tt2::TTvector) -> TTvector
 
@@ -570,4 +777,37 @@ function concatenate(tt1::TTvector, tt2::TTvector)
     ttv_ot = vcat(tt1.ttv_ot, tt2.ttv_ot) 
 
     return TTvector{eltype(tt1), length(ttv_dims)}(N, ttv_vec, ttv_dims, ttv_rks, ttv_ot)
+end
+
+"""
+	concatenate(tt1::TToperator, tt2::TToperator) -> TToperator
+
+Concatenates two TToperators `tt1` and `tt2` into a single TToperator.
+
+# Arguments
+- `tt1::TToperator`: The first TToperator.
+- `tt2::TToperator`: The second TToperator.
+
+# Returns
+- `TToperator`: A new TToperator that is the concatenation of `tt1` and `tt2`.
+
+# Throws
+- `ArgumentError`: If the final rank of `tt1` does not equal the initial rank of `tt2`.
+
+# Description
+This function concatenates two TToperators by combining their tensor train vectors, dimensions, ranks, and operator types. The resulting TToperator has the combined properties of the input TToperators.
+
+"""
+	function concatenate(tt1::TToperator, tt2::TToperator)
+    if tt1.tto_rks[end] != tt2.tto_rks[1]
+        throw(ArgumentError("The final rank of the first TToperator must equal the initial rank of the second TToperator."))
+    end
+
+    N = tt1.N + tt2.N  
+    tto_vec = vcat(tt1.tto_vec, tt2.tto_vec)  
+    tto_dims = (tt1.tto_dims..., tt2.tto_dims...)  
+    tto_rks = vcat(tt1.tto_rks[1:end-1], tt2.tto_rks)  
+    tto_ot = vcat(tt1.tto_ot, tt2.tto_ot) 
+
+    return TToperator{eltype(tt1), length(tto_dims)}(N, tto_vec, tto_dims, tto_rks, tto_ot)
 end

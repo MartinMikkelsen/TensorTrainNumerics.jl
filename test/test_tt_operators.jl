@@ -488,7 +488,7 @@ end
         @testset "TTvector to QTTvector Tests" begin
             dims = (4, 8, 16)
             rks = [1, 2, 2, 1]
-            tt_vec = [randn(Float64, dims[i], rks[i], rks[i+1]) for i in 1:length(dims)]
+            tt_vec = [randn(Float64, dims[i], rks[i], rks[i+1]) for i in 1:eachindex(dims)]
             tt = TTvector{Float64, 3}(3, tt_vec, dims, rks, zeros(Int64, 3))
 
             qtt_dims = [[2, 2], [2, 2, 2], [2, 2, 2, 2]]
