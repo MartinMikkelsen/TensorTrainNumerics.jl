@@ -173,6 +173,29 @@ end
 end
 
 @testset "TTvector and TToperator functions" begin
+    dims1 = (2, 2)
+    rks1 = [1, 2, 1]
+    tt1 = rand_tt(dims1, rks1)
+    dims2 = (2, 2)
+    rks2 = [1, 2, 1]
+    tt2 = rand_tt(dims2, rks2)
+    tt_concat = concatenate(tt1, tt2)
+    @test tt_concat.N == tt1.N + tt2.N
+    @test tt_concat.ttv_dims == (tt1.ttv_dims..., tt2.ttv_dims...)
+    @test tt_concat.ttv_rks == vcat(tt1.ttv_rks[1:end-1], tt2.ttv_rks)
+    @test tt_concat.ttv_ot == vcat(tt1.ttv_ot, tt2.ttv_ot)
+
+    # Test concatenate function for TToperator
+    dims_op1 = (2, 2)
+    tto1 = rand_tto(dims_op1, 3)
+    dims_op2 = (2, 2)
+    tto2 = rand_tto(dims_op2, 3)
+    tto_concat = concatenate(tto1, tto2)
+    @test tto_concat.N == tto1.N + tto2.N
+    @test tto_concat.tto_dims == (tto1.tto_dims..., tto2.tto_dims...)
+    @test tto_concat.tto_rks == vcat(tto1.tto_rks[1:end-1], tto2.tto_rks)
+    @test tto_concat.tto_ot == vcat(tto1.tto_ot, tto2.tto_ot)
+
     # Test concatenate function
     dims1 = (2, 2)
     rks1 = [1, 2, 1]
