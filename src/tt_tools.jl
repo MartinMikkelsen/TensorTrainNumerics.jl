@@ -66,6 +66,23 @@ function Base.complex(v::TTvector{T,N}) where {T,N}
 	return TTvector{Complex{T},N}(v.N,complex(v.ttv_vec),v.ttv_dims,v.ttv_rks,v.ttv_ot)
 end
 
+"""
+    QTTvector(vec::Vector{<:Array{<:Number, 3}}, rks::Vector{Int64}, ot::Vector{Int64})
+
+Constructs a Quantized Tensor Train (QTT) vector from a given vector of 3-dimensional arrays (cores).
+
+# Arguments
+- `vec::Vector{<:Array{<:Number, 3}}`: A vector containing the cores of the QTT vector. Each core must be a 3-dimensional array with the first dimension equal to 2.
+- `rks::Vector{Int64}`: A vector of integer ranks for the QTT vector.
+- `ot::Vector{Int64}`: A vector of integer orthogonalization types for the QTT vector.
+
+# Returns
+- `TTvector{T, N}`: A tensor train vector of type `T` and length `N`.
+
+# Throws
+- `AssertionError`: If any core in `vec` does not have the first dimension equal to 2.
+
+"""
 function QTTvector(vec::Vector{<:Array{<:Number, 3}}, rks::Vector{Int64}, ot::Vector{Int64})
     T = eltype(eltype(vec))
     N = length(vec)
@@ -79,7 +96,23 @@ end
 function is_qtt(tt::TTvector)
     all(dim == 2 for dim in tt.ttv_dims)
 end
+"""
+    QTToperator(vec::Vector{Array{T,4}}, rks::Vector{Int64}, ot::Vector{Int64}) where {T}
 
+Constructs a Quantum Tensor Train (QTT) operator from a vector of 4-dimensional arrays (cores).
+
+# Arguments
+- `vec::Vector{Array{T,4}}`: A vector containing the cores of the QTT operator. Each core must be a 4-dimensional array with the first two dimensions equal to 2.
+- `rks::Vector{Int64}`: A vector containing the rank sizes of the QTT operator.
+- `ot::Vector{Int64}`: A vector containing the operator types.
+
+# Returns
+- `TToperator{T,N}`: A QTT operator constructed from the provided cores, rank sizes, and operator types.
+
+# Throws
+- `AssertionError`: If any core in `vec` does not have the first two dimensions equal to 2.
+
+"""
 function QTToperator(vec::Vector{Array{T,4}}, rks::Vector{Int64}, ot::Vector{Int64}) where {T}
     N = length(vec)
     dims = ntuple(_ -> 2, N)
@@ -403,6 +436,14 @@ function rand_tto(dims,rmax::Int;T=Float64)
 	return TToperator{T,d}(d,tt_vec,dims,rks,zeros(Int,d))
 end
 
+"""
+    visualize(tt::TTvector)
+
+Visualizes a Tensor Train (TT) vector by creating a textual representation of its dimensions and ranks.
+
+# Arguments
+- `tt::TTvector`: A Tensor Train vector object.
+"""
 function visualize(tt::TTvector)
     N = tt.N
     dims = collect(tt.ttv_dims)
@@ -443,6 +484,14 @@ function visualize(tt::TTvector)
     println(diagram)
 end
 
+"""
+    visualize(tt::TToperator)
+
+Visualizes a Tensor Train (TT) operator by creating a textual representation of its dimensions and ranks.
+
+# Arguments
+- `tt::TToperator`: A Tensor Train operator object.
+"""
 function visualize(tt::TToperator)
     N = tt.N
     dims = collect(tt.tto_dims)
@@ -542,6 +591,23 @@ function tt_svdvals(x_tt::TTvector{T,N};tol=1e-14) where {T<:Number,N}
 	return Σ
 end
 
+"""
+    tt2qtt(tt_tensor::TToperator{T,N}, row_dims::Vector{Vector{Int}}, col_dims::Vector{Vector{Int}}, threshold::Float64=0.0) where {T<:Number,N}
+
+Convert a TT (Tensor Train) operator to a QTT (Quantized Tensor Train) operator.
+
+# Arguments
+- `tt_tensor::TToperator{T,N}`: The input TT operator.
+- `row_dims::Vector{Vector{Int}}`: A vector of vectors specifying the row dimensions for each core.
+- `col_dims::Vector{Vector{Int}}`: A vector of vectors specifying the column dimensions for each core.
+- `threshold::Float64=0.0`: A threshold for rank reduction during SVD. Default is 0.0, meaning no rank reduction.
+
+# Returns
+- `qtt_tensor::TToperator{T,M}`: The resulting QTT operator.
+
+# Details
+This function converts a given TT operator into a QTT operator by splitting each core of the TT operator according to the specified row and column dimensions. It performs SVD on reshaped cores and applies rank reduction based on the given threshold. The resulting QTT cores are then used to construct the QTT operator.
+"""
 function tt2qtt(tt_tensor::TToperator{T,N}, row_dims::Vector{Vector{Int}}, col_dims::Vector{Vector{Int}}, threshold::Float64=0.0) where {T<:Number,N}
     
     qtt_cores = Array{Array{T,4}}(undef, 0)
@@ -628,7 +694,22 @@ function tt2qtt(tt_tensor::TToperator{T,N}, row_dims::Vector{Vector{Int}}, col_d
 
     return qtt_tensor
 end
+"""
+    tt2qtt(tt_tensor::TTvector{T,N}, dims::Vector{Vector{Int}}, threshold::Float64=0.0) where {T<:Number,N}
 
+Convert a Tensor Train (TT) tensor to a Quantized Tensor Train (QTT) tensor.
+
+# Arguments
+- `tt_tensor::TTvector{T,N}`: The input TT tensor to be converted.
+- `dims::Vector{Vector{Int}}`: A vector of vectors specifying the dimensions for each core in the QTT tensor.
+- `threshold::Float64=0.0`: A threshold for rank reduction during the SVD step. Default is 0.0, meaning no rank reduction.
+
+# Returns
+- `qtt_tensor::TTvector{T,M}`: The resulting QTT tensor.
+
+# Description
+This function converts a given TT tensor into a QTT tensor by splitting each core of the TT tensor according to the specified dimensions. It performs Singular Value Decomposition (SVD) on reshaped cores and applies rank reduction based on the given threshold. The resulting QTT cores are then assembled into a new QTT tensor.
+"""
 function tt2qtt(tt_tensor::TTvector{T,N}, dims::Vector{Vector{Int}}, threshold::Float64=0.0) where {T<:Number,N}
     
     qtt_cores = Array{Array{T,3}}(undef, 0)
@@ -711,7 +792,20 @@ function tt2qtt(tt_tensor::TTvector{T,N}, dims::Vector{Vector{Int}}, threshold::
 
     return qtt_tensor
 end
+"""
+    matricize(tt::TToperator{T, M}) where {T, M}
 
+Convert a tensor train operator (TToperator) into its matrix form.
+
+# Arguments
+- `tt::TToperator{T, M}`: The tensor train operator to be matricized.
+
+# Returns
+- A matrix representation of the tensor train operator.
+
+# Description
+The function takes a tensor train operator and converts it into a matrix by reshaping and permuting its cores. It starts with the first core and iteratively processes each subsequent core, updating the matrix representation at each step. If the size of the first core does not match the expected dimensions, an error is thrown.
+"""
 function matricize(tt::TToperator{T, M}) where {T, M}
     first_core = tt.tto_vec[1]
     if prod(size(first_core)) != tt.tto_dims[1] * tt.tto_dims[1] * tt.tto_rks[2]
@@ -730,7 +824,23 @@ function matricize(tt::TToperator{T, M}) where {T, M}
     n = prod(tt.tto_dims)
     return reshape(tt_mat, m, n)
 end
+"""
+    matricize(tt::TTvector{T, M}) where {T, M}
 
+Convert a Tensor Train (TT) vector into a matrix form.
+
+# Arguments
+- `tt::TTvector{T, M}`: A Tensor Train vector of type `T` and order `M`.
+
+# Returns
+- A matrix representation of the input Tensor Train vector.
+
+# Description
+The function takes the first core of the Tensor Train vector and reshapes it into a matrix. It then iteratively processes each subsequent core, performing tensor contractions and reshaping operations to build the final matrix representation.
+
+# Errors
+- Throws an error if the size of the first core does not match the expected dimensions.
+"""
 function matricize(tt::TTvector{T, M}) where {T, M}
     first_core = tt.ttv_vec[1]
     if prod(size(first_core)) != tt.ttv_dims[1] * tt.ttv_rks[2]

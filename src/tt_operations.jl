@@ -7,7 +7,29 @@ import Base./
 import LinearAlgebra.dot
 
 """
-Addition of two TTvector
+    +(x::TTvector{T,N}, y::TTvector{T,N}) where {T<:Number, N}
+
+Add two TTvector objects `x` and `y` of the same type and dimension.
+
+# Arguments
+- `x::TTvector{T,N}`: The first TTvector object.
+- `y::TTvector{T,N}`: The second TTvector object.
+
+# Returns
+- `TTvector{T,N}`: A new TTvector object representing the sum of `x` and `y`.
+
+# Throws
+- `AssertionError`: If the dimensions of `x` and `y` are not compatible.
+
+# Details
+This function performs the addition of two TTvector objects by combining their tensor train cores. It initializes a new tensor train with the appropriate dimensions and ranks, then fills in the cores by combining the corresponding cores from `x` and `y`.
+
+The addition is performed as follows:
+1. The first core is combined by concatenating the cores of `x` and `y` along the third dimension.
+2. The intermediate cores (from the second to the second-to-last) are combined by concatenating the cores of `x` and `y` along both the second and third dimensions.
+3. The last core is combined by concatenating the cores of `x` and `y` along the second dimension.
+
+The resulting TTvector object has the combined ranks and dimensions of the input TTvector objects.
 """
 function +(x::TTvector{T,N},y::TTvector{T,N}) where {T<:Number,N}
     @assert x.ttv_dims == y.ttv_dims "Incompatible dimensions"
@@ -37,7 +59,27 @@ function +(x::TTvector{T,N},y::TTvector{T,N}) where {T<:Number,N}
 end
 
 """
-Addition of two TToperators
+    +(x::TToperator{T,N}, y::TToperator{T,N}) where {T<:Number, N}
+
+Adds two `TToperator` objects `x` and `y` of the same type `T` and dimension `N`.
+
+# Arguments
+- `x::TToperator{T,N}`: The first `TToperator` object.
+- `y::TToperator{T,N}`: The second `TToperator` object.
+
+# Returns
+- `TToperator{T,N}`: A new `TToperator` object representing the sum of `x` and `y`.
+
+# Throws
+- `AssertionError`: If the dimensions of `x` and `y` are not compatible.
+
+# Details
+The function performs the following steps:
+1. Asserts that the dimensions of `x` and `y` are compatible.
+2. Initializes a new tensor train operator vector `tto_vec` with the appropriate dimensions and ranks.
+3. Uses multi-threading to initialize the cores of `tto_vec`.
+4. Copies the cores of `x` and `y` into the appropriate positions in `tto_vec`.
+
 """
 function +(x::TToperator{T,N},y::TToperator{T,N}) where {T<:Number,N}
     @assert x.tto_dims == y.tto_dims "Incompatible dimensions"
