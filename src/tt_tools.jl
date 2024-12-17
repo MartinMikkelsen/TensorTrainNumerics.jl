@@ -21,6 +21,7 @@ The following properties are stored
 		* ttv_ot[i] = 0 if nothing is known
 """
 abstract type AbstractTTvector end
+
 struct TTvector{T<:Number,M} <: AbstractTTvector
 	N :: Int64
 	ttv_vec :: Vector{Array{T,3}}
