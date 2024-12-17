@@ -214,6 +214,23 @@ function ∇_tto(n, d, ∇_func)
     return TToperator{Float64, d}(d, H_vec, Tuple(n * ones(Int64, d)), rks, zeros(Int64, d))
 end
 
+"""
+    Jacobian_tto(n::Int, d::Int, ∇_func::Function) -> TToperator{Float64, d}
+
+Constructs a tensor train (TT) representation of the Jacobian operator
+
+# Arguments
+- `n::Int`: The size of each dimension in the tensor.
+- `d::Int`: The number of dimensions.
+- `∇_func::Function`: boundary TToperator.
+
+# Returns
+- `TToperator{Float64, d}`: A tensor train operator representing the Jacobian.
+
+# Description
+This function generates the gradient operators for each dimension and adjusts the rank structure to accommodate all gradients. It constructs the tensor train cores for the first, middle, and last dimensions, and combines them into a TToperator.
+
+"""
 function Jacobian_tto(n, d, ∇_func)
     # Generate the gradient operators for each dimension
     gradient_ops = [∇_tto(n, d, ∇_func) for _ in 1:d]

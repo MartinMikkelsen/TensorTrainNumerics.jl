@@ -108,8 +108,24 @@ function +(x::TToperator{T,N},y::TToperator{T,N}) where {T<:Number,N}
     return TToperator{T,N}(d,tto_vec,x.tto_dims,rks,zeros(Int64,d))
 end
 
+"""
+    *(A::TToperator{T,N}, v::TTvector{T,N}) where {T<:Number, N}
 
-#matrix vector multiplication in TT format
+Multiplies a tensor-train operator `A` by a tensor-train vector `v`.
+
+# Arguments
+- `A::TToperator{T,N}`: A tensor-train operator of type `T` and order `N`.
+- `v::TTvector{T,N}`: A tensor-train vector of type `T` and order `N`.
+
+# Returns
+- `y::TTvector{T,N}`: The resulting tensor-train vector after multiplication.
+
+# Details
+- Asserts that the dimensions of `A` and `v` are compatible.
+- Initializes a zero tensor-train vector `y` with appropriate dimensions and ranks.
+- Performs the multiplication using a loop over the tensor-train cores and tensor contraction.
+
+"""
 function *(A::TToperator{T,N},v::TTvector{T,N}) where {T<:Number,N}
     @assert A.tto_dims==v.ttv_dims "Incompatible dimensions"
     y = zeros_tt(T,A.tto_dims,A.tto_rks.*v.ttv_rks)
@@ -120,7 +136,25 @@ function *(A::TToperator{T,N},v::TTvector{T,N}) where {T<:Number,N}
     return y
 end
 
-#matrix matrix multiplication in TT format
+"""
+    *(A::TToperator{T,N}, B::TToperator{T,N}) where {T<:Number, N}
+
+Multiply two TToperators `A` and `B` of the same type `T` and dimension `N`.
+
+# Arguments
+- `A::TToperator{T,N}`: The first TToperator.
+- `B::TToperator{T,N}`: The second TToperator.
+
+# Returns
+- `TToperator{T,N}`: The resulting TToperator after multiplication.
+
+# Preconditions
+- `A.tto_dims == B.tto_dims`: The dimensions of `A` and `B` must be compatible.
+
+# Description
+This function performs the multiplication of two TToperators by iterating over their tensor train cores and performing tensor contractions. The resulting TToperator has updated ranks and tensor cores.
+
+"""
 function *(A::TToperator{T,N},B::TToperator{T,N}) where {T<:Number,N}
     @assert A.tto_dims==B.tto_dims "Incompatible dimensions"
     d = A.N
@@ -148,7 +182,27 @@ function *(A::Array{TTvector{T,N},1},x::Vector{T}) where {T,N}
     return out
 end
 
-#dot returns the dot product of two TTvector
+"""
+    dot(A::TTvector{T,N}, B::TTvector{T,N}) where {T<:Number, N}
+
+Compute the dot product of two TTvector objects `A` and `B`.
+
+# Arguments
+- `A::TTvector{T,N}`: The first TTvector.
+- `B::TTvector{T,N}`: The second TTvector.
+
+# Returns
+- `T`: The dot product of the two TTvector objects.
+
+# Preconditions
+- `A.ttv_dims == B.ttv_dims`: The TT dimensions of `A` and `B` must be compatible.
+
+# Notes
+- The function uses tensor operations to compute the dot product.
+- The `@inbounds` macro is used to skip array bounds checking for performance.
+- The `@tensor` macro is used for tensor contractions.
+
+"""
 function dot(A::TTvector{T,N},B::TTvector{T,N}) where {T<:Number,N}
     @assert A.ttv_dims==B.ttv_dims "TT dimensions are not compatible"
     A_rks = A.ttv_rks
@@ -217,7 +271,20 @@ function /(A::TTvector,a)
 end
 
 """
-returns the matrix x y' in the TTO format
+    outer_product(x::TTvector{T,N}, y::TTvector{T,N}) where {T<:Number, N}
+
+Compute the outer product of two TTvectors `x` and `y`.
+
+# Arguments
+- `x::TTvector{T,N}`: The first TTvector.
+- `y::TTvector{T,N}`: The second TTvector.
+
+# Returns
+- `TToperator{T,N}`: The resulting TToperator from the outer product of `x` and `y`.
+
+# Details
+This function computes the outer product of two TTvectors `x` and `y`, resulting in a TToperator. The function initializes an array `Y` to store the intermediate results, and then iterates over each element to compute the outer product using tensor contractions. The resulting TToperator is constructed from the computed array `Y`.
+
 """
 function outer_product(x::TTvector{T,N},y::TTvector{T,N}) where {T<:Number,N}
     Y = [zeros(T,x.ttv_dims[k], x.ttv_dims[k], x.ttv_rks[k]*y.ttv_rks[k], x.ttv_rks[k+1]*y.ttv_rks[k+1]) for k in eachindex(x.ttv_dims)]

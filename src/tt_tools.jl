@@ -859,6 +859,65 @@ function matricize(tt::TTvector{T, M}) where {T, M}
     return reshape(tt_mat, m * tt.ttv_rks[end])
 end
 
+
+"""
+    matricize(qtt::TToperator{Float64}, core::Int)::Vector{Float64}
+
+Convert a TToperator to a vector of Float64 values by extracting a specific core.
+
+# Arguments
+- `qtt::TToperator{Float64}`: The TToperator to be converted.
+- `core::Int`: The core index to be used for the conversion.
+
+# Returns
+- `Vector{Float64}`: A vector of Float64 values representing the specified core of the TToperator.
+
+# Description
+This function converts a given TToperator into a vector of Float64 values by extracting the specified core. It first converts the TToperator to a full tensor using `tto_to_tensor`, then calculates the dyadic points and binary indices to extract the values from the tensor.
+"""
+function matricize(qtt::TToperator{Float64}, core::Int)::Vector{Float64}
+    full_tensor = tto_to_tensor(qtt)
+    n = 2^core
+    values = zeros(n)
+
+    for i in 1:n
+        x_le_p = sum(((i >> (k-1)) & 1) / 2^k for k in 1:core)  # Calculate the dyadic point
+        index_bits = bitstring(i - 1)[end-core+1:end]  # Binary representation
+        indices = [parse(Int, bit) + 1 for bit in index_bits]  # Indices for CartesianIndex
+        values[i] = full_tensor[CartesianIndex(indices...)]
+    end
+    values
+end
+
+"""
+    matricize(qtt::TTvector{Float64}, core::Int)::Vector{Float64}
+
+Convert a TTvector to a vector of Float64 values by extracting a specific core.
+
+# Arguments
+- `qtt::TTvector{Float64}`: The TTvector to be converted.
+- `core::Int`: The core index to be used for the conversion.
+
+# Returns
+- `Vector{Float64}`: A vector of Float64 values representing the specified core of the TTvector.
+
+# Description
+This function converts a given TTvector into a vector of Float64 values by extracting the specified core. It first converts the TTvector to a full tensor using `ttv_to_tensor`, then calculates the dyadic points and binary indices to extract the values from the tensor.
+"""
+function matricize(qtt::TTvector{Float64}, core::Int)::Vector{Float64}
+    full_tensor = ttv_to_tensor(qtt)
+    n = 2^core
+    values = zeros(n)
+
+    for i in 1:n
+        x_le_p = sum(((i >> (k-1)) & 1) / 2^k for k in 1:core)  # Calculate the dyadic point
+        index_bits = bitstring(i - 1)[end-core+1:end]  # Binary representation
+        indices = [parse(Int, bit) + 1 for bit in index_bits]  # Indices for CartesianIndex
+        values[i] = full_tensor[CartesianIndex(indices...)]
+    end
+    values
+end
+
 """
 	concatenate(tt1::TTvector, tt2::TTvector) -> TTvector
 
