@@ -28,10 +28,6 @@ struct TTvector{T<:Number,M} <: AbstractTTvector
 	ttv_dims :: NTuple{M,Int64}
 	ttv_rks :: Vector{Int64}
 	ttv_ot :: Vector{Int64}
-	function TTvector{T,M}(N,vec,dims,rks,ot) where {T,M}
-		@assert M isa Int64
-		new{T,M}(N,vec,dims,rks,ot)
-	end
 end
 
 Base.eltype(::TTvector{T,N}) where {T<:Number,N} = T 
@@ -46,16 +42,13 @@ The following properties are stored
 	* ttv_rks: the TT ranks ``(r_0,...,r_d)`` where ``r_0=r_d=1``
 """
 abstract type AbstractTToperator end
+
 struct TToperator{T<:Number,M} <: AbstractTToperator
 	N :: Int64
 	tto_vec :: Array{Array{T,4},1}
 	tto_dims :: NTuple{M,Int64}
 	tto_rks :: Array{Int64,1}
 	tto_ot :: Array{Int64,1}
-	function TToperator{T,M}(N,vec,dims,rks,ot) where {T,M}
-		@assert M isa Int64
-		new{T,M}(N,vec,dims,rks,ot)
-	end
 end
 
 Base.eltype(::TToperator{T,M}) where {T,M} = T 
