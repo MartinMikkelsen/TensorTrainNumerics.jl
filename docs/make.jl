@@ -3,7 +3,6 @@ using Documenter, TensorTrainNumerics
 
 makedocs(
     sitename = "TensorTrainNumerics",
-    source  = "src", 
 )
 
 # Documenter can also automatically deploy documentation to gh-pages.
@@ -11,6 +10,6 @@ makedocs(
 # for more information.
 deploydocs(
     repo = "github.com/MartinMikkelsen/TensorTrainNumerics.jl.git",
-    target = "docs/build",
+    target = "build",
     branch="gh-pages",
 )
