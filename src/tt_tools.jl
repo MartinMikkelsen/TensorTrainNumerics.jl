@@ -9,19 +9,18 @@ import Base.copy
 import Base.complex
 
 """
-TT constructor of a tensor
-``C[\\mu_1,…,\\mu_d] = A_1[1][\\mu_1]*⋯*A_d[d][\\mu_d] \\in \\mathbb{K}^{n_1 \\times ... \\times n_d}``
-The following properties are stored
-	* ttv_vec: the TT cores A_k as a list of 3-order tensors ``(A_1,...,A_d)`` where ``A_k = A_k[\\mu_k,\\alpha_{k-1},\\alpha_k]``, ``1 \\leq \\alpha_{k-1} \\leq r_{k-1}``, ``1 \\leq \\alpha_{k} \\leq r_{k}``, ``1 \\leq \\mu_k \\leq n_k``
-	* ttv_dims: the dimension of the tensor along each mode
-	* ttv_rks: the TT ranks ``(r_0,...,r_d)`` where ``r_0=r_d=1``
-	* ttv_ot: the orthogonality of the TT where 
-		* ttv_ot[i] = 1 iff ``A_i`` is left-orthogonal *i.e.* ``\\sum_{\\mu_i} A_i[\\mu_i]^T A_i[\\mu_i] = I_{r_i}``
-		* ttv_ot[i] = -1 iff ``A_i`` is right-orthogonal *i.e.* ``\\sum_{\\mu_i} A_i[\\mu_i] A_i[\\mu_i]^T = I_{r_{i-1}}``
-		* ttv_ot[i] = 0 if nothing is known
-"""
-abstract type AbstractTTvector end
+A structure representing a Tensor Train (TT) vector.
 
+# Fields
+- `N::Int64`: The number of elements in the TT vector.
+- `ttv_vec::Vector{Array{T,3}}`: A vector of 3-dimensional arrays representing the TT cores.
+- `ttv_dims::NTuple{M,Int64}`: A tuple containing the dimensions of the TT vector.
+- `ttv_rks::Vector{Int64}`: A vector containing the TT ranks.
+- `ttv_ot::Vector{Int64}`: A vector containing the orthogonalization information.
+
+# Type Parameters
+- `T<:Number`: The type of the elements in the TT vector.
+"""
 struct TTvector{T<:Number,M} <: AbstractTTvector
 	N :: Int64
 	ttv_vec :: Vector{Array{T,3}}
@@ -32,17 +31,17 @@ end
 
 Base.eltype(::TTvector{T,N}) where {T<:Number,N} = T 
 
-
-"""	
-TT constructor of a matrix ``M[i_1,..,i_d;j_1,..,j_d] \\in \\mathbb{K}^{n_1 \\cdots n_d \\times n_1 \\cdots n_d}`` where 
-``M[i_1,..,i_d;j_1,..,j_d] = A_1[i_1,j_1] ... A_L[i_d,j_d]``
-The following properties are stored
-	* tto_vec: the TT cores A_k as a list of 4-order tensors ``(A_1,...,A_d)`` of dimensions A_k \\in \\mathbb{K}^{n_k × n_k × r_{k-1} × r_k}
-	* ttv_dims: the dimension of the tensor along each mode
-	* ttv_rks: the TT ranks ``(r_0,...,r_d)`` where ``r_0=r_d=1``
 """
-abstract type AbstractTToperator end
+A structure representing a Tensor Train (TT) operator.
 
+# Fields
+- `N::Int64`: The number of dimensions of the TT operator.
+- `tto_vec::Array{Array{T,4},1}`: A vector of 4-dimensional arrays representing the TT cores.
+- `tto_dims::NTuple{M,Int64}`: A tuple containing the dimensions of the TT operator.
+- `tto_rks::Array{Int64,1}`: An array containing the TT ranks.
+- `tto_ot::Array{Int64,1}`: An array containing the output dimensions of the TT operator.
+tv_rks: the TT ranks ``(r_0,...,r_d)`` where ``r_0=r_d=1``
+"""
 struct TToperator{T<:Number,M} <: AbstractTToperator
 	N :: Int64
 	tto_vec :: Array{Array{T,4},1}
@@ -86,7 +85,19 @@ function QTTvector(vec::Vector{<:Array{<:Number, 3}}, rks::Vector{Int64}, ot::Ve
     end
     return TTvector{T, N}(N, vec, dims, rks, ot)
 end
+"""
+    is_qtt(tt::TTvector) -> Bool
 
+Check if a given TTvector is a QTT (Quantized Tensor Train) vector.
+
+# Arguments
+- `tt::TTvector`: The tensor train vector to be checked.
+
+# Returns
+- `Bool`: Returns `true` if all dimensions of the tensor train vector are equal to 2, indicating it is a QTT vector, otherwise returns `false`.
+
+# Example
+"""
 function is_qtt(tt::TTvector)
     all(dim == 2 for dim in tt.ttv_dims)
 end
@@ -116,30 +127,88 @@ function QTToperator(vec::Vector{Array{T,4}}, rks::Vector{Int64}, ot::Vector{Int
     return TToperator{T,N}(N, vec, dims, rks, ot)
 end
 
+"""
+    is_qtt_operator(op::TToperator) -> Bool
+
+Check if a given `TToperator` is a Quantum Tensor Train (QTT) operator.
+
+# Arguments
+- `op::TToperator`: The tensor train operator to be checked.
+
+# Returns
+- `Bool`: Returns `true` if all dimensions of the tensor train operator are equal to 2, indicating it is a QTT operator. Otherwise, returns `false`.
+"""
 function is_qtt_operator(op::TToperator)
     all(dim == 2 for dim in op.tto_dims)
 end
 
 """
-returns a zero TTvector with dimensions `dims` and ranks `rks`
+    zeros_tt(dims, rks; ot=zeros(Int64, length(dims)))
+
+Create a tensor train (TT) tensor filled with zeros.
+
+# Arguments
+- `dims::Vector{Int}`: A vector specifying the dimensions of the tensor.
+- `rks::Vector{Int}`: A vector specifying the TT-ranks.
+- `ot::Vector{Int}`: (Optional) A vector specifying the output tensor dimensions. Defaults to a vector of zeros with the same length as `dims`.
+
+# Returns
+- A TT tensor of type `Float64` filled with zeros.
 """
 function zeros_tt(dims,rks;ot=zeros(Int64,length(dims)))
 	return zeros_tt(Float64,dims,rks;ot=ot)
 end
+"""
+    zeros_tt(::Type{T}, dims::NTuple{N,Int64}, rks; ot=zeros(Int64, length(dims)))
 
+Create a TTvector with zero entries.
+
+# Arguments
+- `::Type{T}`: The element type of the TTvector.
+- `dims::NTuple{N,Int64}`: A tuple specifying the dimensions of the TTvector.
+- `rks`: A tuple specifying the TT-ranks.
+- `ot`: An optional argument specifying the orthogonalization tensor. Defaults to a zero vector of the same length as `dims`.
+
+# Returns
+- A `TTvector{T,N}` with zero entries and specified dimensions and ranks.
+
+# Throws
+- `AssertionError` if the length of `dims` plus one is not equal to the length of `rks`.
+"""
 function zeros_tt(::Type{T},dims::NTuple{N,Int64},rks;ot=zeros(Int64,length(dims))) where {T,N}
-	#@assert length(dims)+1==length(rks) "Dimensions and ranks are not compatible"
+	@assert length(dims)+1==length(rks) "Dimensions and ranks are not compatible"
 	tt_vec = [zeros(T,dims[i],rks[i],rks[i+1]) for i in eachindex(dims)]
 	return TTvector{T,N}(N,tt_vec,dims,deepcopy(rks),deepcopy(ot))
 end
 
 """
-returns the ones tensor in TT format
+    ones_tt(dims)
+
+Create a tensor train (TT) format tensor filled with ones.
+
+# Arguments
+- `dims::Tuple`: A tuple specifying the dimensions of the tensor.
+
+# Returns
+- A tensor train (TT) format tensor of the specified dimensions, filled with ones.
 """
 function ones_tt(dims)
 	return ones_tt(Float64,dims)
 end
+"""
+    ones_tt(::Type{T}, dims) where T
 
+Create a TTvector (Tensor Train vector) with all elements set to one.
+
+# Arguments
+- `::Type{T}`: The data type of the elements in the tensor train.
+- `dims`: A vector specifying the dimensions of the tensor train.
+
+# Returns
+- A `TTvector{T,N}` where `N` is the number of dimensions specified in `dims`.
+
+# Example
+"""
 function ones_tt(::Type{T},dims) where T
 	N = length(dims)
 	vec = [ones(T,n,1,1) for n in dims]
@@ -147,26 +216,74 @@ function ones_tt(::Type{T},dims) where T
 	ot = zeros(Int64,N)
 	return TTvector{T,N}(N,vec,dims,rks,ot)
 end
+"""
+    ones_tt(n::Integer, d::Integer) -> TensorTrain
 
+Create a tensor train (TT) format tensor filled with ones.
+
+# Arguments
+- `n::Integer`: The size of each dimension of the tensor.
+- `d::Integer`: The number of dimensions of the tensor.
+
+# Returns
+- `TensorTrain`: A tensor train with each element set to one.
+"""
 function ones_tt(n::Integer,d::Integer)
 	dims = n*ones(Int64,d)
 	return ones_tt(dims)
 end
 
 """
-returns a zero TToperator with dimensions `dims` and ranks `rks`
+    zeros_tto(dims, rks)
+
+Create a tensor train object with all elements initialized to zero.
+
+# Arguments
+- `dims::Vector{Int}`: A vector specifying the dimensions of the tensor.
+- `rks::Vector{Int}`: A vector specifying the ranks of the tensor train.
+
+# Returns
+- A tensor train object with the specified dimensions and ranks, with all elements initialized to zero.
 """
 function zeros_tto(dims,rks)
 	return zeros_tto(Float64,dims,rks)
 end
+"""
+    zeros_tto(::Type{T}, dims::NTuple{N,Int64}, rks) where {T,N}
 
+Create a tensor train operator (TTO) with all elements initialized to zero.
+
+# Arguments
+- `::Type{T}`: The type of the elements in the tensor train.
+- `dims::NTuple{N,Int64}`: A tuple containing the dimensions of the tensor train.
+- `rks`: A vector containing the ranks of the tensor train.
+
+# Returns
+- A `TToperator{T,N}` object with the specified dimensions and ranks, and all elements initialized to zero.
+
+# Throws
+- An `AssertionError` if the length of `dims` plus one is not equal to the length of `rks`.
+
+"""
 function zeros_tto(::Type{T},dims::NTuple{N,Int64},rks)  where {T,N}
 	@assert length(dims)+1==length(rks) "Dimensions and ranks are not compatible"
 	vec = [zeros(T,dims[i],dims[i],rks[i],rks[i+1]) for i in eachindex(dims)]
 	return TToperator{T,N}(N,vec,dims,rks,zeros(Int64,N))
 end
 
-#returns partial isometry Q ∈ R^{n x m}
+"""
+    rand_orthogonal(n, m; T=Float64)
+
+Generate a random orthogonal matrix of size `n` by `m`.
+
+# Arguments
+- `n::Int`: Number of rows of the resulting matrix.
+- `m::Int`: Number of columns of the resulting matrix.
+- `T::Type{<:AbstractFloat}`: (Optional) The element type of the matrix. Defaults to `Float64`.
+
+# Returns
+- `Matrix{T}`: A random orthogonal matrix of size `n` by `m`.
+"""
 function rand_orthogonal(n,m;T=Float64)
     N = max(n,m)
     q,r = qr(rand(T,N,N))
@@ -174,12 +291,38 @@ function rand_orthogonal(n,m;T=Float64)
 end
 
 """
-Returns a random TTvector with dimensions `dims` and ranks `rks`
+    rand_tt(dims, rks; normalise=false, orthogonal=false)
+
+Generate a random Tensor Train (TT) format tensor with specified dimensions and ranks.
+
+# Arguments
+- `dims::Vector{Int}`: A vector specifying the dimensions of the tensor.
+- `rks::Vector{Int}`: A vector specifying the TT-ranks.
+- `normalise::Bool`: A keyword argument to indicate whether the tensor should be normalised. Default is `false`.
+- `orthogonal::Bool`: A keyword argument to indicate whether the tensor should be orthogonal. Default is `false`.
+
+# Returns
+- A random tensor in TT format with the specified properties.
 """
 function rand_tt(dims,rks;normalise=false,orthogonal=false)
 	return rand_tt(Float64,dims,rks;normalise=normalise,orthogonal=orthogonal)
 end
 
+"""
+    rand_tt(::Type{T}, dims, rks; normalise=false, orthogonal=false) where T
+
+Generate a random Tensor Train (TT) tensor with specified dimensions and ranks.
+
+# Arguments
+- `::Type{T}`: The data type of the tensor elements.
+- `dims`: A vector specifying the dimensions of the tensor.
+- `rks`: A vector specifying the TT-ranks.
+- `normalise`: A boolean flag indicating whether to normalize the TT-cores. Default is `false`.
+- `orthogonal`: A boolean flag indicating whether to orthogonalize the TT-cores. Default is `false`.
+
+# Returns
+- A TT tensor with random elements of type `T`.
+"""
 function rand_tt(::Type{T},dims,rks;normalise=false,orthogonal=false) where T
 	y = zeros_tt(T,dims,rks)
 	@simd for i in eachindex(y.ttv_vec)
@@ -196,7 +339,19 @@ function rand_tt(::Type{T},dims,rks;normalise=false,orthogonal=false) where T
 end
 
 """
-Returns a random TTvector with dimensions `dims` and maximal rank `rmax`
+    rand_tt(dims, rmax::Int; T=Float64, normalise=false, orthogonal=false)
+
+Generate a random Tensor Train (TT) vector with specified dimensions and rank.
+
+# Arguments
+- `dims::Vector{Int}`: A vector specifying the dimensions of each mode of the tensor.
+- `rmax::Int`: The maximum TT-rank.
+- `T::Type` (optional): The element type of the tensor (default is `Float64`).
+- `normalise::Bool` (optional): If `true`, normalizes each core tensor (default is `false`).
+- `orthogonal::Bool` (optional): If `true`, orthogonalizes each core tensor (default is `false`).
+
+# Returns
+- `TTvector{T,d}`: A TTvector object containing the generated TT cores, dimensions, ranks, and a zero vector for the TT ranks.
 """
 function rand_tt(dims,rmax::Int;T=Float64,normalise=false,orthogonal=false)
 	d = length(dims)
@@ -215,7 +370,18 @@ function rand_tt(dims,rmax::Int;T=Float64,normalise=false,orthogonal=false)
 	end
 	return TTvector{T,d}(d,tt_vec,dims,rks,zeros(Int,d))
 end
+"""
+    rand_tt(x_tt::TTvector{T,N}; ε=convert(T,1e-3)) -> TTvector{T,N}
 
+Generate a random tensor train (TT) vector by adding Gaussian noise to the input TT vector `x_tt`.
+
+# Arguments
+- `x_tt::TTvector{T,N}`: The input TT vector to which noise will be added.
+- `ε`: The standard deviation of the Gaussian noise to be added. Default is `1e-3` converted to type `T`.
+
+# Returns
+- `TTvector{T,N}`: A new TT vector with added Gaussian noise.
+"""
 function rand_tt(x_tt::TTvector{T,N};ε=convert(T,1e-3)) where {T,N}
 	tt_vec = copy(x_tt.ttv_vec)
 	for i in eachindex(x_tt.ttv_vec)
@@ -223,7 +389,17 @@ function rand_tt(x_tt::TTvector{T,N};ε=convert(T,1e-3)) where {T,N}
 	end
 	return TTvector{T,N}(N,tt_vec,x_tt.ttv_dims,x_tt.ttv_rks,zeros(Int,N))
 end
+"""
+    Base.copy(x_tt::TTvector{T,N}) where {T<:Number,N}
 
+Create a deep copy of a `TTvector` object.
+
+# Arguments
+- `x_tt::TTvector{T,N}`: The `TTvector` object to be copied, where `T` is a subtype of `Number` and `N` is the dimensionality.
+
+# Returns
+- A new `TTvector` object that is a deep copy of `x_tt`.
+"""
 function Base.copy(x_tt::TTvector{T,N}) where {T<:Number,N}
 	y_tt = zeros_tt(T,x_tt.ttv_dims,x_tt.ttv_rks;ot=x_tt.ttv_ot)
 	@threads for i in eachindex(x_tt.ttv_dims)
@@ -307,7 +483,15 @@ function ttv_decomp(tensor::Array{T,d};index=1,tol=1e-12) where {T<:Number,d}
 end
 
 """
-Returns the tensor corresponding to x_tt
+    ttv_to_tensor(x_tt::TTvector{T,N}) where {T<:Number, N}
+
+Convert a TTvector (Tensor Train vector) to a full tensor.
+
+# Arguments
+- `x_tt::TTvector{T,N}`: The input TTvector to be converted. `T` is the element type, and `N` is the number of dimensions.
+
+# Returns
+- A tensor of type `Array{T,N}` with the same dimensions as specified in `x_tt.ttv_dims`.
 """
 function ttv_to_tensor(x_tt :: TTvector{T,N}) where {T<:Number,N}
 	d = length(x_tt.ttv_dims)
@@ -327,7 +511,19 @@ function ttv_to_tensor(x_tt :: TTvector{T,N}) where {T<:Number,N}
 end
 
 """
-Transforms a TToperator into a TTvector
+    tto_to_ttv(A::TToperator{T,N}) where {T<:Number,N}
+
+Convert a `TToperator` to a `TTvector`.
+
+# Arguments
+- `A::TToperator{T,N}`: The TToperator to be converted. `T` is the element type, and `N` is the number of dimensions.
+
+# Returns
+- `TTvector{T,N}`: The resulting TTvector.
+
+# Details
+This function takes a `TToperator` and converts it into a `TTvector`. It reshapes the internal tensor cores of the `TToperator` and constructs a `TTvector` with the appropriate dimensions and ranks.
+
 """
 function tto_to_ttv(A::TToperator{T,N}) where {T<:Number,N}
 	d = A.N
@@ -340,7 +536,21 @@ function tto_to_ttv(A::TToperator{T,N}) where {T<:Number,N}
 end
 
 """
-Transforms a TTvector (coming from a TToperator) into a TToperator
+    ttv_to_tto(x::TTvector{T,N}) where {T<:Number,N}
+
+Convert a `TTvector` to a `TToperator`.
+
+# Arguments
+- `x::TTvector{T,N}`: The input `TTvector` object to be converted. `T` is the element type, and `N` is the number of dimensions.
+
+# Returns
+- `TToperator{T,N}`: The resulting `TToperator` object.
+
+# Throws
+- `DimensionMismatch`: If the dimensions of the input `TTvector` are not perfect squares.
+
+# Description
+This function converts a `TTvector` to a `TToperator` by reshaping the core tensors of the `TTvector` into 4-dimensional arrays. The reshaping is done such that the first two dimensions of each core tensor are the square roots of the original dimensions, and the last two dimensions are the ranks of the `TTvector`.
 """
 function ttv_to_tto(x::TTvector{T,N}) where {T<:Number,N}
 	@assert(isqrt.(x.ttv_dims).^2 == x.ttv_dims, DimensionMismatch)
@@ -382,7 +592,17 @@ function tto_decomp(tensor::Array{T,N}; index=1) where {T<:Number,N}
 	end
 	return TToperator{T,d}(d,tto_vec, tto_dims, rks, ttv.ttv_ot)
 end
+"""
+    tto_to_tensor(tto::TToperator{T,N}) where {T<:Number, N}
 
+Convert a TToperator to a full tensor.
+
+# Arguments
+- `tto::TToperator{T,N}`: The TToperator to be converted, where `T` is a subtype of `Number` and `N` is the order of the tensor.
+
+# Returns
+- A tensor of type `Array{T, 2N}` with dimensions `[n_1, ..., n_d, n_1, ..., n_d]`, where `n_i` are the dimensions of the TToperator.
+"""
 function tto_to_tensor(tto :: TToperator{T,N}) where {T<:Number,N}
 	d = tto.N
 	# Define the array of ranks [r_0=1,r_1,...,r_d]
@@ -402,11 +622,35 @@ function tto_to_tensor(tto :: TToperator{T,N}) where {T<:Number,N}
 	return tensor
 end
 
-#TTO representation of the identity matrix
+"""
+    id_tto(d; n_dim=2)
+
+Create an identity tensor train operator (TTO) of dimension `d` with optional keyword argument `n_dim` specifying the number of dimensions (default is 2).
+
+# Arguments
+- `d::Int`: The dimension of the identity tensor train operator.
+- `n_dim::Int`: The number of dimensions of the identity tensor train operator (default is 2).
+
+# Returns
+- An identity tensor train operator of the specified dimension and number of dimensions.
+"""
 function id_tto(d;n_dim=2)
 	return id_tto(Float64,d;n_dim=n_dim)
 end
 
+"""
+    id_tto(::Type{T}, d; n_dim=2) where {T}
+
+Create an identity tensor train operator (TToperator) of type `T` with `d` dimensions.
+
+# Arguments
+- `::Type{T}`: The type of the elements in the tensor train operator.
+- `d::Int`: The number of dimensions of the tensor train operator.
+- `n_dim::Int`: The size of each dimension (default is 2).
+
+# Returns
+- `TToperator{T,d}`: An identity tensor train operator with the specified type and dimensions.
+"""
 function id_tto(::Type{T},d;n_dim=2) where {T}
 	dims = Tuple(n_dim*ones(Int64,d))
 	A = Array{Array{T,4},1}(undef,d)
@@ -416,7 +660,19 @@ function id_tto(::Type{T},d;n_dim=2) where {T}
 	end
 	return TToperator{T,d}(d,A,dims,ones(Int64,d+1),zeros(d))
 end
+"""
+    rand_tto(dims, rmax::Int; T=Float64)
 
+Generate a random Tensor Train (TT) operator with specified dimensions and maximum rank.
+
+# Arguments
+- `dims::Vector{Int}`: A vector specifying the dimensions of the TT operator.
+- `rmax::Int`: The maximum rank for the TT cores.
+- `T::DataType`: The data type of the elements in the TT cores (default is `Float64`).
+
+# Returns
+- `TToperator{T,d}`: A TT operator with random elements.
+"""
 function rand_tto(dims,rmax::Int;T=Float64)
 	d = length(dims)
 	tt_vec = Vector{Array{T,4}}(undef,d)
@@ -568,7 +824,17 @@ function visualize(tt::TToperator)
 end
 
 """
-returns the singular values of the reshaped tensor x[μ_1⋯μ_k;μ_{k+1}⋯μ_d] for all 1≤ k ≤ d
+    tt_svdvals(x_tt::TTvector{T,N}; tol=1e-14) where {T<:Number, N}
+
+Compute the singular values of a Tensor Train (TT) vector `x_tt`.
+
+# Arguments
+- `x_tt::TTvector{T,N}`: The input TT vector.
+- `tol=1e-14`: Tolerance for truncating small singular values. Default is `1e-14`.
+
+# Returns
+- `Σ`: An array of arrays containing the singular values for each TT core.
+
 """
 function tt_svdvals(x_tt::TTvector{T,N};tol=1e-14) where {T<:Number,N}
 	d = x_tt.N
@@ -598,7 +864,6 @@ Convert a TT (Tensor Train) operator to a QTT (Quantized Tensor Train) operator.
 
 # Returns
 - `qtt_tensor::TToperator{T,M}`: The resulting QTT operator.
-
 # Details
 This function converts a given TT operator into a QTT operator by splitting each core of the TT operator according to the specified row and column dimensions. It performs SVD on reshaped cores and applies rank reduction based on the given threshold. The resulting QTT cores are then used to construct the QTT operator.
 """
@@ -961,7 +1226,7 @@ Concatenates two TToperators `tt1` and `tt2` into a single TToperator.
 This function concatenates two TToperators by combining their tensor train vectors, dimensions, ranks, and operator types. The resulting TToperator has the combined properties of the input TToperators.
 
 """
-	function concatenate(tt1::TToperator, tt2::TToperator)
+function concatenate(tt1::TToperator, tt2::TToperator)
     if tt1.tto_rks[end] != tt2.tto_rks[1]
         throw(ArgumentError("The final rank of the first TToperator must equal the initial rank of the second TToperator."))
     end

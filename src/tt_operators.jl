@@ -129,14 +129,24 @@ function QTT_Tridiagonal_Toeplitz(α, β, γ, l)
  end
 
 """
-1D discrete shift matrix
+    shift_matrix(n::Int) -> Matrix{Float64}
+
+Create an `n`-by-`n` shift matrix `S` of type `Float64`. A shift matrix is a 
+matrix where the superdiagonal elements are set to 1.0 and all other elements 
+are set to 0.0. 
+
+# Arguments
+- `n::Int`: The size of the matrix.
+
+# Returns
+- `Matrix{Float64}`: An `n`-by-`n` shift matrix.
 """
-function shift_matrix(n)
-  S = zeros(Float64, n, n)
-  for i in 1:n-1
-    S[i, i+1] = 1.0
-  end
-  return S
+function shift_matrix(n::Int)
+    S = zeros(Float64, n, n)
+    for i in 1:n-1
+        S[i, i+1] = 1.0
+    end
+    return S
 end
 
 """

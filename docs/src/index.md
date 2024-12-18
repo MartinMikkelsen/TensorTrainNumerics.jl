@@ -1,4 +1,4 @@
-##TensorTrainNumerics.jl
+# TensorTrainNumerics.jl
 
 Tensor Train Numerics is a Julia package designed to provide efficient numerical methods for working with tensor trains (TT) and quantized tensor trains (QTT). This package offers a comprehensive set of tools for constructing, manipulating, and performing operations on tensor trains, which are useful in various scientific and engineering applications, including high-dimensional data analysis, machine learning, and computational physics.
 
@@ -50,13 +50,15 @@ And we can print the result
 ```@example 1
 println(result)
 ```
-
+We can also unfold this
+```@example 1
+matricize(result)
+```
 ### Interpolation
 
 We can also do interpolation in the QTT framework:
 
 ```@example 2
-
 using CairoMakie
 using TensorTrainNumerics
 
@@ -82,4 +84,8 @@ lines!(ax, x_points, qtt_values, label="QTT", linestyle=:dash, color=:red)
 
 axislegend(ax)
 fig
+```
+We can visualize the interpolating QTT as 
+```@example 2
+visualize(qtt)
 ```
