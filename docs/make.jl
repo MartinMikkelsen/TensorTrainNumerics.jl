@@ -6,4 +6,6 @@ makedocs(
 
 deploydocs(
     repo = "github.com/MartinMikkelsen/TensorTrainNumerics.jl.git",
+    target = "build",
+    branch="gh-pages",
 )
