@@ -2,7 +2,6 @@ using Documenter, TensorTrainNumerics
 
 makedocs(
     sitename = "TensorTrainNumerics",
-    source = "src"
 )
 
 deploydocs(
