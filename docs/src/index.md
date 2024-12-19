@@ -1,5 +1,7 @@
 # TensorTrainNumerics.jl
 
+## Work in progress
+
 Tensor Train Numerics is a Julia package designed to provide efficient numerical methods for working with tensor trains (TT) and quantized tensor trains (QTT). This package offers a comprehensive set of tools for constructing, manipulating, and performing operations on tensor trains, which are useful in various scientific and engineering applications, including high-dimensional data analysis, machine learning, and computational physics.
 
 ## Key features
@@ -88,4 +90,8 @@ fig
 We can visualize the interpolating QTT as 
 ```@example 2
 visualize(qtt)
+```
+And similarly for the rank-revealing
+```@example 2
+visualize(qtt_rank_revealing)
 ```
