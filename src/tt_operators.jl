@@ -58,7 +58,11 @@ n^d Discrete Laplacian in TTO format or 1D Laplacian if d=1.
 """
 function Δ_tto(n, d, Δ_func)
     if d == 1
-        return Δ_func(n)
+        h = Δ_func(n)
+        H_vec = Vector{Array{Float64,4}}(1)
+        core = reshape(copy(h), n, n, 1, 1)
+        H_vec[1] = core
+        return TToperator{Float64,1}(1, H_vec, (n,), [1, 1], [0])
     end
     h = [Δ_func(n) for _ in 1:d] 
     H_vec = Vector{Array{Float64,4}}(undef, d)

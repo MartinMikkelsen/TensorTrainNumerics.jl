@@ -1149,17 +1149,16 @@ The function takes a tensor train operator and converts it into a matrix by resh
 """
 function matricize(tt::TToperator{T, M}) where {T, M}
     first_core = tt.tto_vec[1]
-    expected_size = tt.tto_dims[1] * tt.tto_dims[1] * tt.tto_rks[2]
-    if prod(size(first_core)) != expected_size
-        error("First core size mismatch: expected $expected_size, got $(prod(size(first_core)))")
+    if prod(size(first_core)) != tt.tto_dims[1] * tt.tto_dims[1] * tt.tto_rks[2]
+        error("First core size mismatch: expected $(tt.tto_dims[1] * tt.tto_dims[1] * tt.tto_rks[2]), got $(prod(size(first_core)))")
     end
-
-    tt_mat = reshape(first_core, tt.tto_dims[1], tt.tto_dims[1], tt.tto_rks[2])
+    tt_mat = reshape(first_core, (tt.tto_dims[1], tt.tto_dims[1], tt.tto_rks[2]))
 
     for i in 2:tt.N
         next_core = tt.tto_vec[i]
-        @tensor temp[a,b,c,d,r2] := tt_mat[a,b,r1] * next_core[r1,c,d,r2]
-        tt_mat = reshape(temp, (prod(tt.tto_dims[1:i]), prod(tt.tto_dims[1:i]), tt.tto_rks[i+1]))
+        @tensor temp[a, b, c, d, r2] := tt_mat[a, b, r1] * next_core[c, d, r1, r2]
+        tt_mat = permutedims(temp, (1, 3, 2, 4, 5))
+        tt_mat = reshape(tt_mat, prod(tt.tto_dims[1:i]), prod(tt.tto_dims[1:i]), tt.tto_rks[i+1])
     end
 
     m = prod(tt.tto_dims)

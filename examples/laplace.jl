@@ -1,45 +1,29 @@
 using CairoMakie
 using TensorTrainNumerics
 
-function right_hand_side(cores::Int64)::Array{Float64,2}
-    points = 2^cores
-    a, b, d, e = 0, 1, 0, 1
-    x = range(a, stop=b, length=points)
-    y = range(d, stop=e, length=points)
-    f = ((b - a) / points) * ((e - d) / points) .* source_term(x, y, points)
-    bound = boundary_term(x, y, points)
-    return reshape(f .- bound, points, points)
-end
+function compute_boundary_conditions(c,N)
+    ket_0 = χ(c,1.0,0.0)
+    ket_1 = χ(c,0.0,1.0)
 
-function source_term(x, y, points)
-    X = repeat(x', points, 1)
-    Y = repeat(y, 1, points)
-    return zeros(points, points)
-end
+    boundary_left = interpolating_qtt(bc_left,c,N)
+    boundary_right = interpolating_qtt(bc_right,c,N)
+    boundary_bottom = interpolating_qtt(bc_bottom,c,N)
+    boundary_top = interpolating_qtt(bc_top,c,N)
 
-function boundary_term(x, y, points::Int)::Array{Float64,2}
+    qtt_bottom = concatenate(ket_0,boundary_bottom)
+    qtt_top = concatenate(ket_1,boundary_top)
+    qtt_left = concatenate(boundary_left,ket_0)
+    qtt_right = concatenate(boundary_right,ket_1)
 
-    bc_left(y) = sin.(y)
-    bc_right(y) = 0.1
-    bc_bottom(x) = 0.1
-    bc_top(x) = 0.1
+    boundary_x = concatenate(qtt_left,qtt_right)
+    boundary_y = concatenate(qtt_bottom,qtt_top)
+    boundary = boundary_x + boundary_y
+    return  (qtt_bottom + qtt_top + qtt_left + qtt_right)
 
-    b_bottom_top = zeros(points, points)
-    b_left_right = zeros(points, points)
-
-    # Apply boundary conditions using broadcasting
-    b_bottom_top[1, :] .= bc_bottom.(x)         # Bottom boundary
-    b_bottom_top[end, :] .= bc_top.(x)          # Top boundary
-
-    b_left_right[:, 1] .= bc_left.(y)           # Left boundary
-    b_left_right[:, end] .= bc_right.(y)        # Right boundary
-
-    return b_left_right .+ b_bottom_top
 end
 
 function solve_Laplace(cores::Int)::Array{Float64,2}
     points = 2^cores
-    reshape_dims = ntuple(_ -> 2, 2 * cores)
     
     # Create QTT gradient operator
     A = Δ_tto(points, 2, Δ_DD) 
@@ -52,19 +36,25 @@ function solve_Laplace(cores::Int)::Array{Float64,2}
     L = tt2qtt(A,row_dims,col_dims)
 
     # Create right-hand side in QTT format
-    b = reshape(right_hand_side(cores), reshape_dims...)
-    b_tt = ttv_decomp(b, index=1, tol=1e-7)
+    b_tt = compute_boundary_conditions(cores,25)
 
     # Ensure consistent initialization for ALS solver
-    x_tt = rand_tt(Float64, b_tt.ttv_dims, b_tt.ttv_rks)
+    q_tt = rand_tt(Float64, b_tt.ttv_dims, b_tt.ttv_rks)
+
+    matricize(L)
 
     # Solve using ALS
-    x_tt = als_linsolv(L, b_tt, x_tt)
+    x_tt = als_linsolv(L, b_tt, b_tt)
 
     # Convert back to tensor
     y = ttv_to_tensor(x_tt)
     reshape(y, points, points)
 end
+
+bc_left(y) = sin(π * y) 
+bc_right(y) = 0.0
+bc_bottom(x) = 0.0
+bc_top(x) = 0.0
 
 K = solve_Laplace(8)
 fig = Figure()
