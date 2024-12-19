@@ -277,3 +277,83 @@ function Jacobian_tto(n, d, ∇_func)
     return TToperator{Float64, d}(d, H_vec, dims, rks, zeros(Int64, d))
 end
 
+
+function build_1d_diff_elements_DD(c::Int)
+    # Define I, J, JT
+    I = [1.0 0.0; 0.0 1.0]
+    J = [0.0 1.0; 0.0 0.0]
+    JT = transpose(J)
+
+    # f_core: shape (1,2,2,3)
+    f_core = zeros(Float64, 1, 2, 2, 3)
+    f_core[1, :, :, 1] = I
+    f_core[1, :, :, 2] = JT
+    f_core[1, :, :, 3] = J
+
+    # m_core: shape (3,2,2,3)
+    m_core = zeros(Float64, 3, 2, 2, 3)
+    # Python: m_core[0,:,:,0] = I => Julia: m_core[1,:,:,1]
+    m_core[1, :, :, 1] = I
+    # m_core[0,:,:,1] = JT => m_core[1,:,:,2]
+    m_core[1, :, :, 2] = JT
+    # m_core[0,:,:,2] = J => m_core[1,:,:,3]
+    m_core[1, :, :, 3] = J
+    # m_core[1,:,:,1] = J => m_core[2,:,:,2]
+    m_core[2, :, :, 2] = J
+    # m_core[2,:,:,2] = JT => m_core[3,:,:,3]
+    m_core[3, :, :, 3] = JT
+
+    # Compute h, h2, alpha, beta, gamma
+    alpha = -2.0 
+    beta = 1.0
+    gamma = 1.0
+
+    l_core = zeros(Float64, 3, 2, 2, 1)
+    l_core[1, :, :, 1] = alpha * I + beta * J + gamma * JT
+    l_core[2, :, :, 1] = gamma * J
+    l_core[3, :, :, 1] = beta * JT
+
+    all_cores = Vector{Array{Float64,4}}()
+    push!(all_cores, f_core)
+    for i in 1:(c-2)
+        push!(all_cores, copy(m_core))
+    end
+    push!(all_cores, l_core)
+
+    tto_dims = ntuple(_->2, c)
+
+    tto_rks = [1, 3]
+    if c > 2
+        append!(tto_rks, fill(3, c-2))
+    end
+    push!(tto_rks, 1)
+
+    tto_ot = zeros(Int, c)
+
+    return TToperator{Float64,c}(c, all_cores, tto_dims, tto_rks, tto_ot)
+end
+
+function kron(A::TToperator{T,NA}, B::TToperator{T,NB}) where {T<:Number,NA,NB}
+
+    N = A.N + B.N
+
+    new_dims = (A.tto_dims..., B.tto_dims...)
+
+    new_cores = vcat(A.tto_vec, B.tto_vec)
+    new_rks = vcat(A.tto_rks[1:end-1], B.tto_rks)
+
+    new_ot = vcat(A.tto_ot, B.tto_ot)
+
+    return TToperator{T, N}(N, new_cores, new_dims, new_rks, new_ot)
+end
+
+function id_tto(::Type{T}, d; n_dim=2) where {T}
+    dims = Tuple(fill(n_dim, d))
+    A = Vector{Array{T,4}}(undef, d)
+    for j in 1:d
+        core = zeros(T, 1, n_dim, n_dim, 1)
+        core[1, :, :, 1] = Matrix{T}(I, n_dim, n_dim)
+        A[j] = core
+    end
+    return TToperator{T,d}(d, A, dims, fill(1, d+1), zeros(d))
+end

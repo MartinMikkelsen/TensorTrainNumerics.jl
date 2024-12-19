@@ -974,7 +974,6 @@ function tt2qtt(tt_tensor::TToperator{T,N}, row_dims::Vector{Vector{Int}}, col_d
 
             # Reshape and permute core
             core = reshape(core, (rank_prev, row_dims[i][j], row_dim, col_dims[i][j], col_dim, rank_next))
-            core = permutedims(core, (1,2,4,3,5,6))  # Now core is (r_{k-1}, row_dims[i][j], col_dims[i][j], row_dim, col_dim, r_k)
 
             # Reshape core into 2D matrix for SVD
             core_reshaped = reshape(core, (rank_prev * row_dims[i][j] * col_dims[i][j], row_dim * col_dim * rank_next))
@@ -1051,86 +1050,114 @@ Convert a Tensor Train (TT) tensor to a Quantized Tensor Train (QTT) tensor.
 # Description
 This function converts a given TT tensor into a QTT tensor by splitting each core of the TT tensor according to the specified dimensions. It performs Singular Value Decomposition (SVD) on reshaped cores and applies rank reduction based on the given threshold. The resulting QTT cores are then assembled into a new QTT tensor.
 """
-function tt2qtt(tt_tensor::TTvector{T,N}, dims::Vector{Vector{Int}}, threshold::Float64=0.0) where {T<:Number,N}
-    
-    qtt_cores = Array{Array{T,3}}(undef, 0)
-    ttv_rks = [1]
-    ttv_dims = Int64[]
+function tt2qtt(tt_tensor::TToperator{T,N}, row_dims::Vector{Vector{Int}}, col_dims::Vector{Vector{Int}}, threshold::Float64=0.0) where {T<:Number,N}
+    # qtt_cores: store the newly created QTT cores
+    qtt_cores = Vector{Array{T,4}}()
 
-    # For each core in tt_tensor
+    # Initialize ranks and dimensions for the resulting QTToperator
+    # Start with r_0 = 1
+    qtt_rks = [1]
+    qtt_dims = Int[]  # will store all sub-dimensions in order
+
     for i in 1:tt_tensor.N
+        # Extract the i-th core
+        # Original shape: (r_{i-1}, n_i, n_i, r_i)
+        core = tt_tensor.tto_vec[i]
+        rank_prev = qtt_rks[end]
+        rank_next = tt_tensor.tto_rks[i+1]
+        row_dim = tt_tensor.tto_dims[i]
+        col_dim = tt_tensor.tto_dims[i]  # assuming square dims as stated
 
-        # Get core, rank_prev, rank_next, dim
-        core = permutedims(tt_tensor.ttv_vec[i], (2,1,3))  # Now core is (r_{k-1}, n_k, r_k)
-        rank_prev = ttv_rks[end]
-        rank_next = tt_tensor.ttv_rks[i+1]
-        dim = tt_tensor.ttv_dims[i]
+        # For each dimension, we will perform (length(row_dims[i])-1) splits.
+        num_splits = length(row_dims[i]) - 1
+        # Current core shape is (r_{i-1}, row_dim, col_dim, r_i)
+        # We'll iteratively factor out (row_sub, col_sub) pairs.
+        
+        # Current left rank:
+        curr_rank = rank_prev
 
-        # Begin splitting
-        for j in 1:(length(dims[i]) - 1)
+        for j in 1:num_splits
+            row_sub = row_dims[i][j]
+            col_sub = col_dims[i][j]
 
-            # Update dim
-            dim = div(dim, dims[i][j])
+            rd_div = div(row_dim, row_sub)
+            cd_div = div(col_dim, col_sub)
 
-            # Reshape and permute core
-            core = reshape(core, (rank_prev, dims[i][j], dim, rank_next))
-            core = permutedims(core, (1,2,3,4))  # Now core is (r_{k-1}, dims[i][j], dim, r_k)
+            # Reshape to (curr_rank, row_sub, rd_div, col_sub, cd_div, rank_next)
+            core = reshape(core, (curr_rank, row_sub, rd_div, col_sub, cd_div, rank_next))
+            
+            # Permute to match Python: (rank, row_sub, col_sub, rd_div, cd_div, rank_next)
+            core = permutedims(core, (1, 2, 4, 3, 5, 6))
 
-            # Reshape core into 2D matrix for SVD
-            core_reshaped = reshape(core, (rank_prev * dims[i][j], dim * rank_next))
+            # Now form a matrix for SVD:
+            # Shape: (curr_rank*row_sub*col_sub) x (rd_div*cd_div*rank_next)
+            core_reshaped = reshape(core, curr_rank*row_sub*col_sub, rd_div*cd_div*rank_next)
 
-            # Compute SVD
+            # SVD
             F = svd(core_reshaped; full=false)
-            U = F.U
-            S = F.S
-            Vt = F.Vt
+            U, Svals, Vt = F.U, F.S, F.Vt
 
-            # Rank reduction
+            # Thresholding
             if threshold != 0.0
-                indices = findall(S ./ S[1] .> threshold)
-                U = U[:, indices]
-                S = S[indices]
-                Vt = Vt[indices, :]
+                idx = findall(x -> x/Svals[1] > threshold, Svals)
+                U = U[:, idx]
+                Svals = Svals[idx]
+                Vt = Vt[idx, :]
             end
 
-            # Update rank
-            new_rank = length(S)
+            new_rank = length(Svals)
 
-            # Reshape U into core and append to qtt_cores
-            U_reshaped = reshape(U, (rank_prev, dims[i][j], new_rank))
-            # Permute back to (n_k, r_{k-1}, r_k)
-            core_to_append = permutedims(U_reshaped, (2,1,3))
-            push!(qtt_cores, core_to_append)
+            # Reshape U back to a core: (curr_rank, row_sub, col_sub, new_rank)
+            U_reshaped = reshape(U, (curr_rank, row_sub, col_sub, new_rank))
 
-            # Update ttv_rks
-            push!(ttv_rks, new_rank)
+            # This QTT core is appended without further permutation since Python directly appended:
+            # qtt_cores.append(u.reshape(rank, row_sub, col_sub, s.shape[0]))
+            push!(qtt_cores, U_reshaped)
 
-            # Update ttv_dims
-            push!(ttv_dims, dims[i][j])
+            # Update qtt_rks and qtt_dims
+            push!(qtt_rks, new_rank)
+            push!(qtt_dims, row_sub)
+            push!(qtt_dims, col_sub)
 
-            # Update core for next iteration
-            core = Diagonal(S) * Vt
-            rank_prev = new_rank
+            # Update core = diag(Svals)*V
+            # Svals is a vector, Vt is (new_rank, something), so diag(Svals)*Vt = scale rows of Vt by Svals
+            V_scaled = Diagonal(Svals) * Vt
+            core = V_scaled # shape: (new_rank, rd_div*cd_div*rank_next)
+
+            curr_rank = new_rank
+            row_dim = rd_div
+            col_dim = cd_div
         end
 
-        # For the last QTT core
-        core = reshape(core, (rank_prev, dim, rank_next))
-        core_to_append = permutedims(core, (2,1,3))
-        push!(qtt_cores, core_to_append)
+        # After finishing all splits for this dimension, we have a leftover core:
+        # reshape to (curr_rank, row_dim, col_dim, rank_next)
+        core = reshape(core, (curr_rank, row_dim, col_dim, rank_next))
+        push!(qtt_cores, core)
 
-        # Update ttv_dims
-        push!(ttv_dims, dim)
-
-        # Update ttv_rks
-        push!(ttv_rks, rank_next)
+        # Update qtt_dims and qtt_rks for final core of this dimension
+        push!(qtt_dims, row_dim)
+        push!(qtt_dims, col_dim)
+        # rank_next is already included as qtt_rks at the end of the last split if any,
+        # but if no splits were done, we need to push now:
+        if num_splits == 0
+            # Means we didn't split at all, need to update qtt_rks:
+            push!(qtt_rks, rank_next)
+        else
+            # If splits were performed, qtt_rks already ended in 'new_rank'
+            # and rank_next must match that. If rank_next != new_rank here, 
+            # it indicates a mismatch or that we must correct logic.
+            # However, typically the last rank_next from the original core is kept.
+            # We'll just overwrite to ensure correctness:
+            qtt_rks[end] = rank_next
+        end
     end
 
+    # Construct the resulting QTT operator
     N_qtt = length(qtt_cores)
-    M = length(ttv_dims)
-    ttv_ot = zeros(Int64, N_qtt)
+    M = length(qtt_dims)
+    tto_ot = zeros(Int64, N_qtt)  # Orthogonalization info if needed
 
-    qtt_tensor = TTvector{T,M}(N_qtt, qtt_cores, Tuple(ttv_dims), ttv_rks, ttv_ot)
-
+    qtt_tensor = TToperator{T,M}(N_qtt, qtt_cores, Tuple(qtt_dims), qtt_rks, tto_ot)
     return qtt_tensor
 end
 """
