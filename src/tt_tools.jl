@@ -21,6 +21,7 @@ A structure representing a Tensor Train (TT) vector.
 # Type Parameters
 - `T<:Number`: The type of the elements in the TT vector.
 """
+abstract type AbstractTTvector end
 struct TTvector{T<:Number,M} <: AbstractTTvector
 	N :: Int64
 	ttv_vec :: Vector{Array{T,3}}
@@ -42,6 +43,7 @@ A structure representing a Tensor Train (TT) operator.
 - `tto_ot::Array{Int64,1}`: An array containing the output dimensions of the TT operator.
 tv_rks: the TT ranks ``(r_0,...,r_d)`` where ``r_0=r_d=1``
 """
+abstract type AbstractTToperator end
 struct TToperator{T<:Number,M} <: AbstractTToperator
 	N :: Int64
 	tto_vec :: Array{Array{T,4},1}
