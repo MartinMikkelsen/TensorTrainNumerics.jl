@@ -8,6 +8,8 @@ import Base.eltype
 import Base.copy
 import Base.complex
 
+
+abstract type AbstractTTvector end
 """
 A structure representing a Tensor Train (TT) vector.
 
@@ -21,7 +23,6 @@ A structure representing a Tensor Train (TT) vector.
 # Type Parameters
 - `T<:Number`: The type of the elements in the TT vector.
 """
-abstract type AbstractTTvector end
 struct TTvector{T<:Number,M} <: AbstractTTvector
 	N :: Int64
 	ttv_vec :: Vector{Array{T,3}}
@@ -32,6 +33,8 @@ end
 
 Base.eltype(::TTvector{T,N}) where {T<:Number,N} = T 
 
+
+abstract type AbstractTToperator end
 """
 A structure representing a Tensor Train (TT) operator.
 
@@ -43,7 +46,6 @@ A structure representing a Tensor Train (TT) operator.
 - `tto_ot::Array{Int64,1}`: An array containing the output dimensions of the TT operator.
 tv_rks: the TT ranks ``(r_0,...,r_d)`` where ``r_0=r_d=1``
 """
-abstract type AbstractTToperator end
 struct TToperator{T<:Number,M} <: AbstractTToperator
 	N :: Int64
 	tto_vec :: Array{Array{T,4},1}
