@@ -282,13 +282,27 @@ end
 end
 
 @testset "Matricize function" begin
+    # Test matricize function for TToperator
+    dims = (2, 2)
+    tto = rand_tto(dims, 3)
+    mat = matricize(tto)
+    @test size(mat) == (prod(dims), prod(dims))
+    @test mat isa Matrix{Float64}
+
+    # Check if the first core size matches the expected size
+    first_core = tto.tto_vec[1]
+    expected_size = tto.tto_dims[1] * tto.tto_dims[1] * tto.tto_rks[2]
+    @test prod(size(first_core)) == expected_size
+
     # Test matricize function for TTvector
-    qtt_vec = [randn(2, 1, 2), randn(2, 2, 2), randn(2, 2, 1)]
-    qtt_rks = [1, 2, 2, 1]
-    qtt_ot = [0, 0, 0]
-    qtt = QTTvector(qtt_vec, qtt_rks, qtt_ot)
-    core_index = 2
-    values = matricize(qtt, core_index)
-    @test length(values) == 2^core_index
-    @test all(isfinite, values)
+    dims = (2, 2, 2)
+    rks = [1, 2, 2, 1]
+    tt = TTvector{Float64, 3}(3, [randn(2, 1, 2), randn(2, 2, 2), randn(2, 2, 1)], dims, rks, [0, 0, 0])
+    mat = matricize(tt)
+    @test size(mat) == (prod(dims), )
+
+    # Check if the first core size matches the expected size
+    first_core = tt.ttv_vec[1]
+    expected_size = tt.ttv_dims[1] * tt.ttv_rks[2]
+    @test prod(size(first_core)) == expected_size
 end

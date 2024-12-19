@@ -21,4 +21,7 @@ include("tt_interpolations.jl")
 export Δ_DD, Δ_NN, Δ_DN, Δ_ND, Δ_Periodic, Δ_tto, QTT_Tridiagonal_Toeplitz, ∇_DD, ∇_tto, Jacobian_tto, shift_tto
 include("tt_operators.jl")
 
+export χ
+include("tt_utils.jl")
+
 end
