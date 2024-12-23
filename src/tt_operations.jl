@@ -370,10 +370,27 @@ function swap_cores(tt::TToperator{T,M}, i::Int) where {T<:Number, M}
     return new_tt
 end
 
-n_dims = (4, 5, 6)
-tt_op = rand_tto(n_dims,5)
-visualize(tt_op)
-# Swap cores at positions 1 and 2
-i = 2
-tt_op_swapped = swap_cores(tt_op, i)
-visualize(tt_op_swapped)
+dims = (4, 5, 6)
+rks = [1, 3, 2, 1]
+tt = rand_tt(dims, rks)
+
+visualize(tt)
+
+dims2 = (4,1,2)
+rks2 = [1, 2, 1]
+tt2 = rand_tt(dims,rks)
+
+visualize(tt)
+
+function ttm(tt::TTvector, i::Int)
+
+    N = tt.N
+    core = tt.ttv_vec[i]
+    core_next = tt.ttv_vec[i+1]
+    
+    A = zeros(y_tt.ttv_dims[j],y_rks[j],y_tt.ttv_dims[j+1],y_rks[j+2])
+    @tensor A[a,b,c,d] = y_tt.ttv_vec[j][a,b,z]*y_tt.ttv_vec[j+1][c,z,d]
+     
+end
+
+tt.ttv_vec[1]
