@@ -324,6 +324,14 @@ function dmrg_linsolv(A :: TToperator{T}, b :: TTvector{T}, tt_start :: TTvector
 	return tt_opt
 end
 
+function cut_off_index(s::Array{T}, tol::Float64; degen_tol=1e-10) where {T<:Number}
+	k = sum(s.>norm(s)*tol)
+	while k<length(s) && isapprox(s[k],s[k+1];rtol=degen_tol, atol=degen_tol)
+		k = k+1
+	end
+	return k
+end
+
 """
 Returns the lowest eigenvalue of A by minimizing the Rayleigh quotient in the ALS algorithm.
 

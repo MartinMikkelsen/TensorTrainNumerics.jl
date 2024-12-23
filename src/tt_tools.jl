@@ -7,7 +7,7 @@ import Base.isempty
 import Base.eltype
 import Base.copy
 import Base.complex
-
+import KrylovKit: orthogonalize
 
 abstract type AbstractTTvector end
 """
@@ -625,6 +625,148 @@ function tto_to_tensor(tto :: TToperator{T,N}) where {T<:Number,N}
 	end
 	return tensor
 end
+
+"""
+	r_and_d_to_rks(rks, dims; rmax=1024)
+
+Adjusts the ranks `rks` based on the dimensions `dims` and an optional maximum rank `rmax`.
+
+# Arguments
+- `rks::AbstractVector`: A vector of ranks.
+- `dims::AbstractVector`: A vector of dimensions.
+- `rmax::Int`: An optional maximum rank (default is 1024).
+
+# Returns
+- `new_rks::Vector`: A vector of adjusted ranks.
+"""
+function r_and_d_to_rks(rks,dims;rmax=1024)
+	new_rks = ones(eltype(rks),length(rks)) 
+	@simd for i in eachindex(dims)
+		if  prod(dims[i:end]) > 0
+			if prod(dims[1:i-1]) > 0
+				new_rks[i] = min(rks[i],prod(dims[1:i-1]),prod(dims[i:end]),rmax)
+			else 
+				new_rks[i] = min(rks[i],prod(dims[i:end]),rmax)
+			end
+		else 
+			if prod(dims[1:i-1]) > 0
+				new_rks[i] = min(rks[i],prod(dims[1:i-1]),rmax)
+			else 
+				new_rks[i] = min(rks[i],rmax)
+			end
+		end
+	end
+	return new_rks
+end
+
+"""
+    tt_up_rks_noise(tt_vec, tt_ot_i, rkm, rk, ϵ_wn)
+
+Update a tensor train (TT) vector with random noise.
+
+# Arguments
+- `tt_vec::Array`: The input TT vector.
+- `tt_ot_i::Int`: An integer parameter that is modified within the function.
+- `rkm::Int`: The new rank for the second dimension.
+- `rk::Int`: The new rank for the third dimension.
+- `ϵ_wn::Float64`: The noise level.
+
+# Returns
+- `vec_out::Array`: The updated TT vector with added noise.
+"""
+function tt_up_rks_noise(tt_vec,tt_ot_i,rkm,rk,ϵ_wn)
+	vec_out = zeros(eltype(tt_vec),size(tt_vec,1),rkm,rk)
+	vec_out[:,1:size(tt_vec,2),1:size(tt_vec,3)] = tt_vec
+	if !iszero(ϵ_wn)
+		if rkm == size(tt_vec,2) && rk>size(tt_vec,3)
+			Q = rand_orthogonal(size(tt_vec,1)*rkm,rk-size(tt_vec,3))
+			vec_out[:,:,size(tt_vec,3)+1:rk] = ϵ_wn*reshape(Q,size(tt_vec,1),rkm,rk-size(tt_vec,3))
+			tt_ot_i =0
+		elseif rk == size(tt_vec,3) && rkm>size(tt_vec,2)
+			Q = rand_orthogonal(rkm-size(tt_vec,2),size(tt_vec,1)*rk)
+			vec_out[:,size(tt_vec,2)+1:rkm,:] = ϵ_wn*reshape(Q,size(tt_vec,1),rkm-size(tt_vec,2),rk)
+			tt_ot_i =0
+		elseif rk>size(tt_vec,3) && rkm>size(tt_vec,2)
+			Q = rand_orthogonal((rkm-size(tt_vec,2))*size(tt_vec,1),(rk-size(tt_vec,3)))
+			vec_out[:,size(tt_vec,2)+1:rkm,size(tt_vec,3)+1:rk] = ϵ_wn*reshape(Q,size(tt_vec,1),rkm-size(tt_vec,2),rk-size(tt_vec,3))
+		end
+	end
+	return vec_out
+end
+
+"""
+    tt_up_rks(x_tt::TTvector{T,N}, rk_max::Int; rks=vcat(1, rk_max*ones(Int, length(x_tt.ttv_dims)-1), 1), ϵ_wn=0.0) where {T<:Number, N}
+
+Increase the rank of a Tensor Train (TT) vector `x_tt` to a specified maximum rank `rk_max`.
+
+# Arguments
+- `x_tt::TTvector{T,N}`: The input TT vector.
+- `rk_max::Int`: The maximum rank to which the TT vector should be increased.
+- `rks`: Optional. A vector specifying the ranks at each step. Defaults to a vector with `1` at the boundaries and `rk_max` in between.
+- `ϵ_wn::Float64`: Optional. The noise level to be added during the rank increase. Defaults to `0.0`.
+
+# Returns
+- `TTvector{T,N}`: A new TT vector with increased ranks.
+"""
+function tt_up_rks(x_tt::TTvector{T,N},rk_max::Int;rks=vcat(1,rk_max*ones(Int,length(x_tt.ttv_dims)-1),1),ϵ_wn=0.0) where {T<:Number,N}
+	d = x_tt.N
+	vec_out = Array{Array{T}}(undef,d)
+	out_ot = zeros(Int64,d)
+	@assert(rk_max > maximum(x_tt.ttv_rks),"New bond dimension too low")
+	rks = r_and_d_to_rks(rks,x_tt.ttv_dims;rmax=rk_max)
+	for i in 1:d
+		vec_out[i] = tt_up_rks_noise(x_tt.ttv_vec[i],x_tt.ttv_ot[i],rks[i],rks[i+1],ϵ_wn)
+	end	
+	return TTvector{T,N}(d,vec_out,x_tt.ttv_dims,rks,out_ot)
+end
+
+"""
+    orthogonalize(x_tt::TTvector{T,N}; i=1::Int) where {T<:Number, N}
+
+Orthogonalizes the given Tensor Train (TT) vector `x_tt` with respect to the `i`-th core. The orthogonalization process involves QR and LQ decompositions to ensure that the TT cores are orthogonal.
+
+# Arguments
+- `x_tt::TTvector{T,N}`: The input TT vector to be orthogonalized.
+- `i::Int=1`: The core index with respect to which the orthogonalization is performed. Defaults to 1.
+
+# Returns
+- `y_tt`: The orthogonalized TT vector.
+
+"""
+function orthogonalize(x_tt::TTvector{T,N};i=1::Int) where {T<:Number,N}
+	d = x_tt.N
+	@assert(1≤i≤d, DimensionMismatch("Impossible orthogonalization"))
+	y_rks = r_and_d_to_rks(x_tt.ttv_rks,x_tt.ttv_dims)
+	y_tt = zeros_tt(T,x_tt.ttv_dims,y_rks)
+	FR = ones(T,1,1)
+	yleft_temp =zeros(T,maximum(x_tt.ttv_rks),maximum(x_tt.ttv_dims),maximum(x_tt.ttv_rks))
+	for j in 1:i-1
+		y_tt.ttv_ot[j]=1
+		@tensoropt((βⱼ₋₁,αⱼ),	yleft_temp[1:y_tt.ttv_rks[j],1:x_tt.ttv_dims[j],1:x_tt.ttv_rks[j+1]][αⱼ₋₁,iⱼ,αⱼ] = FR[αⱼ₋₁,βⱼ₋₁]*x_tt.ttv_vec[j][iⱼ,βⱼ₋₁,αⱼ])
+		F = qr(reshape(yleft_temp[1:y_tt.ttv_rks[j],1:x_tt.ttv_dims[j],1:x_tt.ttv_rks[j+1]],x_tt.ttv_dims[j]*y_tt.ttv_rks[j],:))
+		y_tt.ttv_rks[j+1] = size(Matrix(F.Q),2)
+		y_tt.ttv_vec[j] = permutedims(reshape(Matrix(F.Q),y_tt.ttv_rks[j],x_tt.ttv_dims[j],y_tt.ttv_rks[j+1]),[2 1 3])
+		FR = F.R[1:y_tt.ttv_rks[j+1],:]
+	end
+	FL = ones(T,1,1)
+	(i<x_tt.N) && (yright_temp =zeros(T,maximum(x_tt.ttv_rks),maximum(y_tt.ttv_rks),maximum(x_tt.ttv_dims)))
+	for j in d:-1:i+1
+		y_tt.ttv_ot[j]=-1
+		yright_temp = zeros(T,x_tt.ttv_rks[j],y_tt.ttv_rks[j+1],x_tt.ttv_dims[j])
+		@tensoropt((αⱼ₋₁,αⱼ),	yright_temp[1:x_tt.ttv_rks[j],1:y_tt.ttv_rks[j+1],1:x_tt.ttv_dims[j]][αⱼ₋₁,βⱼ,iⱼ] = x_tt.ttv_vec[j][iⱼ,αⱼ₋₁,αⱼ]*FL[αⱼ,βⱼ])
+		F = lq(reshape(yright_temp[1:x_tt.ttv_rks[j],1:y_tt.ttv_rks[j+1],1:x_tt.ttv_dims[j]],x_tt.ttv_rks[j],:))
+		y_tt.ttv_rks[j] = size(Matrix(F.Q),1)
+		y_tt.ttv_vec[j] = permutedims(reshape(Matrix(F.Q),y_tt.ttv_rks[j],y_tt.ttv_rks[j+1],x_tt.ttv_dims[j]),[3 1 2])
+		FL = F.L[:,1:y_tt.ttv_rks[j]]
+	end
+	y_tt.ttv_ot[i]=0
+	y_tt.ttv_vec[i] = zeros(T,y_tt.ttv_dims[i],y_tt.ttv_rks[i],y_tt.ttv_rks[i+1])
+	@simd for k in 1:x_tt.ttv_dims[i]
+		y_tt.ttv_vec[i][k,:,:] = FR*x_tt.ttv_vec[i][k,:,:]*FL
+	end
+	return y_tt
+end
+
 
 """
     id_tto(d; n_dim=2)

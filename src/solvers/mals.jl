@@ -26,6 +26,22 @@ function init_H_mals(x_tt::TTvector{T},A::TToperator{T},rmax::Int) where {T<:Num
 	return H
 end
 
+function sv_trunc(s::Array{Float64},tol)
+	if tol==0.0
+		return s
+	else
+		d = length(s)
+		i=0
+		weight = 0.0
+		norm2 = dot(s,s)
+		while (i<d) && weight<tol*norm2
+			weight+=s[d-i]^2
+			i+=1
+		end
+		return s[1:(d-i+1)]
+	end
+end
+
 function updateHb_mals!(xtt_vec::Array{T,3}, btt_vec::Array{T,3}, Hbi::AbstractArray{T,3}, Hbim::AbstractArray{T,3}) where T<:Number
 	@tensor Hbim[β,i,χ] = conj.(xtt_vec)[j,χ,a]*Hbi[γ,j,a]*btt_vec[i,β,γ]
 	nothing
