@@ -185,6 +185,9 @@ function zeros_tt(::Type{T},dims::NTuple{N,Int64},rks;ot=zeros(Int64,length(dims
 	return TTvector{T,N}(N,tt_vec,dims,deepcopy(rks),deepcopy(ot))
 end
 
+function zeros_tt(::Type{T}, dims::Vector{Int}, rks::Vector{Int}; ot=zeros(Int64, length(dims))) where T
+    return zeros_tt(T, Tuple(dims), Tuple(rks); ot=ot)
+end
 """
     ones_tt(dims)
 
