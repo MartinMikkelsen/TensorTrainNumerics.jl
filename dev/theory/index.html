@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Tensor trains · TensorTrainNumerics</title><meta name="title" content="Tensor trains · TensorTrainNumerics"/><meta property="og:title" content="Tensor trains · TensorTrainNumerics"/><meta property="twitter:title" content="Tensor trains · TensorTrainNumerics"/><meta name="description" content="Documentation for TensorTrainNumerics."/><meta property="og:description" content="Documentation for TensorTrainNumerics."/><meta property="twitter:description" content="Documentation for TensorTrainNumerics."/><script data-outdated-warner src="../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../search_index.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../">TensorTrainNumerics</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../">TensorTrainNumerics.jl</a></li><li class="is-active"><a class="tocitem" href>Tensor trains</a><ul class="internal"><li><a class="tocitem" href="#Table-of-Contents"><span>Table of Contents</span></a></li><li class="toplevel"><a class="tocitem" href="#Basics"><span>Basics</span></a></li><li><a class="tocitem" href="#Multiplication"><span>Multiplication</span></a></li><li><a class="tocitem" href="#Addition"><span>Addition</span></a></li><li><a class="tocitem" href="#Dot-Product"><span>Dot Product</span></a></li><li><a class="tocitem" href="#Concatenation"><span>Concatenation</span></a></li><li><a class="tocitem" href="#Matricization"><span>Matricization</span></a></li><li><a class="tocitem" href="#Visualization"><span>Visualization</span></a></li><li><a class="tocitem" href="#Tensor-Train-Decomposition"><span>Tensor Train Decomposition</span></a></li><li class="toplevel"><a class="tocitem" href="#Optimization"><span>Optimization</span></a></li><li><a class="tocitem" href="#ALS"><span>ALS</span></a></li><li><a class="tocitem" href="#MALS"><span>MALS</span></a></li><li><a class="tocitem" href="#DMRG"><span>DMRG</span></a></li></ul></li><li><a class="tocitem" href="../examples/">Examples</a></li><li><a class="tocitem" href="../resources/">Resources</a></li><li><a class="tocitem" href="../API/">API</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li class="is-active"><a href>Tensor trains</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Tensor trains</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/MartinMikkelsen/TensorTrainNumerics.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/MartinMikkelsen/TensorTrainNumerics.jl/blob/main/docs/src/theory.md" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="Tensor-trains"><a class="docs-heading-anchor" href="#Tensor-trains">Tensor trains</a><a id="Tensor-trains-1"></a><a class="docs-heading-anchor-permalink" href="#Tensor-trains" title="Permalink"></a></h1><h2 id="Table-of-Contents"><a class="docs-heading-anchor" href="#Table-of-Contents">Table of Contents</a><a id="Table-of-Contents-1"></a><a class="docs-heading-anchor-permalink" href="#Table-of-Contents" title="Permalink"></a></h2><ul><li><a href="#basics">Basics</a><ul><li><a href="#multiplication">Multiplication</a></li><li><a href="#tensor-train-operator-and-tensor-train-vector">Tensor Train Operator times Tensor Train Vector</a></li><li><a href="#tensor-train-operator-and-tensor-train-operator">Tensor Train Operator times Tensor Train Operator</a></li><li><a href="#addition">Addition</a></li><li><a href="#dot-product">Dot Product</a></li><li><a href="#concatenation">Concatenation</a></li><li><a href="#matricization">Matricization</a></li><li><a href="#visualization">Visualization</a></li></ul></li><li><a href="#tensor-train-decomposition">Tensor Train Decomposition</a><ul><li><a href="#example-with-tolerance">Example with Tolerance</a></li></ul></li><li><a href="#optimization">Optimization</a><ul><li><a href="#als">ALS</a></li><li><a href="#mals">MALS</a></li><li><a href="#dmrg">DMRG</a></li></ul></li></ul><h1 id="Basics"><a class="docs-heading-anchor" href="#Basics">Basics</a><a id="Basics-1"></a><a class="docs-heading-anchor-permalink" href="#Basics" title="Permalink"></a></h1><h2 id="Multiplication"><a class="docs-heading-anchor" href="#Multiplication">Multiplication</a><a id="Multiplication-1"></a><a class="docs-heading-anchor-permalink" href="#Multiplication" title="Permalink"></a></h2><h3 id="Tensor-train-operator-times-tensor-train-vector"><a class="docs-heading-anchor" href="#Tensor-train-operator-times-tensor-train-vector">Tensor train operator times tensor train vector</a><a id="Tensor-train-operator-times-tensor-train-vector-1"></a><a class="docs-heading-anchor-permalink" href="#Tensor-train-operator-times-tensor-train-vector" title="Permalink"></a></h3><p>To multiply a tensor train operator (<code>TToperator</code>) by a tensor train vector (<code>TTvector</code>), use the <code>*</code> operator.</p><pre><code class="language-julia hljs">using TensorTrainNumerics
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Tensor trains · TensorTrainNumerics</title><meta name="title" content="Tensor trains · TensorTrainNumerics"/><meta property="og:title" content="Tensor trains · TensorTrainNumerics"/><meta property="twitter:title" content="Tensor trains · TensorTrainNumerics"/><meta name="description" content="Documentation for TensorTrainNumerics."/><meta property="og:description" content="Documentation for TensorTrainNumerics."/><meta property="twitter:description" content="Documentation for TensorTrainNumerics."/><script data-outdated-warner src="../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../search_index.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../">TensorTrainNumerics</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../">TensorTrainNumerics.jl</a></li><li class="is-active"><a class="tocitem" href>Tensor trains</a><ul class="internal"><li><a class="tocitem" href="#Table-of-Contents"><span>Table of Contents</span></a></li><li class="toplevel"><a class="tocitem" href="#Basics"><span>Basics</span></a></li><li><a class="tocitem" href="#Multiplication"><span>Multiplication</span></a></li><li><a class="tocitem" href="#Addition"><span>Addition</span></a></li><li><a class="tocitem" href="#Concatenation"><span>Concatenation</span></a></li><li><a class="tocitem" href="#Matricization"><span>Matricization</span></a></li><li><a class="tocitem" href="#Visualization"><span>Visualization</span></a></li><li><a class="tocitem" href="#Tensor-Train-Decomposition"><span>Tensor Train Decomposition</span></a></li><li class="toplevel"><a class="tocitem" href="#Optimization"><span>Optimization</span></a></li><li><a class="tocitem" href="#ALS"><span>ALS</span></a></li><li><a class="tocitem" href="#MALS"><span>MALS</span></a></li><li><a class="tocitem" href="#DMRG"><span>DMRG</span></a></li></ul></li><li><a class="tocitem" href="../examples/">Examples</a></li><li><a class="tocitem" href="../resources/">Resources</a></li><li><a class="tocitem" href="../API/">API</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li class="is-active"><a href>Tensor trains</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Tensor trains</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/MartinMikkelsen/TensorTrainNumerics.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/MartinMikkelsen/TensorTrainNumerics.jl/blob/main/docs/src/theory.md" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="Tensor-trains"><a class="docs-heading-anchor" href="#Tensor-trains">Tensor trains</a><a id="Tensor-trains-1"></a><a class="docs-heading-anchor-permalink" href="#Tensor-trains" title="Permalink"></a></h1><h2 id="Table-of-Contents"><a class="docs-heading-anchor" href="#Table-of-Contents">Table of Contents</a><a id="Table-of-Contents-1"></a><a class="docs-heading-anchor-permalink" href="#Table-of-Contents" title="Permalink"></a></h2><ul><li><a href="#basics">Basics</a><ul><li><a href="#multiplication">Multiplication</a></li><li><a href="#tensor-train-operator-and-tensor-train-vector">Tensor Train Operator times Tensor Train Vector</a></li><li><a href="#tensor-train-operator-and-tensor-train-operator">Tensor Train Operator times Tensor Train Operator</a></li><li><a href="#addition">Addition</a></li><li><a href="#concatenation">Concatenation</a></li><li><a href="#matricization">Matricization</a></li><li><a href="#visualization">Visualization</a></li></ul></li><li><a href="#tensor-train-decomposition">Tensor Train Decomposition</a><ul><li><a href="#example-with-tolerance">Example with Tolerance</a></li></ul></li><li><a href="#optimization">Optimization</a><ul><li><a href="#als">ALS</a></li><li><a href="#mals">MALS</a></li><li><a href="#dmrg">DMRG</a></li></ul></li></ul><h1 id="Basics"><a class="docs-heading-anchor" href="#Basics">Basics</a><a id="Basics-1"></a><a class="docs-heading-anchor-permalink" href="#Basics" title="Permalink"></a></h1><h2 id="Multiplication"><a class="docs-heading-anchor" href="#Multiplication">Multiplication</a><a id="Multiplication-1"></a><a class="docs-heading-anchor-permalink" href="#Multiplication" title="Permalink"></a></h2><h3 id="Tensor-train-operator-times-tensor-train-vector"><a class="docs-heading-anchor" href="#Tensor-train-operator-times-tensor-train-vector">Tensor train operator times tensor train vector</a><a id="Tensor-train-operator-times-tensor-train-vector-1"></a><a class="docs-heading-anchor-permalink" href="#Tensor-train-operator-times-tensor-train-vector" title="Permalink"></a></h3><p>To multiply a tensor train operator (<code>TToperator</code>) by a tensor train vector (<code>TTvector</code>), use the <code>*</code> operator.</p><pre><code class="language-julia hljs">using TensorTrainNumerics
 
 # Define the dimensions and ranks for the TTvector
 dims = (2, 2, 2)
@@ -41,11 +41,7 @@ result_add = tt_vec + tt_vec2
 # Visualize the result
 visualize(result_add)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi"> 1-- • -- 4-- • -- 4-- • -- 1
      |        |        |
-     2        2        2</code></pre><h2 id="Dot-Product"><a class="docs-heading-anchor" href="#Dot-Product">Dot Product</a><a id="Dot-Product-1"></a><a class="docs-heading-anchor-permalink" href="#Dot-Product" title="Permalink"></a></h2><p>To compute the dot product of two tensor train vectors, use the <code>dot</code> function.</p><pre><code class="language-julia hljs"># Compute the dot product
-result_dot = dot(tt_vec, tt_vec2)
-
-# Print the result
-println(result_dot)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">-5.183021759836541</code></pre><h2 id="Concatenation"><a class="docs-heading-anchor" href="#Concatenation">Concatenation</a><a id="Concatenation-1"></a><a class="docs-heading-anchor-permalink" href="#Concatenation" title="Permalink"></a></h2><p>To concatenate two tensor train vectors or operators, use the <code>concatenate</code> function.</p><pre><code class="language-julia hljs"># Concatenate two TTvectors
+     2        2        2</code></pre><h2 id="Concatenation"><a class="docs-heading-anchor" href="#Concatenation">Concatenation</a><a id="Concatenation-1"></a><a class="docs-heading-anchor-permalink" href="#Concatenation" title="Permalink"></a></h2><p>To concatenate two tensor train vectors or operators, use the <code>concatenate</code> function.</p><pre><code class="language-julia hljs"># Concatenate two TTvectors
 result_concat = concatenate(tt_vec, tt_vec2)
 
 # Visualize the result
@@ -55,7 +51,7 @@ visualize(result_concat)</code></pre><pre class="documenter-example-output"><cod
 result_matrix = matricize(tt_vec)
 
 # Print the result
-println(result_matrix)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">[-3.3854899754400414, 1.2386639692253012, -0.7243231323498238, 1.1719229447501347, 1.5161179625937602, -0.7114628192514725, 1.4436844796913422, 0.3779494074356783]</code></pre><h2 id="Visualization"><a class="docs-heading-anchor" href="#Visualization">Visualization</a><a id="Visualization-1"></a><a class="docs-heading-anchor-permalink" href="#Visualization" title="Permalink"></a></h2><p>To visualize a tensor train vector or operator, use the <code>visualize</code> function.</p><pre><code class="language-julia hljs"># Visualize the TTvector
+println(result_matrix)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">[-0.5044477511673637, 2.0571439943591407, -0.12001641007876157, 0.5893149342439148, -1.1519060396575664, 4.8406239598289424, -0.3745436271329318, 1.6025789966811796]</code></pre><h2 id="Visualization"><a class="docs-heading-anchor" href="#Visualization">Visualization</a><a id="Visualization-1"></a><a class="docs-heading-anchor-permalink" href="#Visualization" title="Permalink"></a></h2><p>To visualize a tensor train vector or operator, use the <code>visualize</code> function.</p><pre><code class="language-julia hljs"># Visualize the TTvector
 visualize(tt_vec)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi"> 1-- • -- 2-- • -- 2-- • -- 1
      |        |        |
      2        2        2</code></pre><h2 id="Tensor-Train-Decomposition"><a class="docs-heading-anchor" href="#Tensor-Train-Decomposition">Tensor Train Decomposition</a><a id="Tensor-Train-Decomposition-1"></a><a class="docs-heading-anchor-permalink" href="#Tensor-Train-Decomposition" title="Permalink"></a></h2><p>The <code>ttv_decomp</code> function performs a tensor train decomposition on a given tensor.</p><pre><code class="language-julia hljs">using TensorTrainNumerics
@@ -112,37 +108,37 @@ println(&quot;Corresponding eigenvector: &quot;, tt_eigvec)</code></pre><pre cla
 Forward sweep: core optimization 2 out of 3
 Backward sweep: core optimization 3 out of 3
 Backward sweep: core optimization 2 out of 3
-TTvector{Float64, 3}(3, [[0.1099181880913738; -7.239385553668592;;; -1.262126046948362; 0.406408613505966], [-0.7404472669920013 -0.24806003230026497; 0.6033425270233196 0.06885513862601944;;; 0.2887813689504278 -0.6091493547071648; -0.06573401582367902 0.7501081614806147], [-0.8211057060559759 0.5707761553203823; 0.5707761553203823 0.821105706055976;;;]], (2, 2, 2), [1, 2, 2, 1], [0, 1, 1])
+TTvector{Float64, 3}(3, [[0.28797977033558864; 0.6471334928117511;;; -0.5927171511641414; 0.07208035944925686], [-0.5391524035736914 -0.7287131147702975; 0.8201901798384527 -0.5519673553907332;;; 0.03038887563154754 0.3042947670647793; 0.18888957317736835 0.26779456619155406], [-0.6105199041365288 0.7920009132905866; 0.7920009132905866 0.610519904136529;;;]], (2, 2, 2), [1, 2, 2, 1], [0, 1, 1])
 Macro-iteration 1; bond dimension 2
 Forward sweep: core optimization 1 out of 2
-Eigenvalue: -1.6943488949600143
+Eigenvalue: -1.7828947924449245
 Forward sweep: core optimization 2 out of 2
-Eigenvalue: -7.493418290868191
+Eigenvalue: -4.710616515133386
 Backward sweep: core optimization 1 out of 2
-Eigenvalue: -8.27596347394365
+Eigenvalue: -10.233361482733939
 Backward sweep: core optimization 2 out of 2
-Eigenvalue: -8.661395115320074
+Eigenvalue: -9.295791348133314
 Macro-iteration 2; bond dimension 2
 Forward sweep: core optimization 1 out of 2
-Eigenvalue: -5.98330798201616
+Eigenvalue: -6.414664910980477
 Forward sweep: core optimization 2 out of 2
-Eigenvalue: -5.839510412927722
+Eigenvalue: -9.159982119082807
 Backward sweep: core optimization 1 out of 2
-Eigenvalue: -6.780788726295722
+Eigenvalue: -9.641382630724289
 Backward sweep: core optimization 2 out of 2
-Eigenvalue: -5.7873853399760655
+Eigenvalue: -6.415427237522622
 Macro-iteration 3; bond dimension 3
 Forward sweep: core optimization 1 out of 2
-Eigenvalue: -5.122354631893223
+Eigenvalue: -3.2294073318752687
 Forward sweep: core optimization 2 out of 2
-Eigenvalue: -4.860541173828962
+Eigenvalue: -6.4045646694664695
 Backward sweep: core optimization 1 out of 2
-Eigenvalue: -6.799663200984183
+Eigenvalue: -5.69178690527857
 Backward sweep: core optimization 2 out of 2
-Eigenvalue: -4.879728358103671
+Eigenvalue: -6.222286898796376
 Macro-iteration 4; bond dimension 3
-Lowest eigenvalue: -4.879728358103671
-Corresponding eigenvector: TTvector{Float64, 3}(3, [[0.9449392088059526; -0.056810911497959526;;; -0.1040175259018894; -0.30502912369346136], [-0.3332478099492009 0.8092906842102547; -0.8366735327317467 -0.4227472206310501;;; -0.34747338026711616 0.37026398541049854; -0.26112362358849056 -0.1709911021286011], [-0.8096774972751437 0.5868750722311009; 0.5868750722311009 0.8096774972751436;;;]], (2, 2, 2), [1, 2, 2, 1], [0, 1, 1])</code></pre><h2 id="MALS"><a class="docs-heading-anchor" href="#MALS">MALS</a><a id="MALS-1"></a><a class="docs-heading-anchor-permalink" href="#MALS" title="Permalink"></a></h2><pre><code class="language-julia hljs">using TensorTrainNumerics
+Lowest eigenvalue: -6.222286898796376
+Corresponding eigenvector: TTvector{Float64, 3}(3, [[-0.3533797499537684; -0.9353453565829245;;; 0.014643923023801587; -0.006113244625144652], [-0.9161400919740925 -0.3461478001793824; 0.3449696590663526 -0.483099145926148;;; 0.13789923696895687 -0.2603588128719976; 0.15055585888541625 -0.7609272003262108], [-0.8973088502699536 -0.44140324786663554; -0.44140324786663554 0.8973088502699533;;;]], (2, 2, 2), [1, 2, 2, 1], [0, 1, 1])</code></pre><h2 id="MALS"><a class="docs-heading-anchor" href="#MALS">MALS</a><a id="MALS-1"></a><a class="docs-heading-anchor-permalink" href="#MALS" title="Permalink"></a></h2><pre><code class="language-julia hljs">using TensorTrainNumerics
 
 dims = (2, 2, 2)
 rks = [1, 2, 2, 1]
@@ -182,61 +178,61 @@ Rank: 2,	Max rank=4
 Discarded weight: 0.0
 Rank: 2,	Max rank=4
 Discarded weight: 0.0
-TTvector{Float64, 3}(3, [[-3.218814535071029; -3.043938573494801;;; -0.6688109203740803; 0.7072344791907801], [0.07697486550216075 -0.38456919454534255; -0.0864037567496876 -0.034080555294998725;;; -0.5679692974799053 0.7411120369477429; -0.8148743081117774 -0.5492704243345881], [-0.5659164347573128 0.8244626061087139; 0.8244626061087139 0.5659164347573128;;;]], (2, 2, 2), [1, 2, 2, 1], [0, 1, 1])
+TTvector{Float64, 3}(3, [[-17.525811578741305; -1.0997396841411688;;; -0.6786879668524124; 10.815793591283692], [-0.5598545675220856 0.6403369005870798; -0.5058806671105656 -0.7241751588258779;;; 0.13421675927323248 0.24787372067250818; 0.6423655309857614 -0.06401259005862925], [0.4523776462473137 0.891826477054668; 0.891826477054668 -0.4523776462473137;;;]], (2, 2, 2), [1, 2, 2, 1], [0, 1, 1])
 Macro-iteration 1; bond dimension 2
 Forward sweep: core optimization 1 out of 2
-Eigenvalue: -7.484029061163363
+Eigenvalue: -6.302520707396959
 Rank: 2,	Max rank=2
 Discarded weight: 0.0
 Forward sweep: core optimization 2 out of 2
-Eigenvalue: -6.577215603177051
+Eigenvalue: -4.660317790352191
 Rank: 2,	Max rank=2
 Discarded weight: 0.0
 Backward sweep: core optimization 1 out of 2
-Eigenvalue: -6.577215603177051
+Eigenvalue: -4.660317790352191
 Rank: 2,	Max rank=2
 Discarded weight: 0.0
 Backward sweep: core optimization 2 out of 2
-Eigenvalue: -6.286155240375331
+Eigenvalue: -6.684241359629166
 Rank: 2,	Max rank=2
 Discarded weight: 0.0
 Macro-iteration 2; bond dimension 2
 Forward sweep: core optimization 1 out of 2
-Eigenvalue: -6.286155240375331
+Eigenvalue: -6.684241359629166
 Rank: 2,	Max rank=3
 Discarded weight: 0.0
 Forward sweep: core optimization 2 out of 2
-Eigenvalue: -6.646094805391377
+Eigenvalue: -4.792228850650585
 Rank: 2,	Max rank=3
 Discarded weight: 0.0
 Backward sweep: core optimization 1 out of 2
-Eigenvalue: -6.646094805391377
+Eigenvalue: -4.792228850650585
 Rank: 2,	Max rank=3
 Discarded weight: 0.0
 Backward sweep: core optimization 2 out of 2
-Eigenvalue: -6.277361303525
+Eigenvalue: -6.681144592297553
 Rank: 2,	Max rank=3
 Discarded weight: 0.0
 Macro-iteration 3; bond dimension 3
 Forward sweep: core optimization 1 out of 2
-Eigenvalue: -6.277361303525
+Eigenvalue: -6.681144592297553
 Rank: 2,	Max rank=3
 Discarded weight: 0.0
 Forward sweep: core optimization 2 out of 2
-Eigenvalue: -6.64696819851778
+Eigenvalue: -4.791153607220401
 Rank: 2,	Max rank=3
 Discarded weight: 0.0
 Backward sweep: core optimization 1 out of 2
-Eigenvalue: -6.64696819851778
+Eigenvalue: -4.791153607220401
 Rank: 2,	Max rank=3
 Discarded weight: 0.0
 Backward sweep: core optimization 2 out of 2
-Eigenvalue: -6.277261022991526
+Eigenvalue: -6.681168591527324
 Rank: 2,	Max rank=3
 Discarded weight: 0.0
 Macro-iteration 4; bond dimension 3
-Lowest eigenvalue: -6.277261022991526
-Corresponding eigenvector: TTvector{Float64, 3}(3, [[-0.8564332263778919; 0.4150427208406575;;; 0.133893344329832; 0.27628651971696233], [0.08535854124884269 -0.9896638794394156; -0.9906251492220789 -0.08885924837099979;;; 0.08321671736214038 -0.09322538635469595; 0.06671365014802487 0.06307509057373036], [0.6780422869107374 0.7350228956711874; -0.7350228956711874 0.6780422869107374;;;]], (2, 2, 2), [1, 2, 2, 1], [0, 1, 1])
+Lowest eigenvalue: -6.681168591527324
+Corresponding eigenvector: TTvector{Float64, 3}(3, [[-0.7426412634642844; 0.5987759084374401;;; 0.188250395285208; 0.23348052156454507], [0.7610281279573562 -0.49586872782249686; 0.6471774399364905 0.5386162183743565;;; -0.026142322159156062 -0.5564533143548562; -0.036250912914003404 -0.39289500253286647], [-0.9996283194606175 -0.02726211533138326; 0.02726211533138326 -0.9996283194606175;;;]], (2, 2, 2), [1, 2, 2, 1], [0, 1, 1])
 Rank history: [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2]</code></pre><h2 id="DMRG"><a class="docs-heading-anchor" href="#DMRG">DMRG</a><a id="DMRG-1"></a><a class="docs-heading-anchor-permalink" href="#DMRG" title="Permalink"></a></h2><pre><code class="language-julia hljs">using TensorTrainNumerics
 
 dims = (2, 2, 2)
@@ -280,38 +276,38 @@ Discarded weight: 0.0
 Macro-iteration 2; bond dimension 2
 Rank: 2,	Max rank=2
 Discarded weight: 0.0
-TTvector{Float64, 3}(3, [[-0.7849191155586364; -0.012791362456813908;;; -0.006299684497949146; 0.38656888983664534], [-0.7941274886307281 0.519355023548948; 0.21383367469285983 -0.10429617072213021;;; -0.06293052775835217 0.2812003262630274; 0.5653993633215871 0.8001993781531817], [0.18978925510291925 0.9818248513087653; 0.9818248513087653 -0.18978925510291925;;;]], (2, 2, 2), [1, 2, 2, 1], [0, -1, -1])
+TTvector{Float64, 3}(3, [[-4.904609747979734; -3.13755325361426;;; -2.386090447789234; 3.7299263227827226], [0.015795356794189475 -0.23402682346270703; -0.6302473524421461 -0.2956079631750164;;; 0.6184244335007699 0.3539923469948163; 0.469137508085488 -0.8558836347755311], [0.2607670326873358 0.9654017581626013; 0.9654017581626013 -0.2607670326873358;;;]], (2, 2, 2), [1, 2, 2, 1], [0, -1, -1])
 Macro-iteration 1; bond dimension 2
 Forward sweep: core optimization 1 out of 1
-Eigenvalue: -6.737177198441942
+Eigenvalue: -14.338685626534058
 Rank: 2,	Max rank=2
 Discarded weight: 0.0
 Backward sweep: core optimization 1 out of 1
-Eigenvalue: -8.202227682397096
+Eigenvalue: -13.262684423763744
 Rank: 2,	Max rank=2
 Discarded weight: 0.0
 Macro-iteration 2; bond dimension 2
 Forward sweep: core optimization 1 out of 1
-Eigenvalue: -5.772128533089112
+Eigenvalue: -15.091869488706877
 Rank: 2,	Max rank=3
 Discarded weight: 0.0
 Backward sweep: core optimization 1 out of 1
-Eigenvalue: -8.021330929146872
+Eigenvalue: -13.23250060417279
 Rank: 2,	Max rank=3
 Discarded weight: 0.0
 Macro-iteration 3; bond dimension 3
 Forward sweep: core optimization 1 out of 1
-Eigenvalue: -5.667336168660146
+Eigenvalue: -15.092555360778894
 Rank: 2,	Max rank=3
 Discarded weight: 0.0
 Backward sweep: core optimization 1 out of 1
-Eigenvalue: -8.025225860746604
+Eigenvalue: -13.23239833336826
 Rank: 2,	Max rank=3
 Discarded weight: 0.0
 Macro-iteration 4; bond dimension 3
-Eigenvalue: -5.669721607838091
+Eigenvalue: -15.092557682357343
 Rank: 2,	Max rank=3
 Discarded weight: 0.0
-Lowest eigenvalue: -5.669721607838091
-Corresponding eigenvector: TTvector{Float64, 3}(3, [[-0.7109574998157138; -0.6858822874121053;;; -0.10779556229220602; 0.11173646683260773], [0.1672955437091794 0.4978550091636497; -0.8197655573260871 -0.40447932621556554;;; -0.05941341067325761 0.20316018593354185; 0.5444875376985876 -0.739772129352217], [0.8544106439424932 0.5195983559613848; -0.5195983559613848 0.8544106439424932;;;]], (2, 2, 2), [1, 2, 2, 1], [0, -1, -1])
-Rank history: [2, 2, 2, 2, 2, 2, 2]</code></pre></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../">« TensorTrainNumerics.jl</a><a class="docs-footer-nextpage" href="../examples/">Examples »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.11.4 on <span class="colophon-date" title="Friday 23 May 2025 17:00">Friday 23 May 2025</span>. Using Julia version 1.11.5.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+Lowest eigenvalue: -15.092557682357343
+Corresponding eigenvector: TTvector{Float64, 3}(3, [[-0.2195006863882988; 0.9591395877637782;;; 0.17402471639858452; 0.03982584514843954], [-0.9275232282831177 -0.3049043232084608; 0.014913950521060327 0.4866857142269568;;; -0.3721674234202067 0.7955460886893758; 0.0311391075640211 0.19307198146604115], [0.09982342349404644 -0.995005167887046; -0.995005167887046 -0.09982342349404644;;;]], (2, 2, 2), [1, 2, 2, 1], [0, -1, -1])
+Rank history: [2, 2, 2, 2, 2, 2, 2]</code></pre></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../">« TensorTrainNumerics.jl</a><a class="docs-footer-nextpage" href="../examples/">Examples »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.11.4 on <span class="colophon-date" title="Monday 2 June 2025 13:02">Monday 2 June 2025</span>. Using Julia version 1.11.5.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
