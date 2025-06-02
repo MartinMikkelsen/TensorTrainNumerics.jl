@@ -6,7 +6,6 @@
     - [Tensor Train Operator times Tensor Train Vector](#tensor-train-operator-and-tensor-train-vector)
     - [Tensor Train Operator times Tensor Train Operator](#tensor-train-operator-and-tensor-train-operator)
     - [Addition](#addition)
-    - [Dot Product](#dot-product)
     - [Concatenation](#concatenation)
     - [Matricization](#matricization)
     - [Visualization](#visualization)
@@ -77,19 +76,6 @@ result_add = tt_vec + tt_vec2
 
 # Visualize the result
 visualize(result_add)
-```
-
-
-## Dot Product
-
-To compute the dot product of two tensor train vectors, use the `dot` function.
-
-```@example 2
-# Compute the dot product
-result_dot = dot(tt_vec, tt_vec2)
-
-# Print the result
-println(result_dot)
 ```
 
 ## Concatenation

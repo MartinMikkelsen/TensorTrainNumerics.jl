@@ -196,6 +196,9 @@ function zeros_tt(n::Integer,d::Integer,r;ot=zeros(Int64,d),r_and_d=true)
 	return zeros_tt(Float64,dims,rks;ot=ot)
 end
 
+function zeros_tt(::Type{T}, dims::Vector{Int}, rks::Vector{Int}; ot=zeros(Int64, length(dims))) where T
+    return zeros_tt(T, Tuple(dims), Tuple(rks); ot=ot)
+end
 """
     ones_tt(dims)
 
