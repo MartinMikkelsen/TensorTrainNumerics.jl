@@ -4,7 +4,7 @@ import Base.+
 import Base.-
 import Base.*
 import Base./
-import LinearAlgebra.dot
+using LinearAlgebra
 
 """
     +(x::TTvector{T,N}, y::TTvector{T,N}) where {T<:Number, N}
@@ -375,3 +375,113 @@ function concatenate(tt::TTvector{T, N}, other::Union{TTvector{T}, Vector{Array{
     
     return tt_new
 end
+
+"""
+    TTdiag(x::TTvector{T,M}) where {T<:Number,M}
+
+Construct the diagonal TT‐matrix whose diagonal entries come from the TT‐vector `x`.
+Returns a `TToperator{T,M}` with each core of size (n_i, n_i, r_i, r_{i+1}).
+
+This matches MATLAB’s `[tm] = diag(tt)` in TT‐Toolbox.
+"""
+function TTdiag(x::TTvector{T,M}) where {T<:Number,M}
+    d      = x.N                              # number of dimensions (cores)
+    dims   = x.ttv_dims                       # (n₁, n₂, …, n_d)
+    rks    = x.ttv_rks                        # (r₀=1, r₁, …, r_d=1)
+    cores  = x.ttv_vec                        # Vector of length d, each core is Array{T,3} sized (n_i, r_i, r_{i+1})
+
+    new_rks = copy(rks)                       
+    new_ot  = zeros(Int, d)
+    new_cores = Vector{Array{T,4}}(undef, d)
+
+    for i in 1:d
+        ni  = dims[i]
+        ri  = rks[i]
+        rip = rks[i+1]
+        C = cores[i]
+        D = zeros(T, ni, ni, ri, rip)
+        @inbounds for s1 in 1:ri
+            for s2 in 1:rip
+                v = @view C[:, s1, s2]    
+                for j in 1:ni
+                    D[j, j, s1, s2] = v[j]
+                end
+            end
+        end
+        new_cores[i] = D
+    end
+
+    return TToperator{T,M}(d, new_cores, dims, new_rks, new_ot)
+end
+
+
+function permute(x::TTvector{T,N}, order::Vector{Int}, eps::Real) where {T<:Number,N}
+    d = x.N
+    cores = [copy(c) for c in x.ttv_vec]
+    dims = collect(x.ttv_dims)
+    rks = copy(x.ttv_rks)
+    idx = invperm(order)
+    ϵ = eps / d^1.5
+
+    for kk in d:-1:3
+        r_k, n_k, r_kp1 = rks[kk], dims[kk], rks[kk+1]
+        M = reshape(cores[kk], (r_k, n_k*r_kp1))'
+        F = qr(M)
+        Q = Matrix(F.Q)
+        R = F.R
+        tr = min(r_k, n_k*r_kp1)
+        cores[kk] = reshape(transpose(Q[:,1:tr]), (tr, n_k, r_kp1))
+        rks[kk] = tr
+        rkm1, n_km1 = rks[kk-1], dims[kk-1]
+        Mprev = reshape(cores[kk-1], (rkm1*n_km1, r_k))
+        cores[kk-1] = reshape(Mprev * R', (rkm1, n_km1, tr))
+    end
+
+    k = 1
+    while true
+        nk = k
+        while nk < d && idx[nk] < idx[nk+1]
+            nk += 1
+        end
+        if nk == d
+            break
+        end
+
+        for kk in k:(nk-1)
+            r_k, n_k, r_kp1 = rks[kk], dims[kk], rks[kk+1]
+            M = reshape(cores[kk], (r_k*n_k, r_kp1))
+            F = qr(M)
+            Q = Matrix(F.Q)
+            R = F.R
+            tr = min(r_k*n_k, r_kp1)
+            cores[kk] = reshape(Q[:,1:tr], (r_k, n_k, tr))
+            rks[kk+1] = tr
+            r_kp2 = rks[kk+2]
+            Mnext = reshape(cores[kk+1], (r_kp1, dims[kk+1]*r_kp2))
+            cores[kk+1] = reshape(R * Mnext, (tr, dims[kk+1], r_kp2))
+        end
+
+        k = nk
+        r_k, n_k, r_kp1, n_kp1, r_kp2 = rks[k], dims[k], rks[k+1], dims[k+1], rks[k+2]
+        C = reshape(reshape(cores[k], (r_k*n_k, r_kp1)) * reshape(cores[k+1], (r_kp1, n_kp1*r_kp2)),
+                    (r_k, n_k, n_kp1, r_kp2))
+        C = permutedims(C, (1,3,2,4))
+        M = reshape(C, (r_k * n_kp1, n_k * r_kp2))
+        F = svd(M; full = false)
+        s = F.S
+        thresh = norm(s) * ϵ
+        rnew = count(x->x > thresh, s)
+        rnew = max(rnew, 1)
+        U, V = F.U, F.Vt'
+        tmp = U * Diagonal(s)
+        cores[k]   = reshape(tmp[:,1:rnew], (r_k, n_kp1, rnew))
+        cores[k+1] = reshape(V[:,1:rnew]', (rnew, n_k, r_kp2))
+        rks[k+1] = rnew
+        idx[k], idx[k+1] = idx[k+1], idx[k]
+        dims[k], dims[k+1] = dims[k+1], dims[k]
+        k = max(k-1, 1)
+    end
+
+    return TTvector{T,N}(d, cores, Tuple(dims), rks, zeros(Int, N))
+end
+
