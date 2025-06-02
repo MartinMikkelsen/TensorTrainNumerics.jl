@@ -485,3 +485,22 @@ function permute(x::TTvector{T,N}, order::Vector{Int}, eps::Real) where {T<:Numb
     return TTvector{T,N}(d, cores, Tuple(dims), rks, zeros(Int, N))
 end
 
+function hadamard(a::TTvector{T,N}, b::TTvector{T,N}, eps::Real) where {T,N}
+    a.N == b.N || error("TTvector dimensions must match")
+    a.ttv_dims == b.ttv_dims || error("TTvector mode sizes must match")
+    d = a.N
+    result_cores = Vector{Array{T,3}}(undef, d)
+    for k in 1:d
+        # Each core: (n_k, r_k, r_{k+1})
+        core_a = a.ttv_vec[k]
+        core_b = b.ttv_vec[k]
+        # Hadamard product in TT: kron over ranks, elementwise over n_k
+        result_cores[k] = Array{T,3}(undef, a.ttv_dims[k], a.ttv_rks[k]*b.ttv_rks[k], a.ttv_rks[k+1]*b.ttv_rks[k+1])
+        for i in 1:a.ttv_dims[k]
+            result_cores[k][i, :, :] = kron(core_a[i, :, :], core_b[i, :, :])
+        end
+    end
+    result_rks = a.ttv_rks .* b.ttv_rks
+    return TTvector{T,N}(d, result_cores, a.ttv_dims, result_rks, zeros(Int, d))
+end
+
