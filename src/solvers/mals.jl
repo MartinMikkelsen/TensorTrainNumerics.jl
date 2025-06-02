@@ -1,5 +1,6 @@
 using IterativeSolvers
 using LinearMaps
+using LinearAlgebra
 
 """
 Implementation based on the presentation in 
@@ -33,7 +34,7 @@ function sv_trunc(s::Array{Float64},tol)
 		d = length(s)
 		i=0
 		weight = 0.0
-		norm2 = dot(s,s)
+		norm2 = sum(abs2, s)
 		while (i<d) && weight<tol*norm2
 			weight+=s[d-i]^2
 			i+=1
