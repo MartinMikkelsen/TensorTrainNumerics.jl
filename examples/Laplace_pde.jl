@@ -22,10 +22,6 @@ initial_guess = rand_tt(b.ttv_dims, b.ttv_rks)
 
 x_mals = mals_linsolv(A, b, initial_guess)
 x_dmrg = dmrg_linsolve(A, b, initial_guess)
-x_als = als_linsolv(A, b, initial_guess;
-                     sweep_count = 2,
-                     it_solver   = true,
-                     r_itsolver  = 5000)
 
 solution = reshape(qtt_to_function(x_mals), 2^cores, 2^cores)
 
@@ -36,4 +32,12 @@ hm = heatmap!(ax, xes, xes, solution; colormap = cmap)
 Colorbar(fig[1, 2], hm, label = "u(x, y)")
 fig
 
+function square_euclidean_distance(a::TTvector{T,N}, b::TTvector{T,N}) where {T<:Number,N}
+    @assert a.ttv_dims == b.ttv_dims "TT dimensions must match"
+    return dot(a, a) - 2 * real(dot(b, a)) + dot(b, b)
+end
 
+function square_euclidean_distance_normalized(a::TTvector{T,N}, b::TTvector{T,N}) where {T<:Number,N}
+    @assert a.ttv_dims == b.ttv_dims "TT dimensions must match"
+    return 1.0 + dot(a,a) / dot(b,b) - 2.0 * real(dot(b,a))/dot(b,b)
+end
