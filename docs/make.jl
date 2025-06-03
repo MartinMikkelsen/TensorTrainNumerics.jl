@@ -1,6 +1,9 @@
-using Documenter, TensorTrainNumerics
+using Documenter, DocumenterVitepress, TensorTrainNumerics
 
 makedocs(
+    format=DocumenterVitepress.MarkdownVitepress(
+        repo = "https://github.com/MartinMikkelsen/TensorTrainNumerics.jl", 
+    ),
     sitename = "TensorTrainNumerics",
     pages = [
         "index.md",
@@ -9,6 +12,7 @@ makedocs(
         "resources.md",
         "API.md"
         ]
+
 )
 
 deploydocs(
