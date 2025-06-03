@@ -149,3 +149,14 @@ function qtto_to_matrix(Aqtto::TToperator{T,d}) where {T,d}
   end
   return A 
 end
+
+function qtt_basis_vector(d, pos::Int, val::Number=1.0)
+    out = zeros_tt(2, d, 1)
+    bits = reverse(digits(pos - 1, base=2, pad=d))
+    for k in 1:d
+        out.ttv_vec[k][:,1,1] .= 0.0
+        out.ttv_vec[k][bits[k] + 1, 1, 1] = val
+        val = 1.0
+    end
+    return out
+end

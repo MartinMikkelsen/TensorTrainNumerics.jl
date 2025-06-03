@@ -518,21 +518,20 @@ Convert a TTvector (Tensor Train vector) to a full tensor.
 # Returns
 - A tensor of type `Array{T,N}` with the same dimensions as specified in `x_tt.ttv_dims`.
 """
-function ttv_to_tensor(x_tt :: TTvector{T,N}) where {T<:Number,N}
-	d = length(x_tt.ttv_dims)
-	r_max = maximum(x_tt.ttv_rks)
-	# Initialize the to be returned tensor
-	tensor = zeros(T, x_tt.ttv_dims)
-	# Fill in the tensor for every t=(x_1,...,x_d)
-	@simd for t in CartesianIndices(tensor)
-		curr = ones(T,r_max)
-		a = collect(Tuple(t))
-		for i = d:-1:1
-			curr[1:x_tt.ttv_rks[i]] = x_tt.ttv_vec[i][a[i],:,:]*curr[1:x_tt.ttv_rks[i+1]]
-		end
-		tensor[t] = curr[1]
-	end
-	return tensor
+function ttv_to_tensor(x_tt::TTvector{T,N}) where {T<:Number,N}
+    d = x_tt.N
+    tensor = zeros(T, x_tt.ttv_dims)
+    @simd for t in CartesianIndices(tensor)
+        # Start with the last core
+        i = d
+        curr = view(x_tt.ttv_vec[i], t[i], :, :)
+        # Contract backwards through the TT cores
+        for j = d-1:-1:1
+            curr = view(x_tt.ttv_vec[j], t[j], :, :) * curr
+        end
+        tensor[t] = curr[1,1]
+    end
+    return tensor
 end
 
 """

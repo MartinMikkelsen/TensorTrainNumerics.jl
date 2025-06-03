@@ -69,7 +69,7 @@ end
 
 function K_eigmin(Gi::Array{T,5},Hi::Array{T,3},ttv_vec::Array{T,3};it_solver=false,itslv_thresh=256::Int64,maxiter=200::Int64,tol=1e-6::Float64) where T<:Number
 	K_dims = (size(Gi,1),size(Gi,2),size(Hi,2))
-	if it_solver || prod(K_dims) > itslv_thresh
+	if it_solver && prod(K_dims) > itslv_thresh
 		H = zeros(T,prod(K_dims))
 		function K_matfree(V::AbstractArray{T,1};Gi=Gi::Array{T,5},Hi=Hi::Array{T,3},K_dims=K_dims,H=H::AbstractArray{T,1})
 			Hrshp = reshape(H,K_dims)
