@@ -45,7 +45,7 @@ function Amid(A_tto::TToperator{T},i::Int,j::Int) where {T<:Number}
 end
 
 #full assemble of matrix K
-function K_full(Gi::AbstractArray{T,3},Hi::AbstractArray{T,3},Amid_tensor::AbstractArray{T,4}) where {T<:Number,d}
+function K_full(Gi::AbstractArray{T,3},Hi::AbstractArray{T,3},Amid_tensor::AbstractArray{T,4}) where {T<:Number}
 	K_dims = (size(Gi,2),size(Amid_tensor,2),size(Hi,2))
 	K = zeros(T,K_dims...,K_dims...)
 	@tensoropt((a,c,d,f), K[a,b,c,d,e,f] = Gi[y,a,d]*Hi[z,c,f]*Amid_tensor[y,b,e,z]) #size (r^X_{i-1},n_i⋯n_j,r^X_j)

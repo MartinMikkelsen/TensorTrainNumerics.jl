@@ -174,8 +174,6 @@ function *(A::TToperator{T,N},B::TToperator{T,N}) where {T<:Number,N}
     return TToperator{T,N}(d,Y,A.tto_dims,A.tto_rks.*B.tto_rks,zeros(Int64,d))
 end
 
-*(A::TToperator{T,N},B...) where {T,N} = *(A,*(B...))
-
 function *(A::Array{TTvector{T,N},1},x::Vector{T}) where {T,N}
     out = x[1]*A[1]
     for i in 2:length(A)
