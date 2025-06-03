@@ -11,14 +11,14 @@ A = rand_tto(A_dims, 3)
 
 b = rand_tt(dims, rks)
 
-tt_opt = dmrg_linsolv(A, b, tt_start; sweep_count=2, N=2, tol=1e-12)
+tt_opt = dmrg_linsolve(A, b, tt_start; sweep_count=2, N=2, tol=1e-12)
 
 visualize(tt_opt)
 
 sweep_schedule = [2, 4]
 rmax_schedule = [2, 3]
 
-eigenvalues, tt_eigvec, r_hist = dmrg_eigsolv(A, tt_start; N=2, tol=1e-12, sweep_schedule=sweep_schedule, rmax_schedule=rmax_schedule)
+eigenvalues, tt_eigvec, r_hist = dmrg_eigsolve(A, tt_start; N=2, tol=1e-12, sweep_schedule=sweep_schedule, rmax_schedule=rmax_schedule)
 
 println("Lowest eigenvalue: ", eigenvalues[end])
 println("Corresponding eigenvector: ", tt_eigvec)

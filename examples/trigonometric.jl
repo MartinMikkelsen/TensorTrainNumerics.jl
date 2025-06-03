@@ -16,7 +16,7 @@ ax1 = Axis(fig[1, 2], title="Exp Approximation", xlabel="x", ylabel="f(x)")
 ax2 = Axis(fig[1, 1], title="Sin Approximation", xlabel="x", ylabel="f(x)")
 
 lines!(ax1, x_points, original_values_exponential, label="Exponential function")
-lines!(ax1, x_points, qtt_values, label="QTT exponential function", linestyle=:dash, color=:green)
+lines!(ax1, x_points, qtt_values_exponential, label="QTT exponential function", linestyle=:dash, color=:green)
 
 lines!(ax2, x_points, original_values_sin, label="Sine function")
 lines!(ax2, x_points, qtt_values_sin, label="QTT sine function", linestyle=:dash, color=:red)
