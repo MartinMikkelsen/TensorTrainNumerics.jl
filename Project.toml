@@ -16,7 +16,7 @@ TensorOperations = "6aa20fa7-93e2-5fca-9bc0-fbd0db3c71a2"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [compat]
-CairoMakie = "0.12.16"
+CairoMakie = "0.12.16, 0.13"
 FastGaussQuadrature = "1.0.2"
 IterativeSolvers = "0.9.4"
 KrylovKit = "0.6.1"
