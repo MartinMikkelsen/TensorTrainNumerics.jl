@@ -527,3 +527,13 @@ function kron(a::TTvector{T,d1}, b::TTvector{T,d2}) where {T,d1,d2}
 end
 
 ⊗(a::TTvector{T,d1}, b::TTvector{T,d2}) where {T,d1,d2} = kron(a, b)
+
+function euclidean_distance(a::TTvector{T,N}, b::TTvector{T,N}) where {T<:Number,N}
+    @assert a.ttv_dims == b.ttv_dims "TT dimensions must match"
+    return sqrt(dot(a, a) - 2 * real(dot(b, a)) + dot(b, b))
+end
+
+function euclidean_distance_normalized(a::TTvector{T,N}, b::TTvector{T,N}) where {T<:Number,N}
+    @assert a.ttv_dims == b.ttv_dims "TT dimensions must match"
+    return sqrt(1.0 + dot(a,a) / dot(b,b) - 2.0 * real(dot(b,a))/dot(b,b))
+end
