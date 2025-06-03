@@ -4,6 +4,8 @@ import Base.+
 import Base.-
 import Base.*
 import Base./
+import Base.kron
+import Base.⊗
 using LinearAlgebra
 
 """
@@ -504,3 +506,24 @@ function hadamard(a::TTvector{T,N}, b::TTvector{T,N}, eps::Real) where {T,N}
     return TTvector{T,N}(d, result_cores, a.ttv_dims, result_rks, zeros(Int, d))
 end
 
+function kron(A::TToperator{T,d1}, B::TToperator{T,d2}) where {T,d1,d2}
+    cores = vcat(A.tto_vec, B.tto_vec)
+    dims = (A.tto_dims..., B.tto_dims...)
+    rks = vcat(A.tto_rks[1:end-1], B.tto_rks)
+    ot = vcat(A.tto_ot, B.tto_ot)
+    TToperator{T, d1+d2}(d1+d2, cores, dims, rks, ot)
+end
+
+⊗(A::TToperator{T,d1}, B::TToperator{T,d2}) where {T,d1,d2} = kron(A, B)
+
+function kron(a::TTvector{T,d1}, b::TTvector{T,d2}) where {T,d1,d2}
+    TTvector{T, d1+d2}(
+        d1+d2,
+        vcat(a.ttv_vec, b.ttv_vec),
+        (a.ttv_dims..., b.ttv_dims...),
+        vcat(a.ttv_rks[1:end-1], b.ttv_rks),
+        vcat(a.ttv_ot, b.ttv_ot)
+    )
+end
+
+⊗(a::TTvector{T,d1}, b::TTvector{T,d2}) where {T,d1,d2} = kron(a, b)

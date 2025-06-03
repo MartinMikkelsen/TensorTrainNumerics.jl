@@ -456,3 +456,40 @@ end
         end
     end
 end
+
+@testset "toeplitz_to_qtto Tests" begin
+    α, β, γ = 2.0, -1.0, -1.0
+    d = 3
+
+    tt = toeplitz_to_qtto(α, β, γ, d)
+
+    # Check TT dimensions and ranks
+    @test tt.tto_dims == (2, 2, 2)
+    @test tt.tto_rks == [1, 3, 3, 1]
+
+    # Check first core
+    first_core = tt.tto_vec[1]
+    @test size(first_core) == (2, 2, 1, 3)
+    id = [1.0 0.0; 0.0 1.0]
+    J = [0.0 1.0; 0.0 0.0]
+    @test first_core[:, :, 1, 1] == id
+    @test first_core[:, :, 1, 2] == J'
+    @test first_core[:, :, 1, 3] == J
+
+    # Check middle core
+    middle_core = tt.tto_vec[2]
+    @test size(middle_core) == (2, 2, 3, 3)
+    # Check a few entries for correctness
+    @test middle_core[:, :, 1, 1] == id
+    @test middle_core[:, :, 1, 2] == J'
+    @test middle_core[:, :, 1, 3] == J
+    @test middle_core[:, :, 2, 2] == J
+    @test middle_core[:, :, 3, 3] == J'
+
+    # Check last core
+    last_core = tt.tto_vec[3]
+    @test size(last_core) == (2, 2, 3, 1)
+    @test last_core[:, :, 1, 1] == α * id + β * J + γ * J'
+    @test last_core[:, :, 2, 1] == γ * J
+    @test last_core[:, :, 3, 1] == β * J'
+end
