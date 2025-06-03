@@ -51,7 +51,7 @@ visualize(result_concat)</code></pre><pre class="documenter-example-output"><cod
 result_matrix = matricize(tt_vec)
 
 # Print the result
-println(result_matrix)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">[-0.5044477511673637, 2.0571439943591407, -0.12001641007876157, 0.5893149342439148, -1.1519060396575664, 4.8406239598289424, -0.3745436271329318, 1.6025789966811796]</code></pre><h2 id="Visualization"><a class="docs-heading-anchor" href="#Visualization">Visualization</a><a id="Visualization-1"></a><a class="docs-heading-anchor-permalink" href="#Visualization" title="Permalink"></a></h2><p>To visualize a tensor train vector or operator, use the <code>visualize</code> function.</p><pre><code class="language-julia hljs"># Visualize the TTvector
+println(result_matrix)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">[0.7023961251645633, -0.5808082548351184, -0.23400458552291398, 0.46537473248009553, -0.09419865011768838, -0.37586615677507335, -0.3536984168407455, -0.05926568336505277]</code></pre><h2 id="Visualization"><a class="docs-heading-anchor" href="#Visualization">Visualization</a><a id="Visualization-1"></a><a class="docs-heading-anchor-permalink" href="#Visualization" title="Permalink"></a></h2><p>To visualize a tensor train vector or operator, use the <code>visualize</code> function.</p><pre><code class="language-julia hljs"># Visualize the TTvector
 visualize(tt_vec)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi"> 1-- • -- 2-- • -- 2-- • -- 1
      |        |        |
      2        2        2</code></pre><h2 id="Tensor-Train-Decomposition"><a class="docs-heading-anchor" href="#Tensor-Train-Decomposition">Tensor Train Decomposition</a><a id="Tensor-Train-Decomposition-1"></a><a class="docs-heading-anchor-permalink" href="#Tensor-Train-Decomposition" title="Permalink"></a></h2><p>The <code>ttv_decomp</code> function performs a tensor train decomposition on a given tensor.</p><pre><code class="language-julia hljs">using TensorTrainNumerics
@@ -108,37 +108,37 @@ println(&quot;Corresponding eigenvector: &quot;, tt_eigvec)</code></pre><pre cla
 Forward sweep: core optimization 2 out of 3
 Backward sweep: core optimization 3 out of 3
 Backward sweep: core optimization 2 out of 3
-TTvector{Float64, 3}(3, [[0.28797977033558864; 0.6471334928117511;;; -0.5927171511641414; 0.07208035944925686], [-0.5391524035736914 -0.7287131147702975; 0.8201901798384527 -0.5519673553907332;;; 0.03038887563154754 0.3042947670647793; 0.18888957317736835 0.26779456619155406], [-0.6105199041365288 0.7920009132905866; 0.7920009132905866 0.610519904136529;;;]], (2, 2, 2), [1, 2, 2, 1], [0, 1, 1])
+TTvector{Float64, 3}(3, [[-1.2206580579174853; 0.9649502322612886;;; -0.06123587703535631; -1.0529891200914492], [-0.025174325952530108 -0.9991201972426925; 0.9980873890033474 -0.02336783841507839;;; 0.04791714766290167 -0.0342527717112105; -0.029862420952906598 0.006286749528173816], [-0.3548387158262529 0.9349275296785179; 0.9349275296785179 0.3548387158262527;;;]], (2, 2, 2), [1, 2, 2, 1], [0, 1, 1])
 Macro-iteration 1; bond dimension 2
 Forward sweep: core optimization 1 out of 2
-Eigenvalue: -1.7828947924449245
+Eigenvalue: -5.65096872552177
 Forward sweep: core optimization 2 out of 2
-Eigenvalue: -4.710616515133386
+Eigenvalue: -8.889864814037903
 Backward sweep: core optimization 1 out of 2
-Eigenvalue: -10.233361482733939
+Eigenvalue: -9.578532660726244
 Backward sweep: core optimization 2 out of 2
-Eigenvalue: -9.295791348133314
+Eigenvalue: -8.981960245357836
 Macro-iteration 2; bond dimension 2
 Forward sweep: core optimization 1 out of 2
-Eigenvalue: -6.414664910980477
+Eigenvalue: -6.608262310300091
 Forward sweep: core optimization 2 out of 2
-Eigenvalue: -9.159982119082807
+Eigenvalue: -8.985690036572164
 Backward sweep: core optimization 1 out of 2
-Eigenvalue: -9.641382630724289
+Eigenvalue: -9.64350816046103
 Backward sweep: core optimization 2 out of 2
-Eigenvalue: -6.415427237522622
+Eigenvalue: -8.994865342642305
 Macro-iteration 3; bond dimension 3
 Forward sweep: core optimization 1 out of 2
-Eigenvalue: -3.2294073318752687
+Eigenvalue: -6.726100407770688
 Forward sweep: core optimization 2 out of 2
-Eigenvalue: -6.4045646694664695
+Eigenvalue: -8.992695083315182
 Backward sweep: core optimization 1 out of 2
-Eigenvalue: -5.69178690527857
+Eigenvalue: -9.651081573682257
 Backward sweep: core optimization 2 out of 2
-Eigenvalue: -6.222286898796376
+Eigenvalue: -8.99456315650265
 Macro-iteration 4; bond dimension 3
-Lowest eigenvalue: -6.222286898796376
-Corresponding eigenvector: TTvector{Float64, 3}(3, [[-0.3533797499537684; -0.9353453565829245;;; 0.014643923023801587; -0.006113244625144652], [-0.9161400919740925 -0.3461478001793824; 0.3449696590663526 -0.483099145926148;;; 0.13789923696895687 -0.2603588128719976; 0.15055585888541625 -0.7609272003262108], [-0.8973088502699536 -0.44140324786663554; -0.44140324786663554 0.8973088502699533;;;]], (2, 2, 2), [1, 2, 2, 1], [0, 1, 1])</code></pre><h2 id="MALS"><a class="docs-heading-anchor" href="#MALS">MALS</a><a id="MALS-1"></a><a class="docs-heading-anchor-permalink" href="#MALS" title="Permalink"></a></h2><pre><code class="language-julia hljs">using TensorTrainNumerics
+Lowest eigenvalue: -8.99456315650265
+Corresponding eigenvector: TTvector{Float64, 3}(3, [[-0.520806335750206; 0.8061123783969895;;; -0.260302017591248; -0.10576603271144726], [-0.8363182293729867 -0.2568210074407194; 0.4675074609388274 -0.7232674873285518;;; -0.22085085051625664 -0.6344084436543524; -0.18230056228988767 0.09194040749659568], [-0.42129122118111195 0.9069254142186818; 0.9069254142186818 0.42129122118111184;;;]], (2, 2, 2), [1, 2, 2, 1], [0, 1, 1])</code></pre><h2 id="MALS"><a class="docs-heading-anchor" href="#MALS">MALS</a><a id="MALS-1"></a><a class="docs-heading-anchor-permalink" href="#MALS" title="Permalink"></a></h2><pre><code class="language-julia hljs">using TensorTrainNumerics
 
 dims = (2, 2, 2)
 rks = [1, 2, 2, 1]
@@ -178,61 +178,61 @@ Rank: 2,	Max rank=4
 Discarded weight: 0.0
 Rank: 2,	Max rank=4
 Discarded weight: 0.0
-TTvector{Float64, 3}(3, [[-17.525811578741305; -1.0997396841411688;;; -0.6786879668524124; 10.815793591283692], [-0.5598545675220856 0.6403369005870798; -0.5058806671105656 -0.7241751588258779;;; 0.13421675927323248 0.24787372067250818; 0.6423655309857614 -0.06401259005862925], [0.4523776462473137 0.891826477054668; 0.891826477054668 -0.4523776462473137;;;]], (2, 2, 2), [1, 2, 2, 1], [0, 1, 1])
+TTvector{Float64, 3}(3, [[-2.9602736308009954; 0.5574111111151155;;; 0.161490868118879; 0.8576383731409888], [0.2726684391833852 -0.6901863262274525; -0.052771330648130436 -0.4393923765176471;;; -0.5322559402019261 0.3616201605845545; 0.7997316569041681 0.44699891946807596], [-0.27384714423648676 0.9617732277379739; -0.9617732277379739 -0.27384714423648676;;;]], (2, 2, 2), [1, 2, 2, 1], [0, 1, 1])
 Macro-iteration 1; bond dimension 2
 Forward sweep: core optimization 1 out of 2
-Eigenvalue: -6.302520707396959
+Eigenvalue: -10.556132714653403
 Rank: 2,	Max rank=2
 Discarded weight: 0.0
 Forward sweep: core optimization 2 out of 2
-Eigenvalue: -4.660317790352191
+Eigenvalue: -12.306350568805344
 Rank: 2,	Max rank=2
 Discarded weight: 0.0
 Backward sweep: core optimization 1 out of 2
-Eigenvalue: -4.660317790352191
+Eigenvalue: -12.306350568805344
 Rank: 2,	Max rank=2
 Discarded weight: 0.0
 Backward sweep: core optimization 2 out of 2
-Eigenvalue: -6.684241359629166
+Eigenvalue: -10.206377537780607
 Rank: 2,	Max rank=2
 Discarded weight: 0.0
 Macro-iteration 2; bond dimension 2
 Forward sweep: core optimization 1 out of 2
-Eigenvalue: -6.684241359629166
+Eigenvalue: -10.206377537780607
 Rank: 2,	Max rank=3
 Discarded weight: 0.0
 Forward sweep: core optimization 2 out of 2
-Eigenvalue: -4.792228850650585
+Eigenvalue: -12.44833097328595
 Rank: 2,	Max rank=3
 Discarded weight: 0.0
 Backward sweep: core optimization 1 out of 2
-Eigenvalue: -4.792228850650585
+Eigenvalue: -12.44833097328595
 Rank: 2,	Max rank=3
 Discarded weight: 0.0
 Backward sweep: core optimization 2 out of 2
-Eigenvalue: -6.681144592297553
+Eigenvalue: -10.183052709273015
 Rank: 2,	Max rank=3
 Discarded weight: 0.0
 Macro-iteration 3; bond dimension 3
 Forward sweep: core optimization 1 out of 2
-Eigenvalue: -6.681144592297553
+Eigenvalue: -10.183052709273015
 Rank: 2,	Max rank=3
 Discarded weight: 0.0
 Forward sweep: core optimization 2 out of 2
-Eigenvalue: -4.791153607220401
+Eigenvalue: -12.45725217113748
 Rank: 2,	Max rank=3
 Discarded weight: 0.0
 Backward sweep: core optimization 1 out of 2
-Eigenvalue: -4.791153607220401
+Eigenvalue: -12.45725217113748
 Rank: 2,	Max rank=3
 Discarded weight: 0.0
 Backward sweep: core optimization 2 out of 2
-Eigenvalue: -6.681168591527324
+Eigenvalue: -10.181610134708558
 Rank: 2,	Max rank=3
 Discarded weight: 0.0
 Macro-iteration 4; bond dimension 3
-Lowest eigenvalue: -6.681168591527324
-Corresponding eigenvector: TTvector{Float64, 3}(3, [[-0.7426412634642844; 0.5987759084374401;;; 0.188250395285208; 0.23348052156454507], [0.7610281279573562 -0.49586872782249686; 0.6471774399364905 0.5386162183743565;;; -0.026142322159156062 -0.5564533143548562; -0.036250912914003404 -0.39289500253286647], [-0.9996283194606175 -0.02726211533138326; 0.02726211533138326 -0.9996283194606175;;;]], (2, 2, 2), [1, 2, 2, 1], [0, 1, 1])
+Lowest eigenvalue: -10.181610134708558
+Corresponding eigenvector: TTvector{Float64, 3}(3, [[-0.3558121964010568; 0.932240240509082;;; 0.06144735399425521; 0.02345287945925798], [0.48453801086350806 0.5684915783695075; 0.851841553231091 -0.13387377882051388;;; 0.04048851844583891 -0.13830079293198355; 0.19480647856613695 -0.7998550039486203], [0.22552322263609634 -0.9742377923545309; -0.9742377923545309 -0.22552322263609634;;;]], (2, 2, 2), [1, 2, 2, 1], [0, 1, 1])
 Rank history: [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2]</code></pre><h2 id="DMRG"><a class="docs-heading-anchor" href="#DMRG">DMRG</a><a id="DMRG-1"></a><a class="docs-heading-anchor-permalink" href="#DMRG" title="Permalink"></a></h2><pre><code class="language-julia hljs">using TensorTrainNumerics
 
 dims = (2, 2, 2)
@@ -276,38 +276,38 @@ Discarded weight: 0.0
 Macro-iteration 2; bond dimension 2
 Rank: 2,	Max rank=2
 Discarded weight: 0.0
-TTvector{Float64, 3}(3, [[-4.904609747979734; -3.13755325361426;;; -2.386090447789234; 3.7299263227827226], [0.015795356794189475 -0.23402682346270703; -0.6302473524421461 -0.2956079631750164;;; 0.6184244335007699 0.3539923469948163; 0.469137508085488 -0.8558836347755311], [0.2607670326873358 0.9654017581626013; 0.9654017581626013 -0.2607670326873358;;;]], (2, 2, 2), [1, 2, 2, 1], [0, -1, -1])
+TTvector{Float64, 3}(3, [[-12.765415574844035; 8.72594283266213;;; 1.039050939846736; 1.520055460474438], [0.5670774348347508 0.033178572835710185; 0.815558848507379 0.10416221201294797;;; -0.041074182944671994 -0.07308996711783612; -0.10770264164812389 0.9913159297619852], [-0.2859463134053168 -0.9582456396195647; -0.9582456396195647 0.2859463134053168;;;]], (2, 2, 2), [1, 2, 2, 1], [0, -1, -1])
 Macro-iteration 1; bond dimension 2
 Forward sweep: core optimization 1 out of 1
-Eigenvalue: -14.338685626534058
+Eigenvalue: -5.055935035252854
 Rank: 2,	Max rank=2
 Discarded weight: 0.0
 Backward sweep: core optimization 1 out of 1
-Eigenvalue: -13.262684423763744
+Eigenvalue: -4.462242793843992
 Rank: 2,	Max rank=2
 Discarded weight: 0.0
 Macro-iteration 2; bond dimension 2
 Forward sweep: core optimization 1 out of 1
-Eigenvalue: -15.091869488706877
+Eigenvalue: -3.7021267942429326
 Rank: 2,	Max rank=3
 Discarded weight: 0.0
 Backward sweep: core optimization 1 out of 1
-Eigenvalue: -13.23250060417279
+Eigenvalue: -4.4506706344878735
 Rank: 2,	Max rank=3
 Discarded weight: 0.0
 Macro-iteration 3; bond dimension 3
 Forward sweep: core optimization 1 out of 1
-Eigenvalue: -15.092555360778894
+Eigenvalue: -3.6940092364680766
 Rank: 2,	Max rank=3
 Discarded weight: 0.0
 Backward sweep: core optimization 1 out of 1
-Eigenvalue: -13.23239833336826
+Eigenvalue: -4.45100800534306
 Rank: 2,	Max rank=3
 Discarded weight: 0.0
 Macro-iteration 4; bond dimension 3
-Eigenvalue: -15.092557682357343
+Eigenvalue: -3.6942513279206253
 Rank: 2,	Max rank=3
 Discarded weight: 0.0
-Lowest eigenvalue: -15.092557682357343
-Corresponding eigenvector: TTvector{Float64, 3}(3, [[-0.2195006863882988; 0.9591395877637782;;; 0.17402471639858452; 0.03982584514843954], [-0.9275232282831177 -0.3049043232084608; 0.014913950521060327 0.4866857142269568;;; -0.3721674234202067 0.7955460886893758; 0.0311391075640211 0.19307198146604115], [0.09982342349404644 -0.995005167887046; -0.995005167887046 -0.09982342349404644;;;]], (2, 2, 2), [1, 2, 2, 1], [0, -1, -1])
-Rank history: [2, 2, 2, 2, 2, 2, 2]</code></pre></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../">« TensorTrainNumerics.jl</a><a class="docs-footer-nextpage" href="../examples/">Examples »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.11.4 on <span class="colophon-date" title="Monday 2 June 2025 13:02">Monday 2 June 2025</span>. Using Julia version 1.11.5.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+Lowest eigenvalue: -3.6942513279206253
+Corresponding eigenvector: TTvector{Float64, 3}(3, [[-0.3585582164968329; -0.9184807424385247;;; -0.15539912786554985; 0.06066499988306965], [0.45845421036956285 0.3708102374081099; 0.8835474981274275 -0.20071707134426525;;; 0.08408419201543513 0.4992277892336789; -0.04575373427705831 0.7569570922854054], [-0.7939397995504716 -0.6079963772011779; -0.6079963772011779 0.7939397995504716;;;]], (2, 2, 2), [1, 2, 2, 1], [0, -1, -1])
+Rank history: [2, 2, 2, 2, 2, 2, 2]</code></pre></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../">« TensorTrainNumerics.jl</a><a class="docs-footer-nextpage" href="../examples/">Examples »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.11.4 on <span class="colophon-date" title="Tuesday 3 June 2025 07:11">Tuesday 3 June 2025</span>. Using Julia version 1.11.5.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
