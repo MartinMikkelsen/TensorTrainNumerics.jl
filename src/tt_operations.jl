@@ -174,8 +174,6 @@ function *(A::TToperator{T,N},B::TToperator{T,N}) where {T<:Number,N}
     return TToperator{T,N}(d,Y,A.tto_dims,A.tto_rks.*B.tto_rks,zeros(Int64,d))
 end
 
-*(A::TToperator{T,N},B...) where {T,N} = *(A,*(B...))
-
 function *(A::Array{TTvector{T,N},1},x::Vector{T}) where {T,N}
     out = x[1]*A[1]
     for i in 2:length(A)
@@ -319,60 +317,42 @@ Concatenates a `TTvector` with another `TTvector` or a vector of 3-dimensional a
 - `ArgumentError`: If `other` is not of type `TTvector` or `Vector{Array{T, 3}}`.
 """
 function concatenate(tt::TTvector{T, N}, other::Union{TTvector{T}, Vector{Array{T, 3}}}, overwrite::Bool=false) where {T, N}
-    # Copy the TTvector if overwrite is false
     tt_base = overwrite ? tt : copy(tt)
-    
     if other isa TTvector{T}
-        # Check rank compatibility
         if last(tt_base.ttv_rks) != first(other.ttv_rks)
             throw(DimensionMismatch("Ranks do not match!"))
         end
-        # Concatenate cores
         new_vec = vcat(tt_base.ttv_vec, other.ttv_vec)
         
-        # Update dimensions
         new_dims = (tt_base.ttv_dims..., other.ttv_dims...)
         
-        # Update ranks, excluding the first rank of `other`
         new_rks = vcat(tt_base.ttv_rks[1:end-1], other.ttv_rks)
         
-        # Update orthogonality indicators
         new_ot = vcat(tt_base.ttv_ot, other.ttv_ot)
     elseif other isa Vector{Array{T, 3}}
-        # Ensure all cores are 3-dimensional tensors
         if any(ndims(core) != 3 for core in other)
             throw(DimensionMismatch("List elements must be 3-dimensional arrays"))
         end
         
-        # Check rank continuity across appended cores
         if any(size(other[i], 3) != size(other[i + 1], 2) for i in 1:length(other) - 1)
             throw(DimensionMismatch("Ranks in the provided cores list do not match"))
         end
         if last(tt_base.ttv_rks) != size(other[1], 2)
             throw(DimensionMismatch("Ranks do not match between `tt` and `other`"))
         end
-        
-        # Concatenate cores
+
         new_vec = vcat(tt_base.ttv_vec, other)
-        
-        # Update dimensions
         new_dims = (tt_base.ttv_dims..., [size(core, 1) for core in other]...)
-        
-        # Update ranks
         new_rks = vcat(tt_base.ttv_rks[1:end-1], [size(core, 2) for core in other], size(other[end], 3))
         
-        # Assuming orthogonality indicators are zeros for new cores
         new_ot = vcat(tt_base.ttv_ot, zeros(Int, length(other)))
     else
         throw(ArgumentError("Invalid type for `other`. Must be TTvector or Vector{Array{T, 3}}"))
     end
 
-    # Compute the new order
     N_new = length(new_dims)
-    # Ensure that N_new is an Int64
     @assert N_new isa Int64
     
-    # Create a new TTvector with updated parameters
 	tt_new = TTvector{T, N_new}(N_new, new_vec, Tuple(new_dims), new_rks, new_ot)
     
     return tt_new
@@ -527,3 +507,13 @@ function kron(a::TTvector{T,d1}, b::TTvector{T,d2}) where {T,d1,d2}
 end
 
 ⊗(a::TTvector{T,d1}, b::TTvector{T,d2}) where {T,d1,d2} = kron(a, b)
+
+function euclidean_distance(a::TTvector{T,N}, b::TTvector{T,N}) where {T<:Number,N}
+    @assert a.ttv_dims == b.ttv_dims "TT dimensions must match"
+    return sqrt(dot(a, a) - 2 * real(dot(b, a)) + dot(b, b))
+end
+
+function euclidean_distance_normalized(a::TTvector{T,N}, b::TTvector{T,N}) where {T<:Number,N}
+    @assert a.ttv_dims == b.ttv_dims "TT dimensions must match"
+    return sqrt(1.0 + dot(a,a) / dot(b,b) - 2.0 * real(dot(b,a))/dot(b,b))
+end

@@ -1,7 +1,5 @@
 using Test
 
-include("../src/tt_operators.jl")
-
 @testset "Laplacian Tests" begin
     @testset "Δ_DD Tests" begin
         @testset "n=5" begin

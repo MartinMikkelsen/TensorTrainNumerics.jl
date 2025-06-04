@@ -289,3 +289,14 @@ function toeplitz_to_qtto(α,β,γ,d)
   end
   return out
 end
+
+function P(d)
+    out = zeros_tto(Float64, ntuple(_->2, d), fill(2, d+1))
+    for j in 1:d
+        out.tto_vec[j][1,1,1,1] = 1.0
+        out.tto_vec[j][1,1,2,2] = 1.0
+        out.tto_vec[j][1,2,2,1] = 1.0
+        out.tto_vec[j][2,2,1,2] = 1.0
+    end
+    return out
+end

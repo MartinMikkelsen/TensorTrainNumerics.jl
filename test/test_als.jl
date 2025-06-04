@@ -1,5 +1,4 @@
 using Test
-using TensorTrainNumerics 
 using Random
 
 import TensorTrainNumerics: update_H!

@@ -1,5 +1,3 @@
-include("../src/tt_tools.jl")
-
 using Test
 
 @testset "TT constructors and properties" begin
@@ -209,10 +207,6 @@ end
     @test tt_concat.ttv_rks == vcat(tt1.ttv_rks[1:end-1], tt2.ttv_rks)
     @test tt_concat.ttv_ot == vcat(tt1.ttv_ot, tt2.ttv_ot)
 end
-
-include("../src/tt_tools.jl")
-
-using Test
 
 @testset "TT constructors and properties" begin
     # Test TTvector constructor

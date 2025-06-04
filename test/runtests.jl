@@ -1,6 +1,7 @@
 using Test
 using TensorTrainNumerics
 
+include("Aqua.jl")
 include("test_interpolations.jl")
 include("test_tt_tools.jl")
 include("test_tt_operations.jl")

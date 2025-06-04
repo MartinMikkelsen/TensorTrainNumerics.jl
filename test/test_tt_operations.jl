@@ -1,7 +1,5 @@
 using Test
-using TensorTrainNumerics
 using Random
-include("../src/tt_operations.jl")
 
 
 @testset "permute for TTvector" begin
