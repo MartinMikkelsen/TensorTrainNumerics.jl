@@ -209,5 +209,3 @@ function qtt_fft1(T::Type, d::Int; inverse::Bool=false)
 
     return TToperator{T, d}(d, cores, Tuple(dims), rks, zeros(Int, d))
 end
-
-F = qtt_fft1(ComplexF64, 4)

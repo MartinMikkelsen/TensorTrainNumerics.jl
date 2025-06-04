@@ -1,7 +1,5 @@
 using Test
 
-include("../src/tt_interpolations.jl")
-
 @testset "Node Generation Tests" begin
     @testset "Chebyshev Lobatto Nodes" begin
         nodes = chebyshev_lobatto_nodes(4)
