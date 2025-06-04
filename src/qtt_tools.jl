@@ -160,3 +160,54 @@ function qtt_basis_vector(d, pos::Int, val::Number=1.0)
     end
     return out
 end
+
+"""
+    qtt_fft1(T::Type, d::Int; inverse::Bool=false)
+
+Construct the 1D FFT operator in QTT (quantized tensor train) format for vectors of length 2^d.
+
+# Arguments
+- `T`: The element type (e.g., ComplexF64).
+- `d`: The number of QTT levels (so the FFT is of length 2^d).
+- `inverse`: If true, constructs the inverse FFT operator.
+
+# Returns
+- `TToperator{T, d}`: The QTT-format FFT operator.
+"""
+function qtt_fft1(T::Type, d::Int; inverse::Bool=false)
+    sign = inverse ? 1 : -1
+    W = [exp(sign * 2π * im / 2^k) for k in 1:d]
+
+
+    rks = [1; fill(2, d-1); 1]
+    dims = fill(2, d)
+    cores = Vector{Array{T,4}}(undef, d)
+
+    for k in 1:d
+        rk = rks[k]
+        rkp = rks[k+1]
+        core = zeros(T, 2, 2, rk, rkp)
+        for α in 1:rk
+            for β in 1:rkp
+                # Butterfly block
+                if rk == 1 && rkp == 2
+                    # First core
+                    core[:,:,α,β] = (1/sqrt(2)) * [1 1; 1 -1]
+                elseif rk == 2 && rkp == 2
+                    for i in 1:2, j in 1:2
+                        twiddle = (j == 2) ? W[k]^(α-1) : 1
+                        core[i,j,α,β] = (1/sqrt(2)) * (i == j ? 1 : (j == 2 ? twiddle : 0))
+                    end
+                elseif rk == 2 && rkp == 1
+                    # Last core
+                    core[:,:,α,β] = (1/sqrt(2)) * [1 1; 1 -1]
+                end
+            end
+        end
+        cores[k] = core
+    end
+
+    return TToperator{T, d}(d, cores, Tuple(dims), rks, zeros(Int, d))
+end
+
+F = qtt_fft1(ComplexF64, 4)
