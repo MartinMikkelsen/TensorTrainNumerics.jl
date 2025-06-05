@@ -7,7 +7,7 @@ using Test
     dims = (2, 2, 2)
     rks = [1, 2, 2, 1]
     ot = [0, 0, 0]
-    tt = TTvector{Float64, 3}(N, vec, dims, rks, ot)
+    tt = TTvector{Float64,3}(N, vec, dims, rks, ot)
     @test tt.N == N
     @test tt.ttv_vec == vec
     @test tt.ttv_dims == dims
@@ -20,7 +20,7 @@ using Test
     dims = (2, 2, 2)
     rks = [1, 2, 2, 1]
     ot = [0, 0, 0]
-    tto = TToperator{Float64, 3}(N, vec, dims, rks, ot)
+    tto = TToperator{Float64,3}(N, vec, dims, rks, ot)
     @test tto.N == N
     @test tto.tto_vec == vec
     @test tto.tto_dims == dims
@@ -50,7 +50,7 @@ end
     dims = (2, 2, 2)
     rks = [1, 2, 2, 1]
     ot = [0, 0, 0]
-    tt = TTvector{Float64, 3}(N, vec, dims, rks, ot)
+    tt = TTvector{Float64,3}(N, vec, dims, rks, ot)
     @test tt.N == N
     @test tt.ttv_vec == vec
     @test tt.ttv_dims == dims
@@ -63,7 +63,7 @@ end
     dims = (2, 2, 2)
     rks = [1, 2, 2, 1]
     ot = [0, 0, 0]
-    tto = TToperator{Float64, 3}(N, vec, dims, rks, ot)
+    tto = TToperator{Float64,3}(N, vec, dims, rks, ot)
     @test tto.N == N
     @test tto.tto_vec == vec
     @test tto.tto_dims == dims
@@ -93,7 +93,7 @@ end
     dims = (2, 2, 2)
     rks = [1, 2, 2, 1]
     ot = [0, 0, 0]
-    tt = TTvector{Float64, 3}(N, vec, dims, rks, ot)
+    tt = TTvector{Float64,3}(N, vec, dims, rks, ot)
     @test tt.N == N
     @test tt.ttv_vec == vec
     @test tt.ttv_dims == dims
@@ -106,7 +106,7 @@ end
     dims = (2, 2, 2)
     rks = [1, 2, 2, 1]
     ot = [0, 0, 0]
-    tto = TToperator{Float64, 3}(N, vec, dims, rks, ot)
+    tto = TToperator{Float64,3}(N, vec, dims, rks, ot)
     @test tto.N == N
     @test tto.tto_vec == vec
     @test tto.tto_dims == dims
@@ -135,7 +135,7 @@ end
     dims = (2, 2, 2)
     rks = [1, 2, 2, 1]
     ot = [0, 0, 0]
-    tt = TTvector{Float64, 3}(N, vec, dims, rks, ot)
+    tt = TTvector{Float64,3}(N, vec, dims, rks, ot)
     @test tt.N == N
     @test tt.ttv_vec == vec
     @test tt.ttv_dims == dims
@@ -148,7 +148,7 @@ end
     dims = (2, 2, 2)
     rks = [1, 2, 2, 1]
     ot = [0, 0, 0]
-    tto = TToperator{Float64, 3}(N, vec, dims, rks, ot)
+    tto = TToperator{Float64,3}(N, vec, dims, rks, ot)
     @test tto.N == N
     @test tto.tto_vec == vec
     @test tto.tto_dims == dims
@@ -215,7 +215,7 @@ end
     dims = (2, 2, 2)
     rks = [1, 2, 2, 1]
     ot = [0, 0, 0]
-    tt = TTvector{Float64, 3}(N, vec, dims, rks, ot)
+    tt = TTvector{Float64,3}(N, vec, dims, rks, ot)
     @test tt.N == N
     @test tt.ttv_vec == vec
     @test tt.ttv_dims == dims
@@ -228,7 +228,7 @@ end
     dims = (2, 2, 2)
     rks = [1, 2, 2, 1]
     ot = [0, 0, 0]
-    tto = TToperator{Float64, 3}(N, vec, dims, rks, ot)
+    tto = TToperator{Float64,3}(N, vec, dims, rks, ot)
     @test tto.N == N
     @test tto.tto_vec == vec
     @test tto.tto_dims == dims
@@ -279,35 +279,35 @@ end
     # Create a simple TTvector for testing
     N = 3
     dims = (2, 3, 4)
-    
+
     # Create cores with simple values
     r1 = 2
     r2 = 2
-    
+
     # Use simple values to make verification easier
     core1 = ones(Float64, 2, 1, r1)  # dim1 × rank0 × rank1
     core2 = ones(Float64, 3, r1, r2)  # dim2 × rank1 × rank2
     core3 = ones(Float64, 4, r2, 1)  # dim3 × rank2 × rank3
-    
+
     vec = [core1, core2, core3]
     rks = [1, r1, r2, 1]
     ot = [0, 0, 0]
-    
-    tt = TTvector{Float64, 3}(N, vec, dims, rks, ot)
-    
+
+    tt = TTvector{Float64,3}(N, vec, dims, rks, ot)
+
     # Test basic functionality
     result = matricize(tt)
-    
+
     # Check dimensions - should be (prod(dims),) since final rank is 1
     @test size(result) == (prod(dims),)
-    
+
     # For this simple case of all ones, all elements should be r1*r2 = 4
     @test all(result .== 4.0)
-    
+
     # Test error handling with incorrect core size
     bad_core1 = randn(3, 1, r1)  # Incorrect first dimension
     bad_vec = [bad_core1, core2, core3]
-    bad_tt = TTvector{Float64, 3}(N, bad_vec, dims, rks, ot)
-    
+    bad_tt = TTvector{Float64,3}(N, bad_vec, dims, rks, ot)
+
     @test_throws ErrorException matricize(bad_tt)
 end
