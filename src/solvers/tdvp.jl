@@ -9,7 +9,7 @@ Propagate `x` for a time step `dt` under the generator `A` using
 `KrylovKit.exponentiate`. The vector is reconstructed in tensor-train
 format after each step.
 """
-function tdvp_step(A::TToperator{T}, x::TTvector{T}, dt::Real; tol::Real=1e-12) where {T<:Number}
+function tdvp_step(A::TToperator{T}, x::TTvector{T}, dt::Real; tol::Real=1e-10) where {T<:Number}
     Amat = reshape(tto_to_tensor(A), prod(A.tto_dims), prod(A.tto_dims))
     linop = LinearMap(z -> Amat * z, prod(A.tto_dims))
     xvec = vec(ttv_to_tensor(x))
@@ -24,7 +24,7 @@ end
 Evolve `x` from `t=0` to `t_final` using uniform time steps of size `dt`.
 Returns the propagated tensor-train vector.
 """
-function tdvp_solve(A::TToperator{T}, x::TTvector{T}, t_final::Real; dt::Real=0.1, tol::Real=1e-12) where {T<:Number}
+function tdvp_solve(A::TToperator{T}, x::TTvector{T}, t_final::Real; dt::Real=0.1, tol::Real=1e-10) where {T<:Number}
     t = 0.0
     y = x
     while t < t_final - 1e-15
