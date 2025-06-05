@@ -13,7 +13,7 @@ function tdvp_step(A::TToperator{T}, x::TTvector{T}, dt::Real; tol::Real=1e-12) 
     Amat = reshape(tto_to_tensor(A), prod(A.tto_dims), prod(A.tto_dims))
     linop = LinearMap(z -> Amat * z, prod(A.tto_dims))
     xvec = vec(ttv_to_tensor(x))
-    yvec = KrylovKit.exponentiate(linop, dt, xvec)
+    yvec, _ = KrylovKit.exponentiate(linop, dt, xvec)
     ytensor = reshape(yvec, A.tto_dims)
     return ttv_decomp(ytensor; index=1, tol=tol)
 end
