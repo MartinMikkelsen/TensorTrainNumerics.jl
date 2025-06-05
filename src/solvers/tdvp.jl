@@ -11,7 +11,7 @@ format after each step.
 """
 function tdvp_step(A::TToperator{T}, x::TTvector{T}, dt::Real; tol::Real=1e-12) where {T<:Number}
     Amat = reshape(tto_to_tensor(A), prod(A.tto_dims), prod(A.tto_dims))
-    linop = LinearMap(z -> Amat * z, size(Amat))
+    linop = LinearMap(z -> Amat * z, prod(A.tto_dims))
     xvec = vec(ttv_to_tensor(x))
     yvec = KrylovKit.exponentiate(linop, xvec, dt)
     ytensor = reshape(yvec, A.tto_dims)
