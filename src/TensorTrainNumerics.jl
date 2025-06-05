@@ -15,6 +15,9 @@ include("solvers/mals.jl")
 export dmrg_linsolve, dmrg_eigsolve
 include("solvers/dmrg.jl")
 
+export tdvp_step, tdvp_solve
+include("solvers/tdvp.jl")
+
 export chebyshev_lobatto_nodes, equally_spaced_nodes, legendre_nodes, get_nodes, lagrange_basis, interpolating_qtt, lagrange_rank_revealing
 include("tt_interpolations.jl")
 
