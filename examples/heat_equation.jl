@@ -1,7 +1,7 @@
 using TensorTrainNumerics
 using CairoMakie
 
-cores = 12
+cores = 8
 
 x_points = collect(range(0.0, 1.0, length = 2^cores))
 
