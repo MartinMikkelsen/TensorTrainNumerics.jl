@@ -238,6 +238,19 @@ function dot_par(A::TTvector{T,N},B::TTvector{T,N}) where {T<:Number,N}
     return C[1]::T
 end
 
+function dot(A::TToperator{T,N}, B::TToperator{T,N}) where {T<:Number,N}
+    @assert A.tto_dims == B.tto_dims "TT dimensions are not compatible"
+    A_rks = A.tto_rks
+    B_rks = B.tto_rks
+    out = zeros(T, maximum(A_rks), maximum(B_rks))
+    out[1,1] = one(T)
+    @inbounds for k in eachindex(A.tto_dims)
+        M = @view(out[1:A_rks[k+1], 1:B_rks[k+1]])
+        @tensor M[a,b] = A.tto_vec[k][i,j,α,a] * conj(B.tto_vec[k][i,j,β,b]) * out[1:A_rks[k], 1:B_rks[k]][α,β]
+    end
+    return out[1,1]::T
+end
+
 function *(a::S,A::TTvector{R,N}) where {S<:Number,R<:Number,N}
     T = typejoin(typeof(a),R)
     if iszero(a)
@@ -269,6 +282,41 @@ end
 function /(A::TTvector,a)
     return 1/a*A
 end
+
+"""
+TTvector + constant
+"""
+function +(x::TTvector{T,N},y::S) where {T<:Number,S<:Number,N}
+    R = typejoin(T,S)
+    rks = x.ttv_rks .+ 1
+    rks[1],rks[end] = 1,1
+    out = zeros_tt(R,x.ttv_dims,rks)
+    out.ttv_vec[1][:,:,1:x.ttv_rks[2]] = x.ttv_vec[1]
+    out.ttv_vec[1][:,:,rks[2]] .= y
+    for k in 2:N-1
+        out.ttv_vec[k][:,1:x.ttv_rks[k],1:x.ttv_rks[k+1]] = x.ttv_vec[k]
+        out.ttv_vec[k][:,rks[k],rks[k+1]] .= 1
+    end
+    out.ttv_vec[N][:,1:x.ttv_rks[N],1:x.ttv_rks[N+1]] = x.ttv_vec[N]
+    out.ttv_vec[N][:,rks[N],rks[N+1]] .= 1
+    return out
+end
+
++(y::S,x::TTvector{T,N}) where {T<:Number,S<:Number,N} = x+y
+
+"""
+TTvector * constant
+"""
+function *(x::TTvector{T,N}, y::S) where {T<:Number, S<:Number, N}
+    R = typejoin(T, S)  # Determine the resulting type
+    out = zeros_tt(R, x.ttv_dims, x.ttv_rks)  # Create a new TTvector with the same structure
+    for k in 1:N
+        out.ttv_vec[k] .= x.ttv_vec[k] .* y  # Scale each core of the TTvector by the scalar
+    end
+    return out
+end
+
+*(y::S, x::TTvector{T,N}) where {T<:Number, S<:Number, N} = x * y
 
 """
     outer_product(x::TTvector{T,N}, y::TTvector{T,N}) where {T<:Number, N}
