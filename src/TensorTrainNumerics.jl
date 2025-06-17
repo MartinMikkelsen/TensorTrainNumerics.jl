@@ -3,7 +3,7 @@ module TensorTrainNumerics
 export TTvector,TToperator,QTTvector,QTToperator,ttv_decomp,tto_decomp,ttv_to_tensor,tto_to_tensor,zeros_tt,zeros_tto,rand_tt,rand_tto, is_qtt, is_qtt_operator,visualize,tt_svdvals, matricize, tt2qtt, concatenate, ones_tt, orthogonalize, id_tto
 include("tt_tools.jl")
 
-export *, +, dot, -, /, outer_product, concatenate, permute, hadamard, kron, ⊗, euclidean_distance, euclidean_distance_normalized, TTdiag
+export *, +, dot, -, /, outer_product, concatenate, permute, hadamard, kron, ⊗, euclidean_distance, euclidean_distance_normalized, TTdiag, norm
 include("tt_operations.jl")
 
 export als_linsolv, als_eigsolv, als_gen_eigsolv
@@ -23,5 +23,8 @@ include("tt_operators.jl")
 
 export index_to_point, tuple_to_index, function_to_tensor, tensor_to_grid, function_to_qtt, qtt_to_function, qtt_polynom, qtt_cos, qtt_sin, qtt_exp, qtto_to_matrix, qtt_basis_vector
 include("qtt_tools.jl")
+
+export euler_method, implicit_euler_method
+include("solvers/euler.jl")
 
 end

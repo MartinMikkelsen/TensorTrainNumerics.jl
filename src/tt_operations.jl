@@ -7,6 +7,7 @@ import Base./
 import Base.kron
 import Base.⊗
 using LinearAlgebra
+import LinearAlgebra: norm
 
 """
     +(x::TTvector{T,N}, y::TTvector{T,N}) where {T<:Number, N}
@@ -451,7 +452,7 @@ function permute(x::TTvector{T,N}, order::Vector{Int}, eps::Real) where {T<:Numb
         M = reshape(C, (r_k * n_kp1, n_k * r_kp2))
         F = svd(M; full = false)
         s = F.S
-        thresh = norm(s) * ϵ
+        thresh = maximum(s) * ϵ  
         rnew = count(x->x > thresh, s)
         rnew = max(rnew, 1)
         U, V = F.U, F.Vt'
@@ -516,4 +517,8 @@ end
 function euclidean_distance_normalized(a::TTvector{T,N}, b::TTvector{T,N}) where {T<:Number,N}
     @assert a.ttv_dims == b.ttv_dims "TT dimensions must match"
     return sqrt(1.0 + dot(a,a) / dot(b,b) - 2.0 * real(dot(b,a))/dot(b,b))
+end
+
+function norm(a::TTvector{T,N}) where {T<:Number,N}
+    return sqrt(dot(a, a))
 end
