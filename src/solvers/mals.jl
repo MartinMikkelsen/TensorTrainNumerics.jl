@@ -85,8 +85,6 @@ function left_core_move_mals(xtt::TTvector{T}, i::Integer, V::Array{T,4},
 	u_V, s_V, v_V = svd(reshape(V, prod(size(V)[1:2]), :))
 	s_trunc = sv_trunc(s_V, tol)
 	xtt.ttv_rks[i+1] = min(length(s_trunc), rmax)
-	println("Rank: $(xtt.ttv_rks[i+1]),\tMax rank = $rmax")
-	println("Discarded weight: $((norm(s_V) - norm(s_V[1:xtt.ttv_rks[i+1]])) / norm(s_V))")
 
 	# Update the (i+1)-th core from truncated V-matrix
 	xtt.ttv_vec[i+1] = permutedims(reshape(
@@ -109,8 +107,6 @@ function right_core_move_mals(xtt::TTvector{T}, i::Integer, V::Array{T,4},
 	u_V, s_V, v_V = svd(reshape(V, prod(size(V)[1:2]), :))
 	s_trunc = sv_trunc(s_V, tol)
 	xtt.ttv_rks[i+1] = min(length(s_trunc), rmax)
-	println("Rank: $(xtt.ttv_rks[i+1]),\tMax rank = $rmax")
-	println("Discarded weight: $((norm(s_V) - norm(s_V[1:xtt.ttv_rks[i+1]])) / norm(s_V))")
 
 	# Update the i-th core from truncated U
 	xtt.ttv_vec[i] = reshape(
@@ -188,7 +184,7 @@ end
 Returns the solution `tt_opt :: TTvector` of Ax=b using the MALS algorithm where A is given as `TToperator` and `b`, `tt_start` are `TTvector`.
 The ranks are adapted at each microstep by keeping the singular values larger than `tol`.
 """
-function mals_linsolv(A :: TToperator{T}, b :: TTvector{T},
+function mals_linsolve(A :: TToperator{T}, b :: TTvector{T},
                       tt_start :: TTvector{T};
                       tol::Float64 = 1e-12,
                       rmax::Int = round(Int, sqrt(prod(tt_start.ttv_dims)))) where {T<:Number}
@@ -263,7 +259,7 @@ Returns the list of the approximate smallest eigenvalue at each microstep, the c
 The ranks are adapted at each microstep by keeping the singular values larger than `tol`.
 The number of total sweeps is given by `sweep_schedule[end]`. The maximum rank is prescribed at each sweep `sweep_schedule[k] ≤ i < sweep_schedule[k+1]` by `rmax_schedule[k]`.
 """
-function mals_eigsolv(A :: TToperator{T}, tt_start :: TTvector{T};
+function mals_eigsolve(A :: TToperator{T}, tt_start :: TTvector{T};
                       tol::Float64 = 1e-12,
                       sweep_schedule::Vector{Int} = [2],
                       rmax_schedule::Vector{Int} = [round(Int, sqrt(prod(tt_start.ttv_dims)))],
@@ -297,7 +293,6 @@ function mals_eigsolv(A :: TToperator{T}, tt_start :: TTvector{T};
 	i_schedule = 1
 	while i_schedule <= length(sweep_schedule)
 		nsweeps += 1
-		println("Macro-iteration $nsweeps; bond dimension $(rmax_schedule[i_schedule])")
 
 		if nsweeps == sweep_schedule[i_schedule]
 			i_schedule += 1
@@ -308,14 +303,12 @@ function mals_eigsolv(A :: TToperator{T}, tt_start :: TTvector{T};
 
 		# First half sweep
 		for i in 1:(d-1)
-			println("Forward sweep: core optimization $i out of $(d-1)")
 			λ, V = K_eigmin_mals(G[i], H[i],
 			                    tt_opt.ttv_vec[i],
 			                    tt_opt.ttv_vec[i+1];
 			                    it_solver=it_solver,
 			                    maxiter=linsolv_maxiter,
 			                    tol=linsolv_tol)
-			println("Eigenvalue: $λ")
 			push!(E, λ)
 
 			tt_opt = right_core_move_mals(tt_opt, i, V, tol, rmax_schedule[i_schedule])
@@ -328,14 +321,12 @@ function mals_eigsolv(A :: TToperator{T}, tt_start :: TTvector{T};
 
 		# Second half sweep
 		for i in (d-1):-1:1
-			println("Backward sweep: core optimization $(d-i) out of $(d-1)")
 			λ, V = K_eigmin_mals(G[i], H[i],
 			                    tt_opt.ttv_vec[i],
 			                    tt_opt.ttv_vec[i+1];
 			                    it_solver=it_solver,
 			                    maxiter=linsolv_maxiter,
 			                    tol=linsolv_tol)
-			println("Eigenvalue: $λ")
 			push!(E, λ)
 
 			tt_opt = left_core_move_mals(tt_opt, i, V, tol, rmax_schedule[i_schedule])

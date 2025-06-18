@@ -139,7 +139,7 @@ Solve Ax=b using the ALS algorithm where A is given as `TToperator` and `b`, `tt
 The ranks of the solution is the same as `tt_start`.
 `sweep_count` is the number of total sweeps in the ALS.
 """
-function als_linsolv(A :: TToperator{T}, b :: TTvector{T}, tt_start :: TTvector{T} ;sweep_count=2,it_solver=false,r_itsolver=5000) where {T<:Number}
+function als_linsolve(A :: TToperator{T}, b :: TTvector{T}, tt_start :: TTvector{T} ;sweep_count=2,it_solver=false,r_itsolver=5000) where {T<:Number}
 	# als finds the minimum of the operator J:1/2*<Ax,Ax> - <x,b>
 	# input:
 	# 	A: the tensor operator in its tensor train format
@@ -179,7 +179,6 @@ function als_linsolv(A :: TToperator{T}, b :: TTvector{T}, tt_start :: TTvector{
 		nsweeps+=1
 		# First half sweep
 		for i = 1:(d-1)
-			println("Forward sweep: core optimization $i out of $d")
 			# Define V as solution of K*x=Pb in x
 			V = Ksolve(G[i],G_b[i],H[i],H_b[i])
 			tt_opt = right_core_move(tt_opt,V,i,rks)
@@ -194,11 +193,9 @@ function als_linsolv(A :: TToperator{T}, b :: TTvector{T}, tt_start :: TTvector{
 			nsweeps+=1
 			# Second half sweep
 			for i = d:(-1):2
-				println("Backward sweep: core optimization $i out of $d")
 				# Define V as solution of K*x=Pb in x
 				V = Ksolve(G[i],G_b[i],H[i],H_b[i])
 				tt_opt = left_core_move(tt_opt,V,i,rks)
-#				println(norm(tt_opt.ttv_vec[i-1]))
 				update_H!(tt_opt.ttv_vec[i],A.tto_vec[i],H[i],H[i-1])
 				update_Hb!(tt_opt.ttv_vec[i],b.ttv_vec[i],H_b[i],H_b[i-1])
 			end
@@ -212,7 +209,7 @@ Returns the lowest eigenvalue of A by minimizing the Rayleigh quotient in the AL
 
 The ranks can be increased in the course of the ALS: if `sweep_schedule[k] ≤ i <sweep_schedule[k+1]` is the current number of sweeps then the ranks is given by `rmax_schedule[k]`.
 """
-function als_eigsolv(A :: TToperator{T},
+function als_eigsolve(A :: TToperator{T},
 	 tt_start :: TTvector{T} ; #TT initial guess
 	 sweep_schedule=[2]::Array{Int64,1}, #Number of sweeps for each bond dimension in rmax_schedule
 	 rmax_schedule=[maximum(tt_start.ttv_rks)]::Array{Int64,1}, #bond dimension at each sweep
@@ -244,7 +241,6 @@ function als_eigsolv(A :: TToperator{T},
 	i_schedule,i_μit = 1,0
 	while i_schedule <= length(sweep_schedule) 
 		nsweeps+=1
-		println("Macro-iteration $nsweeps; bond dimension $(rmax_schedule[i_schedule])")
 		if nsweeps == sweep_schedule[i_schedule]
 			i_schedule+=1
 			if i_schedule > length(sweep_schedule)
@@ -262,11 +258,9 @@ function als_eigsolv(A :: TToperator{T},
 		end
 		# First half sweep
 		for i = 1:(d-1)
-			println("Forward sweep: core optimization $i out of $(d-1)")
 			# Define V as solution of K*x=Pb in x
 			i_μit += 1
 			E[i_μit],V = K_eigmin(G[i],H[i],tt_opt.ttv_vec[i];it_solver=it_solver,itslv_thresh=itslv_thresh,maxiter=maxiter,tol=linsolv_tol)
-			println("Eigenvalue: $(E[i_μit])")
 			tt_opt = right_core_move(tt_opt,V,i,tt_opt.ttv_rks)
 			#update G
 			update_G!(tt_opt.ttv_vec[i],A.tto_vec[i+1],G[i],G[i+1])
@@ -274,11 +268,9 @@ function als_eigsolv(A :: TToperator{T},
 
 		# Second half sweep
 		for i = d:(-1):2
-			println("Backward sweep: core optimization $(d+1-i) out of $(d-1)")
 			# Define V as solution of K*x=Pb in x
 			i_μit += 1
 			E[i_μit],V = K_eigmin(G[i],H[i],tt_opt.ttv_vec[i];it_solver=it_solver,itslv_thresh=itslv_thresh,maxiter=maxiter,tol=linsolv_tol)
-			println("Eigenvalue: $(E[i_μit])")
 			tt_opt = left_core_move(tt_opt,V,i,tt_opt.ttv_rks)
 			update_H!(tt_opt.ttv_vec[i],A.tto_vec[i],H[i],H[i-1])
 		end
@@ -337,14 +329,12 @@ function als_gen_eigsolv(A :: TToperator{T}, S::TToperator{T}, tt_start :: TTvec
 
 		# First half sweep
 		for i = 1:(d-1)
-			println("Forward sweep: core optimization $i out of $d")
 
 			# If i is the index of the core matrices do the optimization
 			if tt_opt.ttv_ot[i] == 0
 				# Define V as solution of K*x=Pb in x
 				i_μit += 1
 				E[i_μit],V = K_eiggenmin(G[i],H[i],K[i],L[i],tt_opt.ttv_vec[i];it_solver=it_solver,itslv_thresh=itslv_thresh)
-				println("Eigenvalue: $(E[i_μit])")
 				tt_opt = right_core_move(tt_opt,V,i,rks)
 			end
 
@@ -355,11 +345,9 @@ function als_gen_eigsolv(A :: TToperator{T}, S::TToperator{T}, tt_start :: TTvec
 
 		# Second half sweep
 		for i = d:(-1):2
-			println("Backward sweep: core optimization $i out of $d")
 			# Define V as solution of K*x=Pb in x
 			i_μit += 1
 			E[i_μit],V = K_eiggenmin(G[i],H[i],K[i],L[i],tt_opt.ttv_vec[i];it_solver=it_solver,itslv_thresh=itslv_thresh)
-			println("Eigenvalue: $(E[i_μit])")
 			tt_opt = left_core_move(tt_opt,V,i,rks)
 			update_H!(tt_opt.ttv_vec[i],A.tto_vec[i],H[i],H[i-1])
 			update_H!(tt_opt.ttv_vec[i],S.tto_vec[i],L[i],L[i-1])
