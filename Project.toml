@@ -1,7 +1,7 @@
 name = "TensorTrainNumerics"
 uuid = "304e70ee-b558-420e-aed5-de4d05b6ca2b"
 authors = ["Martin Mikkelsen"]
-version = "1.0.0"
+version = "1.0.1"
 
 [deps]
 FastGaussQuadrature = "442a2c76-b920-505d-bb47-c5924d526838"
