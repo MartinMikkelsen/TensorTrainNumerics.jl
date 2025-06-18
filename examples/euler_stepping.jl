@@ -3,10 +3,14 @@ using CairoMakie
 
 cores = 8
 h = 1/cores^2
-A = h^2*toeplitz_to_qtto(-2,1.0,1.0,cores)
+Δ = h^2*toeplitz_to_qtto(-2,1.0,1.0,cores)
+A = Δ ⊗ id_tto(cores) + id_tto(cores) ⊗ Δ
+
+b = qtt_cos(cores) ⊗ qtt_basis_vector(cores, 1) + qtt_sin(cores) ⊗ qtt_basis_vector(cores, 2^cores) 
+
 xes = collect(range(0.0, 1.0, 2^cores))
 
-u₀ = qtt_sin(cores,λ=π)
+u₀ = qtt_sin(2*cores,λ=π)
 init = rand_tt(u₀.ttv_dims, u₀.ttv_rks)
 steps = collect(range(0.0,10.0,1000))
 solution_explicit, error_explicit = euler_method(A, u₀, steps; return_error=true)

@@ -244,7 +244,7 @@ A = rand_tto(A_dims, 3)
 b = rand_tt(dims, rks)
 
 # Solve the linear system Ax = b using the DMRG algorithm
-tt_opt = dmrg_linsolvee(A, b, tt_start; sweep_count=2, N=2, tol=1e-12)
+tt_opt = dmrg_linsolve(A, b, tt_start; sweep_count=2, N=2, tol=1e-12)
 
 # Print the optimized TTvector
 println(tt_opt)

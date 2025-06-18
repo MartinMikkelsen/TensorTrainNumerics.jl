@@ -42,7 +42,7 @@ initial_guess = rand_tt(b.ttv_dims, b.ttv_rks)
 ```
 We solve the linear system using DMRG
 ```@example Laplace
-x_dmrg = dmrg_linsolvee(A, b, initial_guess; sweep_count=50,tol=1e-15)
+x_dmrg = dmrg_linsolve(A, b, initial_guess; sweep_count=50,tol=1e-15)
 ```
 And we reshape the solution to a 2D array for visualization
 ```@example Laplace
