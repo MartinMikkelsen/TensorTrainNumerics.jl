@@ -346,7 +346,7 @@ Solve Ax=b using the ALS algorithm where A is given as `TToperator` and `b`, `tt
 The ranks of the solution is the same as `tt_start`.
 `sweep_count` is the number of total sweeps in the ALS.
 """
-function dmrg_linsolve(A :: TToperator{T}, b :: TTvector{T}, tt_start :: TTvector{T};sweep_count=2,N=2,tol=1e-12::Float64,
+function dmrg_linsolvee(A :: TToperator{T}, b :: TTvector{T}, tt_start :: TTvector{T};sweep_count=2,N=2,tol=1e-12::Float64,
 	sweep_schedule=[2]::Array{Int64,1}, #Number of sweeps for each bond dimension in rmax_schedule
 	rmax_schedule=[isqrt(prod(tt_start.ttv_dims))]::Array{Int64,1}, #maximum rank in sweep_schedule
 	it_solver=true,
@@ -381,7 +381,6 @@ function dmrg_linsolve(A :: TToperator{T}, b :: TTvector{T}, tt_start :: TTvecto
 	i_schedule = 1
 	while i_schedule <= length(sweep_schedule) 
 		nsweeps+=1
-		println("Macro-iteration $nsweeps; bond dimension $(rmax_schedule[i_schedule])")
 		if nsweeps == sweep_schedule[i_schedule]
 			i_schedule+=1
 			if i_schedule > length(sweep_schedule)
@@ -401,12 +400,10 @@ function dmrg_linsolve(A :: TToperator{T}, b :: TTvector{T}, tt_start :: TTvecto
 		end
 		# First half sweep
 		for i = 1:d-N
-			println("Forward sweep: core optimization $i out of $(d+1-N)")
 			Gi_view,Hi_view,V_view = update_G_H_V(G[i],H[i],V,tt_opt.ttv_dims,tt_opt.ttv_rks,i,N)
 			G_bi_view, H_bi_view, Pb_view = update_G_H_V_b(G_b[i],H_b[i],Pb_temp,tt_opt.ttv_dims,tt_opt.ttv_rks,i,N)
 			# Define V as solution of K*x=Pb in x
 			Ksolve!(Gi_view,G_bi_view,Hi_view,H_bi_view,Amid_list[i],bmid_list[i],Pb_view,V0_view, V_view;it_solver=it_solver,maxiter=linsolv_maxiter,tol=linsolv_tol,itslv_thresh=itslv_thresh)
-			println("solved")
 
 			#Update TT core i and the next initialization
 			V0_view = update_right(tt_opt,V0,V_view,V_move,V_temp,i,N,tol,rmax_schedule[i_schedule],A.tto_vec[i],Gi_view,G[i+1])
@@ -417,7 +414,6 @@ function dmrg_linsolve(A :: TToperator{T}, b :: TTvector{T}, tt_start :: TTvecto
 
 		# Second half sweep
 		for i = (d+1-N):(-1):2
-			println("Backward sweep: core optimization $i out of $(d+1-N)")
 			# Define V as solution of K*x=Pb in x
 			Gi_view,Hi_view,V_view = update_G_H_V(G[i],H[i],V,tt_opt.ttv_dims,tt_opt.ttv_rks,i,N)
 			G_bi_view, H_bi_view, Pb_view = update_G_H_V_b(G_b[i],H_b[i],Pb_temp,tt_opt.ttv_dims,tt_opt.ttv_rks,i,N)
@@ -468,7 +464,6 @@ function dmrg_eigsolve(A :: TToperator{T},
 	i_schedule = 1
 	while i_schedule <= length(sweep_schedule) 
 		nsweeps+=1
-		println("Macro-iteration $nsweeps; bond dimension $(rmax_schedule[i_schedule])")
 
 		if nsweeps == sweep_schedule[i_schedule]
 			i_schedule+=1
@@ -476,7 +471,6 @@ function dmrg_eigsolve(A :: TToperator{T},
 				#last step to complete the sweep
 				Gi_view,Hi_view,V_view = update_G_H_V(G[1],H[1],V,tt_opt.ttv_dims,tt_opt.ttv_rks,1,N)
 				λ = K_eigmin(G[1],H[1],V0_view ,Amid_list[1], V_view ;it_solver=it_solver,maxiter=linsolv_maxiter,tol=linsolv_tol,itslv_thresh=itslv_thresh)
-				println("Eigenvalue: $λ")
 				push!(E,λ)
 				push!(r_hist,maximum(tt_opt.ttv_rks))
 				for i in N:-1:2
@@ -491,11 +485,9 @@ function dmrg_eigsolve(A :: TToperator{T},
 		end
 		# First half sweep
 		for i = 1:(d-N)
-			println("Forward sweep: core optimization $i out of $(d-N)")
 			# Define V as solution of K V= λ V for smallest λ
 			Gi_view,Hi_view,V_view = update_G_H_V(G[i],H[i],V,tt_opt.ttv_dims,tt_opt.ttv_rks,i,N)
 			λ = K_eigmin(Gi_view,Hi_view,V0_view, Amid_list[i],V_view; it_solver=it_solver, maxiter=linsolv_maxiter,tol=linsolv_tol,itslv_thresh=itslv_thresh)
-			println("Eigenvalue: $λ")
 			push!(E,λ)
 			#Update TT core i and the next initialization
 			V0_view = update_right(tt_opt,V0,V_view,V_move,V_temp,i,N,tol,rmax_schedule[i_schedule],A.tto_vec[i],Gi_view,G[i+1])
@@ -504,11 +496,9 @@ function dmrg_eigsolve(A :: TToperator{T},
 
 		# Second half sweep
 		for i = d-N+1:(-1):2
-			println("Backward sweep: core optimization $(i-1) out of $(d-N)")
 			# Define V as solution of K*x=P2b in x
 			Gi_view,Hi_view,V_view = update_G_H_V(G[i],H[i],V,tt_opt.ttv_dims,tt_opt.ttv_rks,i,N)
 			λ = K_eigmin(Gi_view,Hi_view,V0_view,Amid_list[i],V_view ;it_solver=it_solver,maxiter=linsolv_maxiter,tol=linsolv_tol,itslv_thresh=itslv_thresh)
-			println("Eigenvalue: $λ")
 			push!(E,λ)
 			#update the initialization
 			V0_view = update_left(tt_opt,V0,V_view,V_move,V_temp,i,N,tol,rmax_schedule[i_schedule],A.tto_vec[i+N-1],Hi_view,H[i-1])
@@ -570,14 +560,12 @@ function dmrg_gen_eigsolv(A :: TToperator{T}, S::TToperator{T}, tt_start :: TTve
 
 		# First half sweep
 		for i = 1:(d-1)
-			println("Forward sweep: core optimization $i out of $d")
 
 			# If i is the index of the core matrices do the optimization
 			if tt_opt.ttv_ot[i] == 0
 				# Define V as solution of K*x=Pb in x
 				i_μit += 1
 				E[i_μit],V = K_eiggenmin(G[i],H[i],K[i],L[i],tt_opt.ttv_vec[i];it_solver=it_solver,itslv_thresh=itslv_thresh)
-				println("Eigenvalue: $(E[i_μit])")
 				tt_opt = right_core_move(tt_opt,V,i,rks)
 			end
 
@@ -588,11 +576,9 @@ function dmrg_gen_eigsolv(A :: TToperator{T}, S::TToperator{T}, tt_start :: TTve
 
 		# Second half sweep
 		for i = d:(-1):2
-			println("Backward sweep: core optimization $i out of $d")
 			# Define V as solution of K*x=Pb in x
 			i_μit += 1
 			E[i_μit],V = K_eiggenmin(G[i],H[i],K[i],L[i],tt_opt.ttv_vec[i];it_solver=it_solver,itslv_thresh=itslv_thresh)
-			println("Eigenvalue: $(E[i_μit])")
 			tt_opt = left_core_move(tt_opt,V,i,rks)
 			update_H!(tt_opt.ttv_vec[i],A.tto_vec[i],H[i],H[i-1])
 			update_H!(tt_opt.ttv_vec[i],S.tto_vec[i],L[i],L[i-1])
