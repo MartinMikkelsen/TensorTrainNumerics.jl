@@ -290,7 +290,7 @@ function toeplitz_to_qtto(α,β,γ,d)
   return out
 end
 
-function P(d)
+function qtto_prolongation(d)
     out = zeros_tto(Float64, ntuple(_->2, d), fill(2, d+1))
     for j in 1:d
         out.tto_vec[j][1,1,1,1] = 1.0
