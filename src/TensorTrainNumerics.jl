@@ -18,6 +18,9 @@ include("solvers/dmrg.jl")
 export chebyshev_lobatto_nodes, equally_spaced_nodes, legendre_nodes, get_nodes, lagrange_basis, interpolating_qtt, lagrange_rank_revealing
 include("tt_interpolations.jl")
 
+export integrating_qtt
+include("tt_integration.jl")
+
 export Δ_DD, Δ_NN, Δ_DN, Δ_ND, Δ_Periodic, Δ_tto, QTT_Tridiagonal_Toeplitz, ∇_DD, ∇_tto, Jacobian_tto, shift_tto, toeplitz_to_qtto
 include("tt_operators.jl")
 

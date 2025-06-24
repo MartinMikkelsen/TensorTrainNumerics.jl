@@ -170,36 +170,3 @@ function build_rhs_source_block(
 
     return rhs
 end
-
-cores = 6
-h = 1/cores^2
-Δ = h^2*toeplitz_to_qtto(-2,1.0,1.0,cores)
-
-xes = collect(range(0.0, 1.0, 2^cores))
-
-u₀ = qtt_sin(cores,λ=π)
-
-init = rand_tt(u₀.ttv_dims, u₀.ttv_rks)
-steps = collect(range(0.1,10.0,15))
-
-Q = build_block_operator(Δ, steps)
-
-rhs = build_rhs_block(Δ, u₀, steps)
-init2 = rand_tt(rhs.ttv_dims, rhs.ttv_rks)
-
-N_t = length(steps)
-τ   = steps[1]   # uniform
-fs = Vector{TTvector{Float64,cores}}(undef, N_t+1)
-for k in 0:N_t
-    t = k*τ
-    fs[k+1] = exp(-t)*qtt_sin(cores, λ=π)
-end
-fs
-
-QQQQ = build_rhs_source_block(fs, steps)
-
-rhs2 = rhs +QQQQ
-
-solution = mals_linsolve(Q, rhs2, init2)
-sol = qtt_to_function(solution)
-
