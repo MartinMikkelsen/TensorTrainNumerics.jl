@@ -64,17 +64,35 @@ let
     display(fig)
 end
 
-h(x) = sqrt(1-x^2)
+h(x;ν=2.0) = 2*(x/2)^ν/(sqrt(π)*gamma(ν+0.5))
 
 d = 8
 
 Q = function_to_qtt(h, d; a=-1, b=1)
+P = function_to_qtt(g,d; a=-1, b=1)
+  
+dot(Q,P)
 
+function integrant(x; ν=2.0, d=8)
+  # 1) f-TT on [0,1]
+  fqtt = function_to_qtt(t -> (1 - t^2)^(ν - 0.5) * sin(x*t), d; a=0, b=1)
+
+  # 2) weight-TT via trapezoid
+  h = 1/(2^d - 1)
+  wqtt = function_to_qtt(t -> (isapprox(t,0) || isapprox(t,1) ? h/2 : h), d; a=0, b=1)
+
+  # 3) QTT inner product ≃ ∫₀¹ f(t) dt
+  return dot(wqtt, fqtt)
+end
+
+Q_test = [h(xs).*integrant(xs) for xs in collect(range(-5, 5, 2^8))]
+
+using Struve
 let
     fig = Figure()
-    xes = collect(range(-1, 1, 2^8))
+    xes = collect(range(-5, 5, 2^8))
     ax = Axis(fig[1, 1], xlabel = "x", ylabel = "u(x)", title = "Comparison of Time-Stepping Methods")
-    lines!(ax, xes, qtt_to_function(Q), label = "Explicit Euler", linestyle = :solid, linewidth=3)
-    lines!(ax, xes, h.(xes), label = "Explicit Euler", linestyle = :dash, linewidth=3)
+    lines!(ax, xes, Q_test, label = "Explicit Euler", linestyle = :solid, linewidth=3)
+    lines!(ax, xes, struveh.(2,xes), label = "Explicit Euler", linestyle = :dash, linewidth=3)
     display(fig)
 end
