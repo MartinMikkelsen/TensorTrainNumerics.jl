@@ -1,81 +1,5 @@
 using Test
 
-# Test for index_to_point
-@testset "index_to_point" begin
-    # 1D case
-    @test isapprox(index_to_point((1,)), 0.0)
-    @test isapprox(index_to_point((2,)), 1.0)
-    # 2D case
-    @test isapprox(index_to_point((1,1)), 0.0)
-    @test isapprox(index_to_point((2,2)), 1.0)
-    # 3D case
-    @test isapprox(index_to_point((1,1,1)), 0.0)
-    @test isapprox(index_to_point((2,2,2)), 1.0)
-end
-
-# Test for tuple_to_index
-@testset "tuple_to_index" begin
-    # 1D case
-    @test tuple_to_index((1,)) == 1
-    @test tuple_to_index((2,)) == 2
-    # 2D case
-    @test tuple_to_index((1,1)) == 1
-    @test tuple_to_index((1,2)) == 2
-    @test tuple_to_index((2,1)) == 3
-    @test tuple_to_index((2,2)) == 4
-    # 3D case
-    @test tuple_to_index((1,1,1)) == 1
-    @test tuple_to_index((1,1,2)) == 2
-    @test tuple_to_index((1,2,1)) == 3
-    @test tuple_to_index((2,1,1)) == 5
-    @test tuple_to_index((2,2,2)) == 8
-end
-# Tests for function_to_tensor
-@testset "function_to_tensor" begin
-    # 1D: f(x) = x
-    f1(x) = x
-    tensor1 = function_to_tensor(f1, 1; a=0.0, b=1.0)
-    @test size(tensor1) == (2,)
-    @test isapprox(tensor1[1], 0.0)
-    @test isapprox(tensor1[2], 1.0)
-
-    # 2D: f(x) = x
-    f2(x) = x
-    tensor2 = function_to_tensor(f2, 2; a=0.0, b=1.0)
-    @test size(tensor2) == (2,2)
-    @test isapprox(tensor2[1,1], 0.0)
-    @test isapprox(tensor2[2,2], 1.0)
-
-    # 2D: f(x) = x^2
-    f3(x) = x^2
-    tensor3 = function_to_tensor(f3, 2; a=0.0, b=1.0)
-    @test isapprox(tensor3[1,1], 0.0)
-    @test isapprox(tensor3[2,2], 1.0)
-end
-
-# Tests for tensor_to_grid
-@testset "tensor_to_grid" begin
-    # 1D
-    tensor1 = [10.0, 20.0]
-    grid1 = tensor_to_grid(tensor1)
-    @test grid1 == [10.0, 20.0]
-
-    # 2D
-    tensor2 = [1.0 2.0; 3.0 4.0]
-    grid2 = tensor_to_grid(tensor2)
-    # tuple_to_index((1,1))=1, (1,2)=2, (2,1)=3, (2,2)=4
-    @test grid2 == [1.0, 2.0, 3.0, 4.0]
-
-    tensor3 = reshape(1:8, 2,2,2)
-    grid3 = tensor_to_grid(tensor3)
-    # Build expected output using tuple_to_index
-    expected3 = zeros(8)
-    for t in CartesianIndices(tensor3)
-        expected3[tuple_to_index(Tuple(t))] = tensor3[t]
-    end
-    @test grid3 == expected3
-end
-
 
 
 @testset "qtt_polynom" begin
@@ -145,3 +69,107 @@ end
     t₁ = a + h * 2^(d-1)
     @test isapprox(tt.ttv_vec[1][2,1,1], exp(α * t₁ + β))
 end
+
+@testset "index_to_point" begin
+    # For d=3, t = (1,1,1) should map to 0.0
+    t = (1, 1, 1)
+    @test isapprox(index_to_point(t; L=1.0), 0.0)
+    # For d=3, t = (2,2,2) should map to 1.0
+    t = (2, 2, 2)
+    @test isapprox(index_to_point(t; L=1.0), 1.0)
+    # For d=2, t = (1,2)
+    t = (1, 2)
+    @test isapprox(index_to_point(t; L=1.0), 1/3)
+end
+
+@testset "tuple_to_index" begin
+    # For d=3, t = (1,1,1) should map to 1
+    t = (1, 1, 1)
+    @test tuple_to_index(t) == 1
+    # For d=3, t = (2,2,2) should map to 8
+    t = (2, 2, 2)
+    @test tuple_to_index(t) == 8
+    # For d=2, t = (2,1)
+    t = (2, 1)
+    @test tuple_to_index(t) == 3
+end
+
+@testset "function_to_tensor" begin
+    f(x) = 2x
+    d = 2
+    T = function_to_tensor(f, d; a=0.0, b=1.0)
+    @test size(T) == (2, 2)
+    xs = collect(range(0.0, stop=1.0, length=4))
+    expected = reshape(f.(xs), 2, 2)
+    @test isapprox.(T, expected) |> all
+end
+
+@testset "tensor_to_grid" begin
+    T = [1.0 2.0; 3.0 4.0]
+    v = tensor_to_grid(T)
+    @test v == [1.0, 3.0, 2.0, 4.0]
+    # Test with 3D tensor
+    T3 = reshape(1:8, 2, 2, 2)
+    v3 = tensor_to_grid(T3)
+    @test v3 == collect(1:8)
+end
+
+@testset "x^2" begin
+    h(x) = (x^2)
+    d = 8
+    Q = function_to_qtt(h, d; a=-1, b=1)
+    A = qtt_to_function(Q)
+    xs = collect(range(-1.0, 1.0, length=2^d))
+    expected = h.(xs)
+    @test isapprox.(A, expected) |> all
+end 
+
+@testset "Weird function" begin
+    h(x) = sin(x^3.5) + cos(x^3.5) + x^1.3
+    d = 8
+    Q = function_to_qtt(h, d; a=0.0, b=7.3)
+    A = qtt_to_function(Q)
+    xs = collect(range(0.0, 7.3, length=2^d))
+    expected = h.(xs)
+    @test isapprox.(A, expected) |> all
+end 
+
+@testset "Polynomial function" begin
+    h(x) = x^4 - 2x^3 + x^2 - x + 1
+    d = 8
+    Q = function_to_qtt(h, d; a=-2.0, b=2.0)
+    A = qtt_to_function(Q)
+    xs = collect(range(-2.0, 2.0, length=2^d))
+    expected = h.(xs)
+    @test isapprox.(A, expected) |> all
+end 
+
+@testset "Exponential function" begin
+    h(x) = exp(-x^2) + x^3
+    d = 8
+    Q = function_to_qtt(h, d; a=-1.0, b=1.0)
+    A = qtt_to_function(Q)
+    xs = collect(range(-1.0, 1.0, length=2^d))
+    expected = h.(xs)
+    @test isapprox.(A, expected) |> all
+end 
+
+@testset "Logarithmic function" begin
+    h(x) = log(x + 1) + x^0.5
+    d = 8
+    Q = function_to_qtt(h, d; a=0.0, b=5.0)
+    A = qtt_to_function(Q)
+    xs = collect(range(0.0, 5.0, length=2^d))
+    expected = h.(xs)
+    @test isapprox.(A, expected; atol=1e-6) |> all
+end 
+
+@testset "Absolute value function" begin
+    h(x) = abs(x^3 - x^2 + x - 1)
+    d = 8
+    Q = function_to_qtt(h, d; a=-2.0, b=2.0)
+    A = qtt_to_function(Q)
+    xs = collect(range(-2.0, 2.0, length=2^d))
+    expected = h.(xs)
+    @test isapprox.(A, expected) |> all
+end 

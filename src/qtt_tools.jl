@@ -10,31 +10,24 @@ function tuple_to_index(t)
   return sum(2^(d-i)*(t[i]-1) for i in 1:d)+1
 end
 
-function function_to_tensor(f,d;a=0.0,b=1.0)
-  out = zeros(ntuple(x->2,d))
-  for t in CartesianIndices(out)
-    out[t] = f(index_to_point(Tuple(t);L=b-a))
-  end
-  return out
+function function_to_tensor(f, d::Int; a=0.0, b=1.0)
+    M = 2^d
+    xs = range(a, stop=b, length=M)
+    vs = f.(collect(xs))
+    dims = ntuple(_->2, d)
+    reshape(vs, dims)
 end
 
-function tensor_to_grid(tensor)
-  out = zeros(prod(size(tensor)))
-  for t in CartesianIndices(tensor)
-    out[tuple_to_index(t)] = tensor[t]
-  end
-  return out
+function tensor_to_grid(T)
+    vec(T)
 end
 
-function function_to_qtt(f,d;a=0.0,b=1.0)
-  tensor = function_to_tensor(f,d;a=a,b=b)
-  return ttv_decomp(tensor)
+function function_to_qtt(f, d::Int; a=0.0, b=1.0)
+    ttv_decomp(function_to_tensor(f, d; a=a, b=b))
 end
 
-function qtt_to_function(ftt::TTvector{T,d}) where {T<:Number,d}
-  tensor = ttv_to_tensor(ftt)
-  out = tensor_to_grid(tensor)
-  return out
+function qtt_to_function(q::TTvector)
+    tensor_to_grid(ttv_to_tensor(q))
 end
 
 """

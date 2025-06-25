@@ -7,25 +7,74 @@ N = 150
 
 qtt = integrating_qtt(num_cores, N)
 
-fqtt = interpolating_qtt(f, num_cores, N)
+function chebyshev_coefficients(f::Function, N::Int)
+    c = zeros(Float64, N+1)
+    # α_k factors
+    α = ones(Float64, N+1)
+    α[1] = 2.0
+    α[end] = 2.0
 
-dot(qtt, fqtt)
+    # loop over k = 0:N
+    for k in 0:N
+        acc = 0.0
+        # sum j=0..2N-1
+        for j in 0:(2N-1)
+            x = cos(j * π / N)
+            acc += f(x) * cos(k * j * π / N)
+        end
+        c[k+1] = acc / (α[k+1] * N)
+    end
+
+    return c
+end
 
 
-# 1) pick your QTT dimension:
-d = 10              # 2^10 points on [0,1]
-λ = 1.0             # for sin(π x)
+function qtt_chebyshev(k::Int,d;a=0.0,b=1.0)
+  p = length(coef)
+  xⱼ = chebyshev_lobatto_nodes(k)
+  h = (b-a)/(2^d-1)
+  out = zeros_tt(2,d,p;r_and_d=false)
+  φ(x,s) = sum(coef[k+1]*x^(k-s)*binomial(k,s) for k in s:(p-1))
+  t₁ = a
+  out.ttv_vec[1][1,1,:] = [φ(t₁,k) for k in 0:p-1] 
+  t₁ = a+h*2^(d-1) #convention : coarsest first
+  out.ttv_vec[1][2,1,:] = [φ(t₁,k) for k in 0:p-1] 
+  for k in 2:d-1
+    for j in 0:p-1
+      out.ttv_vec[k][1,j+1,j+1] = 1.0
+      for i in 0:p-1 
+        tₖ = h*2^(d-k)
+        out.ttv_vec[k][2,i+1,j+1] = binomial(i,i-j)*tₖ^(i-j)
+      end
+    end
+  end
+  out.ttv_vec[d][1,1,1] = 1.0
+  td = h
+  out.ttv_vec[d][2,:,1] = [td^k for k in 0:p-1]
+  return out
+end
 
-# 2) build f(x)=sin(π x) exactly in QTT
-fqtt = qtt_sin(d; a=0.0, b=1.0, λ=λ)
+T_k = qtt_chebyshev(1,d,a=-1.0,b=1.0)
 
-# 3) build the composite‐trapezoid weights as a tiny function and turn into QTT
-h = 1/(2^d - 1)
-weightfun = x -> (isapprox(x,0.0) || isapprox(x,1.0) ? h/2 : h)
-wqtt = function_to_qtt(weightfun, d; a=0.0, b=1.0)
+let
+    fig = Figure()
+    xes = collect(range(-1.0, 1.0, 2^d))
+    ax = Axis(fig[1, 1], xlabel = "x", ylabel = "u(x)", title = "Comparison of Time-Stepping Methods")
+    lines!(ax, xes, qtt_to_function(T_k), label = "Explicit Euler", linestyle = :solid, linewidth=3)
+    display(fig)
+end
 
-# 4) take the TT‐inner‐product to get the integral
-I = dot(wqtt, fqtt)
+h(x) = sqrt(1-x^2)
 
-println("∫₀¹ sin(π x) dx ≃ ", I)
-# → 0.6366197723675814  (i.e. 2/π)
+d = 8
+
+Q = function_to_qtt(h, d; a=-1, b=1)
+
+let
+    fig = Figure()
+    xes = collect(range(-1, 1, 2^8))
+    ax = Axis(fig[1, 1], xlabel = "x", ylabel = "u(x)", title = "Comparison of Time-Stepping Methods")
+    lines!(ax, xes, qtt_to_function(Q), label = "Explicit Euler", linestyle = :solid, linewidth=3)
+    lines!(ax, xes, h.(xes), label = "Explicit Euler", linestyle = :dash, linewidth=3)
+    display(fig)
+end
