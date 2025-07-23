@@ -1,5 +1,5 @@
-using LinearAlgebra
 using CairoMakie
+using TensorTrainNumerics
 
 """
     gauss_chebyshev_lobatto(n; shifted=true)
@@ -126,4 +126,23 @@ function interpolating_qtt(
     ttv_dims = ntuple(i -> size(ttv_vec[i], 1), N_)
     ttv_ot = zeros(Int, N_)
     return TTvector{Float64, N_}(N_, ttv_vec, ttv_dims, ttv_rks, ttv_ot)
+end
+
+d = 6
+
+f(x) = exp(x)
+tn_cheb = interpolating_qtt(f, d, 2^d)
+
+let 
+    fig = Figure()
+    ax = Axis(fig[1,1], xlabel="x", ylabel="f(x)", title="Chebyshev QTT Reconstruction")
+    xes, _ = gauss_chebyshev_lobatto(2^d; shifted=true)  # Chebyshev nodes
+
+    f_exact = f.(xes)                        # Ground truth
+    f_qtt    = qtt_to_function(tn_cheb)                           
+
+    lines!(ax, xes, f_qtt, label="QTT Reconstruction")
+    lines!(ax, xes, f_exact, color=:red, linestyle=:dash, label="Exact f(x)")
+    
+    fig
 end
