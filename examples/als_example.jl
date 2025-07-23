@@ -11,9 +11,7 @@ A = rand_tto(A_dims, 3)
 
 b = rand_tt(dims, rks)
 
-tt_opt = dmrg_linsolvee(A, b, tt_start; sweep_count=2, N=2, tol=1e-12)
-
-visualize(tt_opt)
+tt_opt = dmrg_linsolve(A, b, tt_start; sweep_count=2, N=2, tol=1e-12)
 
 sweep_schedule = [2, 4]
 rmax_schedule = [2, 3]

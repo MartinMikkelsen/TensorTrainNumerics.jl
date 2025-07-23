@@ -153,19 +153,15 @@ end
 function qtt_chebyshev(n, d)
     out = zeros_tt(2, d, 2)
     N = 2^d
-
     x_nodes, _ = gauss_chebyshev_lobatto(N; shifted=true)
     θ = acos.(clamp.(2 .* x_nodes .- 1, -1.0, 1.0))
     out.ttv_vec[1][1,1,:] = [cos(n * θ[1]); -sin(n * θ[1])]
     out.ttv_vec[1][2,1,:] = [cos(n * θ[2^(d-1)+1]); -sin(n * θ[2^(d-1)+1])]
-
     for k in 2:d-1
         out.ttv_vec[k][1,:,:] .= [1.0 0.0; 0.0 1.0]
         idx = 2^(d-k) + 1
-        out.ttv_vec[k][2,:,:] .= [cos(n * θ[idx]) -sin(n * θ[idx]);
-                                  sin(n * θ[idx])  cos(n * θ[idx])]
+        out.ttv_vec[k][2,:,:] .= [cos(n * θ[idx]) -sin(n * θ[idx]);sin(n * θ[idx])  cos(n * θ[idx])]
     end
-
     out.ttv_vec[d][1,:,1] .= [1.0, 0.0]
     out.ttv_vec[d][2,:,1] .= [cos(n * θ[2]), sin(n * θ[2])]
 

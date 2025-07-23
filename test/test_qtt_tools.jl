@@ -187,3 +187,63 @@ end
         @test tt1.ttv_vec[k][1,2,1] ≈ 0.0
     end
 end
+
+@testset "function_to_qtt" begin
+    # Test for f(x) = sin(x)
+    d = 3
+    a = 0.0
+    b = 1.0
+    f(x) = sin(π*x)
+    g(x) = cos(π*x)
+    Q(x) = exp(x)
+    tt = function_to_qtt(f, d; a=a, b=b)
+    tt2 = function_to_qtt(g, d, a=a, b=b)
+    tt3 = function_to_qtt(Q, d; a=a, b=b)
+    # Check structure
+    @test hasproperty(tt, :ttv_vec)
+    @test length(tt.ttv_vec) == d
+    @test size(tt.ttv_vec[1]) == (2, 1, 2)
+    @test size(tt.ttv_vec[d]) == (2, 2, 1)
+
+    A = qtt_sin(d; a=a, b=b)
+    @test qtt_to_function(tt) ≈ qtt_to_function(A)
+    @test qtt_to_function(tt2) ≈ qtt_to_function(qtt_cos(d; a=a, b=b))
+    @test qtt_to_function(tt3) ≈ qtt_to_function(qtt_exp(d; a=a, b=b, α=1.0, β=0.0))
+end
+
+@testset "qtt_basis_vector" begin
+    d = 3
+    # Test for position 1 (should be [1,0,0,0,0,0,0,0])
+    tt = qtt_basis_vector(d, 1)
+    # Convert to full vector using qtt_to_function if available, else reconstruct manually
+    if @isdefined(qtt_to_function)
+        v = qtt_to_function(tt)
+        expected = zeros(2^d)
+        expected[1] = 1.0
+        @test v ≈ expected
+    end
+    # Test for position 5 (should be [0,0,0,0,1,0,0,0])
+    tt5 = qtt_basis_vector(d, 5)
+    if @isdefined(qtt_to_function)
+        v5 = qtt_to_function(tt5)
+        expected5 = zeros(2^d)
+        expected5[5] = 1.0
+        @test v5 ≈ expected5
+    end
+    # Test for custom value
+    tt3 = qtt_basis_vector(d, 3, 7.5)
+    if @isdefined(qtt_to_function)
+        v3 = qtt_to_function(tt3)
+        expected3 = zeros(2^d)
+        expected3[3] = 7.5
+        @test v3 ≈ expected3
+    end
+    # Check that only one entry in each core is nonzero per position
+    for pos in 1:2^d
+        tt = qtt_basis_vector(d, pos)
+        for k in 1:d
+            nonzeros = count(!iszero, tt.ttv_vec[k][:,1,1])
+            @test nonzeros == 1
+        end
+    end
+end

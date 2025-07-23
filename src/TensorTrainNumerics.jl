@@ -12,7 +12,7 @@ include("solvers/als.jl")
 export mals_eigsolve, mals_linsolve
 include("solvers/mals.jl")
 
-export dmrg_linsolvee, dmrg_eigsolve
+export dmrg_linsolve, dmrg_eigsolve
 include("solvers/dmrg.jl")
 
 export chebyshev_lobatto_nodes,gauss_chebyshev_lobatto, equally_spaced_nodes, legendre_nodes, get_nodes, lagrange_basis, interpolating_qtt, lagrange_rank_revealing

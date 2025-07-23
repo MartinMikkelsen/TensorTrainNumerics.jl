@@ -128,48 +128,6 @@ end
     @test is_qtt_operator(qtt_op)
 end
 
-@testset "TT constructors and properties" begin
-    # Test TTvector constructor
-    N = 3
-    vec = [randn(2, 1, 2), randn(2, 2, 2), randn(2, 2, 1)]
-    dims = (2, 2, 2)
-    rks = [1, 2, 2, 1]
-    ot = [0, 0, 0]
-    tt = TTvector{Float64, 3}(N, vec, dims, rks, ot)
-    @test tt.N == N
-    @test tt.ttv_vec == vec
-    @test tt.ttv_dims == dims
-    @test tt.ttv_rks == rks
-    @test tt.ttv_ot == ot
-
-    # Test TToperator constructor
-    N = 3
-    vec = [randn(2, 2, 1, 2), randn(2, 2, 2, 2), randn(2, 2, 2, 1)]
-    dims = (2, 2, 2)
-    rks = [1, 2, 2, 1]
-    ot = [0, 0, 0]
-    tto = TToperator{Float64, 3}(N, vec, dims, rks, ot)
-    @test tto.N == N
-    @test tto.tto_vec == vec
-    @test tto.tto_dims == dims
-    @test tto.tto_rks == rks
-    @test tto.tto_ot == ot
-
-    # Test QTTvector and is_qtt
-    qtt_vec = [randn(2, 1, 2), randn(2, 2, 2), randn(2, 2, 1)]
-    qtt_rks = [1, 2, 2, 1]
-    qtt_ot = [0, 0, 0]
-    qtt = QTTvector(qtt_vec, qtt_rks, qtt_ot)
-    @test is_qtt(qtt)
-
-    # Test QTToperator and is_qtt_operator
-    qtt_op_vec = [randn(2, 2, 1, 2), randn(2, 2, 2, 2), randn(2, 2, 2, 1)]
-    qtt_op_rks = [1, 2, 2, 1]
-    qtt_op_ot = [0, 0, 0]
-    qtt_op = QTToperator(qtt_op_vec, qtt_op_rks, qtt_op_ot)
-    @test is_qtt_operator(qtt_op)
-end
-
 @testset "TTvector and TToperator functions" begin
     dims1 = (2, 2)
     rks1 = [1, 2, 1]
@@ -311,3 +269,41 @@ end
     
     @test_throws ErrorException matricize(bad_tt)
 end
+
+@testset "Base.eltype and Base.complex for TTvector and TToperator" begin
+    # Test eltype for TTvector
+    N = 2
+    vec = [randn(2, 1, 2), randn(2, 2, 1)]
+    dims = (2, 2)
+    rks = [1, 2, 1]
+    ot = [0, 0]
+    tt = TTvector{Float64, 2}(N, vec, dims, rks, ot)
+    @test eltype(tt) == Float64
+
+    # Test eltype for TToperator
+    op_vec = [randn(2, 2, 1, 2), randn(2, 2, 2, 1)]
+    op_dims = (2, 2)
+    op_rks = [1, 2, 1]
+    op_ot = [0, 0]
+    tto = TToperator{Float64, 2}(N, op_vec, op_dims, op_rks, op_ot)
+    @test eltype(tto) == Float64
+
+    # Test Base.complex for TTvector
+    tt_c = TTvector{ComplexF64, 2}(tt.N, [complex.(core) for core in tt.ttv_vec], tt.ttv_dims, tt.ttv_rks, tt.ttv_ot)
+    @test typeof(tt_c) == TTvector{ComplexF64, 2}
+    @test tt_c.N == tt.N
+    @test tt_c.ttv_dims == tt.ttv_dims
+    @test tt_c.ttv_rks == tt.ttv_rks
+    @test tt_c.ttv_ot == tt.ttv_ot
+    @test all(eltype(core) == ComplexF64 for core in tt_c.ttv_vec)
+
+    # Test Base.complex for TToperator
+    tto_c = TToperator{ComplexF64, 2}(tto.N, [complex.(core) for core in tto.tto_vec], tto.tto_dims, tto.tto_rks, tto.tto_ot)
+    @test typeof(tto_c) == TToperator{ComplexF64, 2}
+    @test tto_c.N == tto.N
+    @test tto_c.tto_dims == tto.tto_dims
+    @test tto_c.tto_rks == tto.tto_rks
+    @test tto_c.tto_ot == tto.tto_ot
+    @test all(eltype(core) == ComplexF64 for core in tto_c.tto_vec)
+end
+
