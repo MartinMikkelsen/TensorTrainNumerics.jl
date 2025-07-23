@@ -86,7 +86,7 @@ function qtt_cos(d;a=0.0,b=1.0,λ=1.0)
 end
 
 """
-QTT of sin(λ*π*x/(b-a))
+QTT of sin(λ*π*x)
 """
 function qtt_sin(d;a=0.0,b=1.0,λ=1.0)
   out = zeros_tt(2,d,2)
@@ -111,17 +111,6 @@ end
 
 Constructs a Quantized Tensor Train (QTT) representation of the exponential function
 over a uniform grid in the interval `[a, b]` with `2^d` points.
-
-# Arguments
-- `d::Int`: The number of quantization levels (the resulting grid has `2^d` points).
-- `a::Float64=0.0`: The left endpoint of the interval.
-- `b::Float64=1.0`: The right endpoint of the interval.
-- `α::Float64=1.0`: The coefficient multiplying the grid points in the exponent.
-- `β::Float64=0.0`: The constant term in the exponent.
-
-# Returns
-- A QTT tensor (in TT format) representing the function `exp(α * t + β)` evaluated at the grid points.
-
 """
 function qtt_exp(d; a=0.0, b=1.0, α=1.0, β=0.0)
   out = zeros_tt(2, d, 1)
@@ -161,18 +150,32 @@ function qtt_basis_vector(d, pos::Int, val::Number=1.0)
     return out
 end
 
+function qtt_chebyshev(n, d)
+    out = zeros_tt(2, d, 2)
+    N = 2^d
+
+    x_nodes, _ = gauss_chebyshev_lobatto(N; shifted=true)
+    θ = acos.(clamp.(2 .* x_nodes .- 1, -1.0, 1.0))
+    out.ttv_vec[1][1,1,:] = [cos(n * θ[1]); -sin(n * θ[1])]
+    out.ttv_vec[1][2,1,:] = [cos(n * θ[2^(d-1)+1]); -sin(n * θ[2^(d-1)+1])]
+
+    for k in 2:d-1
+        out.ttv_vec[k][1,:,:] .= [1.0 0.0; 0.0 1.0]
+        idx = 2^(d-k) + 1
+        out.ttv_vec[k][2,:,:] .= [cos(n * θ[idx]) -sin(n * θ[idx]);
+                                  sin(n * θ[idx])  cos(n * θ[idx])]
+    end
+
+    out.ttv_vec[d][1,:,1] .= [1.0, 0.0]
+    out.ttv_vec[d][2,:,1] .= [cos(n * θ[2]), sin(n * θ[2])]
+
+    return out
+end
+
 """
     qtt_fft1(T::Type, d::Int; inverse::Bool=false)
 
 Construct the 1D FFT operator in QTT (quantized tensor train) format for vectors of length 2^d.
-
-# Arguments
-- `T`: The element type (e.g., ComplexF64).
-- `d`: The number of QTT levels (so the FFT is of length 2^d).
-- `inverse`: If true, constructs the inverse FFT operator.
-
-# Returns
-- `TToperator{T, d}`: The QTT-format FFT operator.
 """
 function qtt_fft1(T::Type, d::Int; inverse::Bool=false)
     sign = inverse ? 1 : -1

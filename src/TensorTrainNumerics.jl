@@ -15,13 +15,13 @@ include("solvers/mals.jl")
 export dmrg_linsolvee, dmrg_eigsolve
 include("solvers/dmrg.jl")
 
-export chebyshev_lobatto_nodes, equally_spaced_nodes, legendre_nodes, get_nodes, lagrange_basis, interpolating_qtt, lagrange_rank_revealing
+export chebyshev_lobatto_nodes,gauss_chebyshev_lobatto, equally_spaced_nodes, legendre_nodes, get_nodes, lagrange_basis, interpolating_qtt, lagrange_rank_revealing
 include("tt_interpolations.jl")
 
-export Δ_DD, Δ_NN, Δ_DN, Δ_ND, Δ_Periodic, Δ_tto, QTT_Tridiagonal_Toeplitz, ∇_DD, ∇_tto, Jacobian_tto, shift_tto, toeplitz_to_qtto
+export toeplitz_to_qtto, qtto_prolongation, ∇, Δ, shift
 include("tt_operators.jl")
 
-export index_to_point, tuple_to_index, function_to_tensor, tensor_to_grid, function_to_qtt, qtt_to_function, qtt_polynom, qtt_cos, qtt_sin, qtt_exp, qtto_to_matrix, qtt_basis_vector
+export index_to_point, tuple_to_index, function_to_tensor, tensor_to_grid, function_to_qtt, qtt_to_function, qtt_polynom, qtt_cos, qtt_sin, qtt_exp, qtto_to_matrix, qtt_basis_vector, qtt_chebyshev
 include("qtt_tools.jl")
 
 export euler_method, implicit_euler_method, crank_nicholson_method

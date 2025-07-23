@@ -145,3 +145,45 @@ end
     t₁ = a + h * 2^(d-1)
     @test isapprox(tt.ttv_vec[1][2,1,1], exp(α * t₁ + β))
 end
+
+@testset "qtt_chebyshev" begin
+    # Basic test for n=0 (should correspond to T₀(x)=1)
+    d = 3
+    n = 0
+    tt = qtt_chebyshev(n, d)
+    @test hasproperty(tt, :ttv_vec)
+    @test length(tt.ttv_vec) == d
+    @test size(tt.ttv_vec[1]) == (2, 1, 2)
+    @test size(tt.ttv_vec[d]) == (2, 2, 1)
+
+    # Check that the first core is filled as expected for n=0
+    N = 2^d
+    x_nodes, _ = gauss_chebyshev_lobatto(N; shifted=true)
+    θ = acos.(clamp.(2 .* x_nodes .- 1, -1.0, 1.0))
+    # For n=0, cos(0*θ)=1, sin(0*θ)=0
+    @test isapprox(tt.ttv_vec[1][1,1,1], 1.0)
+    @test isapprox(tt.ttv_vec[1][1,1,2], 0.0)
+    @test isapprox(tt.ttv_vec[1][2,1,1], 1.0)
+    @test isapprox(tt.ttv_vec[1][2,1,2], 0.0)
+
+    # Test for n=1 (should correspond to T₁(x)=x)
+    n = 1
+    tt1 = qtt_chebyshev(n, d)
+    # Check first core values
+    @test isapprox(tt1.ttv_vec[1][1,1,1], cos(n * θ[1]))
+    @test isapprox(tt1.ttv_vec[1][1,1,2], -sin(n * θ[1]))
+    @test isapprox(tt1.ttv_vec[1][2,1,1], cos(n * θ[2^(d-1)+1]))
+    @test isapprox(tt1.ttv_vec[1][2,1,2], -sin(n * θ[2^(d-1)+1]))
+
+    # Check last core values
+    @test isapprox(tt1.ttv_vec[d][2,1,1], cos(n * θ[2]))
+    @test isapprox(tt1.ttv_vec[d][2,2,1], sin(n * θ[2]))
+
+    # Check that the identity block is set in intermediate cores
+    for k in 2:d-1
+        @test tt1.ttv_vec[k][1,1,1] ≈ 1.0
+        @test tt1.ttv_vec[k][1,2,2] ≈ 1.0
+        @test tt1.ttv_vec[k][1,1,2] ≈ 0.0
+        @test tt1.ttv_vec[k][1,2,1] ≈ 0.0
+    end
+end
