@@ -28,16 +28,10 @@ concatenate
 ## tt_operators
 
 ```@docs
-Δ_DD
-Δ_NN
-Δ_DN
-Δ_ND
-Δ_Periodic
-Δ_tto
-QTT_Tridiagonal_Toeplitz
-shift_tto
-∇_DD
-∇_tto
-Jacobian_tto
+toeplitz_to_qtto
+shift
+∇
+Δ
+qtto_prolongation
 ```
 
