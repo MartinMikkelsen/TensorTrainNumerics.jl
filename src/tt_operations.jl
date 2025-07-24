@@ -365,7 +365,6 @@ end
 Construct the diagonal TT‐matrix whose diagonal entries come from the TT‐vector `x`.
 Returns a `TToperator{T,M}` with each core of size (n_i, n_i, r_i, r_{i+1}).
 
-This matches MATLAB’s `[tm] = diag(tt)` in TT‐Toolbox.
 """
 function TTdiag(x::TTvector{T,M}) where {T<:Number,M}
     d      = x.N                              # number of dimensions (cores)

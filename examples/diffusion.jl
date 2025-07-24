@@ -14,8 +14,8 @@ v = 0.0
 γ = p-h*s/2
 
 Δ = 1/h^2*toeplitz_to_qtto(2.0, -1, -1, cores) 
-∇ = 2.0/h*toeplitz_to_qtto(3.0, 1.0, -5.0, cores)
-Operator = Δ + ∇
+∇_op = 2.0/h*toeplitz_to_qtto(3.0, 1.0, -5.0, cores)
+Operator = Δ + ∇_op
 A = Operator ⊗ id_tto(cores) + id_tto(cores) ⊗ Operator
 
 b = qtt_cos(cores) ⊗ qtt_basis_vector(cores, 1) + qtt_sin(cores) ⊗ qtt_basis_vector(cores, 2^cores) 

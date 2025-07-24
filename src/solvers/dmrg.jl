@@ -346,7 +346,7 @@ Solve Ax=b using the ALS algorithm where A is given as `TToperator` and `b`, `tt
 The ranks of the solution is the same as `tt_start`.
 `sweep_count` is the number of total sweeps in the ALS.
 """
-function dmrg_linsolvee(A :: TToperator{T}, b :: TTvector{T}, tt_start :: TTvector{T};sweep_count=2,N=2,tol=1e-12::Float64,
+function dmrg_linsolve(A :: TToperator{T}, b :: TTvector{T}, tt_start :: TTvector{T};sweep_count=2,N=2,tol=1e-12::Float64,
 	sweep_schedule=[2]::Array{Int64,1}, #Number of sweeps for each bond dimension in rmax_schedule
 	rmax_schedule=[isqrt(prod(tt_start.ttv_dims))]::Array{Int64,1}, #maximum rank in sweep_schedule
 	it_solver=true,

@@ -21,7 +21,7 @@ b = qtt_cos(cores) ⊗ qtt_basis_vector(cores, 1) + qtt_sin(cores) ⊗ qtt_basis
 initial_guess = rand_tt(b.ttv_dims, b.ttv_rks)
 
 x_mals = mals_linsolve(A, b, initial_guess)
-x_dmrg = dmrg_linsolvee(A, b, initial_guess)
+x_dmrg = dmrg_linsolve(A, b, initial_guess)
 
 solution = reshape(qtt_to_function(x_mals), 2^cores, 2^cores)
 
