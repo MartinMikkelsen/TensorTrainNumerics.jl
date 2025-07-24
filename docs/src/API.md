@@ -24,14 +24,3 @@ tt2qtt
 matricize
 concatenate
 ```
-
-## tt_operators
-
-```@docs
-toeplitz_to_qtto
-shift
-∇
-Δ
-qtto_prolongation
-```
-
