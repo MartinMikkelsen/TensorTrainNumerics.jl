@@ -110,3 +110,71 @@ function crank_nicholson_method(
     return solution
 end
 
+function trapezoidal_method(
+    A::TToperator,
+    u₀::TTvector,
+    guess::TTvector,
+    steps::Vector{Float64};
+    normalize::Union{Bool, Int} = 1,
+    return_error::Bool = false,
+    tt_solver::String = "mals",
+    progress::Bool = true,
+    kwargs...
+)
+    solution = copy(u₀)
+    u_prev = copy(u₀)
+    I = id_tto(A.N)
+
+    if progress
+        @showprogress for h in steps
+            LHS = I - 0.5 * h * A
+            RHS = (I + 0.5 * h * A) * solution
+
+            next = tt_solver == "mals" ? mals_linsolve(LHS, RHS, guess; kwargs...) :
+                   tt_solver == "als"  ? als_linsolve(LHS, RHS, guess; kwargs...) :
+                   tt_solver == "dmrg" ? dmrg_linsolve(LHS, RHS, guess; kwargs...) :
+                   error("Unknown TT solver: $tt_solver")
+
+            if normalize == 1 || normalize == true
+                next = next / norm(next)
+            elseif normalize == 2
+                next = next / norm(next)
+            end
+
+            u_prev = solution
+            solution = orthogonalize(next)
+            guess = solution
+        end
+    else
+        for h in steps
+            LHS = I - 0.5 * h * A
+            RHS = (I + 0.5 * h * A) * solution
+
+            next = tt_solver == "mals" ? mals_linsolve(LHS, RHS, guess; kwargs...) :
+                   tt_solver == "als"  ? als_linsolve(LHS, RHS, guess; kwargs...) :
+                   tt_solver == "dmrg" ? dmrg_linsolve(LHS, RHS, guess; kwargs...) :
+                   error("Unknown TT solver: $tt_solver")
+
+            if normalize == 1 || normalize == true
+                next = next / norm(next)
+            elseif normalize == 2
+                next = next / norm(next)
+            end
+
+            u_prev = solution
+            solution = orthogonalize(next)
+            guess = solution
+        end
+    end
+
+    if return_error
+        h = steps[end]
+        LHS = I - (h / 2) * A
+        RHS = (I + (h / 2) * A) * u_prev
+        residual = LHS * solution - RHS
+        rel_error = norm(residual) / norm(solution)
+        return solution, rel_error
+    end
+
+    return solution
+end 
