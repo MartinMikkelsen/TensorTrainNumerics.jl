@@ -21,7 +21,7 @@ include("tt_interpolations.jl")
 export toeplitz_to_qtto, qtto_prolongation, ∇, Δ, shift
 include("tt_operators.jl")
 
-export index_to_point, tuple_to_index, function_to_tensor, tensor_to_grid, function_to_qtt, qtt_to_function, qtt_polynom, qtt_cos, qtt_sin, qtt_exp, qtto_to_matrix, qtt_basis_vector, qtt_chebyshev
+export index_to_point, tuple_to_index, function_to_tensor, tensor_to_grid, function_to_qtt, qtt_to_function, qtt_polynom, qtt_cos, qtt_sin, qtt_exp, qtto_to_matrix, qtt_basis_vector, qtt_chebyshev, qtt_simpson, qtt_trapezoidal
 include("qtt_tools.jl")
 
 export euler_method, implicit_euler_method, crank_nicholson_method
