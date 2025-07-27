@@ -12,6 +12,7 @@ E = qtt_chebyshev(4, 8)
 let
     fig = Figure()
     ax = Axis(fig[1, 1], xlabel = "x", ylabel = "T(x)", title = "Chebyshev Polynomials [0,1]")
+    xes = LinRange(0, 1, 2^d)
     lines!(ax, xes, matricize(A, d), label = "T₀(x)", linestyle = :solid, linewidth = 3)
     lines!(ax, xes, matricize(B, d), label = "T₁(x)", linestyle = :solid, linewidth = 3)
     lines!(ax, xes, matricize(C, d), label = "T₂(x)", linestyle = :solid, linewidth = 3)
