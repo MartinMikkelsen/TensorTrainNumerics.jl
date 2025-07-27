@@ -17,9 +17,9 @@ function chebyshev_lobatto_nodes(N::Int)
     return nodes
 end
 
-function gauss_chebyshev_lobatto(n; shifted=true)
-    x = [cos(π * j / (n - 1)) for j=0:n-1]
-    w = π / (n-1) * ones(n)
+function gauss_chebyshev_lobatto(n; shifted = true)
+    x = [cos(π * j / (n - 1)) for j in 0:(n - 1)]
+    w = π / (n - 1) * ones(n)
     w[1] /= 2
     w[end] /= 2
 
@@ -43,7 +43,7 @@ Generate a vector of `N + 1` equally spaced nodes in the interval [0, 1].
 - `Vector{Float64}`: A vector containing `N + 1` equally spaced nodes in the interval [0, 1].
 """
 function equally_spaced_nodes(N::Int)
-    return collect(range(0, 1, length=N + 1))
+    return collect(range(0, 1, length = N + 1))
 end
 
 """
@@ -81,7 +81,7 @@ Generate interpolation nodes based on the specified type.
 # Throws
 - `ArgumentError`: If an unknown `node_type` is provided.
 """
-function get_nodes(N::Int, node_type::String="chebyshev")
+function get_nodes(N::Int, node_type::String = "chebyshev")
     if node_type == "chebyshev"
         return chebyshev_lobatto_nodes(N)
     elseif node_type == "equally_spaced"
@@ -147,7 +147,7 @@ function lagrange_basis(nodes::Vector{Float64}, x::Vector{Float64}, j::Int)
     return result
 end
 
-function A_L(func::Function, nodes::Vector{Float64}, start::Float64=0.0, stop::Float64=1.0)
+function A_L(func::Function, nodes::Vector{Float64}, start::Float64 = 0.0, stop::Float64 = 1.0)
     D = length(nodes)
     A = zeros(Float64, 1, 2, 1, D)
     for σ in 0:1
@@ -180,24 +180,24 @@ function A_R(nodes::Vector{Float64})
     return A
 end
 
-function A_L_x(func::Function, nodes::Vector{Float64}, start::Float64=0.0, stop::Float64=1.0)
+function A_L_x(func::Function, nodes::Vector{Float64}, start::Float64 = 0.0, stop::Float64 = 1.0)
     D = length(nodes)
     A = zeros(Float64, 1, 2, 1, D^2)
-    
+
     for σ in 0:1
         x_val = (0.5 .* (σ .+ nodes)) .* (stop - start) .+ start
         y_val = nodes .* (stop - start) .+ start
-        
+
         values = Float64[]
         for x in x_val
             for y in y_val
                 push!(values, func(y, x))
             end
         end
-        
+
         A[1, σ + 1, 1, :] = reshape(values, D^2)
     end
-    
+
     return A
 end
 
@@ -258,9 +258,9 @@ Constructs an interpolating Quantized Tensor Train (QTT) for a given function.
 This function constructs an interpolating QTT by first generating the interpolation nodes and constructing the corresponding tensors. The tensors are then reshaped and permuted to fit the TTvector format. The resulting TTvector is returned.
 """
 function interpolating_qtt(
-    func::Function, core::Int, N::Int; node_type::String="chebyshev",
-    start::Float64=0.0, stop::Float64=1.0
-)
+        func::Function, core::Int, N::Int; node_type::String = "chebyshev",
+        start::Float64 = 0.0, stop::Float64 = 1.0
+    )
     nodes = get_nodes(N, node_type)
     Al = A_L(func, nodes, start, stop)
     Ac = A_C(nodes)
@@ -274,7 +274,7 @@ function interpolating_qtt(
 
     # Convert tensors to TTvector format
     N_ = length(tensors)
-    ttv_vec = Vector{Array{Float64,3}}()
+    ttv_vec = Vector{Array{Float64, 3}}()
     ttv_rks = Int[]
     ttv_rks = [1]
     for i in 1:N_
@@ -325,7 +325,7 @@ function lagrange_rank_revealing(func::Function, core::Int, N::Int)
     # First core
     AL = A_L(func, nodes)
     AL_mat = reshape(AL, 2, N + 1)  # AL is of size (1, 2, 1, N+1), reshaped to (2, N+1)
-    
+
     # Perform QR decomposition and extract Q and R
     qr_result = qr(AL_mat)
     U = Matrix(qr_result.Q)  # Convert Q to a full matrix
@@ -341,14 +341,14 @@ function lagrange_rank_revealing(func::Function, core::Int, N::Int)
         Ak = A_C(nodes)
         Ak_mat = reshape(Ak, N + 1, :)
         B = R * Ak_mat  # B is of size (size(R,1), size(Ak_mat,2))
-        
+
         # Reshape B to (r_prev, 2, N+1) for SVD
         B = reshape(B, size(B, 1), 2, N + 1)
         B_mat = reshape(B, size(B, 1) * 2, N + 1)  # Flatten for SVD
 
         # Perform SVD
-        U_svd, S, V = svd(B_mat, full=false)
-        D = sum(S .> 1e-10)  # Numerical rank based on threshold
+        U_svd, S, V = svd(B_mat, full = false)
+        D = sum(S .> 1.0e-10)  # Numerical rank based on threshold
 
         # Truncate U_svd, S, V based on rank D
         U_svd = U_svd[:, 1:D]
