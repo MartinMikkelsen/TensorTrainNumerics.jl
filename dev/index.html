@@ -23,15 +23,15 @@ result = tt_op * tt_vec
 
 visualize(result)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi"> 1-- • -- 4-- • -- 4-- • -- 1
      |        |        |
-     2        2        2</code></pre><p>And we can print the result</p><pre><code class="language-julia hljs">println(result)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">TTvector{Float64, 3}(3, [[-0.4652509973588689; -0.19845099534650257;;; -0.20347110837396729; 0.02059840689110806;;; 0.2538174895044107; -0.9203568373548049;;; 0.21292780470513958; -0.38633591999967826], [1.809445141659752 3.1374937688068734 0.21763160130180387 0.3159574042945865; 3.4393668936480917 1.1894223846372598 0.8792199659996005 -0.2831190082150198;;; -4.135230280055581 0.2542410096152546 -0.4957662360890007 0.4458619912516621; 1.8306751559827685 0.4761251760142154 0.0825575621384525 -0.355741197493608;;; -0.22855513469811814 -0.5855360565080993 -0.35452088491277534 -0.7663893516728544; 1.0002344652882886 -1.463576371099109 0.4759969291812576 -1.2856611981227763;;; 0.5272607982618777 1.2476519323921154 0.8141588881876689 0.9758997146210965; -0.6553593438963333 -1.3328929928315703 -0.698608215512598 -1.1133779307096174], [2.202251085132852 -2.3258979567064264 -1.2898616155929286 -1.1851384530370985; -0.2814453194640576 0.9755119264227663 -1.121827531845601 -1.0616239957325062;;;]], (2, 2, 2), [1, 4, 4, 1], [0, 0, 0])</code></pre><p>We can also unfold this</p><pre><code class="language-julia hljs">matricize(result)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">8-element Vector{Float64}:
- -0.3797195984142136
- -0.9304406568289076
-  5.3546240917885894
-  4.230959091236938
-  2.5792500788307664
-  2.51701208616538
-  0.3530711146257679
- -2.4086835131945854</code></pre><h3 id="Interpolation"><a class="docs-heading-anchor" href="#Interpolation">Interpolation</a><a id="Interpolation-1"></a><a class="docs-heading-anchor-permalink" href="#Interpolation" title="Permalink"></a></h3><p>We can also do interpolation in the QTT framework:</p><pre><code class="language-julia hljs">using CairoMakie
+     2        2        2</code></pre><p>And we can print the result</p><pre><code class="language-julia hljs">println(result)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">TTvector{Float64, 3}(3, [[0.764888320126917; 0.10102520841606254;;; 0.20026088215165033; 0.35476625884400126;;; 0.4386702048238466; -0.3795055605512498;;; -0.19363569112992884; 0.9610248024858259], [-0.5961863784629251 -0.10114161027154527 0.563579300577542 -0.563712747962243; 0.6152684215925553 0.6681748951991238 -0.13861315859582132 -1.2304882054274873;;; -0.2641070088748141 -0.46376422210768836 -0.5742563486593398 -0.3341739180131108; -0.7140708957857989 -0.3700472093905065 1.8603182606561934 0.8718124289856455;;; -0.5735224584540733 0.7718395341896251 0.3528234721742859 0.28975269035331036; 0.007898996445220439 1.4322040645929006 -0.5185860166775693 -0.18661264137645467;;; 0.8320439291952049 0.5722923068200991 0.44358813786623685 0.5438420768612409; -2.2494213833219083 -1.0440993454557514 0.009288632178549886 0.03697828741069478], [1.2978006038248715 0.25114066741179436 1.5012919278535501 -0.048677290074636184; -0.6976275500377785 -1.2851259637911265 -0.7099318144695047 -2.3358323454689867;;;]], (2, 2, 2), [1, 4, 4, 1], [0, 0, 0])</code></pre><p>We can also unfold this</p><pre><code class="language-julia hljs">matricize(result)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">8-element Vector{Float64}:
+  0.9667256186720184
+ -2.2876377255805713
+ -0.28005954183466136
+ -0.3009655606013276
+ -0.470218079964421
+ -0.5087604810238591
+  3.7518148497332486
+  0.7532133761097066</code></pre><h3 id="Interpolation"><a class="docs-heading-anchor" href="#Interpolation">Interpolation</a><a id="Interpolation-1"></a><a class="docs-heading-anchor-permalink" href="#Interpolation" title="Permalink"></a></h3><p>We can also do interpolation in the QTT framework:</p><pre><code class="language-julia hljs">using CairoMakie
 using TensorTrainNumerics
 
 f = x -&gt; cos(1 / (x^3 + 0.01)) + sin(π * x)
@@ -59,4 +59,53 @@ fig</code></pre><img src="index-e72d749c.png" alt="Example block output"/><p>We 
       |         |         |         |         |         |         |         |         |         |
       2         2         2         2         2         2         2         2         2         2</code></pre><p>And similarly for the rank-revealing</p><pre><code class="language-julia hljs">visualize(qtt_rank_revealing)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi"> 1-- • -- 2-- • -- 4-- • -- 8-- • --14-- • --20-- • --19-- • --15-- • --13-- • --11-- • -- 1
      |        |        |        |        |        |        |        |        |        |
-     2        2        2        2        2        2        2        2        2        2</code></pre></article><nav class="docs-footer"><a class="docs-footer-nextpage" href="theory/">Tensor trains »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.14.1 on <span class="colophon-date" title="Thursday 24 July 2025 08:53">Thursday 24 July 2025</span>. Using Julia version 1.11.6.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+     2        2        2        2        2        2        2        2        2        2</code></pre><h3 id="Functions"><a class="docs-heading-anchor" href="#Functions">Functions</a><a id="Functions-1"></a><a class="docs-heading-anchor-permalink" href="#Functions" title="Permalink"></a></h3><p>You can also use a low-rank representation of any trigonometric function and polynomial.</p><pre><code class="language-julia hljs">using TensorTrainNumerics
+using CairoMakie
+
+d = 8
+
+A1 = qtt_exp(d)
+A2 = qtt_sin(d, λ = π)
+A3 = qtt_cos(d, λ = π)
+A4 = qtt_polynom([0.0, 2.0, 3.0, -8.0, -5.0], d; a = 0.0, b = 1.0)
+
+
+qtt_values_exponential = qtt_to_function(A1)
+qtt_values_sin = qtt_to_function(A2)
+qtt_values_cos = qtt_to_function(A3)
+qtt_values_polynom = qtt_to_function(A4)
+
+
+values_exp(x) = exp(x)
+values_sin(x) = sin(x * π^2)
+values_cos(x) = cos(x * π^2)
+values_polynom(x) = 2 * x + 3 * x^2 - 8 * x^3 - 5 * x^4
+
+x_points = LinRange(0, 1, 2^8)
+original_values_exponential = values_exp.(x_points)
+original_values_sin = values_sin.(x_points)
+original_values_cos = values_cos.(x_points)
+original_values_polynom = values_polynom.(x_points)
+
+let
+    fig = Figure()
+    ax1 = Axis(fig[2, 2], title = &quot;Exp Approximation&quot;, xlabel = &quot;x&quot;, ylabel = &quot;f(x)&quot;)
+    ax2 = Axis(fig[1, 1], title = &quot;Sin Approximation&quot;, xlabel = &quot;x&quot;, ylabel = &quot;f(x)&quot;)
+    ax3 = Axis(fig[1, 2], title = &quot;Cos Approximation&quot;, xlabel = &quot;x&quot;, ylabel = &quot;f(x)&quot;)
+    ax4 = Axis(fig[2, 1], title = &quot;Polynomial Approximation&quot;, xlabel = &quot;x&quot;, ylabel = &quot;f(x)&quot;)
+
+
+    lines!(ax1, x_points, original_values_exponential, label = &quot;Exponential function&quot;)
+    lines!(ax1, x_points, qtt_values_exponential, label = &quot;QTT exponential function&quot;, linestyle = :dash, color = :green)
+
+    lines!(ax2, x_points, original_values_sin, label = &quot;Sine function&quot;)
+    lines!(ax2, x_points, qtt_values_sin, label = &quot;QTT sine function&quot;, linestyle = :dash, color = :red)
+
+    lines!(ax3, x_points, original_values_cos, label = &quot;Sine function&quot;)
+    lines!(ax3, x_points, qtt_values_cos, label = &quot;QTT sine function&quot;, linestyle = :dash, color = :red)
+
+    lines!(ax4, x_points, original_values_polynom, label = &quot;Sine function&quot;)
+    lines!(ax4, x_points, qtt_values_polynom, label = &quot;QTT sine function&quot;, linestyle = :dash, color = :red)
+
+    fig
+end</code></pre><img src="index-640489ec.png" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-nextpage" href="theory/">Tensor trains »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.14.1 on <span class="colophon-date" title="Tuesday 29 July 2025 09:41">Tuesday 29 July 2025</span>. Using Julia version 1.11.6.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
