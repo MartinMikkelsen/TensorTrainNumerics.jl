@@ -55,6 +55,8 @@ struct TToperator{T <: Number, M} <: AbstractTToperator
 end
 
 Base.eltype(::TToperator{T, M}) where {T, M} = T
+Base.eltype(::TTvector{T, N}) where {T, N} = T
+
 function Base.complex(A::TToperator{T, M}) where {T, M}
     return TToperator{Complex{T}, M}(A.N, complex(A.tto_vec), A.tto_dims, A.tto_rks, A.tto_ot)
 end

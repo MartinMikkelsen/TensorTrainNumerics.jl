@@ -1,7 +1,8 @@
 using TensorTrainNumerics
 using CairoMakie
+using KrylovKit
 
-cores = 8
+cores = 6
 h = 1 / cores^2
 A = h^2 * toeplitz_to_qtto(-2, 1.0, 1.0, cores)
 xes = collect(range(0.0, 1.0, 2^cores))
@@ -15,6 +16,8 @@ solution_explicit, error_explicit = euler_method(A, u₀, steps; return_error = 
 solution_implicit, rel_implicit = implicit_euler_method(A, u₀, init, steps; return_error = true)
 
 solution_crank, rel_crank = crank_nicholson_method(A, u₀, init, steps; return_error = true, tt_solver = "mals")
+
+solution_krylov = linsolve(A, u₀, init)
 
 let
     fig = Figure()

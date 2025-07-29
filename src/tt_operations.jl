@@ -141,6 +141,10 @@ function *(A::TToperator{T, N}, v::TTvector{T, N}) where {T <: Number, N}
     return y
 end
 
+function (A::TToperator{T,N})(x::TTvector{T,N}) where {T,N}
+    return A * x
+end
+
 """
     *(A::TToperator{T,N}, B::TToperator{T,N}) where {T<:Number, N}
 
@@ -259,6 +263,10 @@ function *(a::S, A::TToperator{R, N}) where {S <: Number, R <: Number, N}
     X = copy(A.tto_vec)
     X[i] = a * X[i]
     return TToperator{T, N}(A.N, X, A.tto_dims, A.tto_rks, A.tto_ot)
+end
+
+function Base.:*(A::TTvector{T,N}, a::S) where {T<:Number, S<:Number, N}
+    return a * A
 end
 
 function -(A::TTvector{T, N}, B::TTvector{T, N}) where {T <: Number, N}
