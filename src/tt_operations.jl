@@ -145,6 +145,11 @@ function (A::TToperator{T,N})(x::TTvector{T,N}) where {T,N}
     return A * x
 end
 
+function (A::TToperator{T, N})(x::TTvector{T, N}, ::Val{S}) where {T, N, S}
+    return A(x)
+end
+
+
 """
     *(A::TToperator{T,N}, B::TToperator{T,N}) where {T<:Number, N}
 

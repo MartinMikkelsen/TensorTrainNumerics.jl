@@ -23,7 +23,7 @@ A structure representing a Tensor Train (TT) vector.
 # Type Parameters
 - `T<:Number`: The type of the elements in the TT vector.
 """
-struct TTvector{T <: Number, M} <: AbstractTTvector
+mutable struct TTvector{T <: Number, M} <: AbstractTTvector
     N::Int64
     ttv_vec::Vector{Array{T, 3}}
     ttv_dims::NTuple{M, Int64}
@@ -164,23 +164,7 @@ Create a tensor train (TT) tensor filled with zeros.
 function zeros_tt(dims, rks; ot = zeros(Int64, length(dims)))
     return zeros_tt(Float64, dims, rks; ot = ot)
 end
-"""
-    zeros_tt(::Type{T}, dims::NTuple{N,Int64}, rks; ot=zeros(Int64, length(dims)))
 
-Create a TTvector with zero entries.
-
-# Arguments
-- `::Type{T}`: The element type of the TTvector.
-- `dims::NTuple{N,Int64}`: A tuple specifying the dimensions of the TTvector.
-- `rks`: A tuple specifying the TT-ranks.
-- `ot`: An optional argument specifying the orthogonalization tensor. Defaults to a zero vector of the same length as `dims`.
-
-# Returns
-- A `TTvector{T,N}` with zero entries and specified dimensions and ranks.
-
-# Throws
-- `AssertionError` if the length of `dims` plus one is not equal to the length of `rks`.
-"""
 function zeros_tt(::Type{T}, dims::NTuple{N, Int64}, rks; ot = zeros(Int64, length(dims))) where {T, N}
     @assert length(dims) + 1 == length(rks) "Dimensions and ranks are not compatible"
     tt_vec = [zeros(T, dims[i], rks[i], rks[i + 1]) for i in eachindex(dims)]
