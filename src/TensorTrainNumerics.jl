@@ -15,7 +15,7 @@ include("solvers/mals.jl")
 export dmrg_linsolve, dmrg_eigsolve
 include("solvers/dmrg.jl")
 
-export chebyshev_lobatto_nodes, gauss_chebyshev_lobatto, equally_spaced_nodes, legendre_nodes, get_nodes, lagrange_basis, interpolating_qtt, lagrange_rank_revealing
+export chebyshev_lobatto_nodes, gauss_chebyshev_lobatto, equally_spaced_nodes, legendre_nodes, get_nodes, lagrange_basis, interpolating_qtt, lagrange_rank_revealing, integrating_qtt
 include("tt_interpolations.jl")
 
 export toeplitz_to_qtto, qtto_prolongation, ∇, Δ, shift
