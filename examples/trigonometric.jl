@@ -13,7 +13,6 @@ qtt_values_sin = qtt_to_function(A2)
 qtt_values_cos = qtt_to_function(A3)
 qtt_values_polynom = qtt_to_function(A4)
 
-
 values_exp(x) = exp(x)
 values_sin(x) = sin(x * π^2)
 values_cos(x) = cos(x * π^2)
