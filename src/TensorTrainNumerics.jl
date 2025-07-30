@@ -3,7 +3,7 @@ module TensorTrainNumerics
 export TTvector, TToperator, QTTvector, QTToperator, ttv_decomp, tto_decomp, ttv_to_tensor, tto_to_tensor, zeros_tt, zeros_tto, rand_tt, rand_tto, is_qtt, is_qtt_operator, visualize, tt_svdvals, matricize, tt2qtt, concatenate, ones_tt, orthogonalize, id_tto
 include("tt_tools.jl")
 
-export *, +, dot, -, /, outer_product, concatenate, permute, hadamard, kron, ⊗, euclidean_distance, euclidean_distance_normalized, TTdiag, norm
+export *, +, dot, -, /, outer_product, concatenate, permute, hadamard, kron, ⊕,⊗, euclidean_distance, euclidean_distance_normalized, TTdiag, norm
 include("tt_operations.jl")
 
 export als_linsolve, als_eigsolve, als_gen_eigsolv
@@ -15,7 +15,7 @@ include("solvers/mals.jl")
 export dmrg_linsolve, dmrg_eigsolve
 include("solvers/dmrg.jl")
 
-export chebyshev_lobatto_nodes, gauss_chebyshev_lobatto, equally_spaced_nodes, legendre_nodes, get_nodes, lagrange_basis, interpolating_qtt, lagrange_rank_revealing
+export chebyshev_lobatto_nodes, gauss_chebyshev_lobatto, equally_spaced_nodes, legendre_nodes, get_nodes, lagrange_basis, interpolating_qtt, lagrange_rank_revealing, integrating_qtt
 include("tt_interpolations.jl")
 
 export toeplitz_to_qtto, qtto_prolongation, ∇, Δ, shift

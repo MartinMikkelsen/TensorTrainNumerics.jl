@@ -4,7 +4,6 @@ authors = ["Martin Mikkelsen"]
 version = "1.0.2"
 
 [deps]
-FastGaussQuadrature = "442a2c76-b920-505d-bb47-c5924d526838"
 IterativeSolvers = "42fd0dbc-a981-5370-80f2-aaf504508153"
 KrylovKit = "0b1a1467-8014-51b9-945f-bf0ae24f4b77"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
@@ -15,7 +14,6 @@ TensorOperations = "6aa20fa7-93e2-5fca-9bc0-fbd0db3c71a2"
 
 [compat]
 Aqua = "0.8.13"
-FastGaussQuadrature = "1.0.2"
 IterativeSolvers = "0.9.4"
 KrylovKit = "0.6.1, 0.9"
 LinearAlgebra = "1.6.7"

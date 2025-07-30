@@ -1,5 +1,4 @@
 using LinearAlgebra
-using FastGaussQuadrature
 
 """
     chebyshev_lobatto_nodes(N::Int) -> Vector{Float64}
@@ -105,6 +104,8 @@ Compute the Lagrange basis polynomial `L_j(x)` at a given point `x` for a set of
 
 # Returns
 - `Float64`: The value of the Lagrange basis polynomial `L_j(x)` at the point `x`.
+
+See https://arxiv.org/pdf/2311.12554 for more details.
 """
 function lagrange_basis(nodes::Vector{Float64}, x::Float64, j::Int)
     N = length(nodes) - 1
@@ -180,72 +181,12 @@ function A_R(nodes::Vector{Float64})
     return A
 end
 
-function A_L_x(func::Function, nodes::Vector{Float64}, start::Float64 = 0.0, stop::Float64 = 1.0)
-    D = length(nodes)
-    A = zeros(Float64, 1, 2, 1, D^2)
-
-    for σ in 0:1
-        x_val = (0.5 .* (σ .+ nodes)) .* (stop - start) .+ start
-        y_val = nodes .* (stop - start) .+ start
-
-        values = Float64[]
-        for x in x_val
-            for y in y_val
-                push!(values, func(y, x))
-            end
-        end
-
-        A[1, σ + 1, 1, :] = reshape(values, D^2)
-    end
-
-    return A
-end
-
-function A_C_y(nodes::Vector{Float64})
-    D = length(nodes)
-    A = zeros(Float64, D^2, 2, 1, D^2)
-    A_c = A_C(nodes)
-    for σ in 0:1
-        kron_res = kron(Matrix{Float64}(I, D, D), A_c[:, σ + 1, 1, :])
-        A[:, σ + 1, 1, :] = kron_res
-    end
-    return A
-end
-
-function A_C_x(nodes::Vector{Float64})
-    D = length(nodes)
-    A = zeros(Float64, D^2, 2, 1, D^2)
-    A_c = A_C(nodes)
-    for σ in 0:1
-        kron_res = kron(A_c[:, σ + 1, 1, :], Matrix{Float64}(I, D, D))
-        A[:, σ + 1, 1, :] = kron_res
-    end
-    return A
-end
-
-function A_R_x(nodes::Vector{Float64})
-    D = length(nodes)
-    A = zeros(Float64, D^2, 2, 1, D)
-    A_r = A_R(nodes)
-    for σ in 0:1
-        kron_res = kron(A_r[:, σ + 1, 1, :], Matrix{Float64}(I, D, D))
-        A[:, σ + 1, 1, :] = kron_res
-    end
-    return A
-end
-
-function A_R_y(nodes::Vector{Float64})
-    return A_R(nodes)
-end
-
 """
-    interpolating_qtt(func::Function, core::Int, N::Int; node_type::String="chebyshev", start::Float64=0.0, stop::Float64=1.0)
-
 Constructs an interpolating Quantized Tensor Train (QTT) for a given function.
 
 # Arguments
 - `func::Function`: The function to be interpolated.
-- `core::Int`: The number of cores in the QTT.
+- `d::Int`: The number of cores in the QTT.
 - `N::Int`: The number of nodes for interpolation.
 - `node_type::String`: The type of nodes to use for interpolation. Default is `"chebyshev"`.
 - `start::Float64`: The start of the interval for interpolation. Default is `0.0`.
@@ -256,9 +197,11 @@ Constructs an interpolating Quantized Tensor Train (QTT) for a given function.
 
 # Description
 This function constructs an interpolating QTT by first generating the interpolation nodes and constructing the corresponding tensors. The tensors are then reshaped and permuted to fit the TTvector format. The resulting TTvector is returned.
+
+See https://arxiv.org/pdf/2311.12554 for more details.
 """
 function interpolating_qtt(
-        func::Function, core::Int, N::Int; node_type::String = "chebyshev",
+        func::Function, d::Int, N::Int; node_type::String = "chebyshev",
         start::Float64 = 0.0, stop::Float64 = 1.0
     )
     nodes = get_nodes(N, node_type)
@@ -267,23 +210,20 @@ function interpolating_qtt(
     Ar = A_R(nodes)
 
     tensors = [Al]
-    for _ in 1:(core - 2)
+    for _ in 1:(d - 2)
         push!(tensors, Ac)
     end
     push!(tensors, Ar)
 
-    # Convert tensors to TTvector format
     N_ = length(tensors)
     ttv_vec = Vector{Array{Float64, 3}}()
     ttv_rks = Int[]
     ttv_rks = [1]
     for i in 1:N_
-        # Reshape tensors to (n_i, r_{i-1}, r_i)
         T = tensors[i]
         n_i = size(T, 2)
         r_prev = size(T, 1) * size(T, 3)
         r_next = size(T, 4)
-        # Permute dimensions to (μ_i, α_{i-1}, α_i)
         T = permutedims(T, (2, 1, 3, 4))
         T = reshape(T, n_i, r_prev, r_next)
         push!(ttv_vec, T)
@@ -296,13 +236,13 @@ function interpolating_qtt(
 end
 
 """
-    lagrange_rank_revealing(func::Function, core::Int, N::Int)
+    lagrange_rank_revealing(func::Function, d::Int, N::Int)
 
 Perform Lagrange rank-revealing tensor train (TT) decomposition.
 
 # Arguments
 - `func::Function`: The function to be approximated.
-- `core::Int`: The number of cores in the TT decomposition.
+- `d::Int`: The number of cores in the TT decomposition.
 - `N::Int`: The number of Chebyshev-Lobatto nodes.
 
 # Returns
@@ -313,16 +253,16 @@ This function performs a rank-revealing TT decomposition using Lagrange interpol
 
 # Details
 1. Compute Chebyshev-Lobatto nodes.
-2. Construct the first core using QR decomposition.
+2. Construct the first d using QR decomposition.
 3. For intermediate cores, perform SVD and truncate based on numerical rank.
-4. Construct the last core.
+4. Construct the last d.
 5. Convert the list of TT cores to a `TTvector` format.
 """
-function lagrange_rank_revealing(func::Function, core::Int, N::Int)
+function lagrange_rank_revealing(func::Function, d::Int, N::Int)
     nodes = chebyshev_lobatto_nodes(N)
     tensors = []
 
-    # First core
+    # First d
     AL = A_L(func, nodes)
     AL_mat = reshape(AL, 2, N + 1)  # AL is of size (1, 2, 1, N+1), reshaped to (2, N+1)
 
@@ -337,7 +277,7 @@ function lagrange_rank_revealing(func::Function, core::Int, N::Int)
 
     count_zero = false
     # Intermediate cores
-    for d in 2:(core - 1)
+    for d in 2:(d - 1)
         Ak = A_C(nodes)
         Ak_mat = reshape(Ak, N + 1, :)
         B = R * Ak_mat  # B is of size (size(R,1), size(Ak_mat,2))
@@ -368,7 +308,7 @@ function lagrange_rank_revealing(func::Function, core::Int, N::Int)
         end
     end
 
-    # Last core
+    # Last d
     Ar = A_R(nodes)
     Ar_mat = reshape(Ar, N + 1, 2)
     UR = R * Ar_mat
@@ -398,4 +338,16 @@ function lagrange_rank_revealing(func::Function, core::Int, N::Int)
     ttv_ot = zeros(Int, N_)
     tn = TTvector{Float64, N_}(N_, ttv_vec, ttv_dims, ttv_rks, ttv_ot)
     return tn
+end
+
+function integrating_qtt(f::Function, d::Int, N::Int; method::String = "Rank-Revealing")
+    if method == "Rank-Revealing"
+        A = lagrange_rank_revealing(f, d, N)
+        return TensorTrainNumerics.dot(A, ones_tt(Float64, A.ttv_dims) / 2^d)
+    elseif method == "Interpolating"
+        A = interpolating_qtt(f, d, N)
+        return TensorTrainNumerics.dot(A, ones_tt(Float64, A.ttv_dims) / 2^d)
+    else
+        error("Unknown method: $method. Supported methods are 'Rank-Revealing' and 'Interpolating'.")
+    end
 end
