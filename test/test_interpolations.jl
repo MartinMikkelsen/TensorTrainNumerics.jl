@@ -1,5 +1,6 @@
 using Test
-import TensorTrainNumerics: A_L, A_C, A_R, A_L_x, gauss_chebyshev_lobatto
+import TensorTrainNumerics: A_L, A_C, A_R, gauss_chebyshev_lobatto
+
 
 @testset "Node Generation Tests" begin
     @testset "Chebyshev Lobatto Nodes" begin
@@ -15,14 +16,6 @@ import TensorTrainNumerics: A_L, A_C, A_R, A_L_x, gauss_chebyshev_lobatto
         @test nodes[1] == 0.0
         @test nodes[end] == 1.0
     end
-
-
-    @testset "Get Nodes" begin
-        @test length(get_nodes(4, "chebyshev")) == 5
-        @test length(get_nodes(4, "equally_spaced")) == 5
-        @test_throws ErrorException get_nodes(4, "unknown")
-    end
-end
 
 @testset "Lagrange Basis Tests" begin
     nodes = chebyshev_lobatto_nodes(4)
@@ -157,4 +150,36 @@ end
         @test A3[α, 1, 1, 1] ≈ lagrange_basis(nodes3, 0.0, α - 1)
         @test A3[α, 2, 1, 1] ≈ lagrange_basis(nodes3, 0.5, α - 1)
     end
+end
+
+@testset "integrating_qtt" begin
+    f1(x) = 1.0
+    d = 15
+    N = 100
+    approx1 = integrating_qtt(f1, d, N,method="Interpolating")
+    @test isapprox(approx1, 1.0; atol=1e-6)
+
+    f2(x) = x
+    approx2 = integrating_qtt(f2, d, N,method="Interpolating")
+    @test isapprox(approx2, 0.5; atol=1e-3)
+
+    f3(x) = x^2
+    approx3 = integrating_qtt(f3, d, N,method="Interpolating")
+    @test isapprox(approx3, 1/3; atol=1e-3)
+
+    f4(x) = sin(π * x)
+    approx4 = integrating_qtt(f4, d, N,method="Interpolating")
+    @test isapprox(approx4, 2/π; atol=1e-6)
+
+    f5(x) = cos(x)
+    approx5 = integrating_qtt(f5, d, N)
+    @test isapprox(approx5, sin(1); atol=1e-4)
+
+    f6(x) = sin(x)
+    approx6 = integrating_qtt(f6, d, N)
+    @test isapprox(approx6, 1 - cos(1); atol=1e-4)
+
+    f7(x) = exp(x)
+    approx7 = integrating_qtt(f7, d, N, method="Interpolating")
+    @test isapprox(approx7, exp(1) - 1; atol=1e-4)
 end

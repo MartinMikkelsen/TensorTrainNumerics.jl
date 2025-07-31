@@ -17,7 +17,7 @@ VectorInterface = "409d34a3-91d5-4945-b6ec-7529ddf182d8"
 TensorTrainNumericsVectorInterfaceExt = "VectorInterface"
 
 [compat]
-Aqua = "0.8.10"
+Aqua = "0.8.13"
 IterativeSolvers = "0.9.4"
 KrylovKit = "0.6.1, 0.9"
 LinearAlgebra = "1.6.7"

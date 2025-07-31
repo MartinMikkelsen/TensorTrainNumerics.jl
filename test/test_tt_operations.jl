@@ -77,43 +77,34 @@ end
 end
 
 
-@testset "hadamard for TTvector" begin
-    # Test 1: Hadamard product of two TTvectors with all ranks 1 (should match elementwise product)
-    dims = (2, 3)
-    rks = [1, 1, 1]
-    # Construct two TTvectors with explicit values
-    core1a = reshape([1.0, 2.0], 2, 1, 1)
-    core2a = reshape([3.0, 4.0, 5.0], 3, 1, 1)
-    a = TTvector{Float64,2}(2, [core1a, core2a], dims, rks, zeros(Int,2))
-    core1b = reshape([2.0, 1.0], 2, 1, 1)
-    core2b = reshape([1.0, 0.5, 2.0], 3, 1, 1)
-    b = TTvector{Float64,2}(2, [core1b, core2b], dims, rks, zeros(Int,2))
-    eps = 1e-12
-    c = hadamard(a, b, eps)
-    # Full vector reconstruction
-    full_a = vec([core1a[i,1,1]*core2a[j,1,1] for i=1:2, j=1:3])
-    full_b = vec([core1b[i,1,1]*core2b[j,1,1] for i=1:2, j=1:3])
-    full_c = vec([c.ttv_vec[1][i,1,1]*c.ttv_vec[2][j,1,1] for i=1:2, j=1:3])
-    @test isapprox(full_c, full_a .* full_b; atol=1e-10)
+@testset "Hadamard product and function reconstruction tests" begin
+    d = 8
+    x_points = LinRange(0, 1, 2^d)
 
-    # Test 2: Hadamard product with random TTvectors (ranks > 1)
-    dims3 = (2, 2, 2)
-    rks3 = [1, 2, 2, 1]
-    a3 = rand_tt(dims3, rks3)
-    b3 = rand_tt(dims3, rks3)
-    c3 = hadamard(a3, b3, 1e-10)
-    # Check output TTvector has correct dimensions and length
-    @test c3.ttv_dims == a3.ttv_dims
-    @test c3.N == a3.N
-    @test length(c3.ttv_vec) == a3.N
+    # Define tensor train vectors
+    A1 = qtt_exp(d)
+    A2 = qtt_sin(d, λ = π)
+    A3 = qtt_cos(d, λ = π)
+    A4 = qtt_polynom([0.0, 2.0, 3.0, -8.0, -5.0], d; a = 0.0, b = 1.0)
 
-    # Test 3: Error on mismatched dimensions
-    dims4 = (2, 2, 3)
-    rks4 = [1, 2, 2, 1]
-    a4 = rand_tt(dims4, rks4)
-    @test_throws ErrorException hadamard(a3, a4, 1e-10)
-    # Error on mismatched mode sizes
-    dims_bad = (2, 3, 2)
-    a_bad = rand_tt(dims_bad, rks3)
-    @test_throws ErrorException hadamard(a3, a_bad, 1e-10)
+    # Test 1: cos(π^2 * x) * sin(π^2 * x)
+    expected1 = cos.(π^2 * x_points) .* sin.(π^2 * x_points)
+    result1 = qtt_to_function(A2 ⊕ A3)
+    @test isapprox(result1, expected1; atol=1e-12)
+
+    # Test 2: exp(x) * sin(π^2 * x)
+    expected2 = exp.(x_points) .* sin.(π^2 * x_points)
+    result2 = qtt_to_function(A1 ⊕ A2)
+    @test isapprox(result2, expected2; atol=1e-12)
+
+    # Test 3: Polynomial values * sin(π^2 * x)
+    values_polynom(x) = 2 * x + 3 * x^2 - 8 * x^3 - 5 * x^4
+    expected3 = values_polynom.(x_points) .* sin.(π^2 * x_points)
+    result3 = qtt_to_function(A4 ⊕ A2)
+    @test isapprox(result3, expected3; atol=1e-12)
+
+    # Test 4: Polynomial values * cos(π^2 * x)
+    expected4 = values_polynom.(x_points) .* cos.(π^2 * x_points)
+    result4 = qtt_to_function(A4 ⊕ A3)
+    @test isapprox(result4, expected4; atol=1e-12)
 end

@@ -379,24 +379,27 @@ function permute(x::TTvector{T, N}, order::Vector{Int}, eps::Real) where {T <: N
     return TTvector{T, N}(d, cores, Tuple(dims), rks, zeros(Int, N))
 end
 
-function hadamard(a::TTvector{T, N}, b::TTvector{T, N}, eps::Real) where {T, N}
-    a.N == b.N || error("TTvector dimensions must match")
-    a.ttv_dims == b.ttv_dims || error("TTvector mode sizes must match")
-    d = a.N
-    result_cores = Vector{Array{T, 3}}(undef, d)
+function hadamard(x::TTvector{T, N}, y::TTvector{T, N}) where {T <: Number, N}
+    @assert x.ttv_dims == y.ttv_dims "Incompatible TT dimensions"
+    d = x.N
+    ttv_vec = Vector{Array{T, 3}}(undef, d)
+    dims = x.ttv_dims
+    rks = [x.ttv_rks[k] * y.ttv_rks[k] for k in 1:(d + 1)]
+
     for k in 1:d
-        # Each core: (n_k, r_k, r_{k+1})
-        core_a = a.ttv_vec[k]
-        core_b = b.ttv_vec[k]
-        # Hadamard product in TT: kron over ranks, elementwise over n_k
-        result_cores[k] = Array{T, 3}(undef, a.ttv_dims[k], a.ttv_rks[k] * b.ttv_rks[k], a.ttv_rks[k + 1] * b.ttv_rks[k + 1])
-        for i in 1:a.ttv_dims[k]
-            result_cores[k][i, :, :] = kron(core_a[i, :, :], core_b[i, :, :])
+        n = dims[k]
+        rx1, rx2 = x.ttv_rks[k], x.ttv_rks[k + 1]
+        ry1, ry2 = y.ttv_rks[k], y.ttv_rks[k + 1]
+        core = zeros(T, n, rx1 * ry1, rx2 * ry2)
+        for s in 1:n
+            core[s, :, :] = kron(x.ttv_vec[k][s, :, :], y.ttv_vec[k][s, :, :])
         end
+        ttv_vec[k] = core
     end
-    result_rks = a.ttv_rks .* b.ttv_rks
-    return TTvector{T, N}(d, result_cores, a.ttv_dims, result_rks, zeros(Int, d))
+    return TTvector{T, N}(d, ttv_vec, dims, rks, zeros(Int64, d))
 end
+
+⊕(x::TTvector{T, N}, y::TTvector{T, N}) where {T <: Number, N} = hadamard(x, y)
 
 function kron(A::TToperator{T, d1}, B::TToperator{T, d2}) where {T, d1, d2}
     cores = vcat(A.tto_vec, B.tto_vec)
