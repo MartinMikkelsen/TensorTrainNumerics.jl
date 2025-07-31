@@ -1,35 +1,33 @@
 using TensorTrainNumerics
 using CairoMakie
 using KrylovKit
+using OptimKit
 
-cores = 8
+cores = 6
+h = 1 / cores^2
+A = h^2 * toeplitz_to_qtto(-2, 1.0, 1.0, cores)
+xes = collect(range(0.0, 1.0, 2^cores))
 
-xes = collect(range(0.0, 1.0, length = 2^cores))
+u₀ = qtt_sin(cores, λ = π)
+init = rand_tt(u₀.ttv_dims, u₀.ttv_rks)
+steps = collect(range(0.0, 10.0, 1000))
 
-h = 1 / (2^cores)
-p = 1.0
-s = 0.0
-v = 0.0
-α = h^2 * v - 2 * p
-β = p + h * s / 2
-γ = p - h * s / 2
+solution_krylov, info = expintegrator(A, 1.0, init,eager = true)
 
-Δ = toeplitz_to_qtto(α, β, γ, cores)
-A = Δ ⊗ id_tto(cores) + id_tto(cores) ⊗ Δ
+dims = (2, 2, 2, 2)  # a simple 4D TT shape
+ranks = [1, 2, 2, 2, 1]
+b = rand_tt(Float64, dims, ranks)  # the "target" vector
 
-b = qtt_cos(cores) ⊗ qtt_basis_vector(cores, 1) + qtt_sin(cores) ⊗ qtt_basis_vector(cores, 2^cores)
+# 2. Starting point: zero vector
+x0 = zeros_tt(Float64, dims, ranks)
 
-initial_guess = rand_tt(b.ttv_dims, b.ttv_rks)
-
-x_krylov = linsolve(A, b, initial_guess)
-
-solution = reshape(qtt_to_function(x_mals), 2^cores, 2^cores)
-
-let
-    fig = Figure()
-    cmap = :roma
-    ax = Axis(fig[1, 1], title = "Laplace Solution", xlabel = "x", ylabel = "y")
-    hm = heatmap!(ax, xes, xes, solution; colormap = cmap)
-    Colorbar(fig[1, 2], hm, label = "u(x, y)")
-    fig
+function cost_with_grad(x)
+    fx = 0.5 * dot(x, x)
+    gx = x
+    return fx, gx
 end
+
+solver = GradientDescent()
+
+res = optimize(cost, x0, solver)
+

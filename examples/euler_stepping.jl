@@ -17,7 +17,6 @@ solution_implicit, rel_implicit = implicit_euler_method(A, u₀, init, steps; re
 
 solution_crank, rel_crank = crank_nicholson_method(A, u₀, init, steps; return_error = true, tt_solver = "mals")
 
-
 let
     fig = Figure()
     ax = Axis(fig[1, 1], xlabel = "x", ylabel = "u(x)", title = "Comparison of Time-Stepping Methods")
