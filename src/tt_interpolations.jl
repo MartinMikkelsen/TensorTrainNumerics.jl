@@ -340,13 +340,13 @@ function lagrange_rank_revealing(func::Function, d::Int, N::Int)
     return tn
 end
 
-function integrating_qtt(f::Function, d::Int, N::Int; method::String = "Rank-Revealing")
+function integrating_qtt(f::Function, d::Int, N::Int; method::String = "Rank-Revealing", kwargs...)
     if method == "Rank-Revealing"
         A = lagrange_rank_revealing(f, d, N)
         return TensorTrainNumerics.dot(A, ones_tt(Float64, A.ttv_dims) / 2^d)
     elseif method == "Interpolating"
         A = interpolating_qtt(f, d, N)
-        return TensorTrainNumerics.dot(A, ones_tt(Float64, A.ttv_dims) / 2^d)
+        return TensorTrainNumerics.dot(A, ones_tt(Float64, A.ttv_dims) / 2^d, kwargs...)
     else
         error("Unknown method: $method. Supported methods are 'Rank-Revealing' and 'Interpolating'.")
     end
