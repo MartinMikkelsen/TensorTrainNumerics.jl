@@ -1,5 +1,4 @@
 using LinearAlgebra
-using FastGaussQuadrature
 
 """
     chebyshev_lobatto_nodes(N::Int) -> Vector{Float64}

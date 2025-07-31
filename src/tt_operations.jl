@@ -61,6 +61,38 @@ function +(x::TTvector{T, N}, y::TTvector{T, N}) where {T <: Number, N}
     return TTvector{T, N}(d, ttv_vec, x.ttv_dims, rks, zeros(Int64, d))
 end
 
+function add!(x::TTvector{T, N}, y::TTvector{T, N}) where {T <: Number, N}
+    @assert x.ttv_dims == y.ttv_dims "Incompatible dimensions"
+    d = x.N
+    ttv_vec = Array{Array{T, 3}, 1}(undef, d)
+    rks = x.ttv_rks + y.ttv_rks
+    rks[1] = 1
+    rks[d + 1] = 1
+    #initialize ttv_vec
+    @threads for k in 1:d
+        ttv_vec[k] = zeros(T, x.ttv_dims[k], rks[k], rks[k + 1])
+    end
+    @inbounds begin
+        #first core
+        ttv_vec[1][:, :, 1:x.ttv_rks[2]] = x.ttv_vec[1]
+        ttv_vec[1][:, :, (x.ttv_rks[2] + 1):rks[2]] = y.ttv_vec[1]
+        #2nd to end-1 cores
+        @threads for k in 2:(d - 1)
+            ttv_vec[k][:, 1:x.ttv_rks[k], 1:x.ttv_rks[k + 1]] = x.ttv_vec[k]
+            ttv_vec[k][:, (x.ttv_rks[k] + 1):rks[k], (x.ttv_rks[k + 1] + 1):rks[k + 1]] = y.ttv_vec[k]
+        end
+        #last core
+        ttv_vec[d][:, 1:x.ttv_rks[d], 1] = x.ttv_vec[d]
+        ttv_vec[d][:, (x.ttv_rks[d] + 1):rks[d], 1] = y.ttv_vec[d]
+    end
+    # Overwrite x fields
+    x.ttv_vec = ttv_vec
+    x.ttv_rks = rks
+    x.ttv_ot = zeros(Int64, d)
+    return x
+end
+
+
 """
     +(x::TToperator{T,N}, y::TToperator{T,N}) where {T<:Number, N}
 
@@ -142,11 +174,11 @@ function *(A::TToperator{T, N}, v::TTvector{T, N}) where {T <: Number, N}
 end
 
 function (A::TToperator{T,N})(x::TTvector{T,N}) where {T,N}
-    return A * x
+    return tt_rounding(A * x)
 end
 
 function (A::TToperator{T, N})(x::TTvector{T, N}, ::Val{S}) where {T, N, S}
-    return A(x)
+    return tt_rounding(A(x))
 end
 
 
@@ -251,16 +283,26 @@ function dot_par(A::TTvector{T, N}, B::TTvector{T, N}) where {T <: Number, N}
 end
 
 function *(a::S, A::TTvector{R, N}) where {S <: Number, R <: Number, N}
-    T = typejoin(typeof(a), R)
-    if iszero(a)
+    T = promote_type(S, R)
+    @assert isconcretetype(T) "TTvector element type must be concrete, got $T"
+    # convert a to type T to avoid typejoin issues
+    aT = convert(T, a)
+    if iszero(aT)
         return zeros_tt(T, A.ttv_dims, ones(Int64, A.N + 1))
     else
         i = findfirst(isequal(0), A.ttv_ot)
         X = copy(A.ttv_vec)
-        X[i] = a * X[i]
+        X[i] = aT * X[i]
+        # promote all cores to T if needed
+        for k in eachindex(X)
+            if eltype(X[k]) != T
+                X[k] .= convert.(T, X[k])
+            end
+        end
         return TTvector{T, N}(A.N, X, A.ttv_dims, A.ttv_rks, A.ttv_ot)
     end
 end
+
 
 function *(a::S, A::TToperator{R, N}) where {S <: Number, R <: Number, N}
     i = findfirst(isequal(0), A.tto_ot)
