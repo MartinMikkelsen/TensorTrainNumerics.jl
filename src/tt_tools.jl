@@ -642,8 +642,6 @@ function orthogonalize(x_tt::TTvector{T, N}; i = 1::Int) where {T <: Number, N}
 end
 
 
-
-
 """
     visualize(tt::TTvector)
 
@@ -1008,149 +1006,6 @@ function tt2qtt(tt_tensor::TTvector{T, N}, dims::Vector{Vector{Int}}, threshold:
 
     return qtt_tensor
 end
-"""
-    matricize(tt::TToperator{T, M}) where {T, M}
-
-Convert a tensor train operator (TToperator) into its matrix form.
-
-# Arguments
-- `tt::TToperator{T, M}`: The tensor train operator to be matricized.
-
-# Returns
-- A matrix representation of the tensor train operator.
-
-# Description
-The function takes a tensor train operator and converts it into a matrix by reshaping and permuting its cores. It starts with the first core and iteratively processes each subsequent core, updating the matrix representation at each step. If the size of the first core does not match the expected dimensions, an error is thrown.
-"""
-function matricize(tt::TToperator{T, M}) where {T, M}
-    first_core = tt.tto_vec[1]
-    if prod(size(first_core)) != tt.tto_dims[1] * tt.tto_dims[1] * tt.tto_rks[2]
-        error("First core size mismatch: expected $(tt.tto_dims[1] * tt.tto_dims[1] * tt.tto_rks[2]), got $(prod(size(first_core)))")
-    end
-    tt_mat = reshape(first_core, (tt.tto_dims[1], tt.tto_dims[1], tt.tto_rks[2]))
-
-    for i in 2:tt.N
-        next_core = tt.tto_vec[i]
-        @tensor temp[a, b, c, d, r2] := tt_mat[a, b, r1] * next_core[c, d, r1, r2]
-        tt_mat = permutedims(temp, (1, 3, 2, 4, 5))
-        tt_mat = reshape(tt_mat, prod(tt.tto_dims[1:i]), prod(tt.tto_dims[1:i]), tt.tto_rks[i + 1])
-    end
-
-    m = prod(tt.tto_dims)
-    n = prod(tt.tto_dims)
-    return reshape(tt_mat, m, n)
-end
-"""
-    matricize(tt::TTvector{T, M}) where {T, M}
-
-Convert a Tensor Train (TT) vector into a matrix form.
-
-# Arguments
-- `tt::TTvector{T, M}`: A Tensor Train vector of type `T` and order `M`.
-
-# Returns
-- A matrix representation of the input Tensor Train vector.
-
-# Description
-The function takes the first core of the Tensor Train vector and reshapes it into a matrix. It then iteratively processes each subsequent core, performing tensor contractions and reshaping operations to build the final matrix representation.
-
-# Errors
-- Throws an error if the size of the first core does not match the expected dimensions.
-"""
-function matricize(tt::TTvector{T, M}) where {T, M}
-    first_core = tt.ttv_vec[1]
-    if prod(size(first_core)) != tt.ttv_dims[1] * tt.ttv_rks[2]
-        error("First core size mismatch: expected $(tt.ttv_dims[1] * tt.ttv_rks[2]), got $(prod(size(first_core)))")
-    end
-    tt_mat = reshape(first_core, (tt.ttv_dims[1], tt.ttv_rks[2]))
-
-    for i in 2:tt.N
-        next_core = tt.ttv_vec[i]
-        @tensor temp[a, b, r2] := tt_mat[a, r1] * next_core[b, r1, r2]
-        tt_mat = permutedims(temp, (1, 3, 2))
-        tt_mat = reshape(tt_mat, prod(tt.ttv_dims[1:i]), tt.ttv_rks[i + 1])
-    end
-
-    m = prod(tt.ttv_dims)
-    return reshape(tt_mat, m * tt.ttv_rks[end])
-end
-
-"""
-TT rounding algorithm in https://doi.org/10.1137/21M1451191
-Partial contraction defined in Definition 3.1
-"""
-function partial_contraction(A::TTvector{T, N}, B::TTvector{T, N}; reverse = true) where {T, N}
-    @assert A.ttv_dims == B.ttv_dims "TT dimensions are not compatible"
-    L = length(A.ttv_dims)
-    W = zeros.(T, A.ttv_rks, B.ttv_rks)
-    if reverse
-        W[L + 1] = ones(T, 1, 1)
-        @inbounds for k in L:-1:1
-            @tensoropt((a, b, α, β), W[k][a, b] = A.ttv_vec[k][z, a, α] * B.ttv_vec[k][z, b, β] * W[k + 1][α, β]) #size R^A_{k} × R^B_{k}
-        end
-    else
-        W[1] = ones(T, 1, 1)
-        @inbounds for k in 1:L
-            @tensoropt((a, b, α, β), W[k + 1][a, b] = A.ttv_vec[k][z, α, a] * B.ttv_vec[k][z, β, b] * W[k][α, β]) #size R^A_{k} × R^B_{k}
-        end
-    end
-    return W
-end
-
-"""
-TT rounding algorithm in https://doi.org/10.1137/21M1451191
-Algorithm 3.2 "Randomize then Orthogonalize"
-"""
-function tt_rounding(y_tt::TTvector{T, N}; rks = y_tt.ttv_rks, rmax = prod(y_tt.ttv_dims), orthogonal = true, ℓ = round(Int, 0.5 * maximum(rks))) where {T, N}
-    rks = r_and_d_to_rks(rks .+ ℓ, y_tt.ttv_dims; rmax = rmax + ℓ) #rks with oversampling
-    x_tt = zeros_tt(T, y_tt.ttv_dims, rks)
-    ℜ_tt = rand_tt(T, y_tt.ttv_dims, rks; normalise = true, orthogonal = orthogonal)
-    W = partial_contraction(y_tt, ℜ_tt)
-    A_temp = zeros(T, maximum(rks), maximum(y_tt.ttv_rks))
-    Y_temp = zeros(T, maximum(y_tt.ttv_dims), maximum(rks), maximum(y_tt.ttv_rks))
-    Y_temp[1:y_tt.ttv_dims[1], 1:1, 1:y_tt.ttv_rks[2]] = copy(y_tt.ttv_vec[1])
-    Z_temp = zeros(T, maximum(y_tt.ttv_dims), maximum(rks), maximum(rks))
-    @inbounds begin
-        for k in 1:(N - 1)
-            @tensoropt((βₖ, αₖ₋₁, αₖ), Z_temp[1:y_tt.ttv_dims[k], 1:rks[k], 1:rks[k + 1]][iₖ, αₖ₋₁, αₖ] = @view(Y_temp[1:y_tt.ttv_dims[k], 1:rks[k], 1:y_tt.ttv_rks[k + 1]])[iₖ, αₖ₋₁, βₖ] * W[k + 1][βₖ, αₖ]) # nₖ × ℓₖ₋₁ × ℓₖ
-            @views Qₖ_temp, Rₖ = qr(reshape(Z_temp[1:y_tt.ttv_dims[k], 1:rks[k], 1:rks[k + 1]], x_tt.ttv_dims[k] * rks[k], :))
-            x_tt.ttv_vec[k] = reshape(Matrix(Qₖ_temp), y_tt.ttv_dims[k], rks[k], :)
-            @views A_temp[1:rks[k + 1], 1:y_tt.ttv_rks[k + 1]] = Matrix(Qₖ_temp)' * reshape(Y_temp[1:x_tt.ttv_dims[k], 1:rks[k], 1:y_tt.ttv_rks[k + 1]], x_tt.ttv_dims[k] * rks[k], :) # × Rˣₖ
-            @tensoropt((βₖ, αₖ₊₁), Y_temp[1:y_tt.ttv_dims[k + 1], 1:rks[k + 1], 1:y_tt.ttv_rks[k + 2]][iₖ₊₁, αₖ, αₖ₊₁] = @view(A_temp[1:rks[k + 1], 1:y_tt.ttv_rks[k + 1]])[αₖ, βₖ] * y_tt.ttv_vec[k + 1][iₖ₊₁, βₖ, αₖ₊₁])
-        end
-        x_tt.ttv_vec[N] = Y_temp[1:y_tt.ttv_dims[N], 1:rks[N], 1:1]
-    end
-    return x_tt
-end
-
-"""
-    matricize(qtt::TToperator{Float64}, core::Int)::Vector{Float64}
-
-Convert a TToperator to a vector of Float64 values by extracting a specific core.
-
-# Arguments
-- `qtt::TToperator{Float64}`: The TToperator to be converted.
-- `core::Int`: The core index to be used for the conversion.
-
-# Returns
-- `Vector{Float64}`: A vector of Float64 values representing the specified core of the TToperator.
-
-# Description
-This function converts a given TToperator into a vector of Float64 values by extracting the specified core. It first converts the TToperator to a full tensor using `tto_to_tensor`, then calculates the dyadic points and binary indices to extract the values from the tensor.
-"""
-function matricize(qtt::TToperator{Float64}, core::Int)::Vector{Float64}
-    full_tensor = tto_to_tensor(qtt)
-    n = 2^core
-    values = zeros(n)
-
-    for i in 1:n
-        x_le_p = sum(((i >> (k - 1)) & 1) / 2^k for k in 1:core)  # Calculate the dyadic point
-        index_bits = bitstring(i - 1)[(end - core + 1):end]  # Binary representation
-        indices = [parse(Int, bit) + 1 for bit in index_bits]  # Indices for CartesianIndex
-        values[i] = full_tensor[CartesianIndex(indices...)]
-    end
-    return values
-end
 
 """
     matricize(qtt::TTvector{Float64}, core::Int)::Vector{Float64}
@@ -1181,22 +1036,7 @@ function matricize(qtt::TTvector{Float64}, core::Int)::Vector{Float64}
     return values
 end
 
-"""
-	concatenate(tt1::TTvector, tt2::TTvector) -> TTvector
 
-Concatenates two TTvector objects `tt1` and `tt2` into a single TTvector. 
-
-# Arguments
-- `tt1::TTvector`: The first TTvector to concatenate.
-- `tt2::TTvector`: The second TTvector to concatenate.
-
-# Returns
-- `TTvector`: A new TTvector that is the result of concatenating `tt1` and `tt2`.
-
-# Throws
-- `ArgumentError`: If the final rank of `tt1` does not equal the initial rank of `tt2`.
-
-"""
 function concatenate(tt1::TTvector, tt2::TTvector)
     if tt1.ttv_rks[end] != tt2.ttv_rks[1]
         throw(ArgumentError("The final rank of the first TTvector must equal the initial rank of the second TTvector."))
@@ -1211,25 +1051,7 @@ function concatenate(tt1::TTvector, tt2::TTvector)
     return TTvector{eltype(tt1), length(ttv_dims)}(N, ttv_vec, ttv_dims, ttv_rks, ttv_ot)
 end
 
-"""
-	concatenate(tt1::TToperator, tt2::TToperator) -> TToperator
 
-Concatenates two TToperators `tt1` and `tt2` into a single TToperator.
-
-# Arguments
-- `tt1::TToperator`: The first TToperator.
-- `tt2::TToperator`: The second TToperator.
-
-# Returns
-- `TToperator`: A new TToperator that is the concatenation of `tt1` and `tt2`.
-
-# Throws
-- `ArgumentError`: If the final rank of `tt1` does not equal the initial rank of `tt2`.
-
-# Description
-This function concatenates two TToperators by combining their tensor train vectors, dimensions, ranks, and operator types. The resulting TToperator has the combined properties of the input TToperators.
-
-"""
 function concatenate(tt1::TToperator, tt2::TToperator)
     if tt1.tto_rks[end] != tt2.tto_rks[1]
         throw(ArgumentError("The final rank of the first TToperator must equal the initial rank of the second TToperator."))
