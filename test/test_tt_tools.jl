@@ -1,4 +1,5 @@
 using Test
+using TensorTrainNumerics
 
 @testset "TT constructors and properties" begin
     # Test TTvector constructor

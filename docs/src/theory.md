@@ -96,7 +96,7 @@ To convert a tensor train vector or operator into its matrix form, use the `matr
 
 ```@example 2
 # Matricize the TTvector
-result_matrix = matricize(tt_vec)
+result_matrix = matricize(tt_vec, 3)
 
 # Print the result
 println(result_matrix)

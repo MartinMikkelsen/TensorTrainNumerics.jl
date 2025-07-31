@@ -117,7 +117,6 @@ function zeros_tt!(A::TTvector)
     return A
 end
 
-
 function ones_tt(dims)
     return ones_tt(Float64, dims)
 end
@@ -152,3 +151,4 @@ function zeros_tto(n, d, r)
     rks = r_and_d_to_rks(rks, dims .^ 2; rmax = r)
     return zeros_tto(Float64, dims, rks)
 end
+
