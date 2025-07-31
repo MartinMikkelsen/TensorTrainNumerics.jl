@@ -1,6 +1,5 @@
 using TensorTrainNumerics
 using CairoMakie
-using KrylovKit
 
 cores = 6
 h = 1 / cores^2

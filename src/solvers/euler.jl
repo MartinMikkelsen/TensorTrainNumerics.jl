@@ -2,7 +2,7 @@ using TensorTrainNumerics
 using ProgressMeter
 
 function euler_method(A::TToperator, u₀::TTvector, steps::Vector{Float64}; normalize::Bool = true, return_error::Bool = false)
-    solution = copy(u₀)
+    solution = (u₀)
     I = id_tto(A.N)
 
     @showprogress for h in steps
@@ -34,8 +34,8 @@ function implicit_euler_method(
         tt_solver::String = "mals",
         kwargs...
     )
-    solution = copy(u₀)
-    u_prev = copy(u₀)
+    solution = (u₀)
+    u_prev = (u₀)
     I = id_tto(A.N)
 
     @showprogress for h in steps
@@ -76,8 +76,8 @@ function crank_nicholson_method(
         tt_solver::String = "mals",
         kwargs...
     )
-    solution = copy(u₀)
-    u_prev = copy(u₀)
+    solution = (u₀)
+    u_prev = (u₀)
     I = id_tto(A.N)
 
     @showprogress for h in steps

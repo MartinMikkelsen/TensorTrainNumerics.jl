@@ -1,5 +1,6 @@
 using Test
 import TensorTrainNumerics: A_L, A_C, A_R, A_L_x, gauss_chebyshev_lobatto
+
 @testset "Node Generation Tests" begin
     @testset "Chebyshev Lobatto Nodes" begin
         nodes = chebyshev_lobatto_nodes(4)
@@ -15,16 +16,10 @@ import TensorTrainNumerics: A_L, A_C, A_R, A_L_x, gauss_chebyshev_lobatto
         @test nodes[end] == 1.0
     end
 
-    @testset "Legendre Nodes" begin
-        nodes = legendre_nodes(4)
-        @test length(nodes) == 4
-        @test all(nodes .>= 0.0) && all(nodes .<= 1.0)
-    end
 
     @testset "Get Nodes" begin
         @test length(get_nodes(4, "chebyshev")) == 5
         @test length(get_nodes(4, "equally_spaced")) == 5
-        @test length(get_nodes(4, "legendre")) == 4
         @test_throws ErrorException get_nodes(4, "unknown")
     end
 end
@@ -43,7 +38,6 @@ end
 @testset "Node Generation Functions" begin
     @test chebyshev_lobatto_nodes(4) ≈ [1.0, 0.8535533905932737, 0.5, 0.14644660940672627, 0.0]
     @test equally_spaced_nodes(4) == [0.0, 0.25, 0.5, 0.75, 1.0]
-    @test legendre_nodes(4) ≈ [0.06943184420297371, 0.33000947820757187, 0.6699905217924281, 0.9305681557970262]
 end
 
 @testset "Lagrange Basis Functions" begin

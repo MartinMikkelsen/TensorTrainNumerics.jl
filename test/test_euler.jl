@@ -38,7 +38,7 @@ end
     tt_rks = [1; fill(2, cores - 1); 1]
     
     u₀ = rand_tt(tt_dims, tt_rks)
-    guess = copy(u₀)
+    guess = (u₀)
     steps = [0.05]
 
     # Run the implicit Euler solver
@@ -65,7 +65,7 @@ end
     tt_rks = [1; fill(2, cores - 1); 1]
 
     u₀ = rand_tt(tt_dims, tt_rks)
-    guess = copy(u₀)
+    guess = u₀
     steps = [0.05]
 
     sol_tt = crank_nicholson_method(A, u₀, guess, steps; normalize=false, tt_solver="mals")

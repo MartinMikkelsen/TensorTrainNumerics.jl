@@ -45,22 +45,6 @@ function equally_spaced_nodes(N::Int)
     return collect(range(0, 1, length = N + 1))
 end
 
-"""
-    legendre_nodes(N::Int) -> Vector{Float64}
-
-Compute the Legendre nodes for Gauss-Legendre quadrature.
-
-# Arguments
-- `N::Int`: The number of Legendre nodes to compute.
-
-# Returns
-- `Vector{Float64}`: A vector containing the Legendre nodes scaled to the interval [0, 1].
-"""
-function legendre_nodes(N::Int)
-    nodes, _ = gausslegendre(N)
-    nodes = (nodes .+ 1) ./ 2
-    return nodes
-end
 
 """
     get_nodes(N::Int, node_type::String="chebyshev")
