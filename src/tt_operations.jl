@@ -9,31 +9,6 @@ import Base.⊗
 using LinearAlgebra
 import LinearAlgebra: norm
 
-"""
-    +(x::TTvector{T,N}, y::TTvector{T,N}) where {T<:Number, N}
-
-Add two TTvector objects `x` and `y` of the same type and dimension.
-
-# Arguments
-- `x::TTvector{T,N}`: The first TTvector object.
-- `y::TTvector{T,N}`: The second TTvector object.
-
-# Returns
-- `TTvector{T,N}`: A new TTvector object representing the sum of `x` and `y`.
-
-# Throws
-- `AssertionError`: If the dimensions of `x` and `y` are not compatible.
-
-# Details
-This function performs the addition of two TTvector objects by combining their tensor train cores. It initializes a new tensor train with the appropriate dimensions and ranks, then fills in the cores by combining the corresponding cores from `x` and `y`.
-
-The addition is performed as follows:
-1. The first core is combined by concatenating the cores of `x` and `y` along the third dimension.
-2. The intermediate cores (from the second to the second-to-last) are combined by concatenating the cores of `x` and `y` along both the second and third dimensions.
-3. The last core is combined by concatenating the cores of `x` and `y` along the second dimension.
-
-The resulting TTvector object has the combined ranks and dimensions of the input TTvector objects.
-"""
 function +(x::TTvector{T, N}, y::TTvector{T, N}) where {T <: Number, N}
     @assert x.ttv_dims == y.ttv_dims "Incompatible dimensions"
     d = x.N
@@ -61,29 +36,38 @@ function +(x::TTvector{T, N}, y::TTvector{T, N}) where {T <: Number, N}
     return TTvector{T, N}(d, ttv_vec, x.ttv_dims, rks, zeros(Int64, d))
 end
 
-"""
-    +(x::TToperator{T,N}, y::TToperator{T,N}) where {T<:Number, N}
+function add!(x::TTvector{T, N}, y::TTvector{T, N}) where {T <: Number, N}
+    @assert x.ttv_dims == y.ttv_dims "Incompatible dimensions"
+    d = x.N
+    ttv_vec = Array{Array{T, 3}, 1}(undef, d)
+    rks = x.ttv_rks + y.ttv_rks
+    rks[1] = 1
+    rks[d + 1] = 1
+    #initialize ttv_vec
+    @threads for k in 1:d
+        ttv_vec[k] = zeros(T, x.ttv_dims[k], rks[k], rks[k + 1])
+    end
+    @inbounds begin
+        #first core
+        ttv_vec[1][:, :, 1:x.ttv_rks[2]] = x.ttv_vec[1]
+        ttv_vec[1][:, :, (x.ttv_rks[2] + 1):rks[2]] = y.ttv_vec[1]
+        #2nd to end-1 cores
+        @threads for k in 2:(d - 1)
+            ttv_vec[k][:, 1:x.ttv_rks[k], 1:x.ttv_rks[k + 1]] = x.ttv_vec[k]
+            ttv_vec[k][:, (x.ttv_rks[k] + 1):rks[k], (x.ttv_rks[k + 1] + 1):rks[k + 1]] = y.ttv_vec[k]
+        end
+        #last core
+        ttv_vec[d][:, 1:x.ttv_rks[d], 1] = x.ttv_vec[d]
+        ttv_vec[d][:, (x.ttv_rks[d] + 1):rks[d], 1] = y.ttv_vec[d]
+    end
+    # Overwrite x fields
+    x.ttv_vec = ttv_vec
+    x.ttv_rks = rks
+    x.ttv_ot = zeros(Int64, d)
+    return x
+end
 
-Adds two `TToperator` objects `x` and `y` of the same type `T` and dimension `N`.
 
-# Arguments
-- `x::TToperator{T,N}`: The first `TToperator` object.
-- `y::TToperator{T,N}`: The second `TToperator` object.
-
-# Returns
-- `TToperator{T,N}`: A new `TToperator` object representing the sum of `x` and `y`.
-
-# Throws
-- `AssertionError`: If the dimensions of `x` and `y` are not compatible.
-
-# Details
-The function performs the following steps:
-1. Asserts that the dimensions of `x` and `y` are compatible.
-2. Initializes a new tensor train operator vector `tto_vec` with the appropriate dimensions and ranks.
-3. Uses multi-threading to initialize the cores of `tto_vec`.
-4. Copies the cores of `x` and `y` into the appropriate positions in `tto_vec`.
-
-"""
 function +(x::TToperator{T, N}, y::TToperator{T, N}) where {T <: Number, N}
     @assert x.tto_dims == y.tto_dims "Incompatible dimensions"
     d = x.N
@@ -111,24 +95,6 @@ function +(x::TToperator{T, N}, y::TToperator{T, N}) where {T <: Number, N}
     return TToperator{T, N}(d, tto_vec, x.tto_dims, rks, zeros(Int64, d))
 end
 
-"""
-    *(A::TToperator{T,N}, v::TTvector{T,N}) where {T<:Number, N}
-
-Multiplies a tensor-train operator `A` by a tensor-train vector `v`.
-
-# Arguments
-- `A::TToperator{T,N}`: A tensor-train operator of type `T` and order `N`.
-- `v::TTvector{T,N}`: A tensor-train vector of type `T` and order `N`.
-
-# Returns
-- `y::TTvector{T,N}`: The resulting tensor-train vector after multiplication.
-
-# Details
-- Asserts that the dimensions of `A` and `v` are compatible.
-- Initializes a zero tensor-train vector `y` with appropriate dimensions and ranks.
-- Performs the multiplication using a loop over the tensor-train cores and tensor contraction.
-
-"""
 function *(A::TToperator{T, N}, v::TTvector{T, N}) where {T <: Number, N}
     @assert A.tto_dims == v.ttv_dims "Incompatible dimensions"
     y = zeros_tt(T, A.tto_dims, A.tto_rks .* v.ttv_rks)
@@ -141,25 +107,15 @@ function *(A::TToperator{T, N}, v::TTvector{T, N}) where {T <: Number, N}
     return y
 end
 
-"""
-    *(A::TToperator{T,N}, B::TToperator{T,N}) where {T<:Number, N}
+function (A::TToperator{T,N})(x::TTvector{T,N}) where {T,N}
+    return tt_rounding(A * x)
+end
 
-Multiply two TToperators `A` and `B` of the same type `T` and dimension `N`.
+function (A::TToperator{T, N})(x::TTvector{T, N}, ::Val{S}) where {T, N, S}
+    return tt_rounding(A(x))
+end
 
-# Arguments
-- `A::TToperator{T,N}`: The first TToperator.
-- `B::TToperator{T,N}`: The second TToperator.
 
-# Returns
-- `TToperator{T,N}`: The resulting TToperator after multiplication.
-
-# Preconditions
-- `A.tto_dims == B.tto_dims`: The dimensions of `A` and `B` must be compatible.
-
-# Description
-This function performs the multiplication of two TToperators by iterating over their tensor train cores and performing tensor contractions. The resulting TToperator has updated ranks and tensor cores.
-
-"""
 function *(A::TToperator{T, N}, B::TToperator{T, N}) where {T <: Number, N}
     @assert A.tto_dims == B.tto_dims "Incompatible dimensions"
     d = A.N
@@ -185,27 +141,7 @@ function *(A::Array{TTvector{T, N}, 1}, x::Vector{T}) where {T, N}
     return out
 end
 
-"""
-    dot(A::TTvector{T,N}, B::TTvector{T,N}) where {T<:Number, N}
 
-Compute the dot product of two TTvector objects `A` and `B`.
-
-# Arguments
-- `A::TTvector{T,N}`: The first TTvector.
-- `B::TTvector{T,N}`: The second TTvector.
-
-# Returns
-- `T`: The dot product of the two TTvector objects.
-
-# Preconditions
-- `A.ttv_dims == B.ttv_dims`: The TT dimensions of `A` and `B` must be compatible.
-
-# Notes
-- The function uses tensor operations to compute the dot product.
-- The `@inbounds` macro is used to skip array bounds checking for performance.
-- The `@tensor` macro is used for tensor contractions.
-
-"""
 function dot(A::TTvector{T, N}, B::TTvector{T, N}) where {T <: Number, N}
     @assert A.ttv_dims == B.ttv_dims "TT dimensions are not compatible"
     A_rks = A.ttv_rks
@@ -219,9 +155,6 @@ function dot(A::TTvector{T, N}, B::TTvector{T, N}) where {T <: Number, N}
     return out[1, 1]::T
 end
 
-"""
-`dot_par(x_tt,y_tt)' returns the dot product of `x_tt` and `y_tt` in a parallelized algorithm
-"""
 function dot_par(A::TTvector{T, N}, B::TTvector{T, N}) where {T <: Number, N}
     @assert A.ttv_dims == B.ttv_dims "TT dimensions are not compatible"
     d = length(A.ttv_dims)
@@ -242,16 +175,26 @@ function dot_par(A::TTvector{T, N}, B::TTvector{T, N}) where {T <: Number, N}
 end
 
 function *(a::S, A::TTvector{R, N}) where {S <: Number, R <: Number, N}
-    T = typejoin(typeof(a), R)
-    if iszero(a)
+    T = promote_type(S, R)
+    @assert isconcretetype(T) "TTvector element type must be concrete, got $T"
+    # convert a to type T to avoid typejoin issues
+    aT = convert(T, a)
+    if iszero(aT)
         return zeros_tt(T, A.ttv_dims, ones(Int64, A.N + 1))
     else
         i = findfirst(isequal(0), A.ttv_ot)
         X = copy(A.ttv_vec)
-        X[i] = a * X[i]
+        X[i] = aT * X[i]
+        # promote all cores to T if needed
+        for k in eachindex(X)
+            if eltype(X[k]) != T
+                X[k] .= convert.(T, X[k])
+            end
+        end
         return TTvector{T, N}(A.N, X, A.ttv_dims, A.ttv_rks, A.ttv_ot)
     end
 end
+
 
 function *(a::S, A::TToperator{R, N}) where {S <: Number, R <: Number, N}
     i = findfirst(isequal(0), A.tto_ot)
@@ -259,6 +202,10 @@ function *(a::S, A::TToperator{R, N}) where {S <: Number, R <: Number, N}
     X = copy(A.tto_vec)
     X[i] = a * X[i]
     return TToperator{T, N}(A.N, X, A.tto_dims, A.tto_rks, A.tto_ot)
+end
+
+function Base.:*(A::TTvector{T,N}, a::S) where {T<:Number, S<:Number, N}
+    return a * A
 end
 
 function -(A::TTvector{T, N}, B::TTvector{T, N}) where {T <: Number, N}
@@ -273,22 +220,6 @@ function /(A::TTvector, a)
     return 1 / a * A
 end
 
-"""
-    outer_product(x::TTvector{T,N}, y::TTvector{T,N}) where {T<:Number, N}
-
-Compute the outer product of two TTvectors `x` and `y`.
-
-# Arguments
-- `x::TTvector{T,N}`: The first TTvector.
-- `y::TTvector{T,N}`: The second TTvector.
-
-# Returns
-- `TToperator{T,N}`: The resulting TToperator from the outer product of `x` and `y`.
-
-# Details
-This function computes the outer product of two TTvectors `x` and `y`, resulting in a TToperator. The function initializes an array `Y` to store the intermediate results, and then iterates over each element to compute the outer product using tensor contractions. The resulting TToperator is constructed from the computed array `Y`.
-
-"""
 function outer_product(x::TTvector{T, N}, y::TTvector{T, N}) where {T <: Number, N}
     Y = [zeros(T, x.ttv_dims[k], x.ttv_dims[k], x.ttv_rks[k] * y.ttv_rks[k], x.ttv_rks[k + 1] * y.ttv_rks[k + 1]) for k in eachindex(x.ttv_dims)]
     @inbounds @simd for k in eachindex(Y)
@@ -302,23 +233,7 @@ function outer_product(x::TTvector{T, N}, y::TTvector{T, N}) where {T <: Number,
     return TToperator{T, N}(x.N, Y, x.ttv_dims, x.ttv_rks .* y.ttv_rks, zeros(Int64, x.N))
 end
 
-"""
-    concatenate(tt::TTvector{T, N}, other::Union{TTvector{T}, Vector{Array{T, 3}}}, overwrite::Bool=false) where {T, N}
 
-Concatenates a `TTvector` with another `TTvector` or a vector of 3-dimensional arrays.
-
-# Arguments
-- `tt::TTvector{T, N}`: The original TTvector to be concatenated.
-- `other::Union{TTvector{T}, Vector{Array{T, 3}}}`: The TTvector or vector of 3-dimensional arrays to concatenate with `tt`.
-- `overwrite::Bool=false`: If `true`, the original `tt` is modified in place. Otherwise, a copy of `tt` is made before concatenation.
-
-# Returns
-- `TTvector{T, N_new}`: A new TTvector with concatenated cores, updated dimensions, ranks, and orthogonality indicators.
-
-# Throws
-- `DimensionMismatch`: If the ranks or dimensions of `tt` and `other` do not match.
-- `ArgumentError`: If `other` is not of type `TTvector` or `Vector{Array{T, 3}}`.
-"""
 function concatenate(tt::TTvector{T, N}, other::Union{TTvector{T}, Vector{Array{T, 3}}}, overwrite::Bool = false) where {T, N}
     tt_base = overwrite ? tt : copy(tt)
     if other isa TTvector{T}
@@ -361,13 +276,6 @@ function concatenate(tt::TTvector{T, N}, other::Union{TTvector{T}, Vector{Array{
     return tt_new
 end
 
-"""
-    TTdiag(x::TTvector{T,M}) where {T<:Number,M}
-
-Construct the diagonal TT‐matrix whose diagonal entries come from the TT‐vector `x`.
-Returns a `TToperator{T,M}` with each core of size (n_i, n_i, r_i, r_{i+1}).
-
-"""
 function TTdiag(x::TTvector{T, M}) where {T <: Number, M}
     d = x.N                              # number of dimensions (cores)
     dims = x.ttv_dims                       # (n₁, n₂, …, n_d)

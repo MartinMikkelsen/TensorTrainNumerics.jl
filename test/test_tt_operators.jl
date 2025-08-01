@@ -117,3 +117,63 @@ end
         end
     end
 end
+
+@testset "id_tto" begin
+    d = 3
+    tto = TensorTrainNumerics.id_tto(d)
+
+    @test typeof(tto) == TensorTrainNumerics.TToperator{Float64, 3}
+    @test length(tto.tto_vec) == d
+    for core in tto.tto_vec
+        @test size(core) == (2, 2, 1, 1)
+        @test core[:, :, 1, 1] ≈ Matrix(I, 2, 2)
+    end
+end
+
+@testset "rand_tto" begin
+    dims = (2, 2, 2)
+    rmax = 3
+    tto = TensorTrainNumerics.rand_tto(dims, rmax)
+
+    @test typeof(tto) == TensorTrainNumerics.TToperator{Float64, 3}
+    @test length(tto.tto_vec) == 3
+    for (i, core) in enumerate(tto.tto_vec)
+        @test size(core, 1) == dims[i]
+        @test size(core, 2) == dims[i]
+        @test size(core, 3) ≥ 1
+        @test size(core, 4) ≥ 1
+    end
+end
+
+@testset "zeros_tt (uniform)" begin
+    n, d, r = 2, 3, 2
+    ttv = TensorTrainNumerics.zeros_tt(n, d, r)
+
+    @test typeof(ttv) == TensorTrainNumerics.TTvector{Float64, 3}
+    @test length(ttv.ttv_vec) == d
+    for core in ttv.ttv_vec
+        @test all(core .== 0.0)
+    end
+end
+
+@testset "ones_tt" begin
+    dims = (2, 2, 2)
+    ttv = TensorTrainNumerics.ones_tt(dims)
+
+    @test typeof(ttv) == TensorTrainNumerics.TTvector{Float64, 3}
+    @test length(ttv.ttv_vec) == 3
+    for core in ttv.ttv_vec
+        @test all(core .== 1.0)
+        @test size(core) == (2, 1, 1)
+    end
+end
+
+@testset "zeros_tt!" begin
+    ttv = TensorTrainNumerics.ones_tt((2, 2, 2))
+    TensorTrainNumerics.zeros_tt!(ttv)
+    for core in ttv.ttv_vec
+        @test all(core .== 0.0)
+    end
+end
+
+

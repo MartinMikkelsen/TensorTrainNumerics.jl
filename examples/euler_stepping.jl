@@ -1,7 +1,7 @@
 using TensorTrainNumerics
 using CairoMakie
 
-cores = 8
+cores = 6
 h = 1 / cores^2
 A = h^2 * toeplitz_to_qtto(-2, 1.0, 1.0, cores)
 xes = collect(range(0.0, 1.0, 2^cores))

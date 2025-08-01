@@ -52,7 +52,7 @@ println(result)
 ```
 We can also unfold this
 ```@example 1
-matricize(result)
+matricize(result, 3)
 ```
 ### Interpolation
 

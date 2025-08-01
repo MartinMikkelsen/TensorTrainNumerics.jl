@@ -7,3 +7,4 @@
 
 ## Software and Libraries
 - [Scikit-TT](https://github.com/PGelss/scikit_tt)
+- [KrylovKit.jl](https://github.com/Jutho/KrylovKit.jl)
