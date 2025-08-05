@@ -19,7 +19,7 @@ TensorTrainNumericsVectorInterfaceExt = "VectorInterface"
 [compat]
 Aqua = "0.8.13"
 IterativeSolvers = "0.9.4"
-KrylovKit = "0.6.1, 0.9"
+KrylovKit = "0.6.1, 0.9, 0.10"
 LinearAlgebra = "1.6.7"
 LinearMaps = "3.11.3"
 ProgressMeter = "1.10.4"
