@@ -107,14 +107,13 @@ function *(A::TToperator{T, N}, v::TTvector{T, N}) where {T <: Number, N}
     return y
 end
 
-function (A::TToperator{T,N})(x::TTvector{T,N}) where {T,N}
-    return tt_rounding(A * x)
+function (A::TToperator{T, N})(x::TTvector{T, N}) where {T, N}
+    return A * x
 end
 
 function (A::TToperator{T, N})(x::TTvector{T, N}, ::Val{S}) where {T, N, S}
-    return tt_rounding(A(x))
+    return A(x)
 end
-
 
 function *(A::TToperator{T, N}, B::TToperator{T, N}) where {T <: Number, N}
     @assert A.tto_dims == B.tto_dims "Incompatible dimensions"
@@ -204,7 +203,7 @@ function *(a::S, A::TToperator{R, N}) where {S <: Number, R <: Number, N}
     return TToperator{T, N}(A.N, X, A.tto_dims, A.tto_rks, A.tto_ot)
 end
 
-function Base.:*(A::TTvector{T,N}, a::S) where {T<:Number, S<:Number, N}
+function Base.:*(A::TTvector{T, N}, a::S) where {T <: Number, S <: Number, N}
     return a * A
 end
 

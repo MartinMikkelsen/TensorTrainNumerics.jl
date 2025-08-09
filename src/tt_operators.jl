@@ -151,4 +151,3 @@ function zeros_tto(n, d, r)
     rks = r_and_d_to_rks(rks, dims .^ 2; rmax = r)
     return zeros_tto(Float64, dims, rks)
 end
-
