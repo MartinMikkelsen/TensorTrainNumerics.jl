@@ -61,9 +61,10 @@ function Base.complex(A::TToperator{T, M}) where {T, M}
     return TToperator{Complex{T}, M}(A.N, complex(A.tto_vec), A.tto_dims, A.tto_rks, A.tto_ot)
 end
 
-function Base.complex(v::TTvector{T, N}) where {T, N}
-    return TTvector{Complex{T}, N}(v.N, complex(v.ttv_vec), v.ttv_dims, v.ttv_rks, v.ttv_ot)
+function Base.complex(v::TTvector{T, M}) where {T, M}
+    return TTvector{Complex{T}, M}(v.N, complex.(v.ttv_vec), v.ttv_dims, v.ttv_rks, v.ttv_ot)
 end
+
 
 """
     QTTvector(vec::Vector{<:Array{<:Number, 3}}, rks::Vector{Int64}, ot::Vector{Int64})
@@ -1022,10 +1023,10 @@ Convert a TTvector to a vector of Float64 values by extracting a specific core.
 # Description
 This function converts a given TTvector into a vector of Float64 values by extracting the specified core. It first converts the TTvector to a full tensor using `ttv_to_tensor`, then calculates the dyadic points and binary indices to extract the values from the tensor.
 """
-function matricize(qtt::TTvector{Float64}, core::Int)::Vector{Float64}
+function matricize(qtt::TTvector{T}, core::Int)::Vector{T} where {T<:Number}
     full_tensor = ttv_to_tensor(qtt)
     n = 2^core
-    values = zeros(n)
+    values = zeros(T, n)
 
     for i in 1:n
         x_le_p = sum(((i >> (k - 1)) & 1) / 2^k for k in 1:core)  # Calculate the dyadic point

@@ -93,3 +93,28 @@ println("Relative error for explicit Euler: ", error_explicit)
 println("Relative error for implicit Euler: ", rel_implicit)
 println("Relative error for Crank-Nicolson: ", rel_crank)
 ```
+
+# Discrete Fourier Transform
+
+Based on [this paper](https://arxiv.org/pdf/2404.03182) we also have access to the discrete Fourier transform (DFT) in QTT format. Below is an esample of how to use it. You can use the `fourier_qtto` function to create a QTT representation of the Fourier transform operator where the `sign` parameter determines if its the Fourier transform or the inverse Fourier transform. 
+
+```@example DFT
+using TensorTrainNumerics   
+using Random 
+
+d = 10
+N = 2^d
+K = 50
+sign = -1.0
+normalize = true
+
+Random.seed!(1234)
+r = 12
+coeffs = randn(r) .+ 1im * randn(r)
+
+f(x) = sum(coeffs .* cispi.(2 .* (0:(r - 1)) .* x))
+
+F = fourier_qtto(d; K = K, sign = -1.0, normalize = true)
+x_qtt = function_to_qtt_uniform(f, d)
+y_qtt = F * x_qtt
+```

@@ -1,7 +1,7 @@
 name = "TensorTrainNumerics"
 uuid = "304e70ee-b558-420e-aed5-de4d05b6ca2b"
 authors = ["Martin Mikkelsen"]
-version = "1.0.2"
+version = "1.0.3"
 
 [deps]
 IterativeSolvers = "42fd0dbc-a981-5370-80f2-aaf504508153"
