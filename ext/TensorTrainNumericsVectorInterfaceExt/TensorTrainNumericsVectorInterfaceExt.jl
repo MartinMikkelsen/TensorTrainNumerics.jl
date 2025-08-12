@@ -1,8 +1,7 @@
 module TensorTrainNumericsVectorInterfaceExt
 using TensorTrainNumerics
 using VectorInterface
-using Base.Threads
-import Base: zero, copy, +
+import Base: zero, copy
 import LinearAlgebra: dot, norm
 
 
@@ -86,12 +85,9 @@ function VectorInterface.zerovector(a::TToperator)
 end
 
 
-function VectorInterface.length(a::TTvector)
-    return length(a.ttv_dims)
-end
-function VectorInterface.length(a::TToperator)
-    return length(a.tto_dims)
-end
+VectorInterface.length(a::TTvector) = prod(a.ttv_dims)
+
+VectorInterface.length(a::TToperator) = prod(a.tto_dims)
 
 zero(a::TTvector) = zeros_tt(eltype(a), a.ttv_dims, a.ttv_rks)
 

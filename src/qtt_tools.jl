@@ -37,6 +37,17 @@ function qtt_to_function(ftt::TTvector{T, d}) where {T <: Number, d}
     return out
 end
 
+function function_to_qtt_uniform(f, d::Int)
+    N = 2^d
+    y = [f(n / N) for n in 0:(N - 1)]
+    A = zeros(eltype(y), ntuple(_ -> 2, d)...)
+    @inbounds for n in 0:(N - 1)
+        bits = (digits(n, base = 2, pad = d)) .+ 1
+        A[CartesianIndex(Tuple(bits))] = y[n + 1]
+    end
+    return ttv_decomp(A)
+end
+
 """
 QTT of a polynom p(x) = ∑ₖ₌₀ⁿ cₖ xᵏ
 """
