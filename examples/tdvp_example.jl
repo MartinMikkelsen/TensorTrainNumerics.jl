@@ -19,13 +19,11 @@ steps = fill(dt, nsteps)
 solution_tdvp1 = tdvp_method(A, u₀, steps; imaginary_time = true, sweeps_per_step=2, verbose = true)
 solution_tdvp2 = tdvp2_method(A, u₀, steps; imaginary_time = true, sweeps_per_step=2, verbose = true )
 
-#solution_crank, rel_crank = crank_nicholson_method(A, u₀, init, steps; return_error = true, tt_solver = "mals")
-
 let
     fig = Figure()
     ax = Axis(fig[1, 1], xlabel = "x", ylabel = "u(x)", title = "Comparison of Time-Stepping Methods")
-    lines!(ax, xes, real.(matricize(solution_tdvp,d)), label = "tdvp", linestyle = :solid, linewidth = 3)
-    #lines!(ax, xes, qtt_to_function(solution_crank), label = "Crank-Nicolson", linestyle = :dash, linewidth = 3)
+    lines!(ax, xes, qtt_to_function(solution_tdvp), label = "tdvp", linestyle = :dash, linewidth = 3)
+    lines!(ax, xes, qtt_to_function(solution_tdvp2), label = "tdvp2", linestyle = :dash, linewidth = 3)
     axislegend(ax)
     display(fig)
 end

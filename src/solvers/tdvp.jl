@@ -25,33 +25,24 @@ end
 _to_lsr(A) = permutedims(A, (2, 1, 3))
 _to_slr(A) = permutedims(A, (2, 1, 3))
 
-# convert MPO core from (s_out, s_in, a, b) -> (a, s_out, b, s_in)
 _mpo_to_asbs(M) = permutedims(M, (3, 1, 4, 2))
 
-# inner product ⟨X|Y⟩ for 3-tensors
 _dot3(X, Y) = LinearAlgebra.dot(vec(X), vec(Y))
 
-# --- Effective ops in (Dl, d, Dr) layout (lsr) ---
 
-# H • AC  (AC: Dl × d × Dr), FL: Dl×a×Dl, FR: Dr×b×Dr, M: a×d_out×b×d_in
 function _applyH1_lsr(AC, FL, FR, M)
     return @tensor HAC[α, s, β] := FL[α, a, α′] * AC[α′, s′, β′] * M[a, s, b, s′] * FR[β′, b, β]
 end
 
-# H • C  (C: Dl × Dr), FL: Dl×a×Dl, FR: Dr×a×Dr
 function _applyH0(C, FL, FR)
     return @tensor HC[α, β] := FL[α, a, α′] * C[α′, β′] * FR[β′, a, β]
 end
 
-# --- Environments in (Dl, d, Dr) layout (lsr) ---
 
-# FL_{k+1} from FL_k and A_k
-# FL,FR: 3-tensors with mpo bond in middle; A: Dl×d×Dr; M: a×d_out×b×d_in
 function _update_left_env(A, M, FL)
     return @tensor FLnext[α, a, β] := FL[α′, a′, β′] * A[β′, s′, β] * M[a′, s, a, s′] * conj(A[α′, s, α])
 end
 
-# FR_{k} from FR_{k+1} and A_k
 function _update_right_env(A, M, FR)
     return @tensor FRprev[α, a, β] := A[α, s′, α′] * FR[α′, a′, β′] * M[a, s, a′, s′] * conj(A[β, s, β′])
 end
@@ -64,11 +55,11 @@ function tdvp1sweep!(
     Tc = (dt isa Complex || T <: Complex) ? Complex{real(T)} : T
     Nsites = ψ.N
 
-    # Work in (Dl, s, Dr) for contractions
+    # Work in (Dl, s, Dr)
     A_lsr = [permutedims(ψ.ttv_vec[k], (2, 1, 3)) for k in 1:Nsites]
-    M_asbs = [permutedims(H.tto_vec[k], (3, 1, 4, 2)) for k in 1:Nsites]  # (a, s_out, b, s_in)
+    M_asbs = [permutedims(H.tto_vec[k], (3, 1, 4, 2)) for k in 1:Nsites]
 
-    # Build or convert environments
+    # Environments
     if F === nothing
         F = Vector{Any}(undef, Nsites + 2)
         F[1] = ones(Tc, 1, 1, 1)[:, :, :]
@@ -84,51 +75,51 @@ function tdvp1sweep!(
 
     AC = Tc.(A_lsr[1])
 
-    # ---- Left -> Right ----
+    # ---- L → R ----
     for k in 1:(Nsites - 1)
         H1 = x -> _applyH1_lsr(x, F[k], F[k + 2], M_asbs[k])
         AC, _ = exponentiate(H1, -im * dt, AC; ishermitian = true, kwargs...)
         if verbose
-            E = _dot3(AC, H1(AC)); 
-            @info "TDVP L→R: AC site $k   energy = $E"
+            E = _dot3(AC, H1(AC))
+            @info "TDVP sweep:" site=k energy=real(E)
         end
 
         Dl, d, Dr = size(AC)
         Aqr = reshape(AC, Dl * d, Dr)
-        qrf = qr(Aqr)           # thin QR
+        qrf = qr(Aqr)
         r = min(size(Aqr, 1), size(Aqr, 2))
         Qthin = Matrix(qrf.Q)[:, 1:r]
         Rthin = qrf.R[1:r, :]
 
-        AL = reshape(Qthin, Dl, d, r)   # Dl×d×r
+        AL = reshape(Qthin, Dl, d, r)
         A_lsr[k] = AL
         F[k + 1] = _update_left_env(AL, M_asbs[k], F[k])
 
-        C = Rthin                    # r×Dr
+        C = Rthin
         H0 = X -> _applyH0(X, F[k + 1], F[k + 2])
         C, _ = exponentiate(H0, +im * dt, C; ishermitian = true, kwargs...)
         if verbose
-            E0 = real.(_dot3(C, H0(C))) 
-            @info "TDVP L→R: C between $k and $(k + 1)  energy = $E0"
+            E0 = _dot3(C, H0(C))
+            @info "TDVP sweep:" sites="$(k):$(k+1)" energy=real(E0)
         end
 
         @tensor AC[α, s, β] := C[α, γ] * A_lsr[k + 1][γ, s, β]
     end
 
-    # last site evolve
+    # last site AC
     k = Nsites
     H1N = x -> _applyH1_lsr(x, F[k], F[k + 2], M_asbs[k])
     AC, _ = exponentiate(H1N, -im * dt, AC; ishermitian = true, kwargs...)
     if verbose
         E = _dot3(AC, H1N(AC))
-        @info "TDVP L→R: AC site $k   energy = $E"
+        @info "TDVP sweep:" site=k energy=real(E)
     end
 
-    # ---- Right -> Left ----
+    # ---- R → L ----
     for k in (Nsites - 1):-1:1
         Dl, d, Dr = size(AC)
         A = reshape(AC, Dl, d * Dr)
-        qrf = qr(A')                 # QR on transpose -> LQ
+        qrf = qr(A')                 # LQ via QR of transpose
         r = min(size(A, 1), size(A, 2))
         Qthin = Matrix(qrf.Q)[:, 1:r]   # (d*Dr)×r
         Rthin = qrf.R[1:r, :]           # r×Dl
@@ -143,7 +134,7 @@ function tdvp1sweep!(
         C, _ = exponentiate(H0, +im * dt, C; ishermitian = true, kwargs...)
         if verbose
             E0 = _dot3(C, H0(C))
-            @info "TDVP R→L: C between $k and $(k + 1)  energy = $E0"
+            @info "TDVP sweep:" sites="$(k):$(k+1)" energy=real(E0)
         end
 
         @tensor AC[α, s, β] := A_lsr[k][α, s, γ] * C[γ, β]
@@ -152,20 +143,21 @@ function tdvp1sweep!(
         AC, _ = exponentiate(H1k, -im * dt, AC; ishermitian = true, kwargs...)
         if verbose
             E = _dot3(AC, H1k(AC))
-            @info "TDVP R→L: AC site $k   energy = $E"
+            @info "TDVP sweep:" site=k energy=real(E)
         end
     end
 
-    # write back and sync ranks
+    # write back
     A_lsr[1] = AC
     for k in 1:Nsites
-        ψ.ttv_vec[k] = permutedims(A_lsr[k], (2, 1, 3))  # back to (phys,left,right)
+        ψ.ttv_vec[k] = permutedims(A_lsr[k], (2, 1, 3))
     end
     _sync_ranks_from_lsr!(ψ, A_lsr)
     return ψ, F
 end
 
-function tdvp_method(
+
+function tdvp(
         H::TToperator,
         u₀::TTvector,
         steps::Vector{Float64};
@@ -179,7 +171,6 @@ function tdvp_method(
     )
     ψ = orthogonalize(u₀)
 
-    # real-time (default) → complex amplitudes
     wants_complex = !imaginary_time
     if wants_complex && eltype(ψ) <: Real
         ψ = complex(ψ)
@@ -192,9 +183,6 @@ function tdvp_method(
     @showprogress for h in steps
         ψ_prev_step = ψ
 
-        # choose dt so that sweep always uses exp(-i * dt * H):
-        # real-time:  exp(-i*h H)  -> dt = h
-        # imaginary:  exp(-h   H)  -> need -i*dt = -h -> dt = -i*h
         dt_eff = imaginary_time ? (-im * h) : (complex(1.0) * h)
 
         for s in 1:sweeps_per_step
@@ -205,7 +193,7 @@ function tdvp_method(
         if normalize
             ψ = (1 / norm(ψ)) * ψ
         end
-        ψ = orthogonalize(ψ)   # keep canonical
+        ψ = orthogonalize(ψ)   
 
         ψ_prev = ψ_prev_step
     end
@@ -254,10 +242,8 @@ function tdvp2sweep!(
         end
     end
 
-    # start center on site 1
     AC = Tc.(A_lsr[1])
 
-    # ----- L → R pass -----
     for k in 1:(Nsites - 1)
         @tensor AAC[α, s1, s2, β] := AC[α, s1, γ] * A_lsr[k + 1][γ, s2, β]
 
@@ -265,7 +251,7 @@ function tdvp2sweep!(
         AAC, _ = exponentiate(H2, -im * dt, AAC; ishermitian = true, kwargs...)
         if verbose
             E = _dot3(vec(conj(AAC)), vec(H2(AAC)))
-            @info "2TDVP L→R: sites $(k):$(k + 1)   energy = $E"
+            @info "2TDVP sweep:" sites="$(k):$(k + 1)"   energy = real(E)
         end
 
         Dl, d1, d2, Dr = size(AAC)
@@ -274,11 +260,11 @@ function tdvp2sweep!(
             truncdim = truncdim, truncerr = truncerr
         )
 
-        AL = reshape(U, Dl, d1, size(U, 2))          # Dl×d1×χ
+        AL = reshape(U, Dl, d1, size(U, 2))          
         A_lsr[k] = AL
         F[k + 1] = _update_left_env(AL, M_asbs[k], F[k])
 
-        AC = reshape(S * Vt, size(S, 1), d2, Dr)     # χ×d2×Dr
+        AC = reshape(S * Vt, size(S, 1), d2, Dr)     
     end
 
     # ----- R → L pass -----
@@ -289,7 +275,7 @@ function tdvp2sweep!(
         AAC, _ = exponentiate(H2, -im * dt, AAC; ishermitian = true, kwargs...)
         if verbose
             E = _dot3(vec(conj(AAC)), vec(H2(AAC)))
-            @info "2TDVP sweep" sites="$(k):$(k+1)" energy="E"
+            @info "2TDVP sweep:" sites="$(k):$(k+1)" energy=real(E)
         end
 
         Dl, d1, d2, Dr = size(AAC)
@@ -298,14 +284,13 @@ function tdvp2sweep!(
             truncdim = truncdim, truncerr = truncerr
         )
 
-        AR = reshape(Vt, size(Vt, 1), d2, Dr)        # χ×d2×Dr
+        AR = reshape(Vt, size(Vt, 1), d2, Dr)        
         A_lsr[k + 1] = AR
         F[k + 2] = _update_right_env(AR, M_asbs[k + 1], F[k + 3])
 
-        AC = reshape(U * S, Dl, d1, size(S, 2))      # Dl×d1×χ
+        AC = reshape(U * S, Dl, d1, size(S, 2))      
     end
 
-    # write back and sync ranks
     A_lsr[1] = AC
     for k in 1:Nsites
         ψ.ttv_vec[k] = permutedims(A_lsr[k], (2, 1, 3))
@@ -314,7 +299,7 @@ function tdvp2sweep!(
     return ψ, F
 end
 
-function tdvp2_method(
+function tdvp2(
         H::TToperator,
         u₀::TTvector,
         steps::Vector{Float64};
@@ -342,9 +327,6 @@ function tdvp2_method(
     @showprogress for h in steps
         ψ_prev_step = ψ
 
-        # choose dt so sweep uses exp(-i * dt * H₂):
-        # real-time:  exp(-i*h H₂)  -> dt = h
-        # imaginary:  exp(-h   H₂)  -> need -i*dt = -h -> dt = -i*h
         dt_eff = imaginary_time ? (-im * h) : (complex(1.0) * h)
 
         for s in 1:sweeps_per_step
