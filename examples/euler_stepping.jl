@@ -12,9 +12,9 @@ u₀ = qtt_sin(d, λ = π)
 init = rand_tt(u₀.ttv_dims, u₀.ttv_rks)
 steps = collect(range(0.0, 10.0, 1000))
 
-solution_explicit, error_explicit = euler_method(A, u₀, steps; return_error = true)
+solution_explicit, error_explicit = euler_method(A, u₀, steps; return_error = true, normalize = true)
 
-solution_implicit, rel_implicit = implicit_euler_method(A, u₀, init, steps; return_error = true)
+solution_implicit, rel_implicit = implicit_euler_method(A, u₀, init, steps; return_error = true, normalize = true)
 
 solution_crank, rel_crank = crank_nicholson_method(A, u₀, init, steps; return_error = true, tt_solver = "mals")
 
