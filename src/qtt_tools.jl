@@ -19,9 +19,10 @@ function function_to_tensor(f, d; a = 0.0, b = 1.0)
 end
 
 function tensor_to_grid(tensor)
-    out = zeros(prod(size(tensor)))
-    for t in CartesianIndices(tensor)
-        out[tuple_to_index(t)] = tensor[t]
+    T = eltype(tensor)
+    out = Vector{T}(undef, length(tensor))
+    @inbounds for t in CartesianIndices(tensor)
+        out[tuple_to_index(Tuple(t))] = tensor[t]
     end
     return out
 end
