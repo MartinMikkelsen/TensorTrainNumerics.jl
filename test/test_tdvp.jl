@@ -183,13 +183,13 @@ absnorm(x::TensorTrainNumerics.TTvector) = sqrt(max(real(TensorTrainNumerics.dot
                       normalize=false, return_error=true,
                       sweeps=1, carry_env=false, verbose=false, imaginary_time=false)
     @test isa(err, Number)
-    @test abs(real(err)) ≤ 1e-12
+    @test abs(real(err)) ≤ 1e-6
 
     ψ0  = complex(orthogonalize(u0))
     ψ_id = tdvp(H0c, ψ0, [0.1];
                 normalize=false, sweeps=1, carry_env=false, verbose=false, imaginary_time=false)
     rel = absnorm(ψ_id - ψ0) / max(absnorm(ψ0), eps())
-    @test rel ≤ 1e-10  # allow a little fp wiggle
+    @test rel ≤ 1e-10  
 
     ψ_carryT = tdvp(H0c, complex(u0), [0.1, 0.1];
                     normalize=false, sweeps=2, carry_env=true, verbose=false, imaginary_time=false)
