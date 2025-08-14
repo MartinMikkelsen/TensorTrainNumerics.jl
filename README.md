@@ -1,3 +1,10 @@
+<div align="center">
+    <picture>
+      <img alt="TensorTrainNumerics.jl" src="https://raw.githubusercontent.com/MartinMikkelsen/TensorTrainNumerics.jl/main/docs/src/assets/logo.svg">
+    </picture>
+</div>
+
+
 # TensorTrainNumerics.jl
 
 [![Stable](https://img.shields.io/badge/docs-stable-blue.svg)](https://martinmikkelsen.github.io/TensorTrainNumerics.jl/)
