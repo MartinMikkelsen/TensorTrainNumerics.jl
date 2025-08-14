@@ -1,7 +1,8 @@
 using Documenter, TensorTrainNumerics
 
 makedocs(
-    sitename = "TensorTrainNumerics",
+    sitename = "TensorTrainNumerics.jl",
+    format = Documenter.HTML(assets = ["assets/favicon.ico"]),
     pages = [
         "index.md",
         "theory.md",
@@ -9,7 +10,7 @@ makedocs(
         "resources.md",
         "API.md"
         ]
-)
+    )
 
 deploydocs(
     repo = "github.com/MartinMikkelsen/TensorTrainNumerics.jl.git",
