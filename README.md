@@ -1,4 +1,4 @@
-<div align="center">
+<div align="left">
     <picture>
       <img alt="TensorTrainNumerics.jl" src="https://raw.githubusercontent.com/MartinMikkelsen/TensorTrainNumerics.jl/main/docs/src/assets/logo.svg">
     </picture>
