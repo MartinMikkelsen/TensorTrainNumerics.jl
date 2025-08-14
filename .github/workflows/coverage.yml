@@ -1,15 +1,16 @@
-name: coverage
+name: API workflow
 
-on: ["push", "pull_request"]
+on: [push, pull_request]
 
 jobs:
-  coverage:
-    name: Coverage
+  build:
     runs-on: ubuntu-latest
+    name: Test python API
     steps:
-    - uses: actions/checkout@v1
-    - uses: julia-actions/setup-julia@v1
-    - uses: julia-actions/julia-buildpkg@latest
-    - uses: julia-actions/julia-runtest@latest
-    - uses: julia-actions/julia-processcoverage@v1
-    - uses: coverallsapp/github-action@v2.3.6
+    - uses: actions/checkout@v4
+    - name: Install requirements
+      run: pip install -r requirements.txt
+    - name: Run tests and collect coverage
+      run: pytest --cov .
+    - name: Upload coverage reports to Codecov
+      run: |
