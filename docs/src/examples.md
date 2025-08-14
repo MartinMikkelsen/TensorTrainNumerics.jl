@@ -118,3 +118,55 @@ F = fourier_qtto(d; K = K, sign = -1.0, normalize = true)
 x_qtt = function_to_qtt_uniform(f, d)
 y_qtt = F * x_qtt
 ```
+
+## Variational solver
+
+You can also solve differential equations by optimizing a variational functional. Below is an example of how to use the `variational_solver` function to solve a simple differential equation based on - [OptimKit.jl](https://github.com/Jutho/OptimKit.jl) 
+
+```@example VariationalSolver
+using TensorTrainNumerics
+using OptimKit
+using KrylovKit
+
+d = 6
+N = 2^d
+h = 1 / (N - 1)
+Δ = toeplitz_to_qtto(2.0, -1.0, -1.0, d)
+kappa = 0.1
+A = kappa * Δ
+
+f = qtt_sin(d, λ = π)
+
+function fg(u::TTvector)
+    û  = orthogonalize(u)           
+    Au = A*û                       
+    val = 0.5 * real(dot(û, Au)) - real(dot(f, û))
+    grad = Au - f
+    return val, grad
+end
+
+x0 = rand_tt(f.ttv_dims, f.ttv_rks)
+
+method = GradientDescent()
+x, fx, gx, numfg, normgradhistor = optimize(fg, x0, method)
+
+relres = norm(A * x - f) / max(norm(f), eps())
+
+x_mals = mals_linsolve(A, f, x0)
+rel_residual = norm(A * x_mals - f) / max(norm(f), eps())
+
+x_krylov, info = linsolve(A, f, x0)
+relres_krylov = norm(A * x_krylov - f) / max(norm(f), eps())
+```
+with a relative residual of
+```@example VariationalSolver
+println("relative residual = ", relres)
+```
+Compared to the MALS solver
+```@example VariationalSolver
+println("relative residual MALS = ", rel_residual)
+```
+And the Krylov solver
+```@example VariationalSolver
+println("relative residual Krylov = ", relres_krylov)
+```
