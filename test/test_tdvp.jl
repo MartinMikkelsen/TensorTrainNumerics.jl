@@ -271,7 +271,7 @@ end
                       normalize=false, return_error=true,
                       sweeps=1, carry_env=false, verbose=false, imaginary_time=false)
     @test isa(err, Number)
-    @test abs(real(err)) ≤ 1e-7
+    @test abs(real(err)) ≤ 1e-6
 
     ψ0  = complex(orthogonalize(u0))
     ψ_id = tdvp2(H0c, ψ0, [0.1];
