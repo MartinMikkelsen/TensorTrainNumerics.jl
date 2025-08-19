@@ -20,7 +20,7 @@ function shift(d::Int)
 end
 
 function ∇(d::Int)
-    return toeplitz_to_qtto(1, -1, 0, d)
+    return toeplitz_to_qtto(1, 0, -1, d)
 end
 
 function Δ(d::Int)
