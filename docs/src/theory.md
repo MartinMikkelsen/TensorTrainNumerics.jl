@@ -9,12 +9,55 @@
     - [Concatenation](#concatenation)
     - [Matricization](#matricization)
     - [Visualization](#visualization)
+- [Quantics Tensor Trains (QTT)](#quantics-tensor-trains-qtt)
+  - [Mathematical Foundation](#mathematical-foundation)
+  - [Binary Index Mapping](#binary-index-mapping)
+  - [QTT Functions](#qtt-functions)
 - [Tensor Train Decomposition](#tensor-train-decomposition)
   - [Example with Tolerance](#example-with-tolerance)
 - [Optimization](#optimization)
     - [ALS](#als)
     - [MALS](#mals)
     - [DMRG](#dmrg)
+
+# Quantics Tensor Trains (QTT)
+
+## Mathematical Foundation
+
+Quantics Tensor Trains (QTT) are a special case of tensor trains that leverage binary representation of indices. The key idea is to represent vectors of size 2^d using d binary variables.
+
+### Binary Index Mapping
+For a vector **v** of size N = 2^d, we map each index j ∈ {0, 1, ..., 2^d - 1} to d binary digits:
+```
+j = j₁2^(d-1) + j₂2^(d-2) + ... + jₐ2^0
+```
+where each jₖ ∈ {0, 1}.
+
+This allows us to reshape the vector **v** into a d-dimensional tensor **T** of size 2×2×...×2:
+```
+T[j₁+1, j₂+1, ..., jₐ+1] = v[j+1]
+```
+
+### QTT Representation
+The tensor **T** can then be decomposed using the tensor train format:
+```
+T[i₁, i₂, ..., iₐ] = G₁[i₁, r₁] G₂[r₁, i₂, r₂] ... Gₐ[rₐ₋₁, iₐ]
+```
+
+The storage requirement is only O(dr²) where r is the typical rank, compared to O(2^d) for the full vector.
+
+## QTT Functions
+
+Many functions have naturally low QTT rank:
+
+### Trigonometric Functions
+Functions like sin(πx) and cos(πx) on [0,1] can be represented exactly in QTT format using trigonometric addition formulas and the binary structure of the grid.
+
+### Exponential Functions
+The exponential function exp(αx) has a recursive structure that maps well to QTT representation.
+
+### Polynomial Functions
+Polynomials can be efficiently represented by leveraging the hierarchical structure of binary grids.
 
 # Basics
 

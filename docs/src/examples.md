@@ -1,15 +1,25 @@
 # Examples
 
+This section demonstrates key applications of Quantics Tensor Trains (QTT) for numerical computing. Each example showcases how QTT enables efficient computation on problems that would be intractable with traditional methods.
+
 ## Partial differential equations 
 
-Let's consider the following 2D partial differential equation 
-```math
-\Delta u(x,y) = f(x,y),
-```
-where $\Delta$ is the Laplacian operator, ``u(x,y)`` is the unknown function, and ``f(x,y)`` is a given function. In this example we assume ``f(x,y)=0`` using Dirichlet-Dirichlet boundary conditions given by ``u(0,y) = \cos(\pi y)``, ``u(1,y) = \sin(y)``.
+This example demonstrates solving a 2D Laplace equation using QTT. The key insight is that even though we're working on a 1024×1024 grid (over 1 million unknowns), QTT compression makes the problem tractable.
 
-We want to solve this equation using quantics tensor trains (QTTs). 
-We start by defining the dimensions and the resolution of the grid. Lets say we want ``2^{10}`` points in each dimension, which gives us a grid of ``1024 \times 1024`` points on a ``[0,1]\times [0,1]`` grid. 
+### Problem Setup
+Let's consider the 2D Laplace equation:
+```math
+\Delta u(x,y) = f(x,y)
+```
+where $\Delta$ is the Laplacian operator, ``u(x,y)`` is the unknown function, and ``f(x,y)`` is a given function. We use ``f(x,y)=0`` with Dirichlet boundary conditions: ``u(0,y) = \cos(\pi y)`` and ``u(1,y) = \sin(y)``.
+
+### QTT Approach
+Instead of forming a million×million matrix, we:
+1. **Discretize using QTT**: Represent the grid using binary indices
+2. **Build operators in QTT**: Create Laplacian operators directly in QTT format
+3. **Solve efficiently**: Use QTT-aware solvers that exploit the compressed structure
+
+The solution process scales as O(d) rather than O(2^d), where d = 10 for our 1024×1024 grid. 
 
 ```@example Laplace
 using TensorTrainNumerics
@@ -60,6 +70,15 @@ fig
 
 ## Time-stepping
 
+Time-dependent PDEs showcase another strength of QTT: the ability to evolve high-dimensional states efficiently over time. Here we compare three time-stepping schemes, all operating in the compressed QTT format.
+
+### The Heat Equation
+We solve the 1D heat equation:
+```math
+\frac{\partial u}{\partial t} = \alpha \frac{\partial^2 u}{\partial x^2}
+```
+with initial condition u(x,0) = sin(πx). In QTT format, both the solution vector and the Laplacian operator are compressed, making time evolution efficient.
+
 We can also solve time-dependent PDEs using the QTT framework. In this exampl we will use the explicit Euler method, the implicit Euler method and the Crank-Nicolson scheme.
 ```@example TimeStepping
 using TensorTrainNumerics
@@ -95,6 +114,13 @@ println("Relative error for Crank-Nicolson: ", rel_crank)
 ```
 
 # Discrete Fourier Transform
+
+The Fast Fourier Transform (FFT) can be represented in QTT format, enabling efficient Fourier analysis of exponentially large datasets. This is particularly useful for spectral methods and signal processing applications.
+
+### QTT-FFT Advantages
+- **Memory efficiency**: Transform vectors of size 2^20 using O(d) memory
+- **Structured computation**: Exploits the recursive structure of the FFT algorithm
+- **High accuracy**: Maintains numerical precision while compressing intermediate results
 
 Based on [this paper](https://arxiv.org/pdf/2404.03182) we also have access to the discrete Fourier transform (DFT) in QTT format. Below is an esample of how to use it. You can use the `fourier_qtto` function to create a QTT representation of the Fourier transform operator where the `sign` parameter determines if its the Fourier transform or the inverse Fourier transform. 
 

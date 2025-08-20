@@ -1,24 +1,84 @@
 # TensorTrainNumerics.jl
 
-Tensor Train Numerics is a Julia package designed to provide efficient numerical methods for working with tensor trains (TT) and quantized tensor trains (QTT). This package offers a comprehensive set of tools for constructing, manipulating, and performing operations on tensor trains, which are useful in various scientific and engineering applications, including high-dimensional data analysis, machine learning, and computational physics.
+TensorTrainNumerics.jl is a Julia package for efficient numerical methods using **tensor trains (TT)** and **quantics tensor trains (QTT)**. This package enables scalable computation on high-dimensional data and functions by leveraging the low-rank structure inherent in many practical problems.
+
+## Introduction to Quantics Tensor Trains
+
+### Tensor Trains
+A tensor train represents a high-dimensional tensor as a product of smaller tensors called "cores":
+```
+A[i₁, i₂, ..., iₐ] = Σ G₁[i₁, r₁] G₂[r₁, i₂, r₂] ... Gₐ[rₐ₋₁, iₐ]
+```
+This format can dramatically reduce storage from exponential to linear in the number of dimensions.
+
+### Quantics Tensor Trains (QTT)
+QTT extends tensor trains by using **binary index decomposition**. Instead of working with a vector of size N, we:
+
+1. **Decompose indices**: Write N = 2^d and represent each index as d binary digits
+2. **Reshape**: Transform a vector v[1:2^d] into a d-dimensional tensor T[1:2, 1:2, ..., 1:2]
+3. **Apply TT**: Use tensor train decomposition on this binary tensor
+
+**Key insight**: Functions on regular grids often have low QTT rank, enabling exponential compression.
+
+### Why QTT Works
+Many functions and operators have natural structure in binary representation:
+- **Smooth functions**: Local correlations compress well
+- **Differential operators**: Sparse structure translates to low rank
+- **Hierarchical data**: Binary trees map naturally to QTT
+
+This makes QTT particularly effective for:
+- Solving PDEs on fine grids (2^20+ points)
+- High-dimensional function approximation
+- Fast transforms and convolutions
 
 ## Key features
 
-- Tensor Train Decomposition: Efficient algorithms for decomposing high-dimensional tensors into tensor train format, reducing computational complexity and memory usage.
-- Tensor Operations: Support for basic tensor operations such as addition, multiplication, and contraction in tensor train format.
-- Discrete Operators: Implementation of discrete Laplacians, gradient operators, and shift matrices in tensor train format for solving partial differential equations and other numerical problems.
-- Quantized Tensor Trains: Tools for constructing and manipulating quantized tensor trains, which provide further compression and efficiency for large-scale problems.
-- Iterative Solvers: Integration with iterative solvers for solving linear systems and eigenvalue problems in tensor train format.
-- Visualization: Basic visualization tools for inspecting tensor train structures and their properties. 
+**Quantics Tensor Trains (QTT):**
+- **Function representation**: Convert continuous functions to QTT format and back
+- **Built-in functions**: Pre-implemented QTT representations for trigonometric, exponential, and polynomial functions
+- **PDE solving**: Efficient discretization and solution of partial differential equations
+- **Automatic compression**: Functions are automatically compressed to optimal rank
+
+**Tensor Train Operations:**
+- **Decomposition**: Efficient algorithms for converting full tensors to TT format with controllable precision
+- **Arithmetic**: Support for addition, multiplication, and contraction operations in TT format
+- **Discrete operators**: Implementation of differential operators (Laplacians, gradients) in TT format
+- **Optimization**: ALS, MALS, and DMRG algorithms for solving linear systems and eigenvalue problems
+
+**Advanced Features:**
+- **Iterative solvers**: Integration with modern iterative methods for large-scale problems
+- **Visualization**: Tools for understanding TT structure, ranks, and compression efficiency
+- **Memory management**: Automatic rank control and efficient storage 
 
 ## Getting started 
 
-To get started with Tensor Train Numerics, you can install the package using Julia's package manager:
+To get started with TensorTrainNumerics.jl, install the package using Julia's package manager:
 
 ```Julia
 using Pkg
 Pkg.add("TensorTrainNumerics")
 ```
+
+### Your First QTT Example
+
+Let's represent a function using QTT and see the compression in action:
+
+```@example 1
+using TensorTrainNumerics
+
+# Represent sin(2πx) on [0,1] using QTT with 2^10 = 1024 points
+d = 10
+qtt_sine = qtt_sin(d, λ=2)
+
+# Check the compression: how many parameters does this use?
+println("QTT ranks: ", qtt_sine.ttv_rks)
+total_params = sum(prod(size(core)) for core in qtt_sine.ttv_vec)
+println("Total QTT parameters: ", total_params)
+println("Original vector size: ", 2^d)
+println("Compression ratio: ", 2^d / total_params)
+```
+
+The QTT representation uses far fewer parameters than storing the full vector!
 
 ### Basic example
 
