@@ -182,13 +182,16 @@ function cut_off_index(s::Array{T}, tol::Float64; degen_tol = 1.0e-10) where {T 
     return k
 end
 
-function right_core_move!(x_tt::TTvector{T}, V, V_move, i::Int, tol::Float64, r_max::Integer) where {T <: Number}
+function right_core_move!(x_tt::TTvector{T}, V, V_move, i::Int, tol::Float64, r_max::Integer; verbose::Bool = true) where {T <: Number}
     # Perform the truncated svd
     u_V, s_V, v_V = svd(reshape(V, x_tt.ttv_rks[i] * x_tt.ttv_dims[i], :))
     # Update the ranks to the truncated one
     x_tt.ttv_rks[i + 1] = min(cut_off_index(s_V, tol), r_max)
-    println("Rank: $(x_tt.ttv_rks[i + 1]),	Max rank=$r_max")
-    println("Discarded weight: $((norm(s_V) - norm(s_V[1:x_tt.ttv_rks[i + 1]])) / norm(s_V))")
+    if verbose
+        @info "Rank" x_tt.ttv_rks[i + 1]
+        @info "Max rank" r_max
+        @info "Discarded weight" ((norm(s_V) - norm(s_V[1:x_tt.ttv_rks[i + 1]])) / norm(s_V))
+    end
 
     x_tt.ttv_vec[i] = permutedims(reshape(u_V[:, 1:x_tt.ttv_rks[i + 1]], x_tt.ttv_rks[i], x_tt.ttv_dims[i], :), (2, 1, 3))
     x_tt.ttv_ot[i] = 1
@@ -202,13 +205,16 @@ function right_core_move!(x_tt::TTvector{T}, V, V_move, i::Int, tol::Float64, r_
     return nothing
 end
 
-function left_core_move!(x_tt::TTvector{T}, V, V_move, j::Int, tol::Float64, r_max::Integer) where {T <: Number}
+function left_core_move!(x_tt::TTvector{T}, V, V_move, j::Int, tol::Float64, r_max::Integer; verbose::Bool = true) where {T <: Number}
     # Perform the truncated svd
     u_V, s_V, v_V = svd(reshape(V, :, x_tt.ttv_dims[j] * x_tt.ttv_rks[j + 1]))
     # Update the ranks to the truncated one
     x_tt.ttv_rks[j] = min(cut_off_index(s_V, tol), r_max)
-    println("Rank: $(x_tt.ttv_rks[j]),	Max rank=$r_max")
-    println("Discarded weight: $((norm(s_V) - norm(s_V[1:x_tt.ttv_rks[j]])) / norm(s_V))")
+    if verbose
+        @info "Rank" x_tt.ttv_rks[j]
+        @info "Max rank=" r_max
+        @info "Discarded weight" ((norm(s_V) - norm(s_V[1:x_tt.ttv_rks[j]])) / norm(s_V))
+    end
 
     x_tt.ttv_vec[j] = permutedims(reshape(v_V'[1:x_tt.ttv_rks[j], :], x_tt.ttv_rks[j], :, x_tt.ttv_rks[j + 1]), (2, 1, 3))
     x_tt.ttv_ot[j] = -1

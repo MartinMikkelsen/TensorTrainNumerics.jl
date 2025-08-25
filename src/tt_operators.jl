@@ -153,10 +153,10 @@ function qtto_prolongation(d::Int)
             end
         end
     end
-    out.tto_vec[d][1,1,1,1] = 1.0
-    out.tto_vec[d][2,1,1,1] = 2.0
-    out.tto_vec[d][1,2,1,1] = 1.0
-    out.tto_vec[d][2,2,1,1] = 0.0
+    out.tto_vec[d][1, 1, 1, 1] = 1.0
+    out.tto_vec[d][2, 1, 1, 1] = 2.0
+    out.tto_vec[d][1, 2, 1, 1] = 1.0
+    out.tto_vec[d][2, 2, 1, 1] = 0.0
     return out
 end
 
