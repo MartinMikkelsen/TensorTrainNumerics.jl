@@ -28,6 +28,7 @@ function Δ(d::Int)
 end
 
 function Δ_DN(d::Int)
+    @assert d ≥ 4 "Dimension must be at least 4"
     out = zeros_tto(2, d, 4)
     id = [1 0; 0 1]
     J = [0 1; 0 0]
@@ -45,6 +46,7 @@ function Δ_DN(d::Int)
 end
 
 function Δ_ND(d::Int)
+    @assert d ≥ 4 "Dimension must be at least 4"
     out = zeros_tto(2, d, 4)
     id = [1 0; 0 1]
     J = [0 1; 0 0]
@@ -62,6 +64,7 @@ function Δ_ND(d::Int)
 end
 
 function Δ_NN(d)
+    @assert d ≥ 4 "Dimension must be at least 4"
     out = zeros_tto(ntuple(_ -> 2, d), [4; fill(5, d - 1); 4])
     id = [1 0; 0 1]
     J = [0 1; 0 0]
@@ -80,6 +83,7 @@ function Δ_NN(d)
 end
 
 function Δ_P(d)
+    @assert d ≥ 4 "Dimension must be at least 4"
     out = zeros_tto(ntuple(_ -> 2, d), fill(5, d + 1))
     id = [1 0; 0 1]
     J = [0 1; 0 0]
@@ -102,6 +106,33 @@ function Δ_P(d)
                 -J[i, j];
                 -J[j, i]
             ]
+        end
+    end
+    return out
+end
+
+function Δ⁻¹_DN(d::Int)
+    @assert d ≥ 2 "Dimension must be at least 2"
+    out = zeros_tto(2, d, 4)
+    id = [1 0; 0 1]
+    E = [1 1; 1 1]
+    I₂ = [0 0; 0 1]
+    J = [0 1; 0 0]
+    for i in 1:2
+        for j in 1:2
+            out.tto_vec[1][i, j, 1, :] = [id[i, j]; I₂[i,j]; J[i, j]; J[j, i]]
+            for k in 2:(d - 1)
+                out.tto_vec[k][i, j, :, :] = [
+                    id[i, j] I₂[i, j] J[i, j] J[j,i];
+                    0 2*E[i, j] 0 0;
+                    0 I₂[i,j]+J[j,i] E[i,j] 0;
+                    0 I₂[i,j]+J[i,j] 0 E[i,j];]
+            end
+            out.tto_vec[d][i, j, :, 1] = [
+                E[i, j]+I₂[i,j];
+                2*E[i, j];
+                E[i,j]+I₂[i, j]+J[j,i];
+                E[i,j]+I₂[i,j]+J[i,j]]
         end
     end
     return out

@@ -21,7 +21,7 @@ include("solvers/tdvp.jl")
 export chebyshev_lobatto_nodes, gauss_chebyshev_lobatto, equally_spaced_nodes, get_nodes, lagrange_basis, interpolating_qtt, lagrange_rank_revealing
 include("tt_interpolations.jl")
 
-export toeplitz_to_qtto, qtto_prolongation, ∇, Δ_DN, Δ_ND, Δ_NN, Δ_P, Δ, shift, zeros_tt, zeros_tto, rand_tt, id_tto, rand_tto
+export toeplitz_to_qtto, qtto_prolongation, ∇, Δ_DN, Δ_ND, Δ_NN, Δ_P, Δ,Δ⁻¹_DN, shift, zeros_tt, zeros_tto, rand_tt, id_tto, rand_tto
 include("tt_operators.jl")
 
 export index_to_point, tuple_to_index, function_to_tensor, tensor_to_grid, function_to_qtt, qtt_to_function, function_to_qtt_uniform, qtt_polynom, qtt_cos, qtt_sin, qtt_exp, qtto_to_matrix, qtt_basis_vector, qtt_chebyshev, qtt_simpson, qtt_trapezoidal

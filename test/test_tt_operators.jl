@@ -296,7 +296,7 @@ end
 
     # shift should call toeplitz_to_qtto(0,1,0,d)
     tto_shift = TensorTrainNumerics.shift(d)
-    tto_ref = TensorTrainNumerics.toeplitz_to_qtto(0,1,0,d)
+    tto_ref = TensorTrainNumerics.toeplitz_to_qtto(0, 1, 0, d)
     @test all(size.(tto_shift.tto_vec) .== size.(tto_ref.tto_vec))
     @test all(tto_shift.tto_vec[1] .== tto_ref.tto_vec[1])
     @test all(tto_shift.tto_vec[2] .== tto_ref.tto_vec[2])
@@ -312,9 +312,27 @@ end
 
     # Δ should call toeplitz_to_qtto(2,-1,-1,d)
     tto_lap = TensorTrainNumerics.Δ(d)
-    tto_ref = TensorTrainNumerics.toeplitz_to_qtto(2,-1,-1,d)
+    tto_ref = TensorTrainNumerics.toeplitz_to_qtto(2, -1, -1, d)
     @test all(size.(tto_lap.tto_vec) .== size.(tto_ref.tto_vec))
     @test all(tto_lap.tto_vec[1] .== tto_ref.tto_vec[1])
     @test all(tto_lap.tto_vec[2] .== tto_ref.tto_vec[2])
     @test all(tto_lap.tto_vec[3] .== tto_ref.tto_vec[3])
+end
+
+@testset "Inverse" begin
+
+    d = 6
+    A = Δ⁻¹_DN(d)
+
+    function inv_DN(n::Int)
+        @assert n ≥ 1 "n must be ≥ 1"
+        G = Matrix{Float64}(undef, n, n)
+        @inbounds for i in 1:n, j in 1:n
+            G[i, j] = min(i, j)
+        end
+        return G
+    end
+
+    @test qtto_to_matrix(A) == inv_DN(2^d)
+
 end
