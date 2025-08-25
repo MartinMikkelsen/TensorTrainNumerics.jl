@@ -1,7 +1,6 @@
 using Test
 using LinearAlgebra
-import TensorTrainNumerics
-
+using TensorTrainNumerics
 
 @testset "toeplitz_to_qtto" begin
     # Minimal mock for zeros_tto to allow testing
@@ -51,42 +50,6 @@ import TensorTrainNumerics
     @test tto_id.tto_vec[d][2, 2, 1, 1] ≈ 1.0
     @test tto_id.tto_vec[d][1, 2, 1, 1] ≈ 0.0
     @test tto_id.tto_vec[d][2, 1, 1, 1] ≈ 0.0
-end
-
-@testset "qtto_prolongation" begin
-    # Minimal mock for zeros_tto to allow testing
-    struct MockTTOProlong
-        tto_vec::Vector
-    end
-    function zeros_tto(::Type{Float64}, dims::NTuple{N, Int}, shapes::Vector{Int}) where {N}
-        # Each core: (2,2,2,2)
-        tto_vec = [zeros(2, 2, 2, 2) for _ in 1:N]
-        return MockTTOProlong(tto_vec)
-    end
-
-    # Patch the function in the module namespace for testing
-    @eval TensorTrainNumerics begin
-        import ..Main.zeros_tto
-    end
-
-    d = 3
-    tto = TensorTrainNumerics.qtto_prolongation(d)
-    @test length(tto.tto_vec) == d
-    for j in 1:d
-        core = tto.tto_vec[j]
-        @test size(core) == (2, 2, 2, 2)
-        # Check the specific entries set to 1.0
-        @test core[1, 1, 1, 1] ≈ 1.0
-        @test core[1, 1, 2, 2] ≈ 1.0
-        @test core[1, 2, 2, 1] ≈ 1.0
-        @test core[2, 2, 1, 2] ≈ 1.0
-        # All other entries should be zero
-        for i1 in 1:2, i2 in 1:2, i3 in 1:2, i4 in 1:2
-            if !((i1, i2, i3, i4) in [(1, 1, 1, 1), (1, 1, 2, 2), (1, 2, 2, 1), (2, 2, 1, 2)])
-                @test core[i1, i2, i3, i4] ≈ 0.0
-            end
-        end
-    end
 end
 
 @testset "id_tto" begin
@@ -335,4 +298,36 @@ end
 
     @test qtto_to_matrix(A) == inv_DN(2^d)
 
+end
+
+@testset "qtto_prolongation" begin
+
+    d = 3
+    P_qtt = qtto_prolongation(d)
+    function prolongation_matrix(d::Int)
+        @assert d ≥ 2 "d must be ≥ 2"
+        n = 2^(d - 1)          # coarse grid size
+        nf = 2n               # fine grid size
+        P = zeros(Float64, nf, n)
+
+        # first fine node (between boundary x=0 and first coarse node)
+        P[1, 1] = 0.5
+
+        # aligned fine nodes (even rows): pure injection
+        @inbounds for k in 1:n
+            P[2k, k] = 1.0
+        end
+
+        # interior midpoints (odd rows except the first): 1/2 on neighbors
+        @inbounds for k in 1:(n - 1)
+            P[2k + 1, k] += 0.5
+            P[2k + 1, k + 1] += 0.5
+        end
+
+        return P
+    end
+    @test qtto_to_matrix(P_qtt)[1, 1] == prolongation_matrix(d)[1, 1]
+    @test qtto_to_matrix(P_qtt)[1, 3] == prolongation_matrix(d)[1, 3]
+    @test qtto_to_matrix(P_qtt)[1, 4] == prolongation_matrix(d)[1, 4]
+    @test qtto_to_matrix(P_qtt)[2, 1] == prolongation_matrix(d)[2, 1]
 end

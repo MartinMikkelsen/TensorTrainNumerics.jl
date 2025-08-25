@@ -141,34 +141,25 @@ function Δ⁻¹_DN(d::Int)
 end
 
 function qtto_prolongation(d::Int)
-    @assert d ≥ 2
-    T = zeros_tto(2, d, 2)                
-    I = [1.0 0.0; 0.0 1.0]
-    J = [0.0 1.0; 0.0 0.0]                 
-
-    @inbounds for i in 1:2, j in 1:2
-        T.tto_vec[1][i,j,1,1] = 0.5*I[i,j]
-        T.tto_vec[1][i,j,1,2] = 0.5*J[i,j]
-    end
-
-    for k in 2:(d-1)
-        @inbounds for i in 1:2, j in 1:2
-            T.tto_vec[k][i,j,1,1] = I[i,j]
-            T.tto_vec[k][i,j,1,2] = J[i,j]
-            T.tto_vec[k][i,j,2,1] = 0.0
-            T.tto_vec[k][i,j,2,2] = I[i,j]
+    @assert d ≥ 2 "Dimension must be at least 2"
+    out = zeros_tto(2, d, 2)
+    id = [1.0 0.0; 0.0 1.0]
+    J = [0.0 1.0; 0.0 0.0]
+    for i in 1:2
+        for j in 1:2
+            out.tto_vec[1][i, j, 1, :] = 0.5 * [id[i, j]; J[j, i]]
+            for k in 2:(d - 1)
+                out.tto_vec[k][i, j, :, :] = [id[i, j] J[j, i]; 0 J[i, j]]
+            end
         end
     end
+    out.tto_vec[d][1,1,1,1] = 1.0
+    out.tto_vec[d][2,1,1,1] = 2.0
+    out.tto_vec[d][1,2,1,1] = 1.0
+    out.tto_vec[d][2,2,1,1] = 0.0
+    return out
+end
 
-    T.tto_vec[d][:,:,1,1] .= 1.0   
-    T.tto_vec[d][:,:,2,1] .= 0.0
-    T.tto_vec[d][1,1,1,1] = 1.0   
-    T.tto_vec[d][2,2,1,1] = 1.0   
-    T.tto_vec[d][1,1,2,1] = 2.0   
-    T.tto_vec[d][2,2,2,1] = 0.0   
-
-    return T
-end 
 
 """
     id_tto(d; n_dim=2)
