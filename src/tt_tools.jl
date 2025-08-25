@@ -1023,7 +1023,7 @@ Convert a TTvector to a vector of Float64 values by extracting a specific core.
 # Description
 This function converts a given TTvector into a vector of Float64 values by extracting the specified core. It first converts the TTvector to a full tensor using `ttv_to_tensor`, then calculates the dyadic points and binary indices to extract the values from the tensor.
 """
-function matricize(qtt::TTvector{T}, core::Int)::Vector{T} where {T<:Number}
+function matricize(qtt::TTvector{T}, core::Int)::Vector{T} where {T <: Number}
     full_tensor = ttv_to_tensor(qtt)
     n = 2^core
     values = zeros(T, n)

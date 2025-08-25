@@ -120,34 +120,55 @@ function Δ⁻¹_DN(d::Int)
     J = [0 1; 0 0]
     for i in 1:2
         for j in 1:2
-            out.tto_vec[1][i, j, 1, :] = [id[i, j]; I₂[i,j]; J[i, j]; J[j, i]]
+            out.tto_vec[1][i, j, 1, :] = [id[i, j]; I₂[i, j]; J[i, j]; J[j, i]]
             for k in 2:(d - 1)
                 out.tto_vec[k][i, j, :, :] = [
-                    id[i, j] I₂[i, j] J[i, j] J[j,i];
-                    0 2*E[i, j] 0 0;
-                    0 I₂[i,j]+J[j,i] E[i,j] 0;
-                    0 I₂[i,j]+J[i,j] 0 E[i,j];]
+                    id[i, j] I₂[i, j] J[i, j] J[j, i];
+                    0 2 * E[i, j] 0 0;
+                    0 I₂[i, j] + J[j, i] E[i, j] 0;
+                    0 I₂[i, j] + J[i, j] 0 E[i, j];
+                ]
             end
             out.tto_vec[d][i, j, :, 1] = [
-                E[i, j]+I₂[i,j];
-                2*E[i, j];
-                E[i,j]+I₂[i, j]+J[j,i];
-                E[i,j]+I₂[i,j]+J[i,j]]
+                E[i, j] + I₂[i, j];
+                2 * E[i, j];
+                E[i, j] + I₂[i, j] + J[j, i];
+                E[i, j] + I₂[i, j] + J[i, j]
+            ]
         end
     end
     return out
 end
 
-function qtto_prolongation(d)
-    out = zeros_tto(Float64, ntuple(_ -> 2, d), fill(2, d + 1))
-    for j in 1:d
-        out.tto_vec[j][1, 1, 1, 1] = 1.0
-        out.tto_vec[j][1, 1, 2, 2] = 1.0
-        out.tto_vec[j][1, 2, 2, 1] = 1.0
-        out.tto_vec[j][2, 2, 1, 2] = 1.0
+function qtto_prolongation(d::Int)
+    @assert d ≥ 2
+    T = zeros_tto(2, d, 2)                
+    I = [1.0 0.0; 0.0 1.0]
+    J = [0.0 1.0; 0.0 0.0]                 
+
+    @inbounds for i in 1:2, j in 1:2
+        T.tto_vec[1][i,j,1,1] = 0.5*I[i,j]
+        T.tto_vec[1][i,j,1,2] = 0.5*J[i,j]
     end
-    return out
-end
+
+    for k in 2:(d-1)
+        @inbounds for i in 1:2, j in 1:2
+            T.tto_vec[k][i,j,1,1] = I[i,j]
+            T.tto_vec[k][i,j,1,2] = J[i,j]
+            T.tto_vec[k][i,j,2,1] = 0.0
+            T.tto_vec[k][i,j,2,2] = I[i,j]
+        end
+    end
+
+    T.tto_vec[d][:,:,1,1] .= 1.0   
+    T.tto_vec[d][:,:,2,1] .= 0.0
+    T.tto_vec[d][1,1,1,1] = 1.0   
+    T.tto_vec[d][2,2,1,1] = 1.0   
+    T.tto_vec[d][1,1,2,1] = 2.0   
+    T.tto_vec[d][2,2,2,1] = 0.0   
+
+    return T
+end 
 
 """
     id_tto(d; n_dim=2)

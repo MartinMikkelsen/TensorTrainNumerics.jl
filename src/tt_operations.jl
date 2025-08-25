@@ -173,11 +173,11 @@ function dot_par(A::TTvector{T, N}, B::TTvector{T, N}) where {T <: Number, N}
     return C[1]::T
 end
 
-function *(a::S, A::TTvector{R,N}) where {S<:Number,R<:Number,N}
-    T  = promote_type(S, R)
+function *(a::S, A::TTvector{R, N}) where {S <: Number, R <: Number, N}
+    T = promote_type(S, R)
     aT = convert(T, a)
     if iszero(aT)
-        return zeros_tt(T, A.ttv_dims, A.ttv_rks)  
+        return zeros_tt(T, A.ttv_dims, A.ttv_rks)
     end
     i = findfirst(==(0), A.ttv_ot); i === nothing && (i = 1)
     X = copy(A.ttv_vec)
@@ -187,14 +187,14 @@ function *(a::S, A::TTvector{R,N}) where {S<:Number,R<:Number,N}
             X[k] = convert.(T, X[k])
         end
     end
-    return TTvector{T,N}(A.N, X, A.ttv_dims, A.ttv_rks, A.ttv_ot)
+    return TTvector{T, N}(A.N, X, A.ttv_dims, A.ttv_rks, A.ttv_ot)
 end
 
-function *(a::S, A::TToperator{R,N}) where {S<:Number,R<:Number,N}
-    T  = promote_type(S, R)
+function *(a::S, A::TToperator{R, N}) where {S <: Number, R <: Number, N}
+    T = promote_type(S, R)
     aT = convert(T, a)
     if iszero(aT)
-        return zeros_tto(T, A.tto_dims, A.tto_rks) 
+        return zeros_tto(T, A.tto_dims, A.tto_rks)
     end
     i = findfirst(==(0), A.tto_ot); i === nothing && (i = 1)
     X = copy(A.tto_vec)
@@ -204,10 +204,10 @@ function *(a::S, A::TToperator{R,N}) where {S<:Number,R<:Number,N}
             X[k] = convert.(T, X[k])
         end
     end
-    return TToperator{T,N}(A.N, X, A.tto_dims, A.tto_rks, A.tto_ot)
+    return TToperator{T, N}(A.N, X, A.tto_dims, A.tto_rks, A.tto_ot)
 end
 
-Base.:*(A::TTvector{T,N}, a::S) where {T<:Number,S<:Number,N} = a * A
+Base.:*(A::TTvector{T, N}, a::S) where {T <: Number, S <: Number, N} = a * A
 
 function -(A::TTvector{T, N}, B::TTvector{T, N}) where {T <: Number, N}
     return *(-1.0, B) + A
@@ -434,9 +434,9 @@ function euclidean_distance_normalized(a::TTvector{T, N}, b::TTvector{T, N}) whe
     return sqrt(1.0 + dot(a, a) / dot(b, b) - 2.0 * real(dot(b, a)) / dot(b, b))
 end
 
-function norm(a::TTvector{T,N}) where {T<:Number,N}
-    s = TensorTrainNumerics.dot(a, a)                
-    v = real(s)                  
-    v = v < 0 ? zero(v) : v      
+function norm(a::TTvector{T, N}) where {T <: Number, N}
+    s = TensorTrainNumerics.dot(a, a)
+    v = real(s)
+    v = v < 0 ? zero(v) : v
     return sqrt(v)
 end
