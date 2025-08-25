@@ -20,11 +20,122 @@ function shift(d::Int)
 end
 
 function ∇(d::Int)
-    return toeplitz_to_qtto(1, -1, 0, d)
+    return toeplitz_to_qtto(1, 0, -1, d)
 end
 
 function Δ(d::Int)
     return toeplitz_to_qtto(2, -1, -1, d)
+end
+
+function Δ_DN(d::Int)
+    @assert d ≥ 4 "Dimension must be at least 4"
+    out = zeros_tto(2, d, 4)
+    id = [1 0; 0 1]
+    J = [0 1; 0 0]
+    I₂ = [0 0; 0 1]
+    for i in 1:2
+        for j in 1:2
+            out.tto_vec[1][i, j, 1, :] = [id[i, j]; J[j, i]; J[i, j]; I₂[i, j]]
+            for k in 2:(d - 1)
+                out.tto_vec[k][i, j, :, :] = [id[i, j] J[j, i] J[i, j] 0; 0 J[i, j] 0 0; 0 0 J[j, i] 0; 0 0 0 I₂[i, j]]
+            end
+            out.tto_vec[d][i, j, :, 1] = [2 * id[i, j] - J[i, j] - J[j, i]; -J[i, j]; -J[j, i]; -I₂[i, j]]
+        end
+    end
+    return out
+end
+
+function Δ_ND(d::Int)
+    @assert d ≥ 4 "Dimension must be at least 4"
+    out = zeros_tto(2, d, 4)
+    id = [1 0; 0 1]
+    J = [0 1; 0 0]
+    I₁ = [1 0; 0 0]
+    for i in 1:2
+        for j in 1:2
+            out.tto_vec[1][i, j, 1, :] = [id[i, j]; J[j, i]; J[i, j]; I₁[i, j]]
+            for k in 2:(d - 1)
+                out.tto_vec[k][i, j, :, :] = [id[i, j] J[j, i] J[i, j] 0; 0 J[i, j] 0 0; 0 0 J[j, i] 0; 0 0 0 I₁[i, j]]
+            end
+            out.tto_vec[d][i, j, :, 1] = [2 * id[i, j] - J[i, j] - J[j, i]; -J[i, j]; -J[j, i]; -I₁[i, j]]
+        end
+    end
+    return out
+end
+
+function Δ_NN(d)
+    @assert d ≥ 4 "Dimension must be at least 4"
+    out = zeros_tto(ntuple(_ -> 2, d), [4; fill(5, d - 1); 4])
+    id = [1 0; 0 1]
+    J = [0 1; 0 0]
+    I₁ = [1 0; 0 0]
+    I₂ = [0 0; 0 1]
+    for i in 1:2
+        for j in 1:2
+            out.tto_vec[1][i, j, 1, :] = [id[i, j]; J[j, i]; J[i, j]; I₂[i, j]; I₁[i, j]]
+            for k in 2:(d - 1)
+                out.tto_vec[k][i, j, :, :] = [id[i, j] J[j, i] J[i, j] 0 0; 0 J[i, j] 0 0 0; 0 0 J[j, i] 0 0; 0 0 0 I₂[i, j] 0; 0 0 0 0 -I₁[i, j]]
+            end
+            out.tto_vec[d][i, j, :, 1] = [2 * id[i, j] - J[i, j] - J[j, i]; -J[i, j]; -J[j, i]; -I₂[i, j]; -I₁[i, j]]
+        end
+    end
+    return out
+end
+
+function Δ_P(d)
+    @assert d ≥ 4 "Dimension must be at least 4"
+    out = zeros_tto(ntuple(_ -> 2, d), fill(5, d + 1))
+    id = [1 0; 0 1]
+    J = [0 1; 0 0]
+    for i in 1:2
+        for j in 1:2
+            out.tto_vec[1][i, j, 1, :] = [id[i, j], J[j, i], J[i, j], J[i, j], J[j, i]]
+            for k in 2:(d - 1)
+                out.tto_vec[k][i, j, :, :] = [
+                    id[i, j] J[j, i] J[i, j] 0 0;
+                    0 J[i, j] 0 0 0;
+                    0 0 J[j, i] 0 0;
+                    0 0 0 J[i, j] 0;
+                    0 0 0 0 J[j, i]
+                ]
+            end
+            out.tto_vec[d][i, j, :, 1] = [
+                2 * id[i, j] - J[i, j] - J[j, i];
+                -J[i, j];
+                -J[j, i];
+                -J[i, j];
+                -J[j, i]
+            ]
+        end
+    end
+    return out
+end
+
+function Δ⁻¹_DN(d::Int)
+    @assert d ≥ 2 "Dimension must be at least 2"
+    out = zeros_tto(2, d, 4)
+    id = [1 0; 0 1]
+    E = [1 1; 1 1]
+    I₂ = [0 0; 0 1]
+    J = [0 1; 0 0]
+    for i in 1:2
+        for j in 1:2
+            out.tto_vec[1][i, j, 1, :] = [id[i, j]; I₂[i,j]; J[i, j]; J[j, i]]
+            for k in 2:(d - 1)
+                out.tto_vec[k][i, j, :, :] = [
+                    id[i, j] I₂[i, j] J[i, j] J[j,i];
+                    0 2*E[i, j] 0 0;
+                    0 I₂[i,j]+J[j,i] E[i,j] 0;
+                    0 I₂[i,j]+J[i,j] 0 E[i,j];]
+            end
+            out.tto_vec[d][i, j, :, 1] = [
+                E[i, j]+I₂[i,j];
+                2*E[i, j];
+                E[i,j]+I₂[i, j]+J[j,i];
+                E[i,j]+I₂[i,j]+J[i,j]]
+        end
+    end
+    return out
 end
 
 function qtto_prolongation(d)

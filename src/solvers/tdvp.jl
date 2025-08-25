@@ -79,7 +79,7 @@ function tdvp1sweep!(
         AC, _ = exponentiate(H1, t1, AC; ishermitian = true, kwargs...)
         if verbose
             E = _dot3(AC, H1(AC))
-            @info "TDVP sweep:" site=k energy=real(E)
+            @info "TDVP sweep:" site = k energy = real(E)
         end
 
         Dl, d, Dr = size(AC)
@@ -99,7 +99,7 @@ function tdvp1sweep!(
         C, _ = exponentiate(H0, t0, C; ishermitian = true, kwargs...)
         if verbose
             E0 = _dot3(C, H0(C))
-            @info "TDVP sweep:" sites="$(k):$(k+1)" energy=real(E0)
+            @info "TDVP sweep:" sites = "$(k):$(k + 1)" energy = real(E0)
         end
 
         @tensor AC[α, s, β] := C[α, γ] * A_lsr[k + 1][γ, s, β]
@@ -111,7 +111,7 @@ function tdvp1sweep!(
     AC, _ = exponentiate(H1N, tN, AC; ishermitian = true, kwargs...)
     if verbose
         E = _dot3(AC, H1N(AC))
-        @info "TDVP sweep:" site=k energy=real(E)
+        @info "TDVP sweep:" site = k energy = real(E)
     end
 
     for k in (Nsites - 1):-1:1
@@ -133,7 +133,7 @@ function tdvp1sweep!(
         C, _ = exponentiate(H0, t0, C; ishermitian = true, kwargs...)
         if verbose
             E0 = _dot3(C, H0(C))
-            @info "TDVP sweep:" sites="$(k):$(k+1)" energy=real(E0)
+            @info "TDVP sweep:" sites = "$(k):$(k + 1)" energy = real(E0)
         end
 
         @tensor AC[α, s, β] := A_lsr[k][α, s, γ] * C[γ, β]
@@ -143,7 +143,7 @@ function tdvp1sweep!(
         AC, _ = exponentiate(H1k, tk, AC; ishermitian = true, kwargs...)
         if verbose
             E = _dot3(AC, H1k(AC))
-            @info "TDVP sweep:" site=k energy=real(E)
+            @info "TDVP sweep:" site = k energy = real(E)
         end
     end
 
@@ -243,7 +243,7 @@ function tdvp2sweep!(
         AAC, _ = exponentiate(H2, t2, AAC; ishermitian = true, kwargs...)
         if verbose
             E = _dot3(vec(conj(AAC)), vec(H2(AAC)))
-            @info "2TDVP sweep:" sites="$(k):$(k + 1)"   energy = real(E)
+            @info "2TDVP sweep:" sites = "$(k):$(k + 1)"   energy = real(E)
         end
 
         Dl, d1, d2, Dr = size(AAC)
@@ -266,7 +266,7 @@ function tdvp2sweep!(
         AAC, _ = exponentiate(H2, t2, AAC; ishermitian = true, kwargs...)
         if verbose
             E = _dot3(vec(conj(AAC)), vec(H2(AAC)))
-            @info "2TDVP sweep:" sites="$(k):$(k+1)" energy=real(E)
+            @info "2TDVP sweep:" sites = "$(k):$(k + 1)" energy = real(E)
         end
 
         Dl, d1, d2, Dr = size(AAC)
