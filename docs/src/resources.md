@@ -5,6 +5,8 @@
 
 ## Software and Libraries
 - [Scikit-TT](https://github.com/PGelss/scikit_tt)
+- [TT-Toolbox](https://github.com/oseledets/TT-Toolbox)
+- [ttpy](https://github.com/oseledets/ttpy)
 - [KrylovKit.jl](https://github.com/Jutho/KrylovKit.jl)
 - [TT-Toolbox](https://github.com/oseledets/ttpy)
 - [MPSTime.jl](https://github.com/hugopstackhouse/MPSTime.jl)

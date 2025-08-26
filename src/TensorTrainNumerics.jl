@@ -3,7 +3,7 @@ module TensorTrainNumerics
 export TTvector, TToperator, QTTvector, QTToperator, eltype, complex, ttv_decomp, tto_decomp, ttv_to_tensor, tto_to_tensor, is_qtt, is_qtt_operator, visualize, tt_svdvals, matricize, tt2qtt, concatenate, orthogonalize, copy, r_and_d_to_rks
 include("tt_tools.jl")
 
-export *, +, dot, -, /, outer_product, concatenate, permute, hadamard, kron, ⊕, ⊗, euclidean_distance, euclidean_distance_normalized, TTdiag, norm
+export *, +, dot, -, /, outer_product, concatenate, permute, hadamard, kron, ⊕, ⊗, euclidean_distance, euclidean_distance_normalized, ttv_to_diag_tto, norm
 include("tt_operations.jl")
 
 export als_linsolve, als_eigsolve, als_gen_eigsolv

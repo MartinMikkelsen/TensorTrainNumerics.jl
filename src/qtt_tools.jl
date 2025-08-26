@@ -84,7 +84,7 @@ function qtt_polynom(coef, d; a = 0.0, b = 1.0)
 end
 
 """
-Constructs a Quantized Tensor Train (QTT) representation of the cosine function
+Constructs a Quantized Tensor Train (QTT) representation of cos(λπx)
 over a uniform grid in the interval `[a, b]` with `2^d` points.
 """
 function qtt_cos(d; a = 0.0, b = 1.0, λ = 1.0)
@@ -106,7 +106,7 @@ function qtt_cos(d; a = 0.0, b = 1.0, λ = 1.0)
 end
 
 """
-Constructs a Quantized Tensor Train (QTT) representation of the sine function
+Constructs a Quantized Tensor Train (QTT) representation of sin(λπx)
 over a uniform grid in the interval `[a, b]` with `2^d` points.
 """
 function qtt_sin(d; a = 0.0, b = 1.0, λ = 1.0)

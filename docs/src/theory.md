@@ -1,263 +1,182 @@
-# Tensor trains
+# Quantics tensor trains
 
-## Table of Contents
-- [Basics](#basics)
-    - [Multiplication](#multiplication)
-    - [Tensor Train Operator times Tensor Train Vector](#tensor-train-operator-and-tensor-train-vector)
-    - [Tensor Train Operator times Tensor Train Operator](#tensor-train-operator-and-tensor-train-operator)
-    - [Addition](#addition)
-    - [Concatenation](#concatenation)
-    - [Matricization](#matricization)
-    - [Visualization](#visualization)
-- [Tensor Train Decomposition](#tensor-train-decomposition)
-  - [Example with Tolerance](#example-with-tolerance)
-- [Optimization](#optimization)
-    - [ALS](#als)
-    - [MALS](#mals)
-    - [DMRG](#dmrg)
+Quantics tensor trains (QTT) are a powerful tool for representing and manipulating high-dimensional data in a compressed format. They are particularly useful for solving high-dimensional partial differential equations and large-scale linear algebra problems, where traditional methods may be computationally infeasible due to the curse of dimensionality.
 
-# Basics
+## Defining tensor train vectors
 
-## Multiplication
+You can construct a quantics tensor train in several ways. The most straightforward way is to use the function `function_to_qtt`, which takes a function and a discretization level as input and returns a QTT representation of the function evaluated on a uniform grid.
 
-### Tensor train operator times tensor train vector
 
-To multiply a tensor train operator (`TToperator`) by a tensor train vector (`TTvector`), use the `*` operator.
+### Mathematical functions in QTT format
+
+You can also use the built-in functions for common mathematical functions, such as `qtt_exp`, `qtt_sin`, `qtt_cos`, `qtt_polynom`, and `qtt_chebyshev`. These functions provide efficient QTT representations of the corresponding mathematical functions [Khoromskij](@cite). These are illustrated in the following 
+
+```@example 3
+using TensorTrainNumerics
+using CairoMakie
+
+d = 8
+
+A1 = qtt_exp(d)
+A2 = qtt_sin(d, λ = π)
+A3 = qtt_cos(d, λ = π)
+A4 = qtt_polynom([0.0, 2.0, 3.0, -8.0, -5.0], d; a = 0.0, b = 1.0)
+
+
+qtt_values_exponential = qtt_to_function(A1)
+qtt_values_sin = qtt_to_function(A2)
+qtt_values_cos = qtt_to_function(A3)
+qtt_values_polynom = qtt_to_function(A4)
+
+
+values_exp(x) = exp(x)
+values_sin(x) = sin(x * π^2)
+values_cos(x) = cos(x * π^2)
+values_polynom(x) = 2 * x + 3 * x^2 - 8 * x^3 - 5 * x^4
+
+x_points = LinRange(0, 1, 2^8)
+original_values_exponential = values_exp.(x_points)
+original_values_sin = values_sin.(x_points)
+original_values_cos = values_cos.(x_points)
+original_values_polynom = values_polynom.(x_points)
+
+let
+    fig = Figure()
+    ax1 = Axis(fig[2, 2], title = "Exp Approximation", xlabel = "x", ylabel = "f(x)")
+    ax2 = Axis(fig[1, 1], title = "Sin Approximation", xlabel = "x", ylabel = "f(x)")
+    ax3 = Axis(fig[1, 2], title = "Cos Approximation", xlabel = "x", ylabel = "f(x)")
+    ax4 = Axis(fig[2, 1], title = "Polynomial Approximation", xlabel = "x", ylabel = "f(x)")
+
+
+    lines!(ax1, x_points, original_values_exponential, label = "Exponential function")
+    lines!(ax1, x_points, qtt_values_exponential, label = "QTT exponential function", linestyle = :dash, color = :green)
+
+    lines!(ax2, x_points, original_values_sin, label = "Sine function")
+    lines!(ax2, x_points, qtt_values_sin, label = "QTT sine function", linestyle = :dash, color = :red)
+
+    lines!(ax3, x_points, original_values_cos, label = "Sine function")
+    lines!(ax3, x_points, qtt_values_cos, label = "QTT sine function", linestyle = :dash, color = :red)
+
+    lines!(ax4, x_points, original_values_polynom, label = "Sine function")
+    lines!(ax4, x_points, qtt_values_polynom, label = "QTT sine function", linestyle = :dash, color = :red)
+
+    fig
+end
+```
+
+### Interpolation-based QTT construction
+
+You can also build a QTT based on interpolation techniques based on [lindsey2023multiscale](@cite). The function `interpolating_qtt` constructs a QTT representation of a given function using polynomial interpolation at Chebyshev nodes. Another option is to use the function `lagrange_rank_revealing`, which constructs a QTT representation using a rank-revealing approach based on Lagrange interpolation as shown in this example
+
+We can also do interpolation in the QTT framework:
 
 ```@example 2
+using CairoMakie
 using TensorTrainNumerics
 
-# Define the dimensions and ranks for the TTvector
-dims = (2, 2, 2)
-rks = [1, 2, 2, 1]
+f = x -> cos(1 / (x^3 + 0.01)) + sin(π * x)
+num_cores = 10  
+N = 150 
 
-# Create a random TTvector
-tt_vec = rand_tt(dims, rks)
+qtt = interpolating_qtt(f, num_cores, N)
+qtt_rank_revealing = lagrange_rank_revealing(f, num_cores, N)
 
-# Define the dimensions and ranks for the TToperator
-op_dims = (2, 2, 2)
-op_rks = [1, 2, 2, 1]
+qtt_values = matricize(qtt, num_cores)
+qtt_values_rank_revealing = matricize(qtt_rank_revealing, num_cores)
 
-# Create a random TToperator
-tt_op = rand_tto(op_dims, 3)
+x_points = LinRange(0, 1, 2^num_cores)
+original_values = f.(x_points)
 
-# Perform the multiplication
-result = tt_op * tt_vec
+fig = Figure()
+ax = Axis(fig[1, 1], title="Function Approximation", xlabel="x", ylabel="f(x)")
 
-# Visualize the result
-visualize(result)
+lines!(ax, x_points, original_values, label="Original Function")
+lines!(ax, x_points, qtt_values_rank_revealing, label="QTT, rank rev.", linestyle=:dash, color=:green)
+lines!(ax, x_points, qtt_values, label="QTT", linestyle=:dash, color=:red)
+
+axislegend(ax)
+fig
 ```
-
-### Tensor train operator times tensor train operator
-
-To multiply two tensor train operators, use the `*` operator.
-
+We can visualize the interpolating QTT as 
 ```@example 2
-# Create another random TToperator
-tt_op2 = rand_tto(op_dims, 3)
-
-# Perform the multiplication
-result_op = tt_op * tt_op2
-
-# Visualize the result
-visualize(result_op)
+visualize(qtt)
 ```
-
-## Addition
-
-To add two tensor train vectors or operators, use the `+` operator.
-
+And similarly for the rank-revealing
 ```@example 2
-# Create another random TTvector
-tt_vec2 = rand_tt(dims, rks)
-
-# Perform the addition
-result_add = tt_vec + tt_vec2
-
-# Visualize the result
-visualize(result_add)
+visualize(qtt_rank_revealing)
 ```
 
-## Concatenation
+## Defining tensor train operators
 
-To concatenate two tensor train vectors or operators, use the `concatenate` function.
+Suppose we want to construct the finite difference discretization of the second derivative operator with Dirichlet-Neumann boundary conditions on the interval \([0, 1]\). We can use the function `Δ_DN` to create a QTT representation of the corresponding tridiagonal matrix. 
 
-```@example 2
-# Concatenate two TTvectors
-result_concat = concatenate(tt_vec, tt_vec2)
-
-# Visualize the result
-visualize(result_concat)
-```
-
-## Matricization
-
-To convert a tensor train vector or operator into its matrix form, use the `matricize` function.
-
-```@example 2
-# Matricize the TTvector
-result_matrix = matricize(tt_vec, 3)
-
-# Print the result
-println(result_matrix)
-```
-
-## Visualization
-
-To visualize a tensor train vector or operator, use the `visualize` function.
-
-```@example 2
-# Visualize the TTvector
-visualize(tt_vec)
-```
-
-## Tensor Train Decomposition
-
-The `ttv_decomp` function performs a tensor train decomposition on a given tensor.
-
-
-```@example 4
+```@example QTT_operators
 using TensorTrainNumerics
 
-# Define a 3-dimensional tensor
-tensor = rand(2, 3, 4)
-
-# Perform the tensor train decomposition
-ttv = ttv_decomp(tensor)
-
-# Print the TTvector ranks
-println(ttv.ttv_rks)
+d = 8
+A = Δ_DN(d)
 ```
 
-### Explanation
+And we can check the matrix representation by matricizing it
+```@example QTT_operators
+mat_A = qtto_to_matrix(A)
+```
 
-The `ttv_decomp` function takes a tensor as input and returns its tensor train decomposition in the form of a `TTvector`. The decomposition is performed using the Hierarchical SVD algorithm, which decomposes the tensor into a series of smaller tensors (d) connected by ranks.
+## Solving equations in the QTT framework
 
-### Example with Tolerance
+To illustrate how to solve a differential equation consider the following 1D heat/diffusion equation in semi-discrete form with Dirichlet-Dirichlet boundary conditions
+```math
+\begin{aligned}
+u_t(x,t) &= u_{xx}(x,t),\qquad x\in(0,1),\ t\ge 0,\\
+u(x,0) &= \sin(\pi x),\\
+u(0,t)&=0,\quad u(1,t)=0.
+\end{aligned}
+```
+We define the operator
 
-```@example 5
+```@example heat
 using TensorTrainNumerics
+using CairoMakie
+using KrylovKit
 
-# Define a 3-dimensional tensor
-tensor = rand(2, 3, 4)
-
-# Perform the tensor train decomposition with a custom tolerance
-ttv = ttv_decomp(tensor, tol=1e-10)
-
-# Print the TTvector ranks
-println(ttv.ttv_rks)
+d = 8
+N = 2^d
+h = 1 / (N-1)
+xes = collect(range(0.0, 1.0, 2^d))
+A = h^2 * toeplitz_to_qtto(-2, 1.0, 1.0, d)
 ```
-# Optimization
-
-## ALS
-
-```@example 6
-using TensorTrainNumerics
-
-# Define the dimensions and ranks for the TTvector
-dims = (2, 2, 2)
-rks = [1, 2, 2, 1]
-
-# Create a random TTvector for the initial guess
-tt_start = rand_tt(dims, rks)
-
-# Create a random TToperator for the matrix A
-A_dims = (2, 2, 2)
-A_rks = [1, 2, 2, 1]
-A = rand_tto(A_dims, 3)
-
-# Create a random TTvector for the right-hand side b
-b = rand_tt(dims, rks)
-
-# Solve the linear system Ax = b using the ALS algorithm
-tt_opt = als_linsolve(A, b, tt_start; sweep_count=2)
-
-# Print the optimized TTvector
-println(tt_opt)
-
-# Define the sweep schedule and rank schedule for the eigenvalue problem
-sweep_schedule = [2, 4]
-rmax_schedule = [2, 3]
-
-# Solve the eigenvalue problem using the ALS algorithm
-eigenvalues, tt_eigvec = als_eigsolve(A, tt_start; sweep_schedule=sweep_schedule, rmax_schedule=rmax_schedule)
-
-# Print the lowest eigenvalue and the corresponding eigenvector
-println("Lowest eigenvalue: ", eigenvalues[end])
-println("Corresponding eigenvector: ", tt_eigvec)
+We then define some initial condition, random guess and some time steps
+```@example heat
+u₀ = qtt_sin(d, λ = π) # sin(π^2 x)
+steps = collect(range(0.0, 10.0, 1000))
+init = rand_tt(u₀.ttv_dims, u₀.ttv_rks)
 ```
+Finally, we can solve the problem using the explicit Euler method, the implicit Euler method, the Crank-Nicolson scheme and a Krylov-based exponential integrator
+```@example heat
 
-## MALS
+solution_implicit, rel_implicit = implicit_euler_method(A, u₀, init, steps; return_error = true, normalize = true)
 
-```@example 7
-using TensorTrainNumerics
+solution_crank, rel_crank = crank_nicholson_method(A, u₀, init, steps; return_error = true, tt_solver = "mals")
 
-dims = (2, 2, 2)
-rks = [1, 2, 2, 1]
-
-# Create a random TTvector for the initial guess
-tt_start = rand_tt(dims, rks)
-
-# Create a random TToperator for the matrix A
-A_dims = (2, 2, 2)
-A_rks = [1, 2, 2, 1]
-A = rand_tto(A_dims, 3)
-
-# Create a random TTvector for the right-hand side b
-b = rand_tt(dims, rks)
-
-# Solve the linear system Ax = b using the MALS algorithm
-tt_opt = mals_linsolve(A, b, tt_start; tol=1e-12, rmax=4)
-
-# Print the optimized TTvector
-println(tt_opt)
-
-# Define the sweep schedule and rank schedule for the eigenvalue problem
-sweep_schedule = [2, 4]
-rmax_schedule = [2, 3]
-
-# Solve the eigenvalue problem using the MALS algorithm
-eigenvalues, tt_eigvec, r_hist = mals_eigsolve(A, tt_start; tol=1e-12, sweep_schedule=sweep_schedule, rmax_schedule=rmax_schedule)
-
-# Print the lowest eigenvalue and the corresponding eigenvector
-println("Lowest eigenvalue: ", eigenvalues[end])
-println("Corresponding eigenvector: ", tt_eigvec)
-println("Rank history: ", r_hist)
+solution_krylov, rel_krylov = expintegrator(A, last(steps), u₀)
 ```
+And we can evaluate the solution on the grid at the final time step for visualization
 
-## DMRG 
-```@example 8 
-using TensorTrainNumerics
+```@example heat
 
-dims = (2, 2, 2)
-rks = [1, 2, 2, 1]
-
-# Create a random TTvector for the initial guess
-tt_start = rand_tt(dims, rks)
-
-# Create a random TToperator for the matrix A
-A_dims = (2, 2, 2)
-A_rks = [1, 2, 2, 1]
-A = rand_tto(A_dims, 3)
-
-# Create a random TTvector for the right-hand side b
-b = rand_tt(dims, rks)
-
-# Solve the linear system Ax = b using the DMRG algorithm
-tt_opt = dmrg_linsolve(A, b, tt_start; sweep_count=2, N=2, tol=1e-12)
-
-# Print the optimized TTvector
-println(tt_opt)
-
-# Define the sweep schedule and rank schedule for the eigenvalue problem
-sweep_schedule = [2, 4]
-rmax_schedule = [2, 3]
-
-# Solve the eigenvalue problem using the DMRG algorithm
-eigenvalues, tt_eigvec, r_hist = dmrg_eigsolve(A, tt_start; N=2, tol=1e-12, sweep_schedule=sweep_schedule, rmax_schedule=rmax_schedule)
-
-# Print the lowest eigenvalue and the corresponding eigenvector
-println("Lowest eigenvalue: ", eigenvalues[end])
-println("Corresponding eigenvector: ", tt_eigvec)
-println("Rank history: ", r_hist)
+fig = Figure()
+ax = Axis(fig[1, 1], xlabel = "x", ylabel = "u(x)", title = "Comparison of Time-Stepping Methods")
+lines!(ax, xes, qtt_to_function(solution_implicit), label = "Implicit Euler", linestyle = :dot, linewidth = 3)
+lines!(ax, xes, qtt_to_function(solution_crank), label = "Crank-Nicolson", linestyle = :dash, linewidth = 3)
+axislegend(ax)
+fig
 ```
+And similarly for the Krylov-based exponential integrator
+```@example heat
+fig = Figure()
+ax = Axis(fig[1, 1], xlabel = "x", ylabel = "u(x)", title = "Comparison of Time-Stepping Methods")
+lines!(ax, xes, qtt_to_function(solution_krylov), label = "Krylov", linestyle = :solid, linewidth = 3)
+axislegend(ax)
+fig
+```
+For more solvers check out the [solvers](https://github.com/MartinMikkelsen/TensorTrainNumerics.jl/tree/main/src/solvers).

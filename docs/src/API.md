@@ -1,4 +1,4 @@
-## Docstrings
+# Docstrings
 
 ## Tensor Train Vector (TTvector)
 ```@docs; canonical=false
@@ -88,4 +88,31 @@ TensorTrainNumerics.qtto_prolongation
 
 ```@docs; canonical=false
 TensorTrainNumerics.id_tto
+```
+
+## Operations
+
+
+```@docs; canonical=false
+TensorTrainNumerics.dot
+```
+
+```@docs; canonical=false
+TensorTrainNumerics.concatenate
+```
+
+```@docs; canonical=false
+TensorTrainNumerics.ttv_to_diag_tto
+```
+
+```@docs; canonical=false
+TensorTrainNumerics.permute
+```
+
+```@docs; canonical=false
+TensorTrainNumerics.hadamard
+```
+
+```@docs; canonical=false
+TensorTrainNumerics.kron
 ```
