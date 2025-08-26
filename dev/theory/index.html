@@ -1,199 +1,130 @@
 <!DOCTYPE html>
-<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Tensor trains · TensorTrainNumerics.jl</title><meta name="title" content="Tensor trains · TensorTrainNumerics.jl"/><meta property="og:title" content="Tensor trains · TensorTrainNumerics.jl"/><meta property="twitter:title" content="Tensor trains · TensorTrainNumerics.jl"/><meta name="description" content="Documentation for TensorTrainNumerics.jl."/><meta property="og:description" content="Documentation for TensorTrainNumerics.jl."/><meta property="twitter:description" content="Documentation for TensorTrainNumerics.jl."/><script data-outdated-warner src="../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../search_index.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script><link href="../assets/favicon.ico" rel="icon" type="image/x-icon"/></head><body><div id="documenter"><nav class="docs-sidebar"><a class="docs-logo" href="../"><img src="../assets/logo.svg" alt="TensorTrainNumerics.jl logo"/></a><div class="docs-package-name"><span class="docs-autofit"><a href="../">TensorTrainNumerics.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../">TensorTrainNumerics.jl</a></li><li class="is-active"><a class="tocitem" href>Tensor trains</a><ul class="internal"><li><a class="tocitem" href="#Table-of-Contents"><span>Table of Contents</span></a></li><li class="toplevel"><a class="tocitem" href="#Basics"><span>Basics</span></a></li><li><a class="tocitem" href="#Multiplication"><span>Multiplication</span></a></li><li><a class="tocitem" href="#Addition"><span>Addition</span></a></li><li><a class="tocitem" href="#Concatenation"><span>Concatenation</span></a></li><li><a class="tocitem" href="#Matricization"><span>Matricization</span></a></li><li><a class="tocitem" href="#Visualization"><span>Visualization</span></a></li><li><a class="tocitem" href="#Tensor-Train-Decomposition"><span>Tensor Train Decomposition</span></a></li><li class="toplevel"><a class="tocitem" href="#Optimization"><span>Optimization</span></a></li><li><a class="tocitem" href="#ALS"><span>ALS</span></a></li><li><a class="tocitem" href="#MALS"><span>MALS</span></a></li><li><a class="tocitem" href="#DMRG"><span>DMRG</span></a></li></ul></li><li><a class="tocitem" href="../examples/">Examples</a></li><li><a class="tocitem" href="../resources/">Resources</a></li><li><a class="tocitem" href="../API/">API</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li class="is-active"><a href>Tensor trains</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Tensor trains</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/MartinMikkelsen/TensorTrainNumerics.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/MartinMikkelsen/TensorTrainNumerics.jl/blob/main/docs/src/theory.md" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="Tensor-trains"><a class="docs-heading-anchor" href="#Tensor-trains">Tensor trains</a><a id="Tensor-trains-1"></a><a class="docs-heading-anchor-permalink" href="#Tensor-trains" title="Permalink"></a></h1><h2 id="Table-of-Contents"><a class="docs-heading-anchor" href="#Table-of-Contents">Table of Contents</a><a id="Table-of-Contents-1"></a><a class="docs-heading-anchor-permalink" href="#Table-of-Contents" title="Permalink"></a></h2><ul><li><a href="#basics">Basics</a><ul><li><a href="#multiplication">Multiplication</a></li><li><a href="#tensor-train-operator-and-tensor-train-vector">Tensor Train Operator times Tensor Train Vector</a></li><li><a href="#tensor-train-operator-and-tensor-train-operator">Tensor Train Operator times Tensor Train Operator</a></li><li><a href="#addition">Addition</a></li><li><a href="#concatenation">Concatenation</a></li><li><a href="#matricization">Matricization</a></li><li><a href="#visualization">Visualization</a></li></ul></li><li><a href="#tensor-train-decomposition">Tensor Train Decomposition</a><ul><li><a href="#example-with-tolerance">Example with Tolerance</a></li></ul></li><li><a href="#optimization">Optimization</a><ul><li><a href="#als">ALS</a></li><li><a href="#mals">MALS</a></li><li><a href="#dmrg">DMRG</a></li></ul></li></ul><h1 id="Basics"><a class="docs-heading-anchor" href="#Basics">Basics</a><a id="Basics-1"></a><a class="docs-heading-anchor-permalink" href="#Basics" title="Permalink"></a></h1><h2 id="Multiplication"><a class="docs-heading-anchor" href="#Multiplication">Multiplication</a><a id="Multiplication-1"></a><a class="docs-heading-anchor-permalink" href="#Multiplication" title="Permalink"></a></h2><h3 id="Tensor-train-operator-times-tensor-train-vector"><a class="docs-heading-anchor" href="#Tensor-train-operator-times-tensor-train-vector">Tensor train operator times tensor train vector</a><a id="Tensor-train-operator-times-tensor-train-vector-1"></a><a class="docs-heading-anchor-permalink" href="#Tensor-train-operator-times-tensor-train-vector" title="Permalink"></a></h3><p>To multiply a tensor train operator (<code>TToperator</code>) by a tensor train vector (<code>TTvector</code>), use the <code>*</code> operator.</p><pre><code class="language-julia hljs">using TensorTrainNumerics
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Quantics tensor trains · TensorTrainNumerics.jl</title><meta name="title" content="Quantics tensor trains · TensorTrainNumerics.jl"/><meta property="og:title" content="Quantics tensor trains · TensorTrainNumerics.jl"/><meta property="twitter:title" content="Quantics tensor trains · TensorTrainNumerics.jl"/><meta name="description" content="Documentation for TensorTrainNumerics.jl."/><meta property="og:description" content="Documentation for TensorTrainNumerics.jl."/><meta property="twitter:description" content="Documentation for TensorTrainNumerics.jl."/><script data-outdated-warner src="../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../search_index.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script><link href="../assets/favicon.ico" rel="icon" type="image/x-icon"/><link href="../assets.citations.css" rel="stylesheet" type="text/css"/></head><body><div id="documenter"><nav class="docs-sidebar"><a class="docs-logo" href="../"><img src="../assets/logo.svg" alt="TensorTrainNumerics.jl logo"/></a><div class="docs-package-name"><span class="docs-autofit"><a href="../">TensorTrainNumerics.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../">TensorTrainNumerics.jl</a></li><li class="is-active"><a class="tocitem" href>Quantics tensor trains</a><ul class="internal"><li><a class="tocitem" href="#Defining-tensor-train-vectors"><span>Defining tensor train vectors</span></a></li><li><a class="tocitem" href="#Defining-tensor-train-operators"><span>Defining tensor train operators</span></a></li><li><a class="tocitem" href="#Solving-equations-in-the-QTT-framework"><span>Solving equations in the QTT framework</span></a></li></ul></li><li><a class="tocitem" href="../examples/">Examples</a></li><li><a class="tocitem" href="../resources/">Resources</a></li><li><a class="tocitem" href="../API/">Docstrings</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li class="is-active"><a href>Quantics tensor trains</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Quantics tensor trains</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/MartinMikkelsen/TensorTrainNumerics.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/MartinMikkelsen/TensorTrainNumerics.jl/blob/main/docs/src/theory.md" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="Quantics-tensor-trains"><a class="docs-heading-anchor" href="#Quantics-tensor-trains">Quantics tensor trains</a><a id="Quantics-tensor-trains-1"></a><a class="docs-heading-anchor-permalink" href="#Quantics-tensor-trains" title="Permalink"></a></h1><p>Quantics tensor trains (QTT) are a powerful tool for representing and manipulating high-dimensional data in a compressed format. They are particularly useful for solving high-dimensional partial differential equations and large-scale linear algebra problems, where traditional methods may be computationally infeasible due to the curse of dimensionality.</p><h2 id="Defining-tensor-train-vectors"><a class="docs-heading-anchor" href="#Defining-tensor-train-vectors">Defining tensor train vectors</a><a id="Defining-tensor-train-vectors-1"></a><a class="docs-heading-anchor-permalink" href="#Defining-tensor-train-vectors" title="Permalink"></a></h2><p>You can construct a quantics tensor train in several ways. The most straightforward way is to use the function <code>function_to_qtt</code>, which takes a function and a discretization level as input and returns a QTT representation of the function evaluated on a uniform grid.</p><h3 id="Mathematical-functions-in-QTT-format"><a class="docs-heading-anchor" href="#Mathematical-functions-in-QTT-format">Mathematical functions in QTT format</a><a id="Mathematical-functions-in-QTT-format-1"></a><a class="docs-heading-anchor-permalink" href="#Mathematical-functions-in-QTT-format" title="Permalink"></a></h3><p>You can also use the built-in functions for common mathematical functions, such as <code>qtt_exp</code>, <code>qtt_sin</code>, <code>qtt_cos</code>, <code>qtt_polynom</code>, and <code>qtt_chebyshev</code>. These functions provide efficient QTT representations of the corresponding mathematical functions [<a href="../resources/#Khoromskij">5</a>]. These are illustrated in the following </p><pre><code class="language-julia hljs">using TensorTrainNumerics
+using CairoMakie
 
-# Define the dimensions and ranks for the TTvector
-dims = (2, 2, 2)
-rks = [1, 2, 2, 1]
+d = 8
 
-# Create a random TTvector
-tt_vec = rand_tt(dims, rks)
+A1 = qtt_exp(d)
+A2 = qtt_sin(d, λ = π)
+A3 = qtt_cos(d, λ = π)
+A4 = qtt_polynom([0.0, 2.0, 3.0, -8.0, -5.0], d; a = 0.0, b = 1.0)
 
-# Define the dimensions and ranks for the TToperator
-op_dims = (2, 2, 2)
-op_rks = [1, 2, 2, 1]
 
-# Create a random TToperator
-tt_op = rand_tto(op_dims, 3)
+qtt_values_exponential = qtt_to_function(A1)
+qtt_values_sin = qtt_to_function(A2)
+qtt_values_cos = qtt_to_function(A3)
+qtt_values_polynom = qtt_to_function(A4)
 
-# Perform the multiplication
-result = tt_op * tt_vec
 
-# Visualize the result
-visualize(result)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi"> 1-- • -- 4-- • -- 4-- • -- 1
-     |        |        |
-     2        2        2</code></pre><h3 id="Tensor-train-operator-times-tensor-train-operator"><a class="docs-heading-anchor" href="#Tensor-train-operator-times-tensor-train-operator">Tensor train operator times tensor train operator</a><a id="Tensor-train-operator-times-tensor-train-operator-1"></a><a class="docs-heading-anchor-permalink" href="#Tensor-train-operator-times-tensor-train-operator" title="Permalink"></a></h3><p>To multiply two tensor train operators, use the <code>*</code> operator.</p><pre><code class="language-julia hljs"># Create another random TToperator
-tt_op2 = rand_tto(op_dims, 3)
+values_exp(x) = exp(x)
+values_sin(x) = sin(x * π^2)
+values_cos(x) = cos(x * π^2)
+values_polynom(x) = 2 * x + 3 * x^2 - 8 * x^3 - 5 * x^4
 
-# Perform the multiplication
-result_op = tt_op * tt_op2
+x_points = LinRange(0, 1, 2^8)
+original_values_exponential = values_exp.(x_points)
+original_values_sin = values_sin.(x_points)
+original_values_cos = values_cos.(x_points)
+original_values_polynom = values_polynom.(x_points)
 
-# Visualize the result
-visualize(result_op)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">     2       2       2
-     |       |       |
- 1-- • --4-- • --4-- • --1
-     |       |       |
-     2       2       2</code></pre><h2 id="Addition"><a class="docs-heading-anchor" href="#Addition">Addition</a><a id="Addition-1"></a><a class="docs-heading-anchor-permalink" href="#Addition" title="Permalink"></a></h2><p>To add two tensor train vectors or operators, use the <code>+</code> operator.</p><pre><code class="language-julia hljs"># Create another random TTvector
-tt_vec2 = rand_tt(dims, rks)
+let
+    fig = Figure()
+    ax1 = Axis(fig[2, 2], title = &quot;Exp Approximation&quot;, xlabel = &quot;x&quot;, ylabel = &quot;f(x)&quot;)
+    ax2 = Axis(fig[1, 1], title = &quot;Sin Approximation&quot;, xlabel = &quot;x&quot;, ylabel = &quot;f(x)&quot;)
+    ax3 = Axis(fig[1, 2], title = &quot;Cos Approximation&quot;, xlabel = &quot;x&quot;, ylabel = &quot;f(x)&quot;)
+    ax4 = Axis(fig[2, 1], title = &quot;Polynomial Approximation&quot;, xlabel = &quot;x&quot;, ylabel = &quot;f(x)&quot;)
 
-# Perform the addition
-result_add = tt_vec + tt_vec2
 
-# Visualize the result
-visualize(result_add)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi"> 1-- • -- 4-- • -- 4-- • -- 1
-     |        |        |
-     2        2        2</code></pre><h2 id="Concatenation"><a class="docs-heading-anchor" href="#Concatenation">Concatenation</a><a id="Concatenation-1"></a><a class="docs-heading-anchor-permalink" href="#Concatenation" title="Permalink"></a></h2><p>To concatenate two tensor train vectors or operators, use the <code>concatenate</code> function.</p><pre><code class="language-julia hljs"># Concatenate two TTvectors
-result_concat = concatenate(tt_vec, tt_vec2)
+    lines!(ax1, x_points, original_values_exponential, label = &quot;Exponential function&quot;)
+    lines!(ax1, x_points, qtt_values_exponential, label = &quot;QTT exponential function&quot;, linestyle = :dash, color = :green)
 
-# Visualize the result
-visualize(result_concat)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi"> 1-- • -- 2-- • -- 2-- • -- 1-- • -- 2-- • -- 2-- • -- 1
-     |        |        |        |        |        |
-     2        2        2        2        2        2</code></pre><h2 id="Matricization"><a class="docs-heading-anchor" href="#Matricization">Matricization</a><a id="Matricization-1"></a><a class="docs-heading-anchor-permalink" href="#Matricization" title="Permalink"></a></h2><p>To convert a tensor train vector or operator into its matrix form, use the <code>matricize</code> function.</p><pre><code class="language-julia hljs"># Matricize the TTvector
-result_matrix = matricize(tt_vec, 3)
+    lines!(ax2, x_points, original_values_sin, label = &quot;Sine function&quot;)
+    lines!(ax2, x_points, qtt_values_sin, label = &quot;QTT sine function&quot;, linestyle = :dash, color = :red)
 
-# Print the result
-println(result_matrix)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">[-2.207546089538632, 1.0150093526197328, 3.064451467864079, 4.8187534794950775, 1.639619700487399, -1.1776657736899725, 5.443248342845218, -2.8791905543562057]</code></pre><h2 id="Visualization"><a class="docs-heading-anchor" href="#Visualization">Visualization</a><a id="Visualization-1"></a><a class="docs-heading-anchor-permalink" href="#Visualization" title="Permalink"></a></h2><p>To visualize a tensor train vector or operator, use the <code>visualize</code> function.</p><pre><code class="language-julia hljs"># Visualize the TTvector
-visualize(tt_vec)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi"> 1-- • -- 2-- • -- 2-- • -- 1
-     |        |        |
-     2        2        2</code></pre><h2 id="Tensor-Train-Decomposition"><a class="docs-heading-anchor" href="#Tensor-Train-Decomposition">Tensor Train Decomposition</a><a id="Tensor-Train-Decomposition-1"></a><a class="docs-heading-anchor-permalink" href="#Tensor-Train-Decomposition" title="Permalink"></a></h2><p>The <code>ttv_decomp</code> function performs a tensor train decomposition on a given tensor.</p><pre><code class="language-julia hljs">using TensorTrainNumerics
+    lines!(ax3, x_points, original_values_cos, label = &quot;Sine function&quot;)
+    lines!(ax3, x_points, qtt_values_cos, label = &quot;QTT sine function&quot;, linestyle = :dash, color = :red)
 
-# Define a 3-dimensional tensor
-tensor = rand(2, 3, 4)
+    lines!(ax4, x_points, original_values_polynom, label = &quot;Sine function&quot;)
+    lines!(ax4, x_points, qtt_values_polynom, label = &quot;QTT sine function&quot;, linestyle = :dash, color = :red)
 
-# Perform the tensor train decomposition
-ttv = ttv_decomp(tensor)
+    fig
+end</code></pre><img src="640489ec.png" alt="Example block output"/><h3 id="Interpolation-based-QTT-construction"><a class="docs-heading-anchor" href="#Interpolation-based-QTT-construction">Interpolation-based QTT construction</a><a id="Interpolation-based-QTT-construction-1"></a><a class="docs-heading-anchor-permalink" href="#Interpolation-based-QTT-construction" title="Permalink"></a></h3><p>You can also build a QTT based on interpolation techniques based on [<a href="../resources/#lindsey2023multiscale">11</a>]. The function <code>interpolating_qtt</code> constructs a QTT representation of a given function using polynomial interpolation at Chebyshev nodes. Another option is to use the function <code>lagrange_rank_revealing</code>, which constructs a QTT representation using a rank-revealing approach based on Lagrange interpolation as shown in this example</p><p>We can also do interpolation in the QTT framework:</p><pre><code class="language-julia hljs">using CairoMakie
+using TensorTrainNumerics
 
-# Print the TTvector ranks
-println(ttv.ttv_rks)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">[1, 2, 4, 1]</code></pre><h3 id="Explanation"><a class="docs-heading-anchor" href="#Explanation">Explanation</a><a id="Explanation-1"></a><a class="docs-heading-anchor-permalink" href="#Explanation" title="Permalink"></a></h3><p>The <code>ttv_decomp</code> function takes a tensor as input and returns its tensor train decomposition in the form of a <code>TTvector</code>. The decomposition is performed using the Hierarchical SVD algorithm, which decomposes the tensor into a series of smaller tensors (cores) connected by ranks.</p><h3 id="Example-with-Tolerance"><a class="docs-heading-anchor" href="#Example-with-Tolerance">Example with Tolerance</a><a id="Example-with-Tolerance-1"></a><a class="docs-heading-anchor-permalink" href="#Example-with-Tolerance" title="Permalink"></a></h3><pre><code class="language-julia hljs">using TensorTrainNumerics
+f = x -&gt; cos(1 / (x^3 + 0.01)) + sin(π * x)
+num_cores = 10
+N = 150
 
-# Define a 3-dimensional tensor
-tensor = rand(2, 3, 4)
+qtt = interpolating_qtt(f, num_cores, N)
+qtt_rank_revealing = lagrange_rank_revealing(f, num_cores, N)
 
-# Perform the tensor train decomposition with a custom tolerance
-ttv = ttv_decomp(tensor, tol=1e-10)
+qtt_values = matricize(qtt, num_cores)
+qtt_values_rank_revealing = matricize(qtt_rank_revealing, num_cores)
 
-# Print the TTvector ranks
-println(ttv.ttv_rks)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">[1, 2, 4, 1]</code></pre><h1 id="Optimization"><a class="docs-heading-anchor" href="#Optimization">Optimization</a><a id="Optimization-1"></a><a class="docs-heading-anchor-permalink" href="#Optimization" title="Permalink"></a></h1><h2 id="ALS"><a class="docs-heading-anchor" href="#ALS">ALS</a><a id="ALS-1"></a><a class="docs-heading-anchor-permalink" href="#ALS" title="Permalink"></a></h2><pre><code class="language-julia hljs">using TensorTrainNumerics
+x_points = LinRange(0, 1, 2^num_cores)
+original_values = f.(x_points)
 
-# Define the dimensions and ranks for the TTvector
-dims = (2, 2, 2)
-rks = [1, 2, 2, 1]
+fig = Figure()
+ax = Axis(fig[1, 1], title=&quot;Function Approximation&quot;, xlabel=&quot;x&quot;, ylabel=&quot;f(x)&quot;)
 
-# Create a random TTvector for the initial guess
-tt_start = rand_tt(dims, rks)
+lines!(ax, x_points, original_values, label=&quot;Original Function&quot;)
+lines!(ax, x_points, qtt_values_rank_revealing, label=&quot;QTT, rank rev.&quot;, linestyle=:dash, color=:green)
+lines!(ax, x_points, qtt_values, label=&quot;QTT&quot;, linestyle=:dash, color=:red)
 
-# Create a random TToperator for the matrix A
-A_dims = (2, 2, 2)
-A_rks = [1, 2, 2, 1]
-A = rand_tto(A_dims, 3)
+axislegend(ax)
+fig</code></pre><img src="e72d749c.png" alt="Example block output"/><p>We can visualize the interpolating QTT as </p><pre><code class="language-julia hljs">visualize(qtt)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">  1-- • --151-- • --151-- • --151-- • --151-- • --151-- • --151-- • --151-- • --151-- • --151-- • --  1
+      |         |         |         |         |         |         |         |         |         |
+      2         2         2         2         2         2         2         2         2         2</code></pre><p>And similarly for the rank-revealing</p><pre><code class="language-julia hljs">visualize(qtt_rank_revealing)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi"> 1-- • -- 2-- • -- 4-- • -- 8-- • --14-- • --20-- • --19-- • --15-- • --13-- • --11-- • -- 1
+     |        |        |        |        |        |        |        |        |        |
+     2        2        2        2        2        2        2        2        2        2</code></pre><h2 id="Defining-tensor-train-operators"><a class="docs-heading-anchor" href="#Defining-tensor-train-operators">Defining tensor train operators</a><a id="Defining-tensor-train-operators-1"></a><a class="docs-heading-anchor-permalink" href="#Defining-tensor-train-operators" title="Permalink"></a></h2><p>Suppose we want to construct the finite difference discretization of the second derivative operator with Dirichlet-Neumann boundary conditions on the interval ([0, 1]). We can use the function <code>Δ_DN</code> to create a QTT representation of the corresponding tridiagonal matrix. </p><pre><code class="language-julia hljs">using TensorTrainNumerics
 
-# Create a random TTvector for the right-hand side b
-b = rand_tt(dims, rks)
+d = 8
+A = Δ_DN(d)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">TToperator{Float64, 8}(8, [[1.0 0.0; 0.0 1.0;;;; 0.0 0.0; 1.0 0.0;;;; 0.0 1.0; 0.0 0.0;;;; 0.0 0.0; 0.0 1.0], [1.0 0.0; 0.0 1.0;;; 0.0 0.0; 0.0 0.0;;; 0.0 0.0; 0.0 0.0;;; 0.0 0.0; 0.0 0.0;;;; 0.0 0.0; 1.0 0.0;;; 0.0 1.0; 0.0 0.0;;; 0.0 0.0; 0.0 0.0;;; 0.0 0.0; 0.0 0.0;;;; 0.0 1.0; 0.0 0.0;;; 0.0 0.0; 0.0 0.0;;; 0.0 0.0; 1.0 0.0;;; 0.0 0.0; 0.0 0.0;;;; 0.0 0.0; 0.0 0.0;;; 0.0 0.0; 0.0 0.0;;; 0.0 0.0; 0.0 0.0;;; 0.0 0.0; 0.0 1.0], [1.0 0.0; 0.0 1.0;;; 0.0 0.0; 0.0 0.0;;; 0.0 0.0; 0.0 0.0;;; 0.0 0.0; 0.0 0.0;;;; 0.0 0.0; 1.0 0.0;;; 0.0 1.0; 0.0 0.0;;; 0.0 0.0; 0.0 0.0;;; 0.0 0.0; 0.0 0.0;;;; 0.0 1.0; 0.0 0.0;;; 0.0 0.0; 0.0 0.0;;; 0.0 0.0; 1.0 0.0;;; 0.0 0.0; 0.0 0.0;;;; 0.0 0.0; 0.0 0.0;;; 0.0 0.0; 0.0 0.0;;; 0.0 0.0; 0.0 0.0;;; 0.0 0.0; 0.0 1.0], [1.0 0.0; 0.0 1.0;;; 0.0 0.0; 0.0 0.0;;; 0.0 0.0; 0.0 0.0;;; 0.0 0.0; 0.0 0.0;;;; 0.0 0.0; 1.0 0.0;;; 0.0 1.0; 0.0 0.0;;; 0.0 0.0; 0.0 0.0;;; 0.0 0.0; 0.0 0.0;;;; 0.0 1.0; 0.0 0.0;;; 0.0 0.0; 0.0 0.0;;; 0.0 0.0; 1.0 0.0;;; 0.0 0.0; 0.0 0.0;;;; 0.0 0.0; 0.0 0.0;;; 0.0 0.0; 0.0 0.0;;; 0.0 0.0; 0.0 0.0;;; 0.0 0.0; 0.0 1.0], [1.0 0.0; 0.0 1.0;;; 0.0 0.0; 0.0 0.0;;; 0.0 0.0; 0.0 0.0;;; 0.0 0.0; 0.0 0.0;;;; 0.0 0.0; 1.0 0.0;;; 0.0 1.0; 0.0 0.0;;; 0.0 0.0; 0.0 0.0;;; 0.0 0.0; 0.0 0.0;;;; 0.0 1.0; 0.0 0.0;;; 0.0 0.0; 0.0 0.0;;; 0.0 0.0; 1.0 0.0;;; 0.0 0.0; 0.0 0.0;;;; 0.0 0.0; 0.0 0.0;;; 0.0 0.0; 0.0 0.0;;; 0.0 0.0; 0.0 0.0;;; 0.0 0.0; 0.0 1.0], [1.0 0.0; 0.0 1.0;;; 0.0 0.0; 0.0 0.0;;; 0.0 0.0; 0.0 0.0;;; 0.0 0.0; 0.0 0.0;;;; 0.0 0.0; 1.0 0.0;;; 0.0 1.0; 0.0 0.0;;; 0.0 0.0; 0.0 0.0;;; 0.0 0.0; 0.0 0.0;;;; 0.0 1.0; 0.0 0.0;;; 0.0 0.0; 0.0 0.0;;; 0.0 0.0; 1.0 0.0;;; 0.0 0.0; 0.0 0.0;;;; 0.0 0.0; 0.0 0.0;;; 0.0 0.0; 0.0 0.0;;; 0.0 0.0; 0.0 0.0;;; 0.0 0.0; 0.0 1.0], [1.0 0.0; 0.0 1.0;;; 0.0 0.0; 0.0 0.0;;; 0.0 0.0; 0.0 0.0;;; 0.0 0.0; 0.0 0.0;;;; 0.0 0.0; 1.0 0.0;;; 0.0 1.0; 0.0 0.0;;; 0.0 0.0; 0.0 0.0;;; 0.0 0.0; 0.0 0.0;;;; 0.0 1.0; 0.0 0.0;;; 0.0 0.0; 0.0 0.0;;; 0.0 0.0; 1.0 0.0;;; 0.0 0.0; 0.0 0.0;;;; 0.0 0.0; 0.0 0.0;;; 0.0 0.0; 0.0 0.0;;; 0.0 0.0; 0.0 0.0;;; 0.0 0.0; 0.0 1.0], [2.0 -1.0; -1.0 2.0;;; 0.0 -1.0; 0.0 0.0;;; 0.0 0.0; -1.0 0.0;;; 0.0 0.0; 0.0 -1.0;;;;]], (2, 2, 2, 2, 2, 2, 2, 2), [1, 4, 4, 4, 4, 4, 4, 4, 1], [0, 0, 0, 0, 0, 0, 0, 0])</code></pre><p>And we can check the matrix representation by matricizing it</p><pre><code class="language-julia hljs">mat_A = qtto_to_matrix(A)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">256×256 Matrix{Float64}:
+  2.0  -1.0   0.0   0.0   0.0   0.0  …   0.0   0.0   0.0   0.0   0.0   0.0
+ -1.0   2.0  -1.0   0.0   0.0   0.0      0.0   0.0   0.0   0.0   0.0   0.0
+  0.0  -1.0   2.0  -1.0   0.0   0.0      0.0   0.0   0.0   0.0   0.0   0.0
+  0.0   0.0  -1.0   2.0  -1.0   0.0      0.0   0.0   0.0   0.0   0.0   0.0
+  0.0   0.0   0.0  -1.0   2.0  -1.0      0.0   0.0   0.0   0.0   0.0   0.0
+  0.0   0.0   0.0   0.0  -1.0   2.0  …   0.0   0.0   0.0   0.0   0.0   0.0
+  0.0   0.0   0.0   0.0   0.0  -1.0      0.0   0.0   0.0   0.0   0.0   0.0
+  0.0   0.0   0.0   0.0   0.0   0.0      0.0   0.0   0.0   0.0   0.0   0.0
+  0.0   0.0   0.0   0.0   0.0   0.0      0.0   0.0   0.0   0.0   0.0   0.0
+  0.0   0.0   0.0   0.0   0.0   0.0      0.0   0.0   0.0   0.0   0.0   0.0
+  ⋮                             ⋮    ⋱   ⋮                             ⋮
+  0.0   0.0   0.0   0.0   0.0   0.0      0.0   0.0   0.0   0.0   0.0   0.0
+  0.0   0.0   0.0   0.0   0.0   0.0      0.0   0.0   0.0   0.0   0.0   0.0
+  0.0   0.0   0.0   0.0   0.0   0.0     -1.0   0.0   0.0   0.0   0.0   0.0
+  0.0   0.0   0.0   0.0   0.0   0.0  …   2.0  -1.0   0.0   0.0   0.0   0.0
+  0.0   0.0   0.0   0.0   0.0   0.0     -1.0   2.0  -1.0   0.0   0.0   0.0
+  0.0   0.0   0.0   0.0   0.0   0.0      0.0  -1.0   2.0  -1.0   0.0   0.0
+  0.0   0.0   0.0   0.0   0.0   0.0      0.0   0.0  -1.0   2.0  -1.0   0.0
+  0.0   0.0   0.0   0.0   0.0   0.0      0.0   0.0   0.0  -1.0   2.0  -1.0
+  0.0   0.0   0.0   0.0   0.0   0.0  …   0.0   0.0   0.0   0.0  -1.0   1.0</code></pre><h2 id="Solving-equations-in-the-QTT-framework"><a class="docs-heading-anchor" href="#Solving-equations-in-the-QTT-framework">Solving equations in the QTT framework</a><a id="Solving-equations-in-the-QTT-framework-1"></a><a class="docs-heading-anchor-permalink" href="#Solving-equations-in-the-QTT-framework" title="Permalink"></a></h2><p>To illustrate how to solve a differential equation consider the following 1D heat/diffusion equation in semi-discrete form with Dirichlet-Dirichlet boundary conditions</p><p class="math-container">\[\begin{aligned}
+u_t(x,t) &amp;= u_{xx}(x,t),\qquad x\in(0,1),\ t\ge 0,\\
+u(x,0) &amp;= \sin(\pi x),\\
+u(0,t)&amp;=0,\quad u(1,t)=0.
+\end{aligned}\]</p><p>We define the operator</p><pre><code class="language-julia hljs">using TensorTrainNumerics
+using CairoMakie
+using KrylovKit
 
-# Solve the linear system Ax = b using the ALS algorithm
-tt_opt = als_linsolve(A, b, tt_start; sweep_count=2)
+d = 8
+N = 2^d
+h = 1 / (N-1)
+xes = collect(range(0.0, 1.0, 2^d))
+A = h^2 * toeplitz_to_qtto(-2, 1.0, 1.0, d)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">TToperator{Float64, 8}(8, [[1.5378700499807765e-5 0.0; 0.0 1.5378700499807765e-5;;;; 0.0 0.0; 1.5378700499807765e-5 0.0;;;; 0.0 1.5378700499807765e-5; 0.0 0.0], [1.0 0.0; 0.0 1.0;;; 0.0 0.0; 0.0 0.0;;; 0.0 0.0; 0.0 0.0;;;; 0.0 0.0; 1.0 0.0;;; 0.0 1.0; 0.0 0.0;;; 0.0 0.0; 0.0 0.0;;;; 0.0 1.0; 0.0 0.0;;; 0.0 0.0; 0.0 0.0;;; 0.0 0.0; 1.0 0.0], [1.0 0.0; 0.0 1.0;;; 0.0 0.0; 0.0 0.0;;; 0.0 0.0; 0.0 0.0;;;; 0.0 0.0; 1.0 0.0;;; 0.0 1.0; 0.0 0.0;;; 0.0 0.0; 0.0 0.0;;;; 0.0 1.0; 0.0 0.0;;; 0.0 0.0; 0.0 0.0;;; 0.0 0.0; 1.0 0.0], [1.0 0.0; 0.0 1.0;;; 0.0 0.0; 0.0 0.0;;; 0.0 0.0; 0.0 0.0;;;; 0.0 0.0; 1.0 0.0;;; 0.0 1.0; 0.0 0.0;;; 0.0 0.0; 0.0 0.0;;;; 0.0 1.0; 0.0 0.0;;; 0.0 0.0; 0.0 0.0;;; 0.0 0.0; 1.0 0.0], [1.0 0.0; 0.0 1.0;;; 0.0 0.0; 0.0 0.0;;; 0.0 0.0; 0.0 0.0;;;; 0.0 0.0; 1.0 0.0;;; 0.0 1.0; 0.0 0.0;;; 0.0 0.0; 0.0 0.0;;;; 0.0 1.0; 0.0 0.0;;; 0.0 0.0; 0.0 0.0;;; 0.0 0.0; 1.0 0.0], [1.0 0.0; 0.0 1.0;;; 0.0 0.0; 0.0 0.0;;; 0.0 0.0; 0.0 0.0;;;; 0.0 0.0; 1.0 0.0;;; 0.0 1.0; 0.0 0.0;;; 0.0 0.0; 0.0 0.0;;;; 0.0 1.0; 0.0 0.0;;; 0.0 0.0; 0.0 0.0;;; 0.0 0.0; 1.0 0.0], [1.0 0.0; 0.0 1.0;;; 0.0 0.0; 0.0 0.0;;; 0.0 0.0; 0.0 0.0;;;; 0.0 0.0; 1.0 0.0;;; 0.0 1.0; 0.0 0.0;;; 0.0 0.0; 0.0 0.0;;;; 0.0 1.0; 0.0 0.0;;; 0.0 0.0; 0.0 0.0;;; 0.0 0.0; 1.0 0.0], [-2.0 1.0; 1.0 -2.0;;; 0.0 1.0; 0.0 0.0;;; 0.0 0.0; 1.0 0.0;;;;]], (2, 2, 2, 2, 2, 2, 2, 2), [1, 3, 3, 3, 3, 3, 3, 3, 1], [0, 0, 0, 0, 0, 0, 0, 0])</code></pre><p>We then define some initial condition, random guess and some time steps</p><pre><code class="language-julia hljs">u₀ = qtt_sin(d, λ = π) # sin(π^2 x)
+steps = collect(range(0.0, 10.0, 1000))
+init = rand_tt(u₀.ttv_dims, u₀.ttv_rks)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">TTvector{Float64, 8}(8, [[-1.3866006296754998; 0.7110781467836714;;; 0.3315164987988193; 0.9000606694373617], [-0.6776503312474053 1.353559446609979; -0.7459563169822239 -1.8680390491881427;;; -0.04536712161183213 -0.944973735699862; -0.6392912956174474 1.1432575820229007], [0.1368144675718334 0.8432327957718032; 0.49106575009412984 -0.08592948280839409;;; 0.3277499317004461 0.4729623980296527; -0.6454233373447428 1.6965914714565549], [-2.362803606481568 0.9509217946593729; 0.6912801270668665 -1.5439807805687147;;; -0.4754419328650208 0.6419565175621973; 1.2984322675078215 -0.778358009664228], [-1.0024001419248267 -0.8559325474595939; 0.4388768443844038 -1.813529404650501;;; -0.38484963921196863 0.2350320158584901; 1.5163740725263941 0.275739340951364], [1.327214664309674 -0.40073352398889717; 0.8940874557807753 1.507672542763731;;; -0.5079268402405687 1.2053150981368566; 0.4429691077762131 1.4295395369589587], [-1.9560684060296862 -1.4697155453166564; -2.023427943473128 0.5350478110171181;;; 1.3586730269954856 -0.42034890134863995; 0.07946813495824374 -0.368079405964086], [0.8141062299861025 0.40476820645182887; -1.6957538444181885 0.733547224424469;;;]], (2, 2, 2, 2, 2, 2, 2, 2), [1, 2, 2, 2, 2, 2, 2, 2, 1], [0, 0, 0, 0, 0, 0, 0, 0])</code></pre><p>Finally, we can solve the problem using the explicit Euler method, the implicit Euler method, the Crank-Nicolson scheme and a Krylov-based exponential integrator</p><pre><code class="language-julia hljs">solution_implicit, rel_implicit = implicit_euler_method(A, u₀, init, steps; return_error = true, normalize = true)
 
-# Print the optimized TTvector
-println(tt_opt)
+solution_crank, rel_crank = crank_nicholson_method(A, u₀, init, steps; return_error = true, tt_solver = &quot;mals&quot;)
 
-# Define the sweep schedule and rank schedule for the eigenvalue problem
-sweep_schedule = [2, 4]
-rmax_schedule = [2, 3]
-
-# Solve the eigenvalue problem using the ALS algorithm
-eigenvalues, tt_eigvec = als_eigsolve(A, tt_start; sweep_schedule=sweep_schedule, rmax_schedule=rmax_schedule)
-
-# Print the lowest eigenvalue and the corresponding eigenvector
-println(&quot;Lowest eigenvalue: &quot;, eigenvalues[end])
-println(&quot;Corresponding eigenvector: &quot;, tt_eigvec)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">TTvector{Float64, 3}(3, [[-5.908050106147134; 17.906136068169758;;; 0.8428456154523324; 0.006729545441636604], [-0.6143266625560733 0.5385531195509169; -0.7881393099863688 -0.41668363958782484;;; -0.020881123287329356 0.5736177104196044; 0.03167267619236965 0.4552999057926441], [-0.8436137305949312 0.5369505317547445; 0.5369505317547445 0.8436137305949312;;;]], (2, 2, 2), [1, 2, 2, 1], [0, 1, 1])
-Lowest eigenvalue: -7.18275775253404
-Corresponding eigenvector: TTvector{Float64, 3}(3, [[0.49722815700599376; -0.690926528037604;;; 0.3236907881870292; 0.41304838261054205], [-0.02987501424795047 -0.4510729350805325; 0.8141508287986452 0.31488953122971897;;; 0.33049613636779884 -0.8349927555532333; -0.4764852729477807 -0.012840893013345353], [-0.4118395523578149 -0.9112563761717744; -0.9112563761717744 0.4118395523578151;;;]], (2, 2, 2), [1, 2, 2, 1], [0, 1, 1])</code></pre><h2 id="MALS"><a class="docs-heading-anchor" href="#MALS">MALS</a><a id="MALS-1"></a><a class="docs-heading-anchor-permalink" href="#MALS" title="Permalink"></a></h2><pre><code class="language-julia hljs">using TensorTrainNumerics
-
-dims = (2, 2, 2)
-rks = [1, 2, 2, 1]
-
-# Create a random TTvector for the initial guess
-tt_start = rand_tt(dims, rks)
-
-# Create a random TToperator for the matrix A
-A_dims = (2, 2, 2)
-A_rks = [1, 2, 2, 1]
-A = rand_tto(A_dims, 3)
-
-# Create a random TTvector for the right-hand side b
-b = rand_tt(dims, rks)
-
-# Solve the linear system Ax = b using the MALS algorithm
-tt_opt = mals_linsolve(A, b, tt_start; tol=1e-12, rmax=4)
-
-# Print the optimized TTvector
-println(tt_opt)
-
-# Define the sweep schedule and rank schedule for the eigenvalue problem
-sweep_schedule = [2, 4]
-rmax_schedule = [2, 3]
-
-# Solve the eigenvalue problem using the MALS algorithm
-eigenvalues, tt_eigvec, r_hist = mals_eigsolve(A, tt_start; tol=1e-12, sweep_schedule=sweep_schedule, rmax_schedule=rmax_schedule)
-
-# Print the lowest eigenvalue and the corresponding eigenvector
-println(&quot;Lowest eigenvalue: &quot;, eigenvalues[end])
-println(&quot;Corresponding eigenvector: &quot;, tt_eigvec)
-println(&quot;Rank history: &quot;, r_hist)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">TTvector{Float64, 3}(3, [[-3.86731301115279; -4.42844575632193;;; -1.0933936610768291; 0.9548486680135843], [0.17361130774308095 -0.3151013830658207; 0.6528866147561889 -0.22698300593903734;;; -0.6851384316218065 -0.5806169401166611; 0.27236650236538296 -0.7155933218347214], [0.7951471610743085 -0.6064165171196011; 0.6064165171196011 0.7951471610743085;;;]], (2, 2, 2), [1, 2, 2, 1], [0, 1, 1])
-Lowest eigenvalue: -5.428345072123574
-Corresponding eigenvector: TTvector{Float64, 3}(3, [[-0.05013489780571128; 0.7599617991986585;;; 0.6466257368381926; 0.04265808527364037], [0.11007955779330465 -0.5451466686654324; 0.5969887580535655 0.7034936300896354;;; -0.6796508442794884 0.41443876844746314; 0.4117786342003071 -0.19013765874765207], [0.13052698538971416 0.9914447569507207; -0.9914447569507207 0.13052698538971416;;;]], (2, 2, 2), [1, 2, 2, 1], [0, 1, 1])
-Rank history: [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2]</code></pre><h2 id="DMRG"><a class="docs-heading-anchor" href="#DMRG">DMRG</a><a id="DMRG-1"></a><a class="docs-heading-anchor-permalink" href="#DMRG" title="Permalink"></a></h2><pre><code class="language-julia hljs">using TensorTrainNumerics
-
-dims = (2, 2, 2)
-rks = [1, 2, 2, 1]
-
-# Create a random TTvector for the initial guess
-tt_start = rand_tt(dims, rks)
-
-# Create a random TToperator for the matrix A
-A_dims = (2, 2, 2)
-A_rks = [1, 2, 2, 1]
-A = rand_tto(A_dims, 3)
-
-# Create a random TTvector for the right-hand side b
-b = rand_tt(dims, rks)
-
-# Solve the linear system Ax = b using the DMRG algorithm
-tt_opt = dmrg_linsolve(A, b, tt_start; sweep_count=2, N=2, tol=1e-12)
-
-# Print the optimized TTvector
-println(tt_opt)
-
-# Define the sweep schedule and rank schedule for the eigenvalue problem
-sweep_schedule = [2, 4]
-rmax_schedule = [2, 3]
-
-# Solve the eigenvalue problem using the DMRG algorithm
-eigenvalues, tt_eigvec, r_hist = dmrg_eigsolve(A, tt_start; N=2, tol=1e-12, sweep_schedule=sweep_schedule, rmax_schedule=rmax_schedule)
-
-# Print the lowest eigenvalue and the corresponding eigenvector
-println(&quot;Lowest eigenvalue: &quot;, eigenvalues[end])
-println(&quot;Corresponding eigenvector: &quot;, tt_eigvec)
-println(&quot;Rank history: &quot;, r_hist)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Rank: 2,	Max rank=2
-Discarded weight: 0.0
-Rank: 2,	Max rank=2
-Discarded weight: 0.0
-Rank: 2,	Max rank=2
-Discarded weight: 0.0
-TTvector{Float64, 3}(3, [[-18.83620177770493; 2.461972071196051;;; 0.33831961404126515; 2.5884357462839214], [0.3710455675070694 0.7559121866977611; -0.9185711758949215 0.3716201709211368;;; 0.12338928904206259 0.27737702067353515; 0.05768244965388061 0.46212249779536546], [-0.15618808712579754 -0.987727331524234; 0.987727331524234 -0.15618808712579754;;;]], (2, 2, 2), [1, 2, 2, 1], [0, -1, -1])
-Rank: 2,	Max rank=2
-Discarded weight: 0.0
-Rank: 2,	Max rank=2
-Discarded weight: 0.0
-Rank: 2,	Max rank=3
-Discarded weight: 0.0
-Rank: 2,	Max rank=3
-Discarded weight: 0.0
-Rank: 2,	Max rank=3
-Discarded weight: 0.0
-Rank: 2,	Max rank=3
-Discarded weight: 0.0
-Rank: 2,	Max rank=3
-Discarded weight: 0.0
-Lowest eigenvalue: -15.550212813651587
-Corresponding eigenvector: TTvector{Float64, 3}(3, [[-0.5160892674007188; -0.5510206289895007;;; -0.47861861290205626; 0.4482770994435436], [-0.7190004942639795 0.26654265986180686; 0.4469812576337253 -0.5095808265236766;;; -0.35978084220567186 -0.6945751220703305; -0.39217826323510563 -0.4322589403519897], [-0.9458990832075845 0.32446097513730515; 0.32446097513730515 0.9458990832075845;;;]], (2, 2, 2), [1, 2, 2, 1], [0, -1, -1])
-Rank history: [2, 2, 2, 2, 2, 2, 2]</code></pre></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../">« TensorTrainNumerics.jl</a><a class="docs-footer-nextpage" href="../examples/">Examples »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.14.1 on <span class="colophon-date" title="Monday 25 August 2025 13:00">Monday 25 August 2025</span>. Using Julia version 1.11.6.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+solution_krylov, rel_krylov = expintegrator(A, last(steps), u₀)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">(TTvector{Float64, 8}(8, [[-1.5673058701578435; 7.237010603928753;;; 8.0046004456202; 1.9164286828281085;;; -5.736490533141207e-6; -1.6085882727264127e-5;;; … ;;; -1.3455742837190569e-28; 3.8118183055308635e-23;;; -4.392009840475048e-29; 4.778893590970411e-23;;; 6.220517493103701e-30; 1.2202761460250189e-23], [-0.6493849865051664 -0.0007079362823902894 … 1.2564283252224604e-15 -6.355342644869459e-16; 0.5908143083759348 0.4083847521363474 … -5.685166857946757e-17 8.378394988483267e-16;;; 0.0 -0.7604594914444194 … -1.2097018698654256e-15 1.709266318404994e-15; -0.47878762757610066 0.504898757099727 … -1.7742615333894975e-15 1.895859294453602e-15;;; 0.0 0.0 … -1.898050017254047e-16 -2.5964431740804037e-17; 0.0 0.0 … 1.8533850212335116e-16 -3.9929768528755333e-16;;; … ;;; 0.0 0.0 … -0.020621143861522286 0.01655865179124752; 0.0 0.0 … 0.4723576841530986 -0.33186671684856384;;; 0.0 0.0 … -0.020649136410944124 0.015176554694088504; 0.0 0.0 … -0.41506505639613467 -0.10400549111943666;;; 0.0 0.0 … -0.0018889504646852154 0.017022513470911327; 0.0 0.0 … 0.23157936566923043 0.4174172543332143], [-0.8877286854274229 0.26617633867562907 … 2.1091758339274366e-25 -2.3588698948743886e-24; 0.1780964663273041 0.8664717174088132 … -3.527096580168092e-25 3.944892792631189e-24;;; 0.0 -0.3756167432350914 … -3.613499044658237e-25 4.041788131125106e-24; -0.4245225903895187 -0.19310355217168337 … -5.890238551066011e-25 6.5876539920120995e-24;;; 0.0 0.0 … -5.0560840666082795e-27 5.77509771194488e-26; 0.0 0.0 … 1.7039740174118875e-25 -1.89917575285673e-24;;; … ;;; 0.0 0.0 … -6.602612462397268e-13 7.385547011723538e-12; 0.0 0.0 … -0.008667407374833846 -0.0561668266380655;;; 0.0 0.0 … 1.0644230699768909e-11 -1.1906711625369342e-10; 0.0 0.0 … -0.057520698878597905 -0.007897524840841552;;; 0.0 0.0 … -6.2441826403729304e-12 6.984981653333621e-11; 0.0 0.0 … 0.09920222700424992 0.0598521365242297], [-0.8358320927258043 -0.44447895504767926 … 0.0 0.0; -0.5407707957334985 0.7511420275057046 … 0.0 0.0;;; 0.0 -0.32221603201784577 … 0.0 0.0; -0.09461320865165276 -0.36660734000428424 … 0.0 0.0;;; 0.0 0.0 … 0.0 0.0; 0.0 0.0 … 0.0 0.0;;; … ;;; 0.0 0.0 … 0.0 0.0; 0.0 0.0 … 0.0 0.0;;; 0.0 0.0 … 0.0 0.0; 0.0 0.0 … 1.0 0.0;;; 0.0 0.0 … 0.0 0.0; 0.0 0.0 … 0.0 1.0], [-0.7389930863581 -0.5799816344683614 … -3.775486785449045e-18 0.0; -0.6734049761738532 0.6472578527889857 … 3.854732376341536e-18 0.0;;; 0.0 -0.34279807758261627 … 3.745498702852463e-18 0.0; -0.020370478129432188 -0.3566063006847497 … 9.536480528440846e-18 0.0;;; 0.0 0.0 … 4.626930870898021e-20 0.0; 0.0 0.0 … 1.5375964569790036e-17 0.0;;; 0.0 0.0 … 1.5285561991260327e-18 0.0; 0.0 0.0 … 1.8017250327103662e-18 0.0;;; 0.0 0.0 … -9.663273918787656e-18 0.0; 0.0 0.0 … 0.014381623125899422 0.0;;; 0.0 0.0 … 1.9889661179694692e-17 0.0; 0.0 0.0 … 0.22993462363507217 0.0;;; 0.0 0.0 … -2.15026216049004e-19 0.0; 0.0 0.0 … 0.9730998087401221 0.0;;; 0.0 0.0 … -1.9573462704300632e-17 0.0; 0.0 0.0 … 0.0 1.0], [-0.7145281241561636 -0.6097043896272687 … 0.14912649464454855 -0.013468343975077292; -0.6995903479751704 0.6250908384216003 … -0.15132891327503772 0.012694188781195416;;; 0.0 -0.34308908035539964 … -0.39594036446309155 -0.10951822140892555; -0.004785896974869247 -0.3461385328614925 … -0.14351069134416472 0.1552015459595711;;; 0.0 0.0 … 0.588494888115616 -0.10975833102223141; 0.0 0.0 … -0.22280011026462482 -0.141642100325711;;; 0.0 0.0 … 0.46962173287712794 -0.6071595749966289; 0.0 0.0 … 0.4012306860125763 0.7502156858326741], [-0.708695866513555 -0.6308401024389299 1.9130351997147794e-6 -0.31589703059348606; -0.7055133186721045 0.6341616294727672 -0.0010630298668583295 0.3163682266730025;;; 0.0 -0.31589703059927876 -0.7086996867938974 0.6308358106486904; -0.0010611139781312134 -0.3163682331047849 0.7055094782510539 0.6341659019666758], [-0.7073716136373025 -0.7068418495110198; -0.7068418495110198 0.7073716136373023;;;]], (2, 2, 2, 2, 2, 2, 2, 2), [1, 128, 64, 32, 16, 8, 4, 2, 1], [0, -1, -1, -1, -1, -1, -1, -1]), ConvergenceInfo: one converged value after 1 iterations and 31 applications of the linear map;
+norms of residuals are given by 4.26e-150.)</code></pre><p>And we can evaluate the solution on the grid at the final time step for visualization</p><pre><code class="language-julia hljs">fig = Figure()
+ax = Axis(fig[1, 1], xlabel = &quot;x&quot;, ylabel = &quot;u(x)&quot;, title = &quot;Comparison of Time-Stepping Methods&quot;)
+lines!(ax, xes, qtt_to_function(solution_implicit), label = &quot;Implicit Euler&quot;, linestyle = :dot, linewidth = 3)
+lines!(ax, xes, qtt_to_function(solution_crank), label = &quot;Crank-Nicolson&quot;, linestyle = :dash, linewidth = 3)
+axislegend(ax)
+fig</code></pre><img src="75463ac3.png" alt="Example block output"/><p>And similarly for the Krylov-based exponential integrator</p><pre><code class="language-julia hljs">fig = Figure()
+ax = Axis(fig[1, 1], xlabel = &quot;x&quot;, ylabel = &quot;u(x)&quot;, title = &quot;Comparison of Time-Stepping Methods&quot;)
+lines!(ax, xes, qtt_to_function(solution_krylov), label = &quot;Krylov&quot;, linestyle = :solid, linewidth = 3)
+axislegend(ax)
+fig</code></pre><img src="afb8f03b.png" alt="Example block output"/><p>For more solvers check out the <a href="https://github.com/MartinMikkelsen/TensorTrainNumerics.jl/tree/main/src/solvers">solvers</a>.</p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../">« TensorTrainNumerics.jl</a><a class="docs-footer-nextpage" href="../examples/">Examples »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.14.1 on <span class="colophon-date" title="Tuesday 26 August 2025 13:18">Tuesday 26 August 2025</span>. Using Julia version 1.11.6.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
