@@ -40,8 +40,8 @@ using Random
 
 end
 
-@testset "TTdiag for TTvector" begin
-    # Test 1: TTdiag on a simple 2D TTvector (all ranks 1, should match diag of full vector)
+@testset "ttv_to_diag_tto for TTvector" begin
+    # Test 1: ttv_to_diag_tto on a simple 2D TTvector (all ranks 1, should match diag of full vector)
     dims = (3, 2)
     rks = [1, 1, 1]
     # Construct a TTvector with explicit values
@@ -51,7 +51,7 @@ end
     # Full vector
     full_x = vec([core1[i,1,1]*core2[j,1,1] for i=1:3, j=1:2])
     # Diagonal TT-matrix
-    Xdiag = TTdiag(x)
+    Xdiag = ttv_to_diag_tto(x)
     # Reconstruct full matrix from TToperator
     # For all (i1,i2), (j1,j2): sum over ranks (but all ranks are 1)
     mat = zeros(Float64, 6, 6)
@@ -62,11 +62,11 @@ end
     # Should be diagonal with full_x on the diagonal
     @test all(mat[i,j] == 0.0 for i=1:6, j=1:6 if i != j)
 
-    # Test 2: TTdiag preserves dimensions and ranks
+    # Test 2: ttv_to_diag_tto preserves dimensions and ranks
     dims3 = (2, 2, 2)
     rks3 = [1, 2, 2, 1]
     x3 = rand_tt(dims3, rks3)
-    X3diag = TTdiag(x3)
+    X3diag = ttv_to_diag_tto(x3)
     @test X3diag.tto_dims == x3.ttv_dims
     @test X3diag.tto_rks == x3.ttv_rks
     @test length(X3diag.tto_vec) == 3

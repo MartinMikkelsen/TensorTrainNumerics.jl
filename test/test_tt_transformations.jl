@@ -2,6 +2,7 @@ using Test
 using TensorTrainNumerics
 
 import TensorTrainNumerics: cheb_lobatto_grid, lagrange_eval, qft_core_entry
+
 @testset "Spikes" begin
 
     function function_to_qtt_uniform_msb(f, d::Int)

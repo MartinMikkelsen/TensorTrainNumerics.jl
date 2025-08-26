@@ -15,13 +15,13 @@ We start by defining the dimensions and the resolution of the grid. Lets say we 
 using TensorTrainNumerics
 using CairoMakie
 
-cores = 10
+d = 10
 a = 0.0
 b = 1.0
 ```
-We follow the same convention as in [this paper](https://arxiv.org/pdf/2505.17046) where we define the finite difference operator using the following inputs
+We follow the same convention as in [FastandFlexible](@cite) where we define the finite difference operator using the following inputs
 ```@example Laplace
-h = (b-a)/(2^cores)
+h = (b-a)/(2^d)
 p = 1.0
 s = 0.0
 v = 0.0
@@ -29,15 +29,15 @@ v = 0.0
 β = p + h*s/2
 γ = p-h*s/2
 
-Δ = toeplitz_to_qtto(α, β, γ, cores) 
+Δ = toeplitz_to_qtto(α, β, γ, d) 
 ```
 To get the 2D Laplacian operator, we need to take the Kronecker product of the 1D Laplacian operator with the identity. 
 ```@example Laplace
-A = Δ ⊗ id_tto(cores) + id_tto(cores) ⊗ Δ
+A = Δ ⊗ id_tto(d) + id_tto(d) ⊗ Δ
 ```
 To build the boundary vector we take the Kronecker product with the QTT basis vectors and define some random initial guess for the solution. 
 ```@example Laplace
-b = qtt_cos(cores) ⊗ qtt_basis_vector(cores, 1) + qtt_sin(cores) ⊗ qtt_basis_vector(cores, 2^cores) 
+b = qtt_cos(d) ⊗ qtt_basis_vector(d, 1) + qtt_sin(d) ⊗ qtt_basis_vector(d, 2^d) 
 initial_guess = rand_tt(b.ttv_dims, b.ttv_rks)
 ```
 We solve the linear system using DMRG
@@ -47,9 +47,9 @@ x_dmrg = dmrg_linsolve(A, b, initial_guess; sweep_count=50,tol=1e-15)
 And we reshape the solution to a 2D array for visualization
 ```@example Laplace
 
-solution = reshape(qtt_to_function(x_dmrg), 2^cores, 2^cores)
-xes = collect(range(0,1,length=2^cores))
-yes = collect(range(0,1,length=2^cores))
+solution = reshape(qtt_to_function(x_dmrg), 2^d, 2^d)
+xes = collect(range(0,1,length=2^d))
+yes = collect(range(0,1,length=2^d))
 fig = Figure()
 cmap = :roma
 ax = Axis(fig[1, 1], title = "Laplace Solution", xlabel = "x", ylabel = "y")
@@ -60,17 +60,17 @@ fig
 
 ## Time-stepping
 
-We can also solve time-dependent PDEs using the QTT framework. In this exampl we will use the explicit Euler method, the implicit Euler method and the Crank-Nicolson scheme.
+We can also solve time-dependent PDEs using the QTT framework. In this example we will use the explicit Euler method, the implicit Euler method and the Crank-Nicolson scheme.
 ```@example TimeStepping
 using TensorTrainNumerics
 using CairoMakie
 
-cores = 8
-h = 1/cores^2
-A = h^2*toeplitz_to_qtto(-2,1.0,1.0,cores)
-xes = collect(range(0.0, 1.0, 2^cores))
+d = 8
+h = 1/d^2
+A = h^2*toeplitz_to_qtto(-2,1.0,1.0,d)
+xes = collect(range(0.0, 1.0, 2^d))
 
-u₀ = qtt_sin(cores,λ=π)
+u₀ = qtt_sin(d,λ=π)
 init = rand_tt(u₀.ttv_dims, u₀.ttv_rks)
 steps = collect(range(0.0,10.0,1000))
 solution_explicit, error_explicit = euler_method(A, u₀, steps; return_error=true)
@@ -96,7 +96,7 @@ println("Relative error for Crank-Nicolson: ", rel_crank)
 
 # Discrete Fourier Transform
 
-Based on [this paper](https://arxiv.org/pdf/2404.03182) we also have access to the discrete Fourier transform (DFT) in QTT format. Below is an esample of how to use it. You can use the `fourier_qtto` function to create a QTT representation of the Fourier transform operator where the `sign` parameter determines if its the Fourier transform or the inverse Fourier transform. 
+Based on [QFT1](@cite) we also have access to the discrete Fourier transform (DFT) in QTT format. Below is an esample of how to use it. You can use the `fourier_qtto` function to create a QTT representation of the Fourier transform operator where the `sign` parameter determines if its the Fourier transform or the inverse Fourier transform. 
 
 ```@example DFT
 using TensorTrainNumerics   
@@ -119,7 +119,7 @@ x_qtt = function_to_qtt_uniform(f, d)
 y_qtt = F * x_qtt
 ```
 
-## Variational solver
+# Variational solver
 
 You can also solve differential equations by optimizing a variational functional. Below is an example of how to use the `variational_solver` function to solve a simple differential equation based on - [OptimKit.jl](https://github.com/Jutho/OptimKit.jl) 
 

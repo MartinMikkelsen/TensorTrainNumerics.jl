@@ -1,11 +1,11 @@
 using TensorTrainNumerics
 using CairoMakie
 
-cores = 8
+d = 8
 
-xes = collect(range(0.0, 1.0, length = 2^cores))
+xes = collect(range(0.0, 1.0, length = 2^d))
 
-h = 1 / (2^cores)
+h = 1 / (2^d)
 p = 1.0
 s = 0.0
 v = 0.0
@@ -13,17 +13,17 @@ v = 0.0
 β = p + h * s / 2
 γ = p - h * s / 2
 
-Δ = toeplitz_to_qtto(α, β, γ, cores)
-A = Δ ⊗ id_tto(cores) + id_tto(cores) ⊗ Δ
+Δ = toeplitz_to_qtto(α, β, γ, d)
+A = Δ ⊗ id_tto(d) + id_tto(d) ⊗ Δ
 
-b = qtt_cos(cores) ⊗ qtt_basis_vector(cores, 1) + qtt_sin(cores) ⊗ qtt_basis_vector(cores, 2^cores)
+b = qtt_cos(d) ⊗ qtt_basis_vector(d, 1) + qtt_sin(d) ⊗ qtt_basis_vector(d, 2^d)
 
 initial_guess = rand_tt(b.ttv_dims, b.ttv_rks)
 
 x_mals = mals_linsolve(A, b, initial_guess)
 x_dmrg = dmrg_linsolve(A, b, initial_guess)
 
-solution = reshape(qtt_to_function(x_mals), 2^cores, 2^cores)
+solution = reshape(qtt_to_function(x_mals), 2^d, 2^d)
 
 let
     fig = Figure()

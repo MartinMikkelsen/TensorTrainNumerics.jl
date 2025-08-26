@@ -15,7 +15,7 @@ A structure representing a Tensor Train (TT) vector.
 
 # Fields
 - `N::Int64`: The number of elements in the TT vector.
-- `ttv_vec::Vector{Array{T,3}}`: A vector of 3-dimensional arrays representing the TT cores.
+- `ttv_vec::Vector{Array{T,3}}`: A vector of 3-dimensional arrays representing the TT d.
 - `ttv_dims::NTuple{M,Int64}`: A tuple containing the dimensions of the TT vector.
 - `ttv_rks::Vector{Int64}`: A vector containing the TT ranks.
 - `ttv_ot::Vector{Int64}`: A vector containing the orthogonalization information.
@@ -40,11 +40,13 @@ A structure representing a Tensor Train (TT) operator.
 
 # Fields
 - `N::Int64`: The number of dimensions of the TT operator.
-- `tto_vec::Array{Array{T,4},1}`: A vector of 4-dimensional arrays representing the TT cores.
+- `tto_vec::Array{Array{T,4},1}`: A vector of 4-dimensional arrays representing the TT d.
 - `tto_dims::NTuple{M,Int64}`: A tuple containing the dimensions of the TT operator.
 - `tto_rks::Array{Int64,1}`: An array containing the TT ranks.
 - `tto_ot::Array{Int64,1}`: An array containing the output dimensions of the TT operator.
-tv_rks: the TT ranks ``(r_0,...,r_d)`` where ``r_0=r_d=1``
+
+# Type Parameters
+- `T<:Number`: The type of the elements in the TT vector.
 """
 struct TToperator{T <: Number, M} <: AbstractTToperator
     N::Int64
@@ -69,10 +71,10 @@ end
 """
     QTTvector(vec::Vector{<:Array{<:Number, 3}}, rks::Vector{Int64}, ot::Vector{Int64})
 
-Constructs a Quantized Tensor Train (QTT) vector from a given vector of 3-dimensional arrays (cores).
+Constructs a Quantized Tensor Train (QTT) vector from a given vector of 3-dimensional arrays (d).
 
 # Arguments
-- `vec::Vector{<:Array{<:Number, 3}}`: A vector containing the cores of the QTT vector. Each core must be a 3-dimensional array with the first dimension equal to 2.
+- `vec::Vector{<:Array{<:Number, 3}}`: A vector containing the d of the QTT vector. Each core must be a 3-dimensional array with the first dimension equal to 2.
 - `rks::Vector{Int64}`: A vector of integer ranks for the QTT vector.
 - `ot::Vector{Int64}`: A vector of integer orthogonalization types for the QTT vector.
 
@@ -92,6 +94,7 @@ function QTTvector(vec::Vector{<:Array{<:Number, 3}}, rks::Vector{Int64}, ot::Ve
     end
     return TTvector{T, N}(N, vec, dims, rks, ot)
 end
+
 """
     is_qtt(tt::TTvector) -> Bool
 
@@ -111,15 +114,15 @@ end
 """
     QTToperator(vec::Vector{Array{T,4}}, rks::Vector{Int64}, ot::Vector{Int64}) where {T}
 
-Constructs a Quantum Tensor Train (QTT) operator from a vector of 4-dimensional arrays (cores).
+Constructs a Quantum Tensor Train (QTT) operator from a vector of 4-dimensional arrays (d).
 
 # Arguments
-- `vec::Vector{Array{T,4}}`: A vector containing the cores of the QTT operator. Each core must be a 4-dimensional array with the first two dimensions equal to 2.
+- `vec::Vector{Array{T,4}}`: A vector containing the d of the QTT operator. Each core must be a 4-dimensional array with the first two dimensions equal to 2.
 - `rks::Vector{Int64}`: A vector containing the rank sizes of the QTT operator.
 - `ot::Vector{Int64}`: A vector containing the operator types.
 
 # Returns
-- `TToperator{T,N}`: A QTT operator constructed from the provided cores, rank sizes, and operator types.
+- `TToperator{T,N}`: A QTT operator constructed from the provided d, rank sizes, and operator types.
 
 # Throws
 - `AssertionError`: If any core in `vec` does not have the first two dimensions equal to 2.
@@ -196,8 +199,8 @@ Generate a random Tensor Train (TT) tensor with specified dimensions and ranks.
 - `::Type{T}`: The data type of the tensor elements.
 - `dims`: A vector specifying the dimensions of the tensor.
 - `rks`: A vector specifying the TT-ranks.
-- `normalise`: A boolean flag indicating whether to normalize the TT-cores. Default is `false`.
-- `orthogonal`: A boolean flag indicating whether to orthogonalize the TT-cores. Default is `false`.
+- `normalise`: A boolean flag indicating whether to normalize the TT-d. Default is `false`.
+- `orthogonal`: A boolean flag indicating whether to orthogonalize the TT-d. Default is `false`.
 
 # Returns
 - A TT tensor with random elements of type `T`.
@@ -230,7 +233,7 @@ Generate a random Tensor Train (TT) vector with specified dimensions and rank.
 - `orthogonal::Bool` (optional): If `true`, orthogonalizes each core tensor (default is `false`).
 
 # Returns
-- `TTvector{T,d}`: A TTvector object containing the generated TT cores, dimensions, ranks, and a zero vector for the TT ranks.
+- `TTvector{T,d}`: A TTvector object containing the generated TT d, dimensions, ranks, and a zero vector for the TT ranks.
 """
 function rand_tt(dims, rmax::Int; T = Float64, normalise = false, orthogonal = false)
     d = length(dims)
@@ -380,7 +383,7 @@ function ttv_to_tensor(x_tt::TTvector{T, N}) where {T <: Number, N}
         # Start with the last core
         i = d
         curr = view(x_tt.ttv_vec[i], t[i], :, :)
-        # Contract backwards through the TT cores
+        # Contract backwards through the TT d
         for j in (d - 1):-1:1
             curr = view(x_tt.ttv_vec[j], t[j], :, :) * curr
         end
@@ -401,7 +404,7 @@ Convert a `TToperator` to a `TTvector`.
 - `TTvector{T,N}`: The resulting TTvector.
 
 # Details
-This function takes a `TToperator` and converts it into a `TTvector`. It reshapes the internal tensor cores of the `TToperator` and constructs a `TTvector` with the appropriate dimensions and ranks.
+This function takes a `TToperator` and converts it into a `TTvector`. It reshapes the internal tensor d of the `TToperator` and constructs a `TTvector` with the appropriate dimensions and ranks.
 
 """
 function tto_to_ttv(A::TToperator{T, N}) where {T <: Number, N}
@@ -598,7 +601,7 @@ end
 """
     orthogonalize(x_tt::TTvector{T,N}; i=1::Int) where {T<:Number, N}
 
-Orthogonalizes the given Tensor Train (TT) vector `x_tt` with respect to the `i`-th core. The orthogonalization process involves QR and LQ decompositions to ensure that the TT cores are orthogonal.
+Orthogonalizes the given Tensor Train (TT) vector `x_tt` with respect to the `i`-th core. The orthogonalization process involves QR and LQ decompositions to ensure that the TT d are orthogonal.
 
 # Arguments
 - `x_tt::TTvector{T,N}`: The input TT vector to be orthogonalized.
@@ -821,7 +824,7 @@ Convert a TT (Tensor Train) operator to a QTT (Quantized Tensor Train) operator.
 # Returns
 - `qtt_tensor::TToperator{T,M}`: The resulting QTT operator.
 # Details
-This function converts a given TT operator into a QTT operator by splitting each core of the TT operator according to the specified row and column dimensions. It performs SVD on reshaped cores and applies rank reduction based on the given threshold. The resulting QTT cores are then used to construct the QTT operator.
+This function converts a given TT operator into a QTT operator by splitting each core of the TT operator according to the specified row and column dimensions. It performs SVD on reshaped d and applies rank reduction based on the given threshold. The resulting QTT d are then used to construct the QTT operator.
 """
 function tt2qtt(tt_tensor::TToperator{T, N}, row_dims::Vector{Vector{Int}}, col_dims::Vector{Vector{Int}}, threshold::Float64 = 0.0) where {T <: Number, N}
 
@@ -923,7 +926,7 @@ Convert a Tensor Train (TT) tensor to a Quantized Tensor Train (QTT) tensor.
 - `qtt_tensor::TTvector{T,M}`: The resulting QTT tensor.
 
 # Description
-This function converts a given TT tensor into a QTT tensor by splitting each core of the TT tensor according to the specified dimensions. It performs Singular Value Decomposition (SVD) on reshaped cores and applies rank reduction based on the given threshold. The resulting QTT cores are then assembled into a new QTT tensor.
+This function converts a given TT tensor into a QTT tensor by splitting each core of the TT tensor according to the specified dimensions. It performs Singular Value Decomposition (SVD) on reshaped d and applies rank reduction based on the given threshold. The resulting QTT d are then assembled into a new QTT tensor.
 """
 function tt2qtt(tt_tensor::TTvector{T, N}, dims::Vector{Vector{Int}}, threshold::Float64 = 0.0) where {T <: Number, N}
 
@@ -1023,7 +1026,7 @@ Convert a TTvector to a vector of Float64 values by extracting a specific core.
 # Description
 This function converts a given TTvector into a vector of Float64 values by extracting the specified core. It first converts the TTvector to a full tensor using `ttv_to_tensor`, then calculates the dyadic points and binary indices to extract the values from the tensor.
 """
-function matricize(qtt::TTvector{T}, core::Int)::Vector{T} where {T<:Number}
+function matricize(qtt::TTvector{T}, core::Int)::Vector{T} where {T <: Number}
     full_tensor = ttv_to_tensor(qtt)
     n = 2^core
     values = zeros(T, n)

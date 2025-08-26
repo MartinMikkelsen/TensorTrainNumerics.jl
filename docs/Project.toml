@@ -1,6 +1,7 @@
 [deps]
 CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
 Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
+DocumenterCitations = "daee34ce-89f3-4625-b898-19384cb65244"
 KrylovKit = "0b1a1467-8014-51b9-945f-bf0ae24f4b77"
 OptimKit = "77e91f04-9b3b-57a6-a776-40b61faaebe0"
 ProgressMeter = "92933f4c-e287-5a05-a399-4b506db050ca"

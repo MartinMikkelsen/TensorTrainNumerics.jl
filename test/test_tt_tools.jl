@@ -1,5 +1,6 @@
 using Test
 using TensorTrainNumerics
+import TensorTrainNumerics: rand_orthogonal
 
 @testset "TT constructors and properties" begin
     # Test TTvector constructor
@@ -272,3 +273,24 @@ end
     @test all(eltype(core) == ComplexF64 for core in tto_c.tto_vec)
 end
 
+
+@testset "Base.eltype for TTvector" begin
+    # Test with Float64
+    N = 2
+    vec = [randn(2, 1, 2), randn(2, 2, 1)]
+    dims = (2, 2)
+    rks = [1, 2, 1]
+    ot = [0, 0]
+    tt_float = TTvector{Float64, 2}(N, vec, dims, rks, ot)
+    @test eltype(tt_float) == Float64
+
+    # Test with Int
+    vec_int = [rand(Int, 2, 1, 2), rand(Int, 2, 2, 1)]
+    tt_int = TTvector{Int, 2}(N, vec_int, dims, rks, ot)
+    @test eltype(tt_int) == Int
+
+    # Test with ComplexF64
+    vec_c = [randn(ComplexF64, 2, 1, 2), randn(ComplexF64, 2, 2, 1)]
+    tt_c = TTvector{ComplexF64, 2}(N, vec_c, dims, rks, ot)
+    @test eltype(tt_c) == ComplexF64
+end

@@ -170,7 +170,7 @@ Constructs an interpolating Quantized Tensor Train (QTT) for a given function.
 
 # Arguments
 - `func::Function`: The function to be interpolated.
-- `d::Int`: The number of cores in the QTT.
+- `d::Int`: The number of d in the QTT.
 - `N::Int`: The number of nodes for interpolation.
 - `node_type::String`: The type of nodes to use for interpolation. Default is `"chebyshev"`.
 - `start::Float64`: The start of the interval for interpolation. Default is `0.0`.
@@ -226,21 +226,21 @@ Perform Lagrange rank-revealing tensor train (TT) decomposition.
 
 # Arguments
 - `func::Function`: The function to be approximated.
-- `d::Int`: The number of cores in the TT decomposition.
+- `d::Int`: The number of d in the TT decomposition.
 - `N::Int`: The number of Chebyshev-Lobatto nodes.
 
 # Returns
 - `tn::TTvector{Float64, N_}`: The resulting tensor train vector.
 
 # Description
-This function performs a rank-revealing TT decomposition using Lagrange interpolation. It constructs the TT cores by performing QR decomposition and singular value decomposition (SVD) on intermediate matrices. The numerical rank is determined based on a threshold, and the resulting TT cores are truncated accordingly.
+This function performs a rank-revealing TT decomposition using Lagrange interpolation. It constructs the TT d by performing QR decomposition and singular value decomposition (SVD) on intermediate matrices. The numerical rank is determined based on a threshold, and the resulting TT d are truncated accordingly.
 
 # Details
 1. Compute Chebyshev-Lobatto nodes.
 2. Construct the first d using QR decomposition.
-3. For intermediate cores, perform SVD and truncate based on numerical rank.
+3. For intermediate d, perform SVD and truncate based on numerical rank.
 4. Construct the last d.
-5. Convert the list of TT cores to a `TTvector` format.
+5. Convert the list of TT d to a `TTvector` format.
 """
 function lagrange_rank_revealing(func::Function, d::Int, N::Int)
     nodes = chebyshev_lobatto_nodes(N)
@@ -260,7 +260,7 @@ function lagrange_rank_revealing(func::Function, d::Int, N::Int)
     push!(tensors, U)
 
     count_zero = false
-    # Intermediate cores
+    # Intermediate d
     for d in 2:(d - 1)
         Ak = A_C(nodes)
         Ak_mat = reshape(Ak, N + 1, :)

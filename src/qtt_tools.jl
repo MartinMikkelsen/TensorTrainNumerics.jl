@@ -27,13 +27,19 @@ function tensor_to_grid(tensor)
     return out
 end
 
+"""
+Converts a univariate function `f` into its Quantized Tensor Train (QTT) representation.
+"""
 function function_to_qtt(f, d; a = 0.0, b = 1.0)
     tensor = function_to_tensor(f, d; a = a, b = b)
     return ttv_decomp(tensor)
 end
 
-function qtt_to_function(ftt::TTvector{T, d}) where {T <: Number, d}
-    tensor = ttv_to_tensor(ftt)
+"""
+Converts a quantized tensor train (QTT) vector `qtt` into a function representation.
+"""
+function qtt_to_function(qtt::TTvector{T, d}) where {T <: Number, d}
+    tensor = ttv_to_tensor(qtt)
     out = tensor_to_grid(tensor)
     return out
 end
@@ -50,7 +56,8 @@ function function_to_qtt_uniform(f, d::Int)
 end
 
 """
-QTT of a polynom p(x) = ∑ₖ₌₀ⁿ cₖ xᵏ
+Constructs a Quantized Tensor Train (QTT) representation a polynomial with given coefficients
+over a uniform grid in the interval `[a, b]` with `2^d` points.
 """
 function qtt_polynom(coef, d; a = 0.0, b = 1.0)
     p = length(coef)
@@ -77,7 +84,8 @@ function qtt_polynom(coef, d; a = 0.0, b = 1.0)
 end
 
 """
-QTT of cos(λ*π*x)
+Constructs a Quantized Tensor Train (QTT) representation of cos(λπx)
+over a uniform grid in the interval `[a, b]` with `2^d` points.
 """
 function qtt_cos(d; a = 0.0, b = 1.0, λ = 1.0)
     out = zeros_tt(2, d, 2)
@@ -98,7 +106,8 @@ function qtt_cos(d; a = 0.0, b = 1.0, λ = 1.0)
 end
 
 """
-QTT of sin(λ*π*x)
+Constructs a Quantized Tensor Train (QTT) representation of sin(λπx)
+over a uniform grid in the interval `[a, b]` with `2^d` points.
 """
 function qtt_sin(d; a = 0.0, b = 1.0, λ = 1.0)
     out = zeros_tt(2, d, 2)
@@ -119,8 +128,6 @@ function qtt_sin(d; a = 0.0, b = 1.0, λ = 1.0)
 end
 
 """
-  qtt_exp(d; a=0.0, b=1.0, α=1.0, β=0.0)
-
 Constructs a Quantized Tensor Train (QTT) representation of the exponential function
 over a uniform grid in the interval `[a, b]` with `2^d` points.
 """
@@ -142,6 +149,9 @@ function qtt_exp(d; a = 0.0, b = 1.0, α = 1.0, β = 0.0)
     return out
 end
 
+"""
+Converts a quantum tensor train operator (`TToperator`) into its full matrix representation.
+"""
 function qtto_to_matrix(Aqtto::TToperator{T, d}) where {T, d}
     A = zeros(2^d, 2^d)
     A_tensor = tto_to_tensor(Aqtto)
@@ -162,6 +172,12 @@ function qtt_basis_vector(d, pos::Int, val::Number = 1.0)
     return out
 end
 
+"""
+Constructs a Quantized Tensor Train (QTT) representation of the Chebyshev polynomial of degree `n` over `2^d` Chebyshev-Lobatto nodes.
+
+# Details
+- The function uses the Gauss-Chebyshev-Lobatto nodes, shifted to the interval [0, 1].
+"""
 function qtt_chebyshev(n, d)
     out = zeros_tt(2, d, 2)
     N = 2^d

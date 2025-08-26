@@ -178,7 +178,7 @@ end
     @test isapprox(tt1.ttv_vec[d][2, 1, 1], cos(n * θ[2]))
     @test isapprox(tt1.ttv_vec[d][2, 2, 1], sin(n * θ[2]))
 
-    # Check that the identity block is set in intermediate cores
+    # Check that the identity block is set in intermediate d
     for k in 2:(d - 1)
         @test tt1.ttv_vec[k][1, 1, 1] ≈ 1.0
         @test tt1.ttv_vec[k][1, 2, 2] ≈ 1.0
