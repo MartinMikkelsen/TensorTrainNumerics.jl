@@ -1,3 +1,6 @@
+"""
+Constructs a tensor train operator (TTO) representation of a Toeplitz matrix parameterized by `α`, `β`, and `γ` over `d` dimensions.
+"""
 function toeplitz_to_qtto(α, β, γ, d)
     out = zeros_tto(2, d, 3)
     id = Matrix{Float64}(I, 2, 2)
@@ -15,18 +18,30 @@ function toeplitz_to_qtto(α, β, γ, d)
     return out
 end
 
+"""
+Constructs a tensor train operator (TTO) representation of the shift matrix
+"""
 function shift(d::Int)
     return toeplitz_to_qtto(0, 1, 0, d)
 end
 
+"""
+Constructs a tensor train operator (TTO) representation of the gradient matrix
+"""
 function ∇(d::Int)
     return toeplitz_to_qtto(1, 0, -1, d)
 end
 
+"""
+Constructs a tensor train operator (TTO) representation of the Laplacian with Dirichlet-Dirichlet boundary conditions
+"""
 function Δ(d::Int)
     return toeplitz_to_qtto(2, -1, -1, d)
 end
 
+"""
+Constructs a tensor train operator (TTO) representation of the Laplacian with Dirichlet-Neumann boundary conditions
+"""
 function Δ_DN(d::Int)
     @assert d ≥ 4 "Dimension must be at least 4"
     out = zeros_tto(2, d, 4)
@@ -45,6 +60,9 @@ function Δ_DN(d::Int)
     return out
 end
 
+"""
+Constructs a tensor train operator (TTO) representation of the Laplacian with Neumann-Dirichlet boundary conditions
+"""
 function Δ_ND(d::Int)
     @assert d ≥ 4 "Dimension must be at least 4"
     out = zeros_tto(2, d, 4)
@@ -63,6 +81,9 @@ function Δ_ND(d::Int)
     return out
 end
 
+"""
+Constructs a tensor train operator (TTO) representation of the Laplacian with Neumann-Neumann boundary conditions
+"""
 function Δ_NN(d)
     @assert d ≥ 4 "Dimension must be at least 4"
     out = zeros_tto(ntuple(_ -> 2, d), [4; fill(5, d - 1); 4])
@@ -82,6 +103,9 @@ function Δ_NN(d)
     return out
 end
 
+"""
+Constructs a tensor train operator (TTO) representation of the Laplacian with periodic boundary conditions
+"""
 function Δ_P(d)
     @assert d ≥ 4 "Dimension must be at least 4"
     out = zeros_tto(ntuple(_ -> 2, d), fill(5, d + 1))
@@ -111,6 +135,9 @@ function Δ_P(d)
     return out
 end
 
+"""
+Constructs a tensor train operator (TTO) representation of the inverse Laplacian with Dirichlet-Neumann boundary conditions
+"""
 function Δ⁻¹_DN(d::Int)
     @assert d ≥ 2 "Dimension must be at least 2"
     out = zeros_tto(2, d, 4)
@@ -140,6 +167,9 @@ function Δ⁻¹_DN(d::Int)
     return out
 end
 
+"""
+Constructs a tensor train operator (TTO) representation of the prolongation operator for multigrid methods
+"""
 function qtto_prolongation(d::Int)
     @assert d ≥ 2 "Dimension must be at least 2"
     out = zeros_tto(2, d, 2)

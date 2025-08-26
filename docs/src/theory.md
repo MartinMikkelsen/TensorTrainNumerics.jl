@@ -131,7 +131,7 @@ println(ttv.ttv_rks)
 
 ### Explanation
 
-The `ttv_decomp` function takes a tensor as input and returns its tensor train decomposition in the form of a `TTvector`. The decomposition is performed using the Hierarchical SVD algorithm, which decomposes the tensor into a series of smaller tensors (cores) connected by ranks.
+The `ttv_decomp` function takes a tensor as input and returns its tensor train decomposition in the form of a `TTvector`. The decomposition is performed using the Hierarchical SVD algorithm, which decomposes the tensor into a series of smaller tensors (d) connected by ranks.
 
 ### Example with Tolerance
 

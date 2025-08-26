@@ -2,11 +2,11 @@ using Test
 using TensorTrainNumerics
 
 @testset "euler_method basic tests" begin
-    cores = 4
-    h = 1 / cores^2
-    A = -h^2 * toeplitz_to_qtto(-2.0, 1.0, 1.0, cores)
-    tt_dims = ntuple(_ -> 2, cores)
-    tt_rks = [1; fill(2, cores - 1); 1]
+    d = 4
+    h = 1 / d^2
+    A = -h^2 * toeplitz_to_qtto(-2.0, 1.0, 1.0, d)
+    tt_dims = ntuple(_ -> 2, d)
+    tt_rks = [1; fill(2, d - 1); 1]
     u₀ = rand_tt(tt_dims, tt_rks)
 
     steps = [0.05]  # single Euler step
@@ -31,11 +31,11 @@ using TensorTrainNumerics
 end
 
 @testset "implicit_euler_method basic test" begin
-    cores = 4
-    h = 1 / cores^2
-    A = -h^2 * toeplitz_to_qtto(-2.0, 1.0, 1.0, cores)
-    tt_dims = ntuple(_ -> 2, cores)
-    tt_rks = [1; fill(2, cores - 1); 1]
+    d = 4
+    h = 1 / d^2
+    A = -h^2 * toeplitz_to_qtto(-2.0, 1.0, 1.0, d)
+    tt_dims = ntuple(_ -> 2, d)
+    tt_rks = [1; fill(2, d - 1); 1]
     
     u₀ = rand_tt(tt_dims, tt_rks)
     guess = (u₀)
@@ -58,11 +58,11 @@ end
 end
 
 @testset "Crank-Nicholson method basic test" begin
-    cores = 4
-    h = 1 / cores^2
-    A = -h^2 * toeplitz_to_qtto(-2.0, 1.0, 1.0, cores)
-    tt_dims = ntuple(_ -> 2, cores)
-    tt_rks = [1; fill(2, cores - 1); 1]
+    d = 4
+    h = 1 / d^2
+    A = -h^2 * toeplitz_to_qtto(-2.0, 1.0, 1.0, d)
+    tt_dims = ntuple(_ -> 2, d)
+    tt_rks = [1; fill(2, d - 1); 1]
 
     u₀ = rand_tt(tt_dims, tt_rks)
     guess = u₀

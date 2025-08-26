@@ -13,7 +13,7 @@ makedocs(
         "resources.md",
         "API.md",
     ],
-    plugins=[bib]
+    plugins = [bib]
 )
 
 deploydocs(

@@ -24,7 +24,7 @@ function +(x::TTvector{T, N}, y::TTvector{T, N}) where {T <: Number, N}
         #first core
         ttv_vec[1][:, :, 1:x.ttv_rks[2]] = x.ttv_vec[1]
         ttv_vec[1][:, :, (x.ttv_rks[2] + 1):rks[2]] = y.ttv_vec[1]
-        #2nd to end-1 cores
+        #2nd to end-1 d
         @threads for k in 2:(d - 1)
             ttv_vec[k][:, 1:x.ttv_rks[k], 1:x.ttv_rks[k + 1]] = x.ttv_vec[k]
             ttv_vec[k][:, (x.ttv_rks[k] + 1):rks[k], (x.ttv_rks[k + 1] + 1):rks[k + 1]] = y.ttv_vec[k]
@@ -51,7 +51,7 @@ function add!(x::TTvector{T, N}, y::TTvector{T, N}) where {T <: Number, N}
         #first core
         ttv_vec[1][:, :, 1:x.ttv_rks[2]] = x.ttv_vec[1]
         ttv_vec[1][:, :, (x.ttv_rks[2] + 1):rks[2]] = y.ttv_vec[1]
-        #2nd to end-1 cores
+        #2nd to end-1 d
         @threads for k in 2:(d - 1)
             ttv_vec[k][:, 1:x.ttv_rks[k], 1:x.ttv_rks[k + 1]] = x.ttv_vec[k]
             ttv_vec[k][:, (x.ttv_rks[k] + 1):rks[k], (x.ttv_rks[k + 1] + 1):rks[k + 1]] = y.ttv_vec[k]
@@ -83,7 +83,7 @@ function +(x::TToperator{T, N}, y::TToperator{T, N}) where {T <: Number, N}
         #first core
         tto_vec[1][:, :, :, 1:x.tto_rks[1 + 1]] = x.tto_vec[1]
         tto_vec[1][:, :, :, (x.tto_rks[2] + 1):rks[2]] = y.tto_vec[1]
-        #2nd to end-1 cores
+        #2nd to end-1 d
         @threads for k in 2:(d - 1)
             tto_vec[k][:, :, 1:x.tto_rks[k], 1:x.tto_rks[k + 1]] = x.tto_vec[k]
             tto_vec[k][:, :, (x.tto_rks[k] + 1):rks[k], (x.tto_rks[k + 1] + 1):rks[k + 1]] = y.tto_vec[k]
@@ -254,7 +254,7 @@ function concatenate(tt::TTvector{T, N}, other::Union{TTvector{T}, Vector{Array{
         end
 
         if any(size(other[i], 3) != size(other[i + 1], 2) for i in 1:(length(other) - 1))
-            throw(DimensionMismatch("Ranks in the provided cores list do not match"))
+            throw(DimensionMismatch("Ranks in the provided d list do not match"))
         end
         if last(tt_base.ttv_rks) != size(other[1], 2)
             throw(DimensionMismatch("Ranks do not match between `tt` and `other`"))
@@ -306,7 +306,6 @@ function TTdiag(x::TTvector{T, M}) where {T <: Number, M}
 
     return TToperator{T, M}(d, new_cores, dims, new_rks, new_ot)
 end
-
 
 function permute(x::TTvector{T, N}, order::Vector{Int}, eps::Real) where {T <: Number, N}
     d = x.N
@@ -403,11 +402,11 @@ end
 ⊕(x::TTvector{T, N}, y::TTvector{T, N}) where {T <: Number, N} = hadamard(x, y)
 
 function kron(A::TToperator{T, d1}, B::TToperator{T, d2}) where {T, d1, d2}
-    cores = vcat(A.tto_vec, B.tto_vec)
+    d = vcat(A.tto_vec, B.tto_vec)
     dims = (A.tto_dims..., B.tto_dims...)
     rks = vcat(A.tto_rks[1:(end - 1)], B.tto_rks)
     ot = vcat(A.tto_ot, B.tto_ot)
-    return TToperator{T, d1 + d2}(d1 + d2, cores, dims, rks, ot)
+    return TToperator{T, d1 + d2}(d1 + d2, d, dims, rks, ot)
 end
 
 ⊗(A::TToperator{T, d1}, B::TToperator{T, d2}) where {T, d1, d2} = kron(A, B)

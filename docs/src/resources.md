@@ -1,13 +1,16 @@
 # Resources
 
-## Papers and Articles
+## Notes and Lectures
 - [Tensor trains for high-dimensional problems by Mi-Song Dupuy](https://msdupuy.github.io/teaching/TT_lectures_2025.pdf)
-- [Fast and Flexible Quantum-Inspired PDE Solvers with Data Integration](https://arxiv.org/pdf/2505.17046)
 
 ## Software and Libraries
 - [Scikit-TT](https://github.com/PGelss/scikit_tt)
 - [KrylovKit.jl](https://github.com/Jutho/KrylovKit.jl)
 - [TT-Toolbox](https://github.com/oseledets/ttpy)
+- [MPSTime.jl](https://github.com/hugopstackhouse/MPSTime.jl)
+- [ITensorNumericalAnalysis.jl](https://github.com/JoeyT1994/ITensorNumericalAnalysis.jl)
+- [Tensor-Train-Julia](https://github.com/msdupuy/Tensor-Train-Julia)
+- [ITensorQTT.jl](https://github.com/ITensor/ITensorQTT.jl)
 
 ## References
 

@@ -13,7 +13,7 @@ using TensorTrainNumerics
         tto_vec = []
         # First core: (2,2,1,3)
         push!(tto_vec, zeros(2, 2, 1, 3))
-        # Middle cores: (2,2,3,3)
+        # Middle d: (2,2,3,3)
         for _ in 2:(d - 1)
             push!(tto_vec, zeros(2, 2, 3, 3))
         end
