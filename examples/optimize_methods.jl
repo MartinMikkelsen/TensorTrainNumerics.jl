@@ -2,7 +2,7 @@ using TensorTrainNumerics
 using CairoMakie
 using KrylovKit
 using OptimKit
-
+import TensorTrainNumerics: dot
 d = 6
 h = 1 / d^2
 A = h^2 * toeplitz_to_qtto(-2, 1.0, 1.0, d)

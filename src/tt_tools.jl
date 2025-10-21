@@ -783,34 +783,6 @@ function visualize(tt::TToperator)
 end
 
 """
-    tt_svdvals(x_tt::TTvector{T,N}; tol=1e-14) where {T<:Number, N}
-
-Compute the singular values of a Tensor Train (TT) vector `x_tt`.
-
-# Arguments
-- `x_tt::TTvector{T,N}`: The input TT vector.
-- `tol=1e-14`: Tolerance for truncating small singular values. Default is `1e-14`.
-
-# Returns
-- `Σ`: An array of arrays containing the singular values for each TT core.
-
-"""
-function tt_svdvals(x_tt::TTvector{T, N}; tol = 1.0e-14) where {T <: Number, N}
-    d = x_tt.N
-    Σ = Array{Array{Float64, 1}, 1}(undef, d - 1)
-    y_tt = orthogonalize(x_tt)
-    y_rks = y_tt.ttv_rks
-    for j in 1:(d - 1)
-        A = zeros(y_tt.ttv_dims[j], y_rks[j], y_tt.ttv_dims[j + 1], y_rks[j + 2])
-        @tensor A[a, b, c, d] = y_tt.ttv_vec[j][a, b, z] * y_tt.ttv_vec[j + 1][c, z, d]
-        u, s, v = svd(reshape(A, size(A, 1) * size(A, 2), :), alg = LinearAlgebra.QRIteration())
-        Σ[j], y_rks[j + 1] = floor(s, tol)
-        y_tt.ttv_vec[j + 1] = permutedims(reshape(Diagonal(Σ[j]) * v'[s .> tol, :], :, y_tt.ttv_dims[j + 1], y_rks[j + 2]), [2 1 3])
-    end
-    return Σ
-end
-
-"""
     tt2qtt(tt_tensor::TToperator{T,N}, row_dims::Vector{Vector{Int}}, col_dims::Vector{Vector{Int}}, threshold::Float64=0.0) where {T<:Number,N}
 
 Convert a TT (Tensor Train) operator to a QTT (Quantized Tensor Train) operator.
