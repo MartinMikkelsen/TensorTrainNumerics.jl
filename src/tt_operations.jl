@@ -5,7 +5,6 @@ import Base.-
 import Base.*
 import Base./
 import Base.kron
-import Base.⊗
 using LinearAlgebra
 import LinearAlgebra: norm
 

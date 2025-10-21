@@ -84,8 +84,5 @@ end
 VectorInterface.scalartype(a::TTvector)   = eltype(a)
 VectorInterface.scalartype(a::TToperator) = eltype(a)
 
-function Base.copy(x::TTvector)
-    TTvector(x.N, copy.(x.ttv_vec), copy(x.ttv_dims), copy(x.ttv_rks), copy(x.ttv_ot))
-end
 
 end

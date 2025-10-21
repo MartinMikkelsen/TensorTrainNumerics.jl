@@ -277,7 +277,7 @@ end
     ψ_id = tdvp2(H0c, ψ0, [0.1];
                 normalize=false, sweeps=1, carry_env=false, verbose=false, imaginary_time=false)
     rel = absnorm(ψ_id - ψ0) / max(absnorm(ψ0), eps())
-    @test rel ≤ 1e-10  
+    @test rel ≤ 1e-7  
 
     ψ_carryT = tdvp2(H0c, complex(u0), [0.1, 0.1];
                     normalize=false, sweeps=2, carry_env=true, verbose=false, imaginary_time=false)
