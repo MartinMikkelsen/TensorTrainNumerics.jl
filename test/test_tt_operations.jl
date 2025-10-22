@@ -108,3 +108,24 @@ end
     result4 = qtt_to_function(A4 ⊕ A3)
     @test isapprox(result4, expected4; atol=1e-12)
 end
+
+
+@testset "Norms" begin
+
+    d = 8
+    A1 = qtt_exp(d)
+    A2 = qtt_sin(d, λ = π)
+    A3 = qtt_cos(d, λ = π)
+    A4 = qtt_polynom([0.0, 2.0, 3.0, -8.0, -5.0], d; a = 0.0, b = 1.0)
+
+    @test euclidean_distance(A1,A1) == 0.0
+    @test euclidean_distance_normalized(A1, A1) == 0.0
+    
+    S1 = qtt_to_function(A1)
+    S2 = qtt_to_function(A2)
+
+    @test sqrt(LinearAlgebra.dot(S1, S1) - 2*real(LinearAlgebra.dot(S1, S2)) + LinearAlgebra.dot(S2, S2)) ==  euclidean_distance(A1,A2)
+    @test isapprox(sqrt(1.0+ LinearAlgebra.dot(S1,S1)/LinearAlgebra.dot(S2,S2)-2.0*real(LinearAlgebra.dot(S2,S1))/LinearAlgebra.dot(S2,S2)),euclidean_distance_normalized(A1,A2),atol=1e-12)
+
+end
+
