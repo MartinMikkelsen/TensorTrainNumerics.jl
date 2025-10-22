@@ -294,3 +294,81 @@ end
     tt_c = TTvector{ComplexF64, 2}(N, vec_c, dims, rks, ot)
     @test eltype(tt_c) == ComplexF64
 end
+
+@testset "ttv decomp" begin
+
+    # test if ttv matches https://scfp.jinguo-group.science/chap2-linalg/tensor-network.html
+
+    tensor = ones(Float64, fill(2, 10)...);
+
+    struct MPS{T}
+        tensors::Vector{Array{T, 3}}
+    end
+
+    function truncated_svd(current_tensor::AbstractArray, largest_rank::Int, atol)
+        U, S, V = svd(current_tensor)
+        r = min(largest_rank, sum(S .> atol))
+        S_truncated = Diagonal(S[1:r])
+        U_truncated = U[:, 1:r]
+        V_truncated = V[:, 1:r]
+        return U_truncated, S_truncated, V_truncated, r
+    end
+
+    function tensor_train_decomposition(tensor::AbstractArray, largest_rank::Int; atol=1e-6)
+        dims = size(tensor)
+        n = length(dims)
+        
+        # Initialize the cores of the TT decomposition
+        tensors = Array{Float64, 3}[]
+        
+        # Reshape the tensor into a matrix
+        rpre = 1
+        current_tensor = reshape(tensor, dims[1], :)
+        
+        # Perform SVD for each core except the last one
+        for i in 1:(n-1)
+            # Truncate to the specified rank
+            U_truncated, S_truncated, V_truncated, r = truncated_svd(current_tensor, largest_rank, atol)
+
+            # Middle cores have shape (largest_rank, dims[i], r)
+            push!(tensors, reshape(U_truncated, (rpre, dims[i], r)))
+            
+            # Prepare the tensor for the next iteration
+            current_tensor = S_truncated * V_truncated'
+            
+            # Reshape for the next SVD
+            current_tensor = reshape(current_tensor, r * dims[i+1], :)
+            rpre = r
+        end
+        
+        # Add the last core
+        push!(tensors, reshape(current_tensor, (rpre, dims[n], 1)))
+        
+        return MPS(tensors)
+    end
+
+    A = tensor_train_decomposition(tensor, 10)
+
+
+    B = ttv_decomp(tensor)
+
+    size(A.tensors) == size(B.ttv_vec)
+
+    for i in 1:length(B.ttv_vec)
+        @test isapprox(abs.(reshape(reverse(A.tensors)[i],2,1,1)),abs.((B.ttv_vec)[i]), rtol=1e-10)
+    end
+
+    tensor_rand = rand(Float64, fill(2, 10)...);
+
+    A_rand = tensor_train_decomposition(tensor, 10)
+
+
+    B_rand = ttv_decomp(tensor)
+
+    size(A_rand.tensors) == size(B_rand.ttv_vec)
+
+    for i in 1:length(B_rand.ttv_vec)
+        @test isapprox(abs.(reshape(reverse(A_rand.tensors)[i],2,1,1)),abs.((B_rand.ttv_vec)[i]), rtol=1e-10)
+    end
+
+end
