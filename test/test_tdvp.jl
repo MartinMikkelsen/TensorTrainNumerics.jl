@@ -11,7 +11,7 @@ Random.seed!(42)
     rks = [1, 2, 2, 1]
     ψ = rand_tt(dims, rks)
     lefts = (1, 3, 5)
-    rights = (4, 6, 7) 
+    rights = (4, 6, 7)
     A_lsr = [randn(lefts[k], dims[k], rights[k]) for k in 1:N]
     _sync_ranks_from_lsr!(ψ, A_lsr)
     @test ψ.ttv_rks == [lefts..., rights[end]]
@@ -149,150 +149,182 @@ end
 absnorm(x::TensorTrainNumerics.TTvector) = sqrt(real(TensorTrainNumerics.dot(x, x)))
 
 @testset "tdvp1sweep! (H = 0 ⇒ identity)" begin
-    d  = 4
+    d = 4
     u0 = qtt_sin(d, λ = π)
 
-    ψ  = complex(orthogonalize(u0))
+    ψ = complex(orthogonalize(u0))
     Hc = complex(id_tto(d))                 # make MPO complex to match ψ
     H0 = (0.0 + 0.0im) * Hc                 # zero MPO with Complex element type
 
     ψ2, F = tdvp1sweep!(complex(0.1), ψ, H0, nothing; verbose = false)
 
-    @test abs(absnorm(ψ2 - ψ)) / max(absnorm(ψ), eps()) < 1e-12
+    @test abs(absnorm(ψ2 - ψ)) / max(absnorm(ψ), eps()) < 1.0e-12
     @test length(F) == ψ.N + 2
 end
 
 absnorm(x::TensorTrainNumerics.TTvector) = sqrt(max(real(TensorTrainNumerics.dot(x, x)), 0.0))
 
 @testset "tdvp: basic behavior" begin
-    d  = 4
+    d = 4
     u0 = qtt_sin(d, λ = π)
 
     H0r = 0.0 * id_tto(d)
     H0c = (0.0 + 0.0im) * complex(id_tto(d))
 
-    ψ_rt = tdvp(H0c, complex(u0), [0.1];
-                normalize=false, sweeps=1, carry_env=false, verbose=false, imaginary_time=false)
+    ψ_rt = tdvp(
+        H0c, complex(u0), [0.1];
+        normalize = false, sweeps = 1, carry_env = false, verbose = false, imaginary_time = false
+    )
     @test eltype(ψ_rt) <: Complex
 
-    ψ_it = tdvp(H0r, u0, [0.1];
-                normalize=false, sweeps=1, carry_env=false, verbose=false, imaginary_time=true)
+    ψ_it = tdvp(
+        H0r, u0, [0.1];
+        normalize = false, sweeps = 1, carry_env = false, verbose = false, imaginary_time = true
+    )
     @test eltype(ψ_it) <: Real
 
-    ψ_err, err = tdvp(H0c, complex(u0), [0.1];
-                      normalize=false, return_error=true,
-                      sweeps=1, carry_env=false, verbose=false, imaginary_time=false)
+    ψ_err, err = tdvp(
+        H0c, complex(u0), [0.1];
+        normalize = false, return_error = true,
+        sweeps = 1, carry_env = false, verbose = false, imaginary_time = false
+    )
     @test isa(err, Number)
-    @test abs(real(err)) ≤ 1e-6
+    @test abs(real(err)) ≤ 1.0e-6
 
-    ψ0  = complex(orthogonalize(u0))
-    ψ_id = tdvp(H0c, ψ0, [0.1];
-                normalize=false, sweeps=1, carry_env=false, verbose=false, imaginary_time=false)
+    ψ0 = complex(orthogonalize(u0))
+    ψ_id = tdvp(
+        H0c, ψ0, [0.1];
+        normalize = false, sweeps = 1, carry_env = false, verbose = false, imaginary_time = false
+    )
     rel = absnorm(ψ_id - ψ0) / max(absnorm(ψ0), eps())
-    @test rel ≤ 1e-10  
+    @test rel ≤ 1.0e-10
 
-    ψ_carryT = tdvp(H0c, complex(u0), [0.1, 0.1];
-                    normalize=false, sweeps=2, carry_env=true, verbose=false, imaginary_time=false)
-    ψ_carryF = tdvp(H0c, complex(u0), [0.1, 0.1];
-                    normalize=false, sweeps=2, carry_env=false, verbose=false, imaginary_time=false)
+    ψ_carryT = tdvp(
+        H0c, complex(u0), [0.1, 0.1];
+        normalize = false, sweeps = 2, carry_env = true, verbose = false, imaginary_time = false
+    )
+    ψ_carryF = tdvp(
+        H0c, complex(u0), [0.1, 0.1];
+        normalize = false, sweeps = 2, carry_env = false, verbose = false, imaginary_time = false
+    )
     rel_c = absnorm(ψ_carryT - ψ_carryF) / max(absnorm(ψ_carryF), eps())
-    @test rel_c ≤ 1e-10
+    @test rel_c ≤ 1.0e-10
 end
 
 @testset "_applyH2_lsr" begin
     Dl, d1, d2, Dr = 2, 3, 4, 5
     AAC = randn(ComplexF64, Dl, d1, d2, Dr)
 
-    FL = zeros(ComplexF64, Dl, 1, Dl);  for α in 1:Dl  FL[α,1,α] = 1 end
-    FR = zeros(ComplexF64, Dr, 1, Dr);  for β in 1:Dr  FR[β,1,β] = 1 end
-    M1 = zeros(ComplexF64, 1, d1, 1, d1); for s in 1:d1 M1[1,s,1,s] = 1 end
-    M2 = zeros(ComplexF64, 1, d2, 1, d2); for s in 1:d2 M2[1,s,1,s] = 1 end
+    FL = zeros(ComplexF64, Dl, 1, Dl);  for α in 1:Dl
+        FL[α, 1, α] = 1
+    end
+    FR = zeros(ComplexF64, Dr, 1, Dr);  for β in 1:Dr
+        FR[β, 1, β] = 1
+    end
+    M1 = zeros(ComplexF64, 1, d1, 1, d1); for s in 1:d1
+        M1[1, s, 1, s] = 1
+    end
+    M2 = zeros(ComplexF64, 1, d2, 1, d2); for s in 1:d2
+        M2[1, s, 1, s] = 1
+    end
 
     HAAC = _applyH2_lsr(AAC, FL, FR, M1, M2)
-    @test isapprox(HAAC, AAC; atol=1e-12, rtol=1e-12)
+    @test isapprox(HAAC, AAC; atol = 1.0e-12, rtol = 1.0e-12)
 
     X = randn(ComplexF64, Dl, d1, d2, Dr)
     Y = randn(ComplexF64, Dl, d1, d2, Dr)
     lhs = LinearAlgebra.dot(vec(conj(X)), vec(_applyH2_lsr(Y, FL, FR, M1, M2)))
     rhs = LinearAlgebra.dot(vec(conj(_applyH2_lsr(X, FL, FR, M1, M2))), vec(Y))
-    @test isapprox(lhs, rhs; atol=1e-12, rtol=1e-12)
+    @test isapprox(lhs, rhs; atol = 1.0e-12, rtol = 1.0e-12)
 end
 
 @testset "tdvp2sweep! (H = 0 ⇒ identity, no truncation)" begin
-    d  = 4
-    u0 = qtt_sin(d, λ=π)
+    d = 4
+    u0 = qtt_sin(d, λ = π)
     ψ0 = complex(orthogonalize(u0))
     H0 = (0.0 + 0.0im) * complex(id_tto(d))
 
-    ψ1, F1 = tdvp2sweep!(0.1im, deepcopy(ψ0), H0, nothing; verbose=false)
+    ψ1, F1 = tdvp2sweep!(0.1im, deepcopy(ψ0), H0, nothing; verbose = false)
     @test length(F1) == ψ0.N + 2
-    @test size(F1[1])  == (1,1,1)
-    @test size(F1[end]) == (1,1,1)
-    @test isapprox(ttv_to_tensor(ψ1), ttv_to_tensor(ψ0); atol=1e-10, rtol=1e-10)
+    @test size(F1[1]) == (1, 1, 1)
+    @test size(F1[end]) == (1, 1, 1)
+    @test isapprox(ttv_to_tensor(ψ1), ttv_to_tensor(ψ0); atol = 1.0e-10, rtol = 1.0e-10)
 end
 
 @testset "tdvp2sweep! real-time & imaginary-time dt (H=0)" begin
-    d  = 4
-    ψ0 = complex(orthogonalize(qtt_sin(d, λ=π)))
+    d = 4
+    ψ0 = complex(orthogonalize(qtt_sin(d, λ = π)))
     H0 = (0.0 + 0.0im) * complex(id_tto(d))
 
-    ψa, _ = tdvp2sweep!(0.05,  deepcopy(ψ0), H0, nothing; verbose=false)
-    ψb, _ = tdvp2sweep!(0.05im, deepcopy(ψ0), H0, nothing; verbose=false)
+    ψa, _ = tdvp2sweep!(0.05, deepcopy(ψ0), H0, nothing; verbose = false)
+    ψb, _ = tdvp2sweep!(0.05im, deepcopy(ψ0), H0, nothing; verbose = false)
 
-    @test isapprox(ttv_to_tensor(ψa), ttv_to_tensor(ψ0); atol=1e-10, rtol=1e-10)
-    @test isapprox(ttv_to_tensor(ψb), ttv_to_tensor(ψ0); atol=1e-10, rtol=1e-10)
+    @test isapprox(ttv_to_tensor(ψa), ttv_to_tensor(ψ0); atol = 1.0e-10, rtol = 1.0e-10)
+    @test isapprox(ttv_to_tensor(ψb), ttv_to_tensor(ψ0); atol = 1.0e-10, rtol = 1.0e-10)
 end
 
 @testset "tdvp2sweep! respects max_bond" begin
-    d  = 6
-    ψ0 = complex(orthogonalize(qtt_sin(d, λ=π) + qtt_sin(d, λ=2π)))
+    d = 6
+    ψ0 = complex(orthogonalize(qtt_sin(d, λ = π) + qtt_sin(d, λ = 2π)))
     H0 = (0.0 + 0.0im) * complex(id_tto(d))
     mb = 2
-    ψ2, _ = tdvp2sweep!(0.1im, deepcopy(ψ0), H0, nothing; verbose=false, max_bond=mb, truncerr=0.0)
+    ψ2, _ = tdvp2sweep!(0.1im, deepcopy(ψ0), H0, nothing; verbose = false, max_bond = mb, truncerr = 0.0)
     @test maximum(ψ2.ttv_rks) ≤ mb
 end
 
 @testset "tdvp2: basic behavior" begin
-    d  = 6
+    d = 6
     u0 = qtt_sin(d, λ = π)
 
     H0r = 0.0 * id_tto(d)
     H0c = (0.0 + 0.0im) * complex(id_tto(d))
 
-    ψ_rt = tdvp2(H0c, complex(u0), [0.1];
-                normalize=false, sweeps=1, carry_env=false, verbose=false, imaginary_time=false)
+    ψ_rt = tdvp2(
+        H0c, complex(u0), [0.1];
+        normalize = false, sweeps = 1, carry_env = false, verbose = false, imaginary_time = false
+    )
     @test eltype(ψ_rt) <: Complex
 
-    ψ_it = tdvp2(H0r, u0, [0.1];
-                normalize=false, sweeps=1, carry_env=false, verbose=false, imaginary_time=true)
+    ψ_it = tdvp2(
+        H0r, u0, [0.1];
+        normalize = false, sweeps = 1, carry_env = false, verbose = false, imaginary_time = true
+    )
     @test eltype(ψ_it) <: Real
 
-    ψ_err, err = tdvp2(H0c, complex(u0), [0.1];
-                      normalize=false, return_error=true,
-                      sweeps=1, carry_env=false, verbose=false, imaginary_time=false)
+    ψ_err, err = tdvp2(
+        H0c, complex(u0), [0.1];
+        normalize = false, return_error = true,
+        sweeps = 1, carry_env = false, verbose = false, imaginary_time = false
+    )
     @test isa(err, Number)
-    @test abs(real(err)) ≤ 1e-6
+    @test abs(real(err)) ≤ 1.0e-6
 
-    ψ0  = complex(orthogonalize(u0))
-    ψ_id = tdvp2(H0c, ψ0, [0.1];
-                normalize=false, sweeps=1, carry_env=false, verbose=false, imaginary_time=false)
+    ψ0 = complex(orthogonalize(u0))
+    ψ_id = tdvp2(
+        H0c, ψ0, [0.1];
+        normalize = false, sweeps = 1, carry_env = false, verbose = false, imaginary_time = false
+    )
     rel = absnorm(ψ_id - ψ0) / max(absnorm(ψ0), eps())
-    @test rel ≤ 1e-7  
+    @test rel ≤ 1.0e-7
 
-    ψ_carryT = tdvp2(H0c, complex(u0), [0.1, 0.1];
-                    normalize=false, sweeps=2, carry_env=true, verbose=false, imaginary_time=false)
-    ψ_carryF = tdvp2(H0c, complex(u0), [0.1, 0.1];
-                    normalize=false, sweeps=2, carry_env=false, verbose=false, imaginary_time=false)
+    ψ_carryT = tdvp2(
+        H0c, complex(u0), [0.1, 0.1];
+        normalize = false, sweeps = 2, carry_env = true, verbose = false, imaginary_time = false
+    )
+    ψ_carryF = tdvp2(
+        H0c, complex(u0), [0.1, 0.1];
+        normalize = false, sweeps = 2, carry_env = false, verbose = false, imaginary_time = false
+    )
     rel_c = absnorm(ψ_carryT - ψ_carryF) / max(absnorm(ψ_carryF), eps())
-    @test rel_c ≤ 1e-10
+    @test rel_c ≤ 1.0e-10
 end
 
 @testset "tdvp2: imaginary-time branch runs" begin
-    d  = 4
-    ψ0 = complex(orthogonalize(qtt_sin(d, λ=π)))
+    d = 4
+    ψ0 = complex(orthogonalize(qtt_sin(d, λ = π)))
     H0 = (0.0 + 0.0im) * complex(id_tto(d))
     steps = [0.02, 0.02]
 
-    ψ_it = tdvp2(H0, ψ0, steps; normalize=false, sweeps=2, carry_env=true, verbose=false, imaginary_time=true)
-    @test absnorm(ψ_it - ψ0) / max(absnorm(ψ0), eps()) < 1e-12
+    ψ_it = tdvp2(H0, ψ0, steps; normalize = false, sweeps = 2, carry_env = true, verbose = false, imaginary_time = true)
+    @test absnorm(ψ_it - ψ0) / max(absnorm(ψ0), eps()) < 1.0e-12
 end

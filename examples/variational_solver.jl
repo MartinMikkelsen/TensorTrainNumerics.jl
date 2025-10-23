@@ -12,8 +12,8 @@ A = kappa * Δ
 f = qtt_sin(d, λ = π)
 
 function fg(u::TTvector)
-    û  = orthogonalize(u)           
-    Au = A*û                       
+    û = orthogonalize(u)
+    Au = A * û
     val = 0.5 * real(dot(û, Au)) - real(dot(f, û))
     grad = Au - f
     return val, grad
@@ -34,4 +34,3 @@ println("relative residual = ", relres)
 x_krylov, info = linsolve(A, f, x0)
 relres = norm(A * x_krylov - f) / max(norm(f), eps())
 println("relative residual = ", relres)
-

@@ -220,38 +220,13 @@ function rand_tt(::Type{T}, dims, rks; normalise = false, orthogonal = false) wh
     return y
 end
 
-"""
-    rand_tt(dims, rmax::Int; T=Float64, normalise=false, orthogonal=false)
-
-Generate a random Tensor Train (TT) vector with specified dimensions and rank.
-
-# Arguments
-- `dims::Vector{Int}`: A vector specifying the dimensions of each mode of the tensor.
-- `rmax::Int`: The maximum TT-rank.
-- `T::Type` (optional): The element type of the tensor (default is `Float64`).
-- `normalise::Bool` (optional): If `true`, normalizes each core tensor (default is `false`).
-- `orthogonal::Bool` (optional): If `true`, orthogonalizes each core tensor (default is `false`).
-
-# Returns
-- `TTvector{T,d}`: A TTvector object containing the generated TT d, dimensions, ranks, and a zero vector for the TT ranks.
-"""
-function rand_tt(dims, rmax::Int; T = Float64, normalise = false, orthogonal = false)
+function rand_tt(dims, rmax::Int; normalise = false, orthogonal = false)
     d = length(dims)
-    tt_vec = Vector{Array{T, 3}}(undef, d)
     rks = rmax * ones(Int, d + 1)
     rks = r_and_d_to_rks(rks, dims; rmax = rmax)
-    for i in eachindex(tt_vec)
-        tt_vec[i] = randn(T, dims[i], rks[i], rks[i + 1])
-        if normalise
-            tt_vec[i] *= 1 / sqrt(dims[i] * rks[i + 1])
-        end
-        if orthogonal
-            q, _ = qr(reshape(permutedims(tt_vec[i], (1, 3, 2)), dims[i] * rks[i + 1], rks[i]))
-            tt_vec[i] = reshape(permutedims(Matrix(q), (1, 2, 3)), dims[i], rks[i], rks[i + 1])
-        end
-    end
-    return TTvector{T, d}(d, tt_vec, dims, rks, zeros(Int, d))
+    return rand_tt(dims, rks; normalise = normalise, orthogonal = orthogonal)
 end
+
 """
     rand_tt(x_tt::TTvector{T,N}; ε=convert(T,1e-3)) -> TTvector{T,N}
 

@@ -159,16 +159,16 @@ end
     N = 4
     nodes_cheb = get_nodes(N, "chebyshev")
     expected_cheb = (cos.(π * (0:N) / N) .+ 1) ./ 2
-    @test isapprox(nodes_cheb, expected_cheb; atol=1e-12)
+    @test isapprox(nodes_cheb, expected_cheb; atol = 1.0e-12)
 
     # Test equally spaced nodes
     nodes_eq = get_nodes(N, "equally_spaced")
-    expected_eq = collect(range(0, 1, length=N+1))
+    expected_eq = collect(range(0, 1, length = N + 1))
     @test nodes_eq == expected_eq
 
     # Test default node_type is chebyshev
     nodes_default = get_nodes(N)
-    @test isapprox(nodes_default, expected_cheb; atol=1e-12)
+    @test isapprox(nodes_default, expected_cheb; atol = 1.0e-12)
 
     # Test error on unknown node type
     @test_throws ErrorException get_nodes(N, "unknown_type")
@@ -193,12 +193,12 @@ end
     @test tn.ttv_rks[end] == 1
 
     # Test with equally_spaced nodes
-    tn2 = interpolating_qtt(f, d, N; node_type="equally_spaced")
+    tn2 = interpolating_qtt(f, d, N; node_type = "equally_spaced")
     @test typeof(tn2) <: TTvector
     @test tn2.N == d
 
     # Test with custom interval
-    tn3 = interpolating_qtt(f, d, N; start=-1.0, stop=2.0)
+    tn3 = interpolating_qtt(f, d, N; start = -1.0, stop = 2.0)
     @test typeof(tn3) <: TTvector
 
 end
@@ -218,6 +218,6 @@ end
 
     # Check TT dimensions
     @test length(tn.ttv_vec) == d
-    @test all(x -> isa(x, Array{Float64,3}), tn.ttv_vec)
+    @test all(x -> isa(x, Array{Float64, 3}), tn.ttv_vec)
 
 end
