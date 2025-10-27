@@ -1,6 +1,7 @@
 using Test
 using TensorTrainNumerics
 import TensorTrainNumerics: rand_orthogonal
+using LinearAlgebra
 
 @testset "TT constructors and properties" begin
     # Test TTvector constructor
@@ -140,7 +141,7 @@ end
     tt_concat = concatenate(tt1, tt2)
     @test tt_concat.N == tt1.N + tt2.N
     @test tt_concat.ttv_dims == (tt1.ttv_dims..., tt2.ttv_dims...)
-    @test tt_concat.ttv_rks == vcat(tt1.ttv_rks[1:end-1], tt2.ttv_rks)
+    @test tt_concat.ttv_rks == vcat(tt1.ttv_rks[1:(end - 1)], tt2.ttv_rks)
     @test tt_concat.ttv_ot == vcat(tt1.ttv_ot, tt2.ttv_ot)
 
     # Test concatenate function for TToperator
@@ -151,7 +152,7 @@ end
     tto_concat = concatenate(tto1, tto2)
     @test tto_concat.N == tto1.N + tto2.N
     @test tto_concat.tto_dims == (tto1.tto_dims..., tto2.tto_dims...)
-    @test tto_concat.tto_rks == vcat(tto1.tto_rks[1:end-1], tto2.tto_rks)
+    @test tto_concat.tto_rks == vcat(tto1.tto_rks[1:(end - 1)], tto2.tto_rks)
     @test tto_concat.tto_ot == vcat(tto1.tto_ot, tto2.tto_ot)
 
     # Test concatenate function
@@ -164,7 +165,7 @@ end
     tt_concat = concatenate(tt1, tt2)
     @test tt_concat.N == tt1.N + tt2.N
     @test tt_concat.ttv_dims == (tt1.ttv_dims..., tt2.ttv_dims...)
-    @test tt_concat.ttv_rks == vcat(tt1.ttv_rks[1:end-1], tt2.ttv_rks)
+    @test tt_concat.ttv_rks == vcat(tt1.ttv_rks[1:(end - 1)], tt2.ttv_rks)
     @test tt_concat.ttv_ot == vcat(tt1.ttv_ot, tt2.ttv_ot)
 end
 
@@ -220,7 +221,7 @@ end
     tt_concat = concatenate(tt1, tt2)
     @test tt_concat.N == tt1.N + tt2.N
     @test tt_concat.ttv_dims == (tt1.ttv_dims..., tt2.ttv_dims...)
-    @test tt_concat.ttv_rks == vcat(tt1.ttv_rks[1:end-1], tt2.ttv_rks)
+    @test tt_concat.ttv_rks == vcat(tt1.ttv_rks[1:(end - 1)], tt2.ttv_rks)
     @test tt_concat.ttv_ot == vcat(tt1.ttv_ot, tt2.ttv_ot)
 
     # Test concatenate function for TToperator
@@ -231,7 +232,7 @@ end
     tto_concat = concatenate(tto1, tto2)
     @test tto_concat.N == tto1.N + tto2.N
     @test tto_concat.tto_dims == (tto1.tto_dims..., tto2.tto_dims...)
-    @test tto_concat.tto_rks == vcat(tto1.tto_rks[1:end-1], tto2.tto_rks)
+    @test tto_concat.tto_rks == vcat(tto1.tto_rks[1:(end - 1)], tto2.tto_rks)
     @test tto_concat.tto_ot == vcat(tto1.tto_ot, tto2.tto_ot)
 end
 
@@ -293,4 +294,139 @@ end
     vec_c = [randn(ComplexF64, 2, 1, 2), randn(ComplexF64, 2, 2, 1)]
     tt_c = TTvector{ComplexF64, 2}(N, vec_c, dims, rks, ot)
     @test eltype(tt_c) == ComplexF64
+end
+
+@testset "ttv decomp" begin
+
+    # test if ttv matches https://scfp.jinguo-group.science/chap2-linalg/tensor-network.html
+
+    tensor = ones(Float64, fill(2, 10)...)
+
+    struct MPS{T}
+        tensors::Vector{Array{T, 3}}
+    end
+
+    function truncated_svd(current_tensor::AbstractArray, largest_rank::Int, atol)
+        U, S, V = svd(current_tensor)
+        r = min(largest_rank, sum(S .> atol))
+        S_truncated = Diagonal(S[1:r])
+        U_truncated = U[:, 1:r]
+        V_truncated = V[:, 1:r]
+        return U_truncated, S_truncated, V_truncated, r
+    end
+
+    function tensor_train_decomposition(tensor::AbstractArray, largest_rank::Int; atol = 1.0e-6)
+        dims = size(tensor)
+        n = length(dims)
+
+        # Initialize the cores of the TT decomposition
+        tensors = Array{Float64, 3}[]
+
+        # Reshape the tensor into a matrix
+        rpre = 1
+        current_tensor = reshape(tensor, dims[1], :)
+
+        # Perform SVD for each core except the last one
+        for i in 1:(n - 1)
+            # Truncate to the specified rank
+            U_truncated, S_truncated, V_truncated, r = truncated_svd(current_tensor, largest_rank, atol)
+
+            # Middle cores have shape (largest_rank, dims[i], r)
+            push!(tensors, reshape(U_truncated, (rpre, dims[i], r)))
+
+            # Prepare the tensor for the next iteration
+            current_tensor = S_truncated * V_truncated'
+
+            # Reshape for the next SVD
+            current_tensor = reshape(current_tensor, r * dims[i + 1], :)
+            rpre = r
+        end
+
+        # Add the last core
+        push!(tensors, reshape(current_tensor, (rpre, dims[n], 1)))
+
+        return MPS(tensors)
+    end
+
+    A = tensor_train_decomposition(tensor, 10)
+
+
+    B = ttv_decomp(tensor)
+
+    size(A.tensors) == size(B.ttv_vec)
+
+    for i in 1:length(B.ttv_vec)
+        @test isapprox(abs.(reshape(reverse(A.tensors)[i], 2, 1, 1)), abs.((B.ttv_vec)[i]), rtol = 1.0e-10)
+    end
+
+    tensor_rand = rand(Float64, fill(2, 10)...)
+
+    A_rand = tensor_train_decomposition(tensor, 10)
+
+
+    B_rand = ttv_decomp(tensor)
+
+    size(A_rand.tensors) == size(B_rand.ttv_vec)
+
+    for i in 1:length(B_rand.ttv_vec)
+        @test isapprox(abs.(reshape(reverse(A_rand.tensors)[i], 2, 1, 1)), abs.((B_rand.ttv_vec)[i]), rtol = 1.0e-10)
+    end
+
+end
+
+@testset "random TT" begin
+
+    dims = (1, 2, 2, 1)
+
+    max_r = 2
+
+    A = rand_tt(dims, max_r; normalise = true, orthogonal = true)
+
+    @test maximum(A.ttv_rks) == max_r
+    @test A.N == length(dims)
+    @test isapprox(norm(A), 1.0, atol = 1.0e-10)
+    @test A.ttv_ot == [0, 0, 0, 0]
+end
+
+@testset "Copy" begin
+
+    dims = (1, 2, 3, 4, 5, 1)
+    A = rand_tt(dims, 5; normalise = true, orthogonal = true)
+    B = copy(A)
+    @test A.ttv_dims == B.ttv_dims
+    @test A.ttv_ot == B.ttv_ot
+    @test A.ttv_rks == B.ttv_rks
+    @test A.ttv_vec == B.ttv_vec
+
+end
+
+@testset "rand_orthogonal behavior" begin
+    using Random
+    rng_seed = 12345
+    Random.seed!(rng_seed)
+
+    n = 5; m = 5
+    A = rand_orthogonal(n, m)
+    @test size(A) == (n, m)
+    @test eltype(A) == Float64
+    @test isapprox(Matrix(A' * A), Matrix{Float64}(I, m, m); atol = 1e-12)
+    @test isapprox(Matrix(A * A'), Matrix{Float64}(I, n, n); atol = 1e-12)
+
+    n = 7; m = 3
+    Random.seed!(rng_seed)
+    A = rand_orthogonal(n, m)
+    @test size(A) == (n, m)
+    @test isapprox(Matrix(A' * A), Matrix{Float64}(I, m, m); atol = 1e-12)
+
+    n = 3; m = 7
+    Random.seed!(rng_seed)
+    A = rand_orthogonal(n, m)
+    @test size(A) == (n, m)
+    @test isapprox(Matrix(A * A'), Matrix{Float64}(I, n, n); atol = 1e-12)
+
+    n = 6; m = 4
+    B = rand_orthogonal(n, m; T = Float32)
+    @test size(B) == (n, m)
+    @test eltype(B) == Float32
+    @test isapprox(Matrix(B' * B), Matrix{Float32}(I, m, m); atol = 1e-6)
 end

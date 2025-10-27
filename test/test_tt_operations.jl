@@ -6,10 +6,10 @@ using Random
 
     # Test 1: Permute a 3-dimensional TTvector (trivial ranks)
     dims = (2, 3, 4)
-    rks = [1,2,2,1]
-    x = rand_tt(dims,rks)
+    rks = [1, 2, 2, 1]
+    x = rand_tt(dims, rks)
     order = [2, 1, 3]
-    eps = 1e-12
+    eps = 1.0e-12
     y = permute(x, order, eps)
     @test y.ttv_dims == dims[order]
     @test y.N == 3
@@ -47,20 +47,20 @@ end
     # Construct a TTvector with explicit values
     core1 = reshape([1.0, 2.0, 3.0], 3, 1, 1)
     core2 = reshape([4.0, 5.0], 2, 1, 1)
-    x = TTvector{Float64,2}(2, [core1, core2], dims, rks, zeros(Int,2))
+    x = TTvector{Float64, 2}(2, [core1, core2], dims, rks, zeros(Int, 2))
     # Full vector
-    full_x = vec([core1[i,1,1]*core2[j,1,1] for i=1:3, j=1:2])
+    full_x = vec([core1[i, 1, 1] * core2[j, 1, 1] for i in 1:3, j in 1:2])
     # Diagonal TT-matrix
     Xdiag = ttv_to_diag_tto(x)
     # Reconstruct full matrix from TToperator
     # For all (i1,i2), (j1,j2): sum over ranks (but all ranks are 1)
     mat = zeros(Float64, 6, 6)
-    for i1=1:3, i2=1:2, j1=1:3, j2=1:2
+    for i1 in 1:3, i2 in 1:2, j1 in 1:3, j2 in 1:2
         v = Xdiag.tto_vec[1][i1, j1, 1, 1] * Xdiag.tto_vec[2][i2, j2, 1, 1]
-        mat[(i1-1)*2+i2, (j1-1)*2+j2] = v
+        mat[(i1 - 1) * 2 + i2, (j1 - 1) * 2 + j2] = v
     end
     # Should be diagonal with full_x on the diagonal
-    @test all(mat[i,j] == 0.0 for i=1:6, j=1:6 if i != j)
+    @test all(mat[i, j] == 0.0 for i in 1:6, j in 1:6 if i != j)
 
     # Test 2: ttv_to_diag_tto preserves dimensions and ranks
     dims3 = (2, 2, 2)
@@ -70,9 +70,9 @@ end
     @test X3diag.tto_dims == x3.ttv_dims
     @test X3diag.tto_rks == x3.ttv_rks
     @test length(X3diag.tto_vec) == 3
-    @test all(size(core,1) == size(core,2) == d for (core,d) in zip(X3diag.tto_vec, x3.ttv_dims))
-    @test all(size(core,3) == r for (core,r) in zip(X3diag.tto_vec, x3.ttv_rks[1:end-1]))
-    @test all(size(core,4) == r for (core,r) in zip(X3diag.tto_vec, x3.ttv_rks[2:end]))
+    @test all(size(core, 1) == size(core, 2) == d for (core, d) in zip(X3diag.tto_vec, x3.ttv_dims))
+    @test all(size(core, 3) == r for (core, r) in zip(X3diag.tto_vec, x3.ttv_rks[1:(end - 1)]))
+    @test all(size(core, 4) == r for (core, r) in zip(X3diag.tto_vec, x3.ttv_rks[2:end]))
 
 end
 
@@ -90,21 +90,41 @@ end
     # Test 1: cos(π^2 * x) * sin(π^2 * x)
     expected1 = cos.(π^2 * x_points) .* sin.(π^2 * x_points)
     result1 = qtt_to_function(A2 ⊕ A3)
-    @test isapprox(result1, expected1; atol=1e-12)
+    @test isapprox(result1, expected1; atol = 1.0e-12)
 
     # Test 2: exp(x) * sin(π^2 * x)
     expected2 = exp.(x_points) .* sin.(π^2 * x_points)
     result2 = qtt_to_function(A1 ⊕ A2)
-    @test isapprox(result2, expected2; atol=1e-12)
+    @test isapprox(result2, expected2; atol = 1.0e-12)
 
     # Test 3: Polynomial values * sin(π^2 * x)
     values_polynom(x) = 2 * x + 3 * x^2 - 8 * x^3 - 5 * x^4
     expected3 = values_polynom.(x_points) .* sin.(π^2 * x_points)
     result3 = qtt_to_function(A4 ⊕ A2)
-    @test isapprox(result3, expected3; atol=1e-12)
+    @test isapprox(result3, expected3; atol = 1.0e-12)
 
     # Test 4: Polynomial values * cos(π^2 * x)
     expected4 = values_polynom.(x_points) .* cos.(π^2 * x_points)
     result4 = qtt_to_function(A4 ⊕ A3)
-    @test isapprox(result4, expected4; atol=1e-12)
+    @test isapprox(result4, expected4; atol = 1.0e-12)
+end
+
+
+@testset "Norms" begin
+
+    d = 8
+    A1 = qtt_exp(d)
+    A2 = qtt_sin(d, λ = π)
+    A3 = qtt_cos(d, λ = π)
+    A4 = qtt_polynom([0.0, 2.0, 3.0, -8.0, -5.0], d; a = 0.0, b = 1.0)
+
+    @test euclidean_distance(A1, A1) == 0.0
+    @test euclidean_distance_normalized(A1, A1) == 0.0
+
+    S1 = qtt_to_function(A1)
+    S2 = qtt_to_function(A2)
+
+    @test sqrt(LinearAlgebra.dot(S1, S1) - 2 * real(LinearAlgebra.dot(S1, S2)) + LinearAlgebra.dot(S2, S2)) == euclidean_distance(A1, A2)
+    @test isapprox(sqrt(1.0 + LinearAlgebra.dot(S1, S1) / LinearAlgebra.dot(S2, S2) - 2.0 * real(LinearAlgebra.dot(S2, S1)) / LinearAlgebra.dot(S2, S2)), euclidean_distance_normalized(A1, A2), atol = 1.0e-12)
+
 end

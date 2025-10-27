@@ -4,7 +4,7 @@ using KrylovKit
 
 d = 8
 N = 2^d
-h = 1 / (N-1)
+h = 1 / (N - 1)
 A = h^2 * toeplitz_to_qtto(-2, 1.0, 1.0, d)
 xes = collect(range(0.0, 1.0, 2^d))
 

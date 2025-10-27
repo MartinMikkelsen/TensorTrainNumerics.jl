@@ -220,38 +220,13 @@ function rand_tt(::Type{T}, dims, rks; normalise = false, orthogonal = false) wh
     return y
 end
 
-"""
-    rand_tt(dims, rmax::Int; T=Float64, normalise=false, orthogonal=false)
-
-Generate a random Tensor Train (TT) vector with specified dimensions and rank.
-
-# Arguments
-- `dims::Vector{Int}`: A vector specifying the dimensions of each mode of the tensor.
-- `rmax::Int`: The maximum TT-rank.
-- `T::Type` (optional): The element type of the tensor (default is `Float64`).
-- `normalise::Bool` (optional): If `true`, normalizes each core tensor (default is `false`).
-- `orthogonal::Bool` (optional): If `true`, orthogonalizes each core tensor (default is `false`).
-
-# Returns
-- `TTvector{T,d}`: A TTvector object containing the generated TT d, dimensions, ranks, and a zero vector for the TT ranks.
-"""
-function rand_tt(dims, rmax::Int; T = Float64, normalise = false, orthogonal = false)
+function rand_tt(dims, rmax::Int; normalise = false, orthogonal = false)
     d = length(dims)
-    tt_vec = Vector{Array{T, 3}}(undef, d)
     rks = rmax * ones(Int, d + 1)
     rks = r_and_d_to_rks(rks, dims; rmax = rmax)
-    for i in eachindex(tt_vec)
-        tt_vec[i] = randn(T, dims[i], rks[i], rks[i + 1])
-        if normalise
-            tt_vec[i] *= 1 / sqrt(dims[i] * rks[i + 1])
-        end
-        if orthogonal
-            q, _ = qr(reshape(permutedims(tt_vec[i], (1, 3, 2)), dims[i] * rks[i + 1], rks[i]))
-            tt_vec[i] = reshape(permutedims(Matrix(q), (1, 2, 3)), dims[i], rks[i], rks[i + 1])
-        end
-    end
-    return TTvector{T, d}(d, tt_vec, dims, rks, zeros(Int, d))
+    return rand_tt(dims, rks; normalise = normalise, orthogonal = orthogonal)
 end
+
 """
     rand_tt(x_tt::TTvector{T,N}; ε=convert(T,1e-3)) -> TTvector{T,N}
 
@@ -780,34 +755,6 @@ function visualize(tt::TToperator)
 
     # Display the diagram
     return println(diagram)
-end
-
-"""
-    tt_svdvals(x_tt::TTvector{T,N}; tol=1e-14) where {T<:Number, N}
-
-Compute the singular values of a Tensor Train (TT) vector `x_tt`.
-
-# Arguments
-- `x_tt::TTvector{T,N}`: The input TT vector.
-- `tol=1e-14`: Tolerance for truncating small singular values. Default is `1e-14`.
-
-# Returns
-- `Σ`: An array of arrays containing the singular values for each TT core.
-
-"""
-function tt_svdvals(x_tt::TTvector{T, N}; tol = 1.0e-14) where {T <: Number, N}
-    d = x_tt.N
-    Σ = Array{Array{Float64, 1}, 1}(undef, d - 1)
-    y_tt = orthogonalize(x_tt)
-    y_rks = y_tt.ttv_rks
-    for j in 1:(d - 1)
-        A = zeros(y_tt.ttv_dims[j], y_rks[j], y_tt.ttv_dims[j + 1], y_rks[j + 2])
-        @tensor A[a, b, c, d] = y_tt.ttv_vec[j][a, b, z] * y_tt.ttv_vec[j + 1][c, z, d]
-        u, s, v = svd(reshape(A, size(A, 1) * size(A, 2), :), alg = LinearAlgebra.QRIteration())
-        Σ[j], y_rks[j + 1] = floor(s, tol)
-        y_tt.ttv_vec[j + 1] = permutedims(reshape(Diagonal(Σ[j]) * v'[s .> tol, :], :, y_tt.ttv_dims[j + 1], y_rks[j + 2]), [2 1 3])
-    end
-    return Σ
 end
 
 """

@@ -2,7 +2,7 @@ using TensorTrainNumerics
 using CairoMakie
 using KrylovKit
 using OptimKit
-
+import TensorTrainNumerics: dot
 d = 6
 h = 1 / d^2
 A = h^2 * toeplitz_to_qtto(-2, 1.0, 1.0, d)
@@ -14,7 +14,7 @@ steps = collect(range(0.0, 10.0, 1000))
 
 solution_krylov, info = expintegrator(A, 1.0, init, eager = true)
 
-dims = (2, 2, 2, 2)  
+dims = (2, 2, 2, 2)
 ranks = [1, 2, 2, 2, 1]
 
 function cost_with_grad(x)
