@@ -409,24 +409,24 @@ end
     A = rand_orthogonal(n, m)
     @test size(A) == (n, m)
     @test eltype(A) == Float64
-    @test isapprox(Matrix(A' * A), Matrix{Float64}(I, m, m); atol = 1e-12)
-    @test isapprox(Matrix(A * A'), Matrix{Float64}(I, n, n); atol = 1e-12)
+    @test isapprox(Matrix(A' * A), Matrix{Float64}(I, m, m); atol = 1.0e-12)
+    @test isapprox(Matrix(A * A'), Matrix{Float64}(I, n, n); atol = 1.0e-12)
 
     n = 7; m = 3
     Random.seed!(rng_seed)
     A = rand_orthogonal(n, m)
     @test size(A) == (n, m)
-    @test isapprox(Matrix(A' * A), Matrix{Float64}(I, m, m); atol = 1e-12)
+    @test isapprox(Matrix(A' * A), Matrix{Float64}(I, m, m); atol = 1.0e-12)
 
     n = 3; m = 7
     Random.seed!(rng_seed)
     A = rand_orthogonal(n, m)
     @test size(A) == (n, m)
-    @test isapprox(Matrix(A * A'), Matrix{Float64}(I, n, n); atol = 1e-12)
+    @test isapprox(Matrix(A * A'), Matrix{Float64}(I, n, n); atol = 1.0e-12)
 
     n = 6; m = 4
     B = rand_orthogonal(n, m; T = Float32)
     @test size(B) == (n, m)
     @test eltype(B) == Float32
-    @test isapprox(Matrix(B' * B), Matrix{Float32}(I, m, m); atol = 1e-6)
+    @test isapprox(Matrix(B' * B), Matrix{Float32}(I, m, m); atol = 1.0e-6)
 end
