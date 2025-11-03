@@ -121,52 +121,79 @@ y_qtt = F * x_qtt
 
 # Variational solver
 
-You can also solve differential equations by optimizing a variational functional. Below is an example of how to use the `variational_solver` function to solve a simple differential equation based on - [OptimKit.jl](https://github.com/Jutho/OptimKit.jl) 
+You can also solve differential equations by optimizing a variational functional. Below is an example of how to use the `variational_solver` function to solve Burgers equation based on - [OptimKit.jl](https://github.com/Jutho/OptimKit.jl) 
 
 ```@example VariationalSolver
 using TensorTrainNumerics
 using OptimKit
-using KrylovKit
+using CairoMakie
+import TensorTrainNumerics: dot, orthogonalize
 
-d = 6
-N = 2^d
-h = 1 / (N - 1)
-Δ = toeplitz_to_qtto(2.0, -1.0, -1.0, d)
-kappa = 0.1
-A = kappa * Δ
+orth2(x) = orthogonalize(orthogonalize(x; i=1); i=x.N)        
 
-f = qtt_sin(d, λ = π)
+d  = 6
+L  = 1.0
+T  = 1.0
+Nt = 1000
+ν  = 0.01
 
-function fg(u::TTvector)
-    û  = orthogonalize(u)           
-    Au = A*û                       
-    val = 0.5 * real(dot(û, Au)) - real(dot(f, û))
-    grad = Au - f
-    return val, grad
+N  = 2^d
+dx = L / N
+dt = T / Nt
+
+Dx   = 1/dx * ∇(d)
+Dxx  = 1/dx^2 * Δ_DN(d)   
+
+u₀ = qtt_sin(d, λ = π/2)
+x0 = orth2(u₀)
+v  = u₀
+v_ref = Ref(u₀)
+
+"""
+    residual: (u - v)/dt + 1/2*∂x(u²) + ν uₓₓ
+"""
+function burgers_residual(u)
+    t1  = (u - v_ref[]) * (1/dt)
+    nl  = 0.5 * orth2(Dx * (u ⊕ u))
+    lin = Dxx * u
+    R   = t1 + nl + ν * lin
+    return orth2(R)
 end
 
-x0 = rand_tt(f.ttv_dims, f.ttv_rks)
+"""
+    gradient of J = 1/2 ∫∫ |R|² dx dt
+"""
+function burgers_cost_grad(u)
+    R = burgers_residual(u)
+    J = 0.5 * dx * dt * dot(R, R)
 
-method = GradientDescent()
-x, fx, gx, numfg, normgradhistor = optimize(fg, x0, method)
+    g  = (1/dt) * R
+    g += ν * (Dxx * R)
 
-relres = norm(A * x - f) / max(norm(f), eps())
+    Dxu = orth2(Dx * u)
+    g  += orth2(Dxu ⊕ R)
+    g  += orth2(Dx * orth2(u ⊕ R))
 
-x_mals = mals_linsolve(A, f, x0)
-rel_residual = norm(A * x_mals - f) / max(norm(f), eps())
+    g = (dx * dt) * g
+    return J, orth2(g)
+end
 
-x_krylov, info = linsolve(A, f, x0)
-relres_krylov = norm(A * x_krylov - f) / max(norm(f), eps())
-```
-with a relative residual of
-```@example VariationalSolver
-println("relative residual = ", relres)
-```
-Compared to the MALS solver
-```@example VariationalSolver
-println("relative residual MALS = ", rel_residual)
-```
-And the Krylov solver
-```@example VariationalSolver
-println("relative residual Krylov = ", relres_krylov)
+solver = GradientDescent(verbosity=2, gradtol=1e-6)
+
+v_ref[] = x0
+for _ in 1:150
+    x, _, _, _, _ = optimize(burgers_cost_grad, v_ref[], solver)
+    v_ref[] = orth2(x)
+end
+
+vals_init  = qtt_to_function(x0)
+vals_final = qtt_to_function(v_ref[])
+xes = (1:N) ./ N
+
+fig = Figure()
+ax = Axis(fig[1,1], xlabel="x", ylabel="u(x)", title="Variational Burgers")
+lines!(ax, xes, vals_init,  label="initial", linewidth=2)
+lines!(ax, xes, vals_final, label="final",   linewidth=2)
+axislegend(ax)
+fig
 ```
