@@ -80,3 +80,65 @@ end
 
     @test rel_error < 1.0e-5
 end
+
+@testset "rk4_method basic test" begin
+    d = 4
+    h = 1 / d^2
+    A = -h^2 * toeplitz_to_qtto(-2.0, 1.0, 1.0, d)
+    tt_dims = ntuple(_ -> 2, d)
+    tt_rks = [1; fill(2, d - 1); 1]
+
+    u₀ = rand_tt(tt_dims, tt_rks)
+    steps = [0.05]
+    max_bond = 8
+
+    sol_tt = rk4_method(A, u₀, steps, max_bond; normalize = false)
+
+    A_dense = qtto_to_matrix(A)
+    u_dense = qtt_to_function(u₀)
+    h_step = steps[1]
+
+    k1 = A_dense * u_dense
+    k2 = A_dense * (u_dense + (h_step / 2) * k1)
+    k3 = A_dense * (u_dense + (h_step / 2) * k2)
+    k4 = A_dense * (u_dense + h_step * k3)
+    incr = (h_step / 6) * (k1 + 2k2 + 2k3 + k4)
+    sol_dense = u_dense + incr
+
+    sol_tt_vec = qtt_to_function(sol_tt)
+    rel_error = norm(sol_tt_vec - sol_dense) / norm(sol_dense)
+
+    @test rel_error < 1.0e-6
+    println("RK4 test passed with relative error: ", rel_error)
+end
+
+@testset "rk4_method return_error consistency" begin
+    d = 4
+    h = 1 / d^2
+    A = -h^2 * toeplitz_to_qtto(-2.0, 1.0, 1.0, d)
+    tt_dims = ntuple(_ -> 2, d)
+    tt_rks = [1; fill(2, d - 1); 1]
+
+    u₀ = rand_tt(tt_dims, tt_rks)
+    steps = [0.05]
+    max_bond = 8
+
+    sol_tt, rel_err = rk4_method(A, u₀, steps, max_bond; normalize = false, return_error = true)
+
+    @test rel_err < 1.0e-10
+
+    A_dense = qtto_to_matrix(A)
+    u_dense = qtt_to_function(u₀)
+    h_step = steps[1]
+
+    k1 = A_dense * u_dense
+    k2 = A_dense * (u_dense + (h_step / 2) * k1)
+    k3 = A_dense * (u_dense + (h_step / 2) * k2)
+    k4 = A_dense * (u_dense + h_step * k3)
+    incr = (h_step / 6) * (k1 + 2k2 + 2k3 + k4)
+    sol_dense = u_dense + incr
+
+    sol_tt_vec = qtt_to_function(sol_tt)
+    rel_error = norm(sol_tt_vec - sol_dense) / norm(sol_dense)
+    @test rel_error < 1.0e-6
+end

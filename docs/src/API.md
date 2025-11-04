@@ -113,6 +113,4 @@ TensorTrainNumerics.permute
 TensorTrainNumerics.hadamard
 ```
 
-```@docs; canonical=false
-TensorTrainNumerics.kron
 ```

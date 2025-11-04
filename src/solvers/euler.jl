@@ -109,3 +109,34 @@ function crank_nicholson_method(
 
     return solution
 end
+
+function rk4_method(
+        A::TToperator, u₀::TTvector, steps::Vector{Float64}, max_bond::Int;
+        normalize::Bool = true, return_error::Bool = false
+    )
+    u = u₀
+    @showprogress for h in steps
+        k1 = A * u
+        k2 = A * tt_compress!(u + (h / 2) * k1, max_bond)
+        k3 = A * tt_compress!(u + (h / 2) * k2, max_bond)
+        k4 = A * tt_compress!(u + h * k3, max_bond)
+        incr = (h / 6) * tt_compress!(k1 + 2k2 + 2k3 + k4, max_bond)
+        u_new = tt_compress!(u + incr, max_bond)
+        if normalize
+            u_new = (1 / sqrt(dot(u_new, u_new))) * u_new
+        end
+        u = u_new
+    end
+    if return_error
+        h = steps[end]
+        k1 = A * u
+        k2 = A * tt_compress!(u + (h / 2) * k1, max_bond)
+        k3 = A * tt_compress!(u + (h / 2) * k2, max_bond)
+        k4 = A * tt_compress!(u + h * k3, max_bond)
+        incr = (h / 6) * tt_compress!(k1 + 2k2 + 2k3 + k4, max_bond)
+        residual = tt_compress!(u - (u - incr) - incr, max_bond)
+        rel_error = norm(residual) / max(norm(u), eps())
+        return u, rel_error
+    end
+    return u
+end
