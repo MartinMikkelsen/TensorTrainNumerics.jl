@@ -20,6 +20,8 @@ solution_crank, rel_crank = crank_nicholson_method(A, u₀, init, steps; return_
 
 solution_krylov, rel_krylov = expintegrator(A, last(steps), u₀)
 
+solution_runge, error_runge = rk4_method(A, u₀, steps, 25; return_error = true)
+
 let
     fig = Figure()
     ax = Axis(fig[1, 1], xlabel = "x", ylabel = "u(x)", title = "Comparison of Time-Stepping Methods")
