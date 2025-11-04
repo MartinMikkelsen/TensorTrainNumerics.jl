@@ -2,7 +2,7 @@ using Test
 using Random
 using LinearAlgebra
 using TensorOperations
-import TensorTrainNumerics: _sync_ranks_from_lsr!, _real_or_complex_t, svdtrunc, _to_lsr, _to_slr, _mpo_to_asbs, _dot3, _applyH1_lsr, _applyH0, _update_left_env, _update_right_env, tdvp1sweep!, tdvp2sweep!, _applyH2_lsr
+import TensorTrainNumerics: _sync_ranks_from_lsr!, _real_or_complex_t, _svdtrunc, _to_lsr, _to_slr, _mpo_to_asbs, _dot3, _applyH1_lsr, _applyH0, _update_left_env, _update_right_env, tdvp1sweep!, tdvp2sweep!, _applyH2_lsr
 Random.seed!(42)
 
 @testset "_sync_ranks_from_lsr!" begin
@@ -25,13 +25,13 @@ end
     @test _real_or_complex_t(z) === z
 end
 
-@testset "svdtrunc" begin
+@testset "_svdtrunc" begin
     A = randn(6, 4)
-    U, S, Vt = svdtrunc(A; max_bond = 100, truncerr = 0.0)
+    U, S, Vt = _svdtrunc(A; max_bond = 100, truncerr = 0.0)
     @test size(U, 1) == 6 && size(Vt, 2) == 4
     @test size(S, 1) == size(S, 2) == size(U, 2) == size(Vt, 1)
 
-    U2, S2, Vt2 = svdtrunc(A; max_bond = 2, truncerr = 0.0)
+    U2, S2, Vt2 = _svdtrunc(A; max_bond = 2, truncerr = 0.0)
     @test size(S2, 1) == 2
     F = svd(A)
     @test isapprox(diag(S2), F.S[1:2]; rtol = 1.0e-12, atol = 1.0e-12)
@@ -39,10 +39,10 @@ end
     A2 = randn(5, 5)
     F2 = svd(A2)
     thr = (F2.S[2] + F2.S[3]) / 2
-    U3, S3, Vt3 = svdtrunc(A2; max_bond = 5, truncerr = thr)
+    U3, S3, Vt3 = _svdtrunc(A2; max_bond = 5, truncerr = thr)
     @test size(S3, 1) == 2
 
-    U4, S4, Vt4 = svdtrunc(A2; max_bond = 1, truncerr = 0.0)
+    U4, S4, Vt4 = _svdtrunc(A2; max_bond = 1, truncerr = 0.0)
     @test size(S4, 1) == 1
 end
 

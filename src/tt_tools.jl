@@ -1016,3 +1016,57 @@ function concatenate(tt1::TToperator, tt2::TToperator)
 
     return TToperator{eltype(tt1), length(tto_dims)}(N, tto_vec, tto_dims, tto_rks, tto_ot)
 end
+
+function _svdtrunc(A; max_bond = max(size(A)...), truncerr = 0.0)
+    F = svd(A)
+    d = min(max_bond, count(F.S .>= truncerr))
+    return F.U[:, 1:d], diagm(0 => F.S[1:d]), F.Vt[1:d, :]
+end
+
+function _tt_bond_truncate!(ψ::TTvector{T, N}, k::Int; max_bond::Int = typemax(Int), truncerr::Real = 0.0) where {T<:Number, N}
+    @assert(1 ≤ k < ψ.N, "k must be in 1:(N-1)")
+
+    A = permutedims(ψ.ttv_vec[k],   (2, 1, 3))   
+    B = permutedims(ψ.ttv_vec[k+1], (2, 1, 3)) 
+
+    @tensor AAC[α, s1, s2, β] := A[α, s1, γ] * B[γ, s2, β]
+    Dl, d1, d2, Dr = size(AAC)
+
+    U, S, Vt = _svdtrunc(reshape(AAC, Dl * d1, d2 * Dr); max_bond = max_bond, truncerr = truncerr)
+
+    svec = diag(S)               
+    s_sqrt = sqrt.(svec)
+    U = U * Diagonal(s_sqrt)
+    Vt = Diagonal(s_sqrt) * Vt
+
+    new_r = size(U, 2)
+
+    AL = reshape(U, Dl, d1, new_r)
+    AR = reshape(Vt, new_r, d2, Dr)
+
+    ψ.ttv_vec[k]   = permutedims(AL, (2, 1, 3))
+    ψ.ttv_vec[k+1] = permutedims(AR, (2, 1, 3))
+
+    ψ.ttv_rks[k+1] = new_r
+
+    return orthogonalize(ψ; i = k)
+end
+
+function tt_compress!(ψ::TTvector{T, N}; max_bond::Int, truncerr::Real = 0.0, sweeps::Int = 1, verbose::Bool = false) where {T <: Number, N}
+    @assert(sweeps ≥ 1, "sweeps must be >= 1")
+    for sw in 1:sweeps
+        if verbose
+            @info "TT compress: sweep $sw (L→R)"
+        end
+        for k in 1:(ψ.N - 1)
+            _tt_bond_truncate!(ψ, k; max_bond = max_bond, truncerr = truncerr)
+        end
+        if verbose
+            @info "TT compress: sweep $sw (R→L)"
+        end
+        for k in (ψ.N - 1):-1:1
+            _tt_bond_truncate!(ψ, k; max_bond = max_bond, truncerr = truncerr)
+        end
+    end
+    return ψ
+end

@@ -3,6 +3,7 @@ using ProgressMeter
 using TensorOperations
 using LinearAlgebra
 using TensorTrainNumerics
+import TensorTrainNumerics: _svdtrunc
 
 function _sync_ranks_from_lsr!(ψ::TTvector, A_lsr::Vector{<:AbstractArray})
     N = ψ.N
@@ -17,12 +18,6 @@ function _sync_ranks_from_lsr!(ψ::TTvector, A_lsr::Vector{<:AbstractArray})
 end
 
 _real_or_complex_t(z) = isreal(z) ? real(z) : z
-
-function svdtrunc(A; max_bond = max(size(A)...), truncerr = 0.0)
-    F = svd(A)
-    d = min(max_bond, count(F.S .>= truncerr))
-    return F.U[:, 1:d], diagm(0 => F.S[1:d]), F.Vt[1:d, :]
-end
 
 _to_lsr(A) = permutedims(A, (2, 1, 3))
 _to_slr(A) = permutedims(A, (2, 1, 3))
@@ -247,7 +242,7 @@ function tdvp2sweep!(
         end
 
         Dl, d1, d2, Dr = size(AAC)
-        U, S, Vt = svdtrunc(
+        U, S, Vt = _svdtrunc(
             reshape(AAC, Dl * d1, d2 * Dr);
             max_bond = max_bond, truncerr = truncerr
         )
@@ -270,7 +265,7 @@ function tdvp2sweep!(
         end
 
         Dl, d1, d2, Dr = size(AAC)
-        U, S, Vt = svdtrunc(
+        U, S, Vt = _svdtrunc(
             reshape(AAC, Dl * d1, d2 * Dr);
             max_bond = max_bond, truncerr = truncerr
         )

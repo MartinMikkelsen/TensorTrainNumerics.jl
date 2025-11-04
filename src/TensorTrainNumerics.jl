@@ -1,6 +1,6 @@
 module TensorTrainNumerics
 
-export TTvector, TToperator, QTTvector, QTToperator, eltype, complex, ttv_decomp, tto_decomp, ttv_to_tensor, tto_to_tensor, is_qtt, is_qtt_operator, visualize, matricize, tt2qtt, concatenate, orthogonalize, copy, r_and_d_to_rks
+export TTvector, TToperator, QTTvector, QTToperator, eltype, complex, ttv_decomp, tto_decomp, ttv_to_tensor, tto_to_tensor, is_qtt, is_qtt_operator, visualize, matricize, tt2qtt, concatenate, orthogonalize, copy, r_and_d_to_rks, tt_compress!
 include("tt_tools.jl")
 
 export *, +, dot, -, /, outer_product, concatenate, permute, hadamard, kron, ⊕, ⊗, euclidean_distance, euclidean_distance_normalized, ttv_to_diag_tto, norm
