@@ -337,12 +337,10 @@ end
             # Prepare the tensor for the next iteration
             current_tensor = S_truncated * V_truncated'
 
-            # Reshape for the next SVD
             current_tensor = reshape(current_tensor, r * dims[i + 1], :)
             rpre = r
         end
 
-        # Add the last core
         push!(tensors, reshape(current_tensor, (rpre, dims[n], 1)))
 
         return MPS(tensors)
@@ -429,4 +427,136 @@ end
     @test size(B) == (n, m)
     @test eltype(B) == Float32
     @test isapprox(Matrix(B' * B), Matrix{Float32}(I, m, m); atol = 1.0e-6)
+end
+
+@testset "tt bond truncate internal function" begin
+    using LinearAlgebra
+
+    @testset "reduces rank to max_bond and updates core shapes" begin
+        N = 3
+        dims = (2, 2, 2)
+        rks = [1, 4, 4, 1]
+        ot = zeros(Int, N)
+        vec = Array{Array{Float64, 3}}(undef, N)
+        vec[1] = randn(2, 1, 4)
+        vec[2] = randn(2, 4, 4)
+        vec[3] = randn(2, 4, 1)
+        tt = TTvector{Float64, 3}(N, vec, dims, rks, ot)
+
+        y = TensorTrainNumerics._tt_bond_truncate!(tt, 1; max_bond = 2, truncerr = 0.0)
+
+        @test tt.ttv_rks[2] ≤ 2
+        new_r = tt.ttv_rks[2]
+        @test size(tt.ttv_vec[1]) == (dims[1], tt.ttv_rks[1], new_r)
+        @test size(tt.ttv_vec[2]) == (dims[2], new_r, tt.ttv_rks[3])
+        @test y.ttv_rks[2] == tt.ttv_rks[2]
+        @test size(y.ttv_vec[1]) == size(tt.ttv_vec[1])
+    end
+
+    @testset "exact rank-1 reconstruction leads to new rank 1" begin
+        N = 2
+        n1 = 2; n2 = 2
+        rks = [1, 2, 1]
+        ot = zeros(Int, N)
+        u = [1.2, -0.5]
+        v = [0.7, 0.3]
+        p = [2.0, 3.0]
+        q = [4.0, 5.0]
+
+        core1 = zeros(Float64, n1, 1, 2) # shape (n1, r0=1, r1=2)
+        core2 = zeros(Float64, n2, 2, 1) # shape (n2, r1=2, r2=1)
+
+        for s1 in 1:n1, γ in 1:2
+            core1[s1, 1, γ] = p[γ] * u[s1]
+        end
+        for s2 in 1:n2, γ in 1:2
+            core2[s2, γ, 1] = q[γ] * v[s2]
+        end
+
+        tt = TTvector{Float64, 2}(N, [core1, core2], (n1, n2), rks, ot)
+
+        y = TensorTrainNumerics._tt_bond_truncate!(tt, 1; max_bond = 1, truncerr = 0.0)
+
+        @test tt.ttv_rks[2] == 1
+        @test size(tt.ttv_vec[1]) == (n1, 1, 1)
+        @test size(tt.ttv_vec[2]) == (n2, 1, 1)
+        @test y.ttv_rks[2] == 1
+    end
+
+    @testset "invalid k throws AssertionError" begin
+        N = 3
+        dims = (2, 2, 2)
+        rks = [1, 2, 2, 1]
+        ot = zeros(Int, N)
+        vec = [randn(2, 1, 2), randn(2, 2, 2), randn(2, 2, 1)]
+        tt = TTvector{Float64, 3}(N, vec, dims, rks, ot)
+
+        @test_throws AssertionError TensorTrainNumerics._tt_bond_truncate!(tt, 0)
+        @test_throws AssertionError TensorTrainNumerics._tt_bond_truncate!(tt, tt.N)
+    end
+end
+
+@testset "tt_compress! behavior" begin
+    @testset "no-op for large max_bond" begin
+        N = 3
+        dims = (2, 2, 2)
+        rks = [1, 2, 2, 1]
+        ot = zeros(Int, N)
+        vec = Array{Array{Float64, 3}}(undef, N)
+        vec[1] = randn(dims[1], rks[1], rks[2])
+        vec[2] = randn(dims[2], rks[2], rks[3])
+        vec[3] = randn(dims[3], rks[3], rks[4])
+        tt = TTvector{Float64, N}(N, vec, dims, rks, ot)
+
+        before_rks = copy(tt.ttv_rks)
+        y = TensorTrainNumerics.tt_compress!(tt, 10; sweeps = 1)
+        @test y === tt
+        @test tt.ttv_rks == before_rks
+    end
+
+    @testset "reduces rank to max_bond and updates shapes" begin
+        N = 4
+        dims = (2, 2, 2, 2)
+        rks = [1, 4, 4, 4, 1]
+        ot = zeros(Int, N)
+        vec = Array{Array{Float64, 3}}(undef, N)
+        for i in 1:N
+            vec[i] = randn(dims[i], rks[i], rks[i + 1])
+        end
+        tt = TTvector{Float64, N}(N, vec, dims, rks, ot)
+
+        y = TensorTrainNumerics.tt_compress!(tt, 2; sweeps = 1)
+        @test y === tt
+        @test maximum(tt.ttv_rks) ≤ 2
+
+        for i in 1:N
+            @test size(tt.ttv_vec[i], 1) == dims[i]
+            @test size(tt.ttv_vec[i], 2) == tt.ttv_rks[i]
+            @test size(tt.ttv_vec[i], 3) == tt.ttv_rks[i + 1]
+        end
+    end
+
+    @testset "sweeps validation" begin
+        N = 3
+        dims = (2, 2, 2)
+        rks = [1, 2, 2, 1]
+        ot = zeros(Int, N)
+        vec = [randn(dims[1], rks[1], rks[2]), randn(dims[2], rks[2], rks[3]), randn(dims[3], rks[3], rks[4])]
+        tt = TTvector{Float64, N}(N, vec, dims, rks, ot)
+
+        @test_throws AssertionError TensorTrainNumerics.tt_compress!(tt, 2; sweeps = 0)
+    end
+
+    @testset "multiple sweeps return and type" begin
+        N = 3
+        dims = (2, 2, 2)
+        rks = [1, 3, 3, 1]
+        ot = zeros(Int, N)
+        vec = [randn(dims[1], rks[1], rks[2]), randn(dims[2], rks[2], rks[3]), randn(dims[3], rks[3], rks[4])]
+        tt = TTvector{Float64, N}(N, vec, dims, rks, ot)
+
+        y = TensorTrainNumerics.tt_compress!(tt, 3; sweeps = 2, truncerr = 0.0)
+        @test typeof(y) == typeof(tt)
+        @test y === tt
+    end
 end
