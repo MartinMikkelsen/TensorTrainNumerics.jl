@@ -1,9 +1,7 @@
 using TensorTrainNumerics
 using OptimKit
 using CairoMakie
-import TensorTrainNumerics: dot, orthogonalize
-
-orth2(x) = orthogonalize(orthogonalize(x; i = 1); i = x.N)
+import TensorTrainNumerics: dot
 
 d = 6
 L = 1.0
@@ -19,21 +17,21 @@ Dx = 1 / dx * ∇(d)
 Dxx = 1 / dx^2 * Δ_DN(d)
 
 u₀ = qtt_sin(d, λ = π / 2)
-x0 = orth2(u₀)
+x0 = (u₀)
 v = u₀
-
+max_bond = 20
 """
     residual: (u - v)/dt + 1/2*∂x(u²) + ν uₓₓ
 """
 function burgers_residual(u)
     t1 = (u - v) * (1 / dt)
 
-    nl = 0.5 * orth2(Dx * ((u ⊕ u)))
+    nl = 0.5 * tt_compress!(Dx * ((u ⊕ u)), max_bond)
 
     lin = Dxx * u
 
     R = t1 + nl + ν * lin
-    return orth2(R)
+    return tt_compress!(R, max_bond)
 end
 
 """
@@ -46,12 +44,12 @@ function burgers_cost_grad(u)
     g = (1 / dt) * R
     g += ν * (Dxx * R)
 
-    Dxu = orth2(Dx * u)
-    g += orth2(Dxu ⊕ R)
-    g += orth2(Dx * orth2(u ⊕ R))
+    Dxu = Dx * u
+    g += Dxu ⊕ R
+    g += tt_compress!(Dx * (u ⊕ R), max_bond)
 
     g = (dx * dt) * g
-    return J, orth2(g)
+    return J, tt_compress!(g, max_bond)
 end
 
 solver = GradientDescent(verbosity = 2, gradtol = 1.0e-6)
@@ -59,7 +57,7 @@ solver = GradientDescent(verbosity = 2, gradtol = 1.0e-6)
 v = x0
 for _ in 1:150
     x, _, _, _, _ = optimize(burgers_cost_grad, v, solver)
-    v = orth2(x)
+    v = tt_compress!(x, max_bond)
 end
 
 let
