@@ -30,7 +30,7 @@ include("qtt_tools.jl")
 export euler_method, implicit_euler_method, crank_nicholson_method, rk4_method
 include("solvers/euler.jl")
 
-export fourier_qtto, reverse_qtt_bits
+export fourier_qtto, reverse_qtt_bits, laplace_qtto
 include("tt_transformations.jl")
 
 end
