@@ -14,40 +14,42 @@ function VectorInterface.add(a::TTvector, b::TTvector, α::Number)
     return orthogonalize(a + α * b)
 end
 function VectorInterface.add(a::TTvector, b::TTvector, α::Number, β::Number)
-    return orthogonalize(β * a + α * b)
+    return tt_compress!(β * a + α * b, max_dim)
 end
+
+max_dim = 150
 
 function VectorInterface.add!(y::TTvector, x::TTvector)
     r = y + x
     y.ttv_vec = r.ttv_vec; y.ttv_rks = r.ttv_rks; y.ttv_dims = r.ttv_dims; y.ttv_ot = r.ttv_ot
-    return orthogonalize(y)
+    return tt_compress!(y, max_dim)
 end
 function VectorInterface.add!(y::TTvector{T, N}, x::TTvector{T, N}, α::Number, β::Number) where {T, N}
     αT = convert(T, α); βT = convert(T, β)
     r = βT * y + αT * x
     y.ttv_vec = r.ttv_vec; y.ttv_rks = r.ttv_rks; y.ttv_dims = r.ttv_dims; y.ttv_ot = r.ttv_ot
-    return orthogonalize(y)
+    return tt_compress!(y, max_dim)
 end
 
 function VectorInterface.add!!(y::TTvector, x::TTvector)
     return if promote_type(eltype(y), eltype(x)) <: eltype(y)
         VectorInterface.add!(y, x)
     else
-        orthogonalize(y + x)
+        tt_compress!(y + x, max_dim)
     end
 end
 function VectorInterface.add!!(y::TTvector, x::TTvector, α::Number, β::Number)
     return if promote_type(eltype(y), eltype(x), typeof(α), typeof(β)) <: eltype(y)
         VectorInterface.add!(y, x, α, β)
     else
-        r = orthogonalize(β * y + α * x)
+        r = tt_compress!(β * y + α * x, 150)
         y.ttv_vec = r.ttv_vec; y.ttv_rks = r.ttv_rks; y.ttv_dims = r.ttv_dims; y.ttv_ot = r.ttv_ot
         y
     end
 end
 
 function VectorInterface.scale(x::TTvector, α::Number)
-    return orthogonalize(α * x)
+    return tt_compress!(α * x, max_dim)
 end
 function VectorInterface.scale!(x::TTvector{T}, α::Number) where {T}
     αT = convert(T, α)
@@ -62,7 +64,7 @@ end
 function VectorInterface.scale!!(y::TTvector, x::TTvector, α::Number)
     r = VectorInterface.scale(x, α)
     y.ttv_vec = r.ttv_vec; y.ttv_rks = r.ttv_rks; y.ttv_dims = r.ttv_dims; y.ttv_ot = r.ttv_ot
-    return orthogonalize(y)
+    return tt_compress!(y, max_dim)
 end
 
 function VectorInterface.zerovector(a::TTvector)
