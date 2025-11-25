@@ -32,54 +32,6 @@ end
     return lagrange_eval(P, α, x) * cispi(sign * (σ + cβ) * τ)
 end
 
-@inline function laplace_core_entry(
-        P::LagrangePolynomials{Float64},
-        α::Int, β::Int, σ::Int, τ::Int;
-        scale::Float64 = 1.0
-    )
-    cβ = P.grid[β + 1]
-    x = 0.5 * (σ + cβ)
-    return lagrange_eval(P, α, x) * exp(-scale * (σ + cβ) * τ)
-end
-
-function laplace_qtto(d::Int,K::Int,scale::Float64)
-
-    @assert d ≥ 1
-    P = cheb_lobatto_grid(K)
-    r = K + 1
-
-    A = Array{Float64}(undef, 2, 2, r, r)
-    @inbounds for α in 0:K, β in 0:K, σ in 0:1, τ in 0:1
-        A[σ + 1, τ + 1, α + 1, β + 1] = laplace_core_entry(P, α, β, σ, τ; scale)
-    end
-
-    AL = Array{Float64}(undef, 2, 2, 1, r)
-    @inbounds for β in 1:r, σ in 1:2, τ in 1:2
-        s = zero(ComplexF64)
-        for α in 1:r
-            s += A[σ, τ, α, β]
-        end
-        AL[σ, τ, 1, β] = s
-    end
-
-    AR = Array{Float64}(undef, 2, 2, r, 1)
-    @inbounds for α in 1:r, σ in 1:2, τ in 1:2
-        AR[σ, τ, α, 1] = A[σ, τ, α, 1]
-    end
-
-    cores = Vector{Array{Float64, 4}}(undef, d)
-    cores[1] = AL
-    for k in 2:(d - 1)
-        cores[k] = A
-    end
-    cores[d] = AR
-
-    dims = ntuple(_ -> 2, d)
-    rks = vcat(1, fill(r, d - 1), 1)
-    ot = zeros(Int, d)
-    return TToperator{Float64, d}(d, cores, dims, rks, ot)
-end
-
 
 """
 Reference: https://arxiv.org/pdf/2404.03182
