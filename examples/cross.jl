@@ -321,10 +321,43 @@ function tt_cross(
     return tt_cross(f, domain; kwargs...)
 end
 
-f(coords) = vec(sum(coords.^2, dims=2))
+function sin_6d(coords::Matrix{Float64})
+    return vec(sin.(sum(coords, dims=2)))
+end
 
-domain = [collect(1.0:10.0) for _ in 1:6]
+n = 8
+d = 6
+domain = [collect(range(0.0, π, length=n)) for _ in 1:d]
 
-tt = tt_cross(f, domain; ranks_tt=4, eps=1e-6, max_iter=25)
+println("Building TT approximation of 6D sin function...")
+println("Domain: $d dimensions, each with $n points")
+println("Total grid points: $(n^d)")
 
-reshape(ttv_to_tensor(tt),)
+tt = tt_cross(sin_6d, domain; ranks_tt=4, eps=1e-10, max_iter=50, verbose=true)
+
+println("\nResulting TT ranks: $(tt.ttv_rks)")
+
+println("\nConverting TT back to full tensor...")
+tensor_approx = ttv_to_tensor(tt)
+
+println("Building reference tensor...")
+tensor_exact = zeros(Float64, ntuple(_ -> n, d))
+for idx in CartesianIndices(tensor_exact)
+    coords = [domain[k][idx[k]] for k in 1:d]
+    tensor_exact[idx] = sin(sum(coords))
+end
+
+error = norm(tensor_approx - tensor_exact) / norm(tensor_exact)
+println("\nRelative error: $error")
+
+max_error = maximum(abs.(tensor_approx - tensor_exact))
+println("Maximum absolute error: $max_error")
+
+println("\nSpot checks at random indices:")
+for _ in 1:5
+    idx = Tuple(rand(1:n) for _ in 1:d)
+    coords = [domain[k][idx[k]] for k in 1:d]
+    exact_val = sin(sum(coords))
+    approx_val = tensor_approx[idx...]
+    println("  Index $idx: exact=$(round(exact_val, digits=8)), approx=$(round(approx_val, digits=8)), diff=$(abs(exact_val - approx_val))")
+end
