@@ -94,16 +94,16 @@ function _evaluate_tt(cores, indices, N)
 end
 
 function tt_cross(
-    f::Function,
-    domain::Vector{<:AbstractVector{T}};
-    ranks_tt::Union{Int, Vector{Int}} = 2,
-    kickrank::Union{Nothing, Int} = 3,
-    rmax::Int = 100,
-    eps::Float64 = 1e-6,
-    max_iter::Int = 25,
-    val_size::Int = 1000,
-    verbose::Bool = true
-) where {T <: Number}
+        f::Function,
+        domain::Vector{<:AbstractVector{T}};
+        ranks_tt::Union{Int, Vector{Int}} = 2,
+        kickrank::Union{Nothing, Int} = 3,
+        rmax::Int = 100,
+        eps::Float64 = 1.0e-6,
+        max_iter::Int = 25,
+        val_size::Int = 1000,
+        verbose::Bool = true
+    ) where {T <: Number}
 
     N = length(domain)
     Is = [length(d) for d in domain]
@@ -158,7 +158,7 @@ function tt_cross(
     end
 
     if verbose
-        println("Cross-approximation over a $(N)D domain containing $(prod(Is)) grid points:")
+        @info "Cross-interpolation over a $(N)D domain containing $(prod(Is)) grid points"
     end
 
     converged = false
@@ -166,7 +166,7 @@ function tt_cross(
 
     for iter in 1:max_iter
         if verbose
-            print("iter: $(iter) ")
+            @info "iterations: $(iter)"
         end
 
         left_locals = Vector{Vector{Int}}(undef, N - 1)
@@ -257,13 +257,13 @@ function tt_cross(
         val_eps = norm(ys_val - y_approx) / norm_ys_val
 
         if verbose
-            println("| eps: $(val_eps) | largest rank: $(maximum(Rs))")
+            @info "ε: $(val_eps), largest rank: $(maximum(Rs))"
         end
 
         if val_eps < eps
             converged = true
             if verbose
-                println(" <- converged: eps < $(eps)")
+                @info "converged! ε < $(eps)"
             end
             break
         end
@@ -293,7 +293,7 @@ function tt_cross(
     end
 
     if !converged && verbose
-        println("Warning: max_iter reached without convergence (eps = $(val_eps))")
+        @warn "Warning: max_iter reached without convergence (eps = $(val_eps))"
     end
 
     dims = Tuple(Is)
@@ -304,20 +304,19 @@ function tt_cross(
 end
 
 function tt_cross(
-    f::Function,
-    dims::NTuple{N, Int};
-    kwargs...
-) where {N}
+        f::Function,
+        dims::NTuple{N, Int};
+        kwargs...
+    ) where {N}
     domain = [collect(1.0:Float64(d)) for d in dims]
     return tt_cross(f, domain; kwargs...)
 end
 
 function tt_cross(
-    f::Function,
-    dims::Vector{Int};
-    kwargs...
-)
+        f::Function,
+        dims::Vector{Int};
+        kwargs...
+    )
     domain = [collect(1.0:Float64(d)) for d in dims]
     return tt_cross(f, domain; kwargs...)
 end
-
