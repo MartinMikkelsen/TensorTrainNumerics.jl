@@ -1,7 +1,6 @@
 using LinearAlgebra
 using Random
 using Maxvol
-using TensorTrainNumerics
 using CairoMakie
 
 function sin_6d(coords::Matrix{Float64})
@@ -10,6 +9,7 @@ end
 
 n = 8
 d = 6
+
 domain = [collect(range(0.0, π, length = n)) for _ in 1:d]
 
 tt = tt_cross(sin_6d, domain; ranks_tt = 12, eps = 1.0e-15, max_iter = 50, verbose = true)

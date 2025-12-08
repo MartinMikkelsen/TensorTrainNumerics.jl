@@ -93,6 +93,25 @@ function _evaluate_tt(cores, indices, N)
     return result
 end
 
+"""
+    tt_cross(f::Function, domain::Vector{<:AbstractVector{T}}; kwargs...)
+
+Performs TT-cross interpolation for constructing a tensor-train approximation of a multivariate function.
+
+# Arguments
+- `f::Function`: The multivariate function to approximate
+- `domain::Vector{<:AbstractVector{T}}`: A vector of vectors defining the domain for each dimension
+
+# Keyword Arguments
+- `ranks_tt::Union{Int, Vector{Int}}`: Target TT-ranks (default: 2)
+- `kickrank::Union{Nothing, Int}`: Rank increment for enrichment (default: 3)
+- `rmax::Int`: Maximum allowed rank (default: 100)
+- `eps::Float64`: Convergence tolerance (default: 1.0e-6)
+- `max_iter::Int`: Maximum number of iterations (default: 25)
+
+# References
+- Ivan Oseledets, Eugene Tyrtyshnikov, "TT-cross approximation for multidimensional arrays"
+"""
 function tt_cross(
         f::Function,
         domain::Vector{<:AbstractVector{T}};
