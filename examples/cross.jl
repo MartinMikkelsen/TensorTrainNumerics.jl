@@ -2,6 +2,7 @@ using LinearAlgebra
 using Random
 using Maxvol
 using CairoMakie
+using TensorTrainNumerics
 
 function sin_6d(coords::Matrix{Float64})
     return vec(sin.(sum(coords, dims = 2)))
@@ -40,27 +41,3 @@ for _ in 1:5
     approx_val = tensor_approx[idx...]
     println("  Index $idx: exact=$(round(exact_val, digits = 8)), approx=$(round(approx_val, digits = 8)), diff=$(abs(exact_val - approx_val))")
 end
-
-function Hilbert_tensor(x,y,z,t,w)
-    return 1/(x+y+z+t+w)
-end
-
-function Hilbert_wrapper(coords::Matrix{Float64})
-    npts = size(coords, 1)
-    vals = Vector{Float64}(undef, npts)
-    @inbounds for i in 1:npts
-        x = coords[i,1]
-        y = coords[i,2]
-        z = coords[i,3]
-        t = coords[i,4]
-        w = coords[i,5]
-        vals[i] = 1/(x + y + z + t + w)
-    end
-    return vals
-end
-
-domain = [collect(range(1.0, 33.0, length = 33)) for _ in 1:5];
-
-t = tt_cross(Hilbert_wrapper,domain, verbose=true)
-
-t_dense = ttv_to_tensor(t);

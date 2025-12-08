@@ -113,4 +113,3 @@ TensorTrainNumerics.permute
 TensorTrainNumerics.hadamard
 ```
 
-```
