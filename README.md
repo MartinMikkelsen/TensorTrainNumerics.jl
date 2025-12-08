@@ -29,6 +29,7 @@ Pkg.add("TensorTrainNumerics")
 - Tensor Train Decomposition: Algorithms for decomposing high-dimensional tensors into tensor train format 
 - Tensor Operations: Support for basic tensor operations such as addition, multiplication, the hadamard product in tensor train format 
 - Discrete Operators: Implementation of discrete Laplacians, gradient operators, and shift matrices in tensor train format for solving partial differential equations 
+- TT-cross algortithm for approximating tensors from function calls
 - Quantized Tensor Trains: Tools for constructing and manipulating quantized tensor trains, which provide further compression and efficiency for large-scale problems.
 - Iterative Solvers: Integration with iterative solvers for solving linear systems and eigenvalue problems in tensor train format
 - The Fourier transform in QTT format and interpolation in QTT format 
