@@ -96,7 +96,7 @@ println("Relative error for Crank-Nicolson: ", rel_crank)
 
 # Discrete Fourier Transform
 
-Based on [QFT1](@cite) we also have access to the discrete Fourier transform (DFT) in QTT format. Below is an esample of how to use it. You can use the `fourier_qtto` function to create a QTT representation of the Fourier transform operator where the `sign` parameter determines if its the Fourier transform or the inverse Fourier transform. 
+Based on [QFT1](@cite) we also have access to the discrete Fourier transform (DFT) in QTT format. Below is an example of how to use it. You can use the `fourier_qtto` function to create a QTT representation of the Fourier transform operator where the `sign` parameter determines if its the Fourier transform or the inverse Fourier transform. 
 
 ```@example DFT
 using TensorTrainNumerics   
@@ -196,4 +196,48 @@ lines!(ax, xes, vals_init,  label="initial", linewidth=2)
 lines!(ax, xes, vals_final, label="final",   linewidth=2)
 axislegend(ax)
 fig
+```
+
+# TT-cross approximation
+
+The TT-cross algorithm allows you to approximate a high-dimensional tensor from function calls. Below is an example of how to use the `tt_cross` function to
+
+```@example TTcross
+using LinearAlgebra
+using CairoMakie
+using TensorTrainNumerics
+
+function sin_6d(coords::Matrix{Float64})
+    return vec(sin.(sum(coords, dims = 2)))
+end
+
+n = 8
+d = 6
+
+domain = [collect(range(0.0, π, length = n)) for _ in 1:d]
+
+tt = tt_cross(sin_6d, domain; ranks_tt = 12, eps = 1.0e-15, max_iter = 50, verbose = true)
+
+tensor_approx = ttv_to_tensor(tt);
+
+tensor_exact = zeros(Float64, ntuple(_ -> n, d));
+for idx in CartesianIndices(tensor_exact)
+    coords = [domain[k][idx[k]] for k in 1:d]
+    tensor_exact[idx] = sin(sum(coords))
+end
+
+error = norm(tensor_approx - tensor_exact) / norm(tensor_exact)
+
+max_error = maximum(abs.(tensor_approx - tensor_exact))
+```
+And we can check the difference at random indices
+```@example TTcross
+println("Relative error: ", error)
+for _ in 1:5
+    idx = Tuple(rand(1:n) for _ in 1:d)
+    coords = [domain[k][idx[k]] for k in 1:d]
+    exact_val = sin(sum(coords))
+    approx_val = tensor_approx[idx...]
+    println("  Index $idx: exact=$(round(exact_val, digits = 8)), approx=$(round(approx_val, digits = 8)), diff=$(abs(exact_val - approx_val))")
+end
 ```

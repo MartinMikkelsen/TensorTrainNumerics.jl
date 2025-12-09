@@ -68,8 +68,6 @@ end
 
 You can also build a QTT based on interpolation techniques based on [lindsey2023multiscale](@cite). The function `interpolating_qtt` constructs a QTT representation of a given function using polynomial interpolation at Chebyshev nodes. Another option is to use the function `lagrange_rank_revealing`, which constructs a QTT representation using a rank-revealing approach based on Lagrange interpolation as shown in this example
 
-We can also do interpolation in the QTT framework:
-
 ```@example 2
 using CairoMakie
 using TensorTrainNumerics
