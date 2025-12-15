@@ -339,3 +339,65 @@ function tt_cross(
     domain = [collect(1.0:Float64(d)) for d in dims]
     return tt_cross(f, domain; kwargs...)
 end
+
+function _contract_with_weights(cores, weights)
+    result = ones(eltype(cores[1]), 1)
+    for k in eachindex(cores)
+        contracted = sum(weights[k][i] .* cores[k][i, :, :] for i in axes(cores[k], 1))
+        result = vec(result' * contracted)
+    end
+    return result[1]
+end
+
+function _gauss_legendre(n::Int, a::T, b::T) where {T}
+    β = [k / sqrt(4k^2 - 1) for k in 1:(n-1)]
+    J = SymTridiagonal(zeros(n), β)
+    λ, V = eigen(J)
+    nodes = (b - a) / 2 .* λ .+ (a + b) / 2
+    weights = (b - a) .* V[1, :].^2
+    return nodes, weights
+end
+
+"""
+    tt_integrate(f::Function, bounds::Vector{Tuple{T, T}}; nquad::Int = 20, kwargs...) where {T <: AbstractFloat}
+
+Compute the multidimensional integral of a function using Tensor Train cross-interpolation.
+
+This function approximates the integral of a function `f` over a multidimensional rectangular domain
+by first constructing a low-rank Tensor Train approximation using cross-interpolation, then integrating
+the approximation using Gauss-Legendre quadrature.
+
+# References
+
+Vysotsky, Lev I., Alexander V. Smirnov, and Eugene E. Tyrtyshnikov. "Tensor-train numerical integration of multivariate functions with singularities." Lobachevskii Journal of Mathematics 42.7 (2021): 1608-1621.
+"""
+function tt_integrate(
+        f::Function,
+        bounds::Vector{Tuple{T, T}};
+        nquad::Int = 20,
+        kwargs...
+    ) where {T <: AbstractFloat}
+
+    d = length(bounds)
+    nodes = [_gauss_legendre(nquad, bounds[k]...)[1] for k in 1:d]
+    weights = [_gauss_legendre(nquad, bounds[k]...)[2] for k in 1:d]
+    
+    tt = tt_cross(f, nodes; kwargs...)
+    cores = tt.ttv_vec
+    
+    result = ones(eltype(cores[1]), 1)
+    for k in 1:d
+        contracted = sum(weights[k][i] .* cores[k][i, :, :] for i in axes(cores[k], 1))
+        result = vec(result' * contracted)
+    end
+    return result[1]
+end
+
+tt_integrate(f, d::Int, bound::Tuple{T,T}=(zero(T),one(T)); kw...) where {T<:AbstractFloat} = tt_integrate(f, fill(bound, d); kw...)
+tt_integrate(f, d::Int; kw...) = tt_integrate(f, fill((0.0, 1.0), d); kw...)
+
+function tt_integrate(f::Function, lower::Vector{T}, upper::Vector{T}; kwargs...) where {T <: AbstractFloat}
+    bounds = collect(zip(lower, upper))
+    tt_integrate(f, bounds; kwargs...)
+end
+

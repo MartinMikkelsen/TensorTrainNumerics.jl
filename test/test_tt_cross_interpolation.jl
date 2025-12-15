@@ -69,3 +69,43 @@ using Test
         @test tt.N == 2
     end
 end
+
+@testset "tt_integrate" begin
+    @testset "tt_integrate 1D function" begin
+        f(x) = x[:, 1] .^ 2
+        bounds = [(0.0, 1.0)]
+        result = tt_integrate(f, bounds, nquad = 10, max_iter = 3, verbose = false)
+        @test isa(result, Real)
+        @test 0.2 < result < 0.4
+    end
+
+    @testset "tt_integrate 2D function" begin
+        f(x) = x[:, 1] .* x[:, 2]
+        bounds = [(0.0, 1.0), (0.0, 1.0)]
+        result = tt_integrate(f, bounds, nquad = 10, max_iter = 3, verbose = false)
+        @test isa(result, Real)
+        @test 0.2 < result < 0.3
+    end
+
+    @testset "tt_integrate with custom nquad" begin
+        f(x) = sum(x, dims = 2)
+        bounds = [(1.0, 2.0), (1.0, 2.0)]
+        result = tt_integrate(f, bounds, nquad = 15, max_iter = 2, verbose = false)
+        @test isa(result, Real)
+    end
+
+    @testset "tt_integrate constant function" begin
+        f(x) = ones(size(x, 1))
+        bounds = [(0.0, 1.0)]
+        result = tt_integrate(f, bounds, nquad = 10, max_iter = 3, verbose = false)
+        @test 0.9 < result < 1.1
+    end
+
+    @testset "tt_integrate with different bounds" begin
+        f(x) = x[:, 1]
+        bounds = [(2.0, 4.0)]
+        result = tt_integrate(f, bounds, nquad = 10, max_iter = 3, verbose = false)
+        @test isa(result, Real)
+        @test 5.0 < result < 7.0
+    end
+end
