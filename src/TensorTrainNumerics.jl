@@ -36,4 +36,7 @@ include("tt_transformations.jl")
 export tt_cross
 include("tt_cross_interpolation.jl")
 
+export tt_gradient, tto_gradient, tt_joint_gradient, TTLossFunction, NormLoss, DistanceLoss, ExpectationLoss, RayleighLoss, CustomLoss, evaluate_loss, tt_gradient_descent
+include("tt_auto_diff.jl")
+
 end

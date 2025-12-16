@@ -5,7 +5,7 @@ bib = CitationBibliography(joinpath(@__DIR__, "src", "refs.bib"); style = :numer
 
 makedocs(
     sitename = "TensorTrainNumerics.jl",
-    format = Documenter.HTML(assets = ["assets/favicon.ico", "assets.citations.css"]),
+    format = Documenter.HTML(assets = ["assets/favicon.ico", "assets/citations.css"]),
     pages = [
         "index.md",
         "theory.md",
