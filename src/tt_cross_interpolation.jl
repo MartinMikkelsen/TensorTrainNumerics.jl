@@ -698,7 +698,7 @@ function tt_cross(
         ilocr[i] = [1]
     end
 
-    for i in 1:N-1
+    for i in 1:(N - 1)
         Jyl[i + 1] = _indexmerge(Jyl[i], reshape(collect(1:Is[i]), :, 1))
         Jyl[i + 1] = Jyl[i + 1][1:1, :]
     end
@@ -712,7 +712,7 @@ function tt_cross(
         cry = _evaluate_on_domain(f, domain, J)
         if i > 1
             cry_mat = reshape(cry, Rs[i], Is[i] * Rs[i + 1])
-            _, imax = findmax(abs.(cry_mat), dims=2)
+            _, imax = findmax(abs.(cry_mat), dims = 2)
             ilocr[i] = [imax[1][2]]
             Jyr[i] = _indexmerge(reshape(collect(1:Is[i]), :, 1), Jyr[i + 1])
             Jyr[i] = Jyr[i][ilocr[i], :]
@@ -727,7 +727,7 @@ function tt_cross(
         cry = _evaluate_on_domain(f, domain, J)
         if i < N
             cry_mat = reshape(cry, Rs[i] * Is[i], Rs[i + 1])
-            _, imax = findmax(abs.(cry_mat), dims=1)
+            _, imax = findmax(abs.(cry_mat), dims = 1)
             ilocl[i + 1] = [imax[1][1]]
             Jyl[i + 1] = _indexmerge(Jyl[i], reshape(collect(1:Is[i]), :, 1))
             Jyl[i + 1] = Jyl[i + 1][ilocl[i + 1], :]
@@ -763,9 +763,9 @@ function tt_cross(
     for swp in 1:alg.maxiter
         max_dx = zero(T)
 
-        for i in 1:N-1
-            cind1 = setdiff(1:Rs[i]*Is[i], ilocl[i + 1])
-            cind2 = setdiff(1:Is[i + 1]*Rs[i + 2], ilocr[i + 1])
+        for i in 1:(N - 1)
+            cind1 = setdiff(1:(Rs[i] * Is[i]), ilocl[i + 1])
+            cind2 = setdiff(1:(Is[i + 1] * Rs[i + 2]), ilocr[i + 1])
 
             if isempty(cind1) || isempty(cind2)
                 continue
@@ -803,7 +803,7 @@ function tt_cross(
 
             emax, imax1_local = findmax(abs.(cre_col))
             imax1 = cind1[imax1_local]
-            
+
             dx = emax / max(maxy, eps(T))
             max_dx = max(max_dx, dx)
 
@@ -879,6 +879,19 @@ function tt_cross(
 
     cores_out = _form_tensor(y, mid_inv_L, mid_inv_U, N, Rs, Is)
     return TTvector{T, N}(N, cores_out, Tuple(Is), copy(Rs), zeros(Int, N))
+end
+
+function _indexmerge(J1::AbstractMatrix{Int}, J2::AbstractMatrix{Int})
+    sz1 = max(size(J1, 1), 1)
+    sz2 = max(size(J2, 1), 1)
+
+    J1_mat = Matrix(J1)
+    J2_mat = Matrix(J2)
+
+    J1_rep = repeat(J1_mat, sz2, 1)
+    J2_rep = repeat(J2_mat, inner = (sz1, 1))
+
+    return hcat(J1_rep, J2_rep)
 end
 
 function _form_tensor(y, mid_inv_L, mid_inv_U, N, Rs, Is)
