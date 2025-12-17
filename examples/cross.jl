@@ -14,34 +14,7 @@ domain = [collect(range(0.0, π, length = n)) for _ in 1:d]
 
 tt = tt_cross(sin_6d, domain; ranks_tt = 12, eps = 1.0e-15, max_iter = 50, verbose = true)
 
-println("\nResulting TT ranks: $(tt.ttv_rks)")
 
-println("\nConverting TT back to full tensor...")
-tensor_approx = ttv_to_tensor(tt);
-
-println("Building reference tensor...")
-tensor_exact = zeros(Float64, ntuple(_ -> n, d));
-for idx in CartesianIndices(tensor_exact)
-    coords = [domain[k][idx[k]] for k in 1:d]
-    tensor_exact[idx] = sin(sum(coords))
-end
-
-error = norm(tensor_approx - tensor_exact) / norm(tensor_exact)
-println("\nRelative error: $error")
-
-max_error = maximum(abs.(tensor_approx - tensor_exact))
-println("Maximum absolute error: $max_error")
-
-println("\nSpot checks at random indices:")
-for _ in 1:5
-    idx = Tuple(rand(1:n) for _ in 1:d)
-    coords = [domain[k][idx[k]] for k in 1:d]
-    exact_val = sin(sum(coords))
-    approx_val = tensor_approx[idx...]
-    println("  Index $idx: exact=$(round(exact_val, digits = 8)), approx=$(round(approx_val, digits = 8)), diff=$(abs(exact_val - approx_val))")
-end
-
-println("=== TT Integration Examples ===\n")
 
 println("1. Simple 1D integral: ∫₀¹ x² dx = 1/3")
 f1(x) = x[:, 1] .^ 2
@@ -76,3 +49,42 @@ function Q(x)
 end
 
 result5 = tt_integrate(Q, 10, (-1.0, 1.0); nquad = 50, verbose = true, eps = 1.0e-12)
+
+tt_maxvol = tt_cross(sin_6d, domain, MaxVol(tol=1e-8, maxiter=20, verbose=true); ranks=4);
+
+tt_dmrg = tt_cross(sin_6d, domain, DMRG(tol=1e-8, maxiter=20, verbose=true); ranks=4);
+
+tt_greedy = tt_cross(sin_6d, domain, Greedy(tol=1e-8, verbose=true, maxiter=100));
+
+
+println("MaxVol ranks: ", tt_maxvol.ttv_rks)
+println("DMRG ranks: ", tt_dmrg.ttv_rks)
+println("Greedy ranks: ", tt_dmrg.ttv_rks)
+
+
+println("\nResulting TT ranks: $(tt_dmrg.ttv_rks)")
+
+println("\nConverting TT back to full tensor...")
+tensor_approx = ttv_to_tensor(tt_dmrg);
+
+println("Building reference tensor...")
+tensor_exact = zeros(Float64, ntuple(_ -> n, d));
+for idx in CartesianIndices(tensor_exact)
+    coords = [domain[k][idx[k]] for k in 1:d]
+    tensor_exact[idx] = sin(sum(coords))
+end
+
+error = norm(tensor_approx - tensor_exact) / norm(tensor_exact)
+println("\nRelative error: $error")
+
+max_error = maximum(abs.(tensor_approx - tensor_exact))
+println("Maximum absolute error: $max_error")
+
+println("\nSpot checks at random indices:")
+for _ in 1:5
+    idx = Tuple(rand(1:n) for _ in 1:d)
+    coords = [domain[k][idx[k]] for k in 1:d]
+    exact_val = sin(sum(coords))
+    approx_val = tensor_approx[idx...]
+    println("  Index $idx: exact=$(round(exact_val, digits = 8)), approx=$(round(approx_val, digits = 8)), diff=$(abs(exact_val - approx_val))")
+end
