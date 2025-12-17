@@ -12,10 +12,6 @@ d = 6
 
 domain = [collect(range(0.0, π, length = n)) for _ in 1:d]
 
-tt = tt_cross(sin_6d, domain; ranks_tt = 12, eps = 1.0e-15, max_iter = 50, verbose = true)
-
-
-
 println("1. Simple 1D integral: ∫₀¹ x² dx = 1/3")
 f1(x) = x[:, 1] .^ 2
 result1 = tt_integrate(f1, [(0.0, 1.0)]; nquad = 8, verbose = false)
@@ -54,7 +50,7 @@ tt_maxvol = tt_cross(sin_6d, domain, MaxVol(tol=1e-8, maxiter=20, verbose=true);
 
 tt_dmrg = tt_cross(sin_6d, domain, DMRG(tol=1e-8, maxiter=20, verbose=true); ranks=4);
 
-tt_greedy = tt_cross(sin_6d, domain, Greedy(tol=1e-8, verbose=true, maxiter=100));
+tt_greedy = tt_cross(sin_6d, domain, Greedy(tol=1e-8, verbose=true, maxiter=50));
 
 
 println("MaxVol ranks: ", tt_maxvol.ttv_rks)
@@ -62,10 +58,10 @@ println("DMRG ranks: ", tt_dmrg.ttv_rks)
 println("Greedy ranks: ", tt_dmrg.ttv_rks)
 
 
-println("\nResulting TT ranks: $(tt_dmrg.ttv_rks)")
+println("\nResulting TT ranks: $(tt_greedy.ttv_rks)")
 
 println("\nConverting TT back to full tensor...")
-tensor_approx = ttv_to_tensor(tt_dmrg);
+tensor_approx = ttv_to_tensor(tt_greedy);
 
 println("Building reference tensor...")
 tensor_exact = zeros(Float64, ntuple(_ -> n, d));

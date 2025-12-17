@@ -670,44 +670,72 @@ function tt_cross(
     N = length(domain)
     Is = [length(d) for d in domain]
 
-    I_l = Vector{Matrix{Int}}(undef, N)
-    I_g = Vector{Matrix{Int}}(undef, N)
-    J_l = Vector{Vector{Int}}(undef, N)
-    J_g = Vector{Vector{Int}}(undef, N)
-
-    I_l[1] = ones(Int, 1, 0)
-    I_g[N] = ones(Int, 1, 0)
-    J_l[1] = Int[]
-    J_g[N] = Int[]
-
-    init_point = [1 for _ in 1:N]
-    for k in 2:N
-        I_l[k] = reshape(init_point[1:k-1], 1, k-1)
-        J_l[k] = [1]
-    end
-    for k in N-1:-1:1
-        I_g[k] = reshape(init_point[k+1:N], 1, N-k)
-        J_g[k] = [1]
-    end
-
     Rs = ones(Int, N + 1)
 
-    fibers = Vector{Array{T, 3}}(undef, N)
-    for k in 1:N
-        fibers[k] = _sample_fiber(f, domain, I_l, I_g, k, Is, N)
+    y = Vector{Array{T, 3}}(undef, N)
+    mid_inv_U = Vector{Matrix{T}}(undef, N + 1)
+    mid_inv_L = Vector{Matrix{T}}(undef, N + 1)
+
+    mid_inv_U[1] = ones(T, 1, 1)
+    mid_inv_L[1] = ones(T, 1, 1)
+    mid_inv_U[N + 1] = ones(T, 1, 1)
+    mid_inv_L[N + 1] = ones(T, 1, 1)
+
+    Jyl = Vector{Matrix{Int}}(undef, N + 1)
+    Jyr = Vector{Matrix{Int}}(undef, N + 1)
+    ilocl = Vector{Vector{Int}}(undef, N + 1)
+    ilocr = Vector{Vector{Int}}(undef, N + 1)
+
+    Jyl[1] = ones(Int, 1, 0)
+    Jyr[N + 1] = ones(Int, 1, 0)
+    ilocl[1] = Int[]
+    ilocr[N + 1] = Int[]
+
+    for i in 2:N
+        mid_inv_U[i] = ones(T, 1, 1)
+        mid_inv_L[i] = ones(T, 1, 1)
+        ilocl[i] = [1]
+        ilocr[i] = [1]
     end
 
-    list_Q3 = Vector{Array{T, 3}}(undef, N - 1)
-    list_R = Vector{Matrix{T}}(undef, N - 1)
-    for k in 1:N-1
-        list_Q3[k], list_R[k] = _fiber_to_Q3R(fibers[k])
+    for i in 1:N-1
+        Jyl[i + 1] = _indexmerge(Jyl[i], reshape(collect(1:Is[i]), :, 1))
+        Jyl[i + 1] = Jyl[i + 1][1:1, :]
+    end
+    for i in N:-1:2
+        Jyr[i] = _indexmerge(reshape(collect(1:Is[i]), :, 1), Jyr[i + 1])
+        Jyr[i] = Jyr[i][1:1, :]
     end
 
-    cores = Vector{Array{T, 3}}(undef, N)
-    for k in 1:N-1
-        cores[k] = _Q3_to_core(list_Q3[k], J_l[k + 1])
+    for i in N:-1:1
+        J = _indexmerge(_indexmerge(Jyl[i], reshape(collect(1:Is[i]), :, 1)), Jyr[i + 1])
+        cry = _evaluate_on_domain(f, domain, J)
+        if i > 1
+            cry_mat = reshape(cry, Rs[i], Is[i] * Rs[i + 1])
+            _, imax = findmax(abs.(cry_mat), dims=2)
+            ilocr[i] = [imax[1][2]]
+            Jyr[i] = _indexmerge(reshape(collect(1:Is[i]), :, 1), Jyr[i + 1])
+            Jyr[i] = Jyr[i][ilocr[i], :]
+            mid_inv_U[i] = reshape([1 / cry_mat[1, ilocr[i][1]]], 1, 1)
+            mid_inv_L[i] = ones(T, 1, 1)
+        end
+        y[i] = reshape(cry, Rs[i], Is[i], Rs[i + 1])
     end
-    cores[N] = fibers[N]
+
+    for i in 1:N
+        J = _indexmerge(_indexmerge(Jyl[i], reshape(collect(1:Is[i]), :, 1)), Jyr[i + 1])
+        cry = _evaluate_on_domain(f, domain, J)
+        if i < N
+            cry_mat = reshape(cry, Rs[i] * Is[i], Rs[i + 1])
+            _, imax = findmax(abs.(cry_mat), dims=1)
+            ilocl[i + 1] = [imax[1][1]]
+            Jyl[i + 1] = _indexmerge(Jyl[i], reshape(collect(1:Is[i]), :, 1))
+            Jyl[i + 1] = Jyl[i + 1][ilocl[i + 1], :]
+            mid_inv_U[i + 1] = reshape([1 / cry_mat[ilocl[i + 1][1], 1]], 1, 1)
+            mid_inv_L[i + 1] = ones(T, 1, 1)
+        end
+        y[i] = reshape(cry, Rs[i], Is[i], Rs[i + 1])
+    end
 
     Xs_val = Matrix{Int}(undef, val_size, N)
     for d in 1:N
@@ -729,35 +757,112 @@ function tt_cross(
 
     converged = false
     val_eps = Inf
+    max_dx = zero(T)
+    maxy = zero(T)
 
-    for iter in 1:alg.maxiter
-        for k in 1:N-1
-            _greedy_update!(cores, fibers, list_Q3, list_R, I_l, I_g, J_l, J_g, Rs, f, domain, Is, k, N, alg)
+    for swp in 1:alg.maxiter
+        max_dx = zero(T)
+
+        for i in 1:N-1
+            cind1 = setdiff(1:Rs[i]*Is[i], ilocl[i + 1])
+            cind2 = setdiff(1:Is[i + 1]*Rs[i + 2], ilocr[i + 1])
+
+            if isempty(cind1) || isempty(cind2)
+                continue
+            end
+
+            testsz = min(length(cind1), length(cind2), alg.nsamples)
+            tind1 = cind1[rand(1:length(cind1), testsz)]
+            tind2 = cind2[rand(1:length(cind2), testsz)]
+
+            J1 = _indexmerge(Jyl[i], reshape(collect(1:Is[i]), :, 1))
+            J2 = _indexmerge(reshape(collect(1:Is[i + 1]), :, 1), Jyr[i + 2])
+
+            J = hcat(J1[tind1, :], J2[tind2, :])
+            crt = _evaluate_on_domain(f, domain, J)
+            maxy = max(maxy, maximum(abs.(crt)))
+
+            cry1 = reshape(y[i], Rs[i] * Is[i], Rs[i + 1])
+            cry2 = reshape(y[i + 1], Rs[i + 1], Is[i + 1] * Rs[i + 2])
+
+            cre1 = cry1 * mid_inv_U[i + 1]
+            cre2 = mid_inv_L[i + 1] * cry2
+
+            cry_approx = [LinearAlgebra.dot(cre1[tind1[j], :], cre2[:, tind2[j]]) for j in 1:testsz]
+            cre = crt - cry_approx
+
+            emax, imax_test = findmax(abs.(cre))
+            j_g_best = tind2[imax_test]
+
+            J_col = hcat(J1[cind1, :], repeat(J2[j_g_best:j_g_best, :], length(cind1), 1))
+            crt_col = _evaluate_on_domain(f, domain, J_col)
+            maxy = max(maxy, maximum(abs.(crt_col)))
+
+            cry_col = cre1[cind1, :] * cre2[:, j_g_best]
+            cre_col = crt_col - cry_col
+
+            emax, imax1_local = findmax(abs.(cre_col))
+            imax1 = cind1[imax1_local]
+            
+            dx = emax / max(maxy, eps(T))
+            max_dx = max(max_dx, dx)
+
+            if dx > alg.tol
+                J1m = J1[imax1:imax1, :]
+                J2m = J2[j_g_best:j_g_best, :]
+
+                Jl = hcat(J1, repeat(J2m, size(J1, 1), 1))
+                Jr = hcat(repeat(J1m, size(J2, 1), 1), J2)
+
+                cre1_new_vec = _evaluate_on_domain(f, domain, Jl)
+                cre2_new_vec = _evaluate_on_domain(f, domain, Jr)
+
+                cre1_new = reshape(cre1_new_vec, Rs[i] * Is[i], 1)
+                cre2_new = reshape(cre2_new_vec, 1, Is[i + 1] * Rs[i + 2])
+
+                uold = mid_inv_U[i + 1]
+                lold = mid_inv_L[i + 1]
+
+                erow = reshape(cry1[imax1, :], 1, Rs[i + 1])
+                ecol = cre1_new[ilocl[i + 1], 1]
+                eel = cre1_new[imax1, 1]
+
+                ecol_transformed = lold * ecol
+                erow_transformed = erow * uold
+                alpha = eel - LinearAlgebra.dot(vec(erow_transformed), ecol_transformed)
+
+                new_U = zeros(T, Rs[i + 1] + 1, Rs[i + 1] + 1)
+                new_U[1:Rs[i + 1], 1:Rs[i + 1]] = uold
+                new_U[1:Rs[i + 1], Rs[i + 1] + 1] = -(uold * ecol_transformed) / alpha
+                new_U[Rs[i + 1] + 1, Rs[i + 1] + 1] = 1 / alpha
+                mid_inv_U[i + 1] = new_U
+
+                new_L = zeros(T, Rs[i + 1] + 1, Rs[i + 1] + 1)
+                new_L[1:Rs[i + 1], 1:Rs[i + 1]] = lold
+                new_L[Rs[i + 1] + 1, 1:Rs[i + 1]] = -vec(erow_transformed * lold)
+                new_L[Rs[i + 1] + 1, Rs[i + 1] + 1] = 1
+                mid_inv_L[i + 1] = new_L
+
+                cry1_new = hcat(cry1, cre1_new)
+                cry2_new = vcat(cry2, cre2_new)
+                y[i] = reshape(cry1_new, Rs[i], Is[i], Rs[i + 1] + 1)
+                y[i + 1] = reshape(cry2_new, Rs[i + 1] + 1, Is[i + 1], Rs[i + 2])
+
+                Rs[i + 1] += 1
+
+                Jyl[i + 1] = vcat(Jyl[i + 1], J1m)
+                Jyr[i + 1] = vcat(Jyr[i + 1], J2m)
+                push!(ilocl[i + 1], imax1)
+                push!(ilocr[i + 1], j_g_best)
+            end
         end
 
-        cores_eval = [permutedims(cores[k], (2, 1, 3)) for k in 1:N]
-        y_approx = _evaluate_tt(cores_eval, Xs_val, N)
+        cores_out = _form_tensor(y, mid_inv_L, mid_inv_U, N, Rs, Is)
+        y_approx = _evaluate_tt(cores_out, Xs_val, N)
         val_eps = norm(ys_val - y_approx) / norm_ys_val
 
         if alg.verbose
-            @info "Sweep $(2*iter - 1) (L→R): ε = $(val_eps), max rank = $(maximum(Rs))"
-        end
-
-        if val_eps < alg.tol
-            converged = true
-            break
-        end
-
-        for k in N-1:-1:1
-            _greedy_update!(cores, fibers, list_Q3, list_R, I_l, I_g, J_l, J_g, Rs, f, domain, Is, k, N, alg)
-        end
-
-        cores_eval = [permutedims(cores[k], (2, 1, 3)) for k in 1:N]
-        y_approx = _evaluate_tt(cores_eval, Xs_val, N)
-        val_eps = norm(ys_val - y_approx) / norm_ys_val
-
-        if alg.verbose
-            @info "Sweep $(2*iter) (R→L): ε = $(val_eps), max rank = $(maximum(Rs))"
+            @info "Sweep $swp: ε = $(val_eps), max_dx = $(max_dx), max rank = $(maximum(Rs))"
         end
 
         if val_eps < alg.tol
@@ -769,11 +874,23 @@ function tt_cross(
     if converged && alg.verbose
         @info "Converged: ε = $(val_eps) < $(alg.tol)"
     elseif !converged && alg.verbose
-        @warn "Max iterations reached: ε = $(val_eps)"
+        @warn "Max iterations reached"
     end
 
-    cores_out = [permutedims(cores[k], (2, 1, 3)) for k in 1:N]
+    cores_out = _form_tensor(y, mid_inv_L, mid_inv_U, N, Rs, Is)
     return TTvector{T, N}(N, cores_out, Tuple(Is), copy(Rs), zeros(Int, N))
+end
+
+function _form_tensor(y, mid_inv_L, mid_inv_U, N, Rs, Is)
+    cores = Vector{Array{eltype(y[1]), 3}}(undef, N)
+    for i in 1:N
+        yi = reshape(y[i], Rs[i], Is[i] * Rs[i + 1])
+        yi = mid_inv_L[i] * yi
+        yi = reshape(yi, Rs[i] * Is[i], Rs[i + 1])
+        yi = yi * mid_inv_U[i + 1]
+        cores[i] = permutedims(reshape(yi, Rs[i], Is[i], Rs[i + 1]), (2, 1, 3))
+    end
+    return cores
 end
 
 function _sample_fiber(f, domain, I_l, I_g, k, Is, N)
