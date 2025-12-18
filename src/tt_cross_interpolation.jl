@@ -8,7 +8,7 @@ abstract type PivotAlgorithm end
 const CROSS_MAXITER = Ref{Int}(50)
 const CROSS_TOL = Ref{Float64}(1.0e-10)
 const CROSS_RMAX = Ref{Int}(500)
-const CROSS_KICKRANK = Ref{Int}(3)
+const CROSS_KICKRANK = Ref{Int}(5)
 const MAXVOL_TOL = Ref{Float64}(1.05)
 
 struct MaxVolPivot{T <: Real} <: PivotAlgorithm
@@ -38,6 +38,13 @@ struct MaxVol{T <: Real, P <: PivotAlgorithm} <: CrossAlgorithm
     pivot::P
 end
 
+"""
+# References 
+
+Dmitry Savostyanov
+Quasioptimality of maximum-volume cross interpolation of tensors
+Linear Algebra and its Applications 458, 217-244
+"""
 function MaxVol(;
         maxiter::Int = CROSS_MAXITER[],
         tol::Real = CROSS_TOL[],
@@ -57,7 +64,13 @@ struct Greedy{T <: Real, P <: PivotAlgorithm} <: CrossAlgorithm
     nsamples::Int
     pivot::P
 end
+"""
+# References 
 
+Dmitry Savostyanov
+Quasioptimality of maximum-volume cross interpolation of tensors
+Linear Algebra and its Applications 458, 217-244
+"""
 function Greedy(;
         maxiter::Int = CROSS_MAXITER[],
         tol::Real = CROSS_TOL[],
@@ -78,7 +91,13 @@ struct DMRG{T <: Real, P <: PivotAlgorithm} <: CrossAlgorithm
     pivot::P
     nsweeps_inner::Int
 end
+"""
+# References
 
+D Savostyanov, I Oseledets
+Fast adaptive interpolation of multi-dimensional arrays in tensor train format
+The 2011 International Workshop on Multidimensional (nD) Systems, 1-8
+"""
 function DMRG(;
         maxiter::Int = CROSS_MAXITER[],
         tol::Real = CROSS_TOL[],
@@ -291,12 +310,12 @@ function tt_cross(f::Function, domain; alg::CrossAlgorithm = MaxVol(), kwargs...
     return tt_cross(f, domain, alg; kwargs...)
 end
 
-function tt_cross(f::Function, dims::NTuple{N, Int}, alg::CrossAlgorithm; kwargs...) where {N}
+function tt_cross(f::Function, dims::NTuple{N, Int}; alg::CrossAlgorithm = MaxVol(), kwargs...) where {N}
     domain = [collect(1.0:Float64(d)) for d in dims]
     return tt_cross(f, domain, alg; kwargs...)
 end
 
-function tt_cross(f::Function, dims::Vector{Int}, alg::CrossAlgorithm; kwargs...)
+function tt_cross(f::Function, dims::Vector{Int}; alg::CrossAlgorithm = MaxVol(), kwargs...)
     domain = [collect(1.0:Float64(d)) for d in dims]
     return tt_cross(f, domain, alg; kwargs...)
 end
@@ -602,7 +621,6 @@ function tt_cross(
         f::Function,
         domain::Vector{<:AbstractVector{T}},
         alg::Greedy;
-        ranks::Union{Int, Vector{Int}} = 1,
         val_size::Int = 1000
     ) where {T <: Number}
 
@@ -1080,18 +1098,10 @@ Compute the multidimensional integral of a function using Tensor Train cross-int
 - `lower::Vector{T}`: Lower bounds for each dimension
 - `upper::Vector{T}`: Upper bounds for each dimension
 
-# Keyword Arguments
-- `alg::CrossAlgorithm`: Cross-interpolation algorithm (MaxVol(), Greedy(), or DMRG())
-- `nquad::Int=20`: Number of Gauss-Legendre quadrature nodes per dimension
-- `kwargs...`: Additional arguments passed to `tt_cross`
-
-# Returns
-- Approximate value of the integral
-
 # References
-Vysotsky, Lev I., Alexander V. Smirnov, and Eugene E. Tyrtyshnikov. 
-"Tensor-train numerical integration of multivariate functions with singularities." 
-Lobachevskii Journal of Mathematics 42.7 (2021): 1608-1621.
+Lev Vysotsky, Alexander Smirnov, Eugene Tyrtyshnikov
+Tensor-train numerical integration of multivariate functions with singularities.
+Lobachevskii Journal of Mathematics
 """
 function tt_integrate(
         f::Function,
