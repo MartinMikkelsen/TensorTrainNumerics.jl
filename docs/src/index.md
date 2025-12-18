@@ -12,6 +12,7 @@ There are [many packages](resources.md) for tensor decompositions and tensor net
 - Quantized Tensor Trains: Tools for constructing and manipulating quantized tensor trains, which provide further compression and efficiency for large-scale problems.
 - Iterative Solvers: Integration with iterative solvers for solving linear systems and eigenvalue problems in tensor train format [White, Haegeman_2016, Vanderstraeten_2019, als_mals](@cite).
 - The Fourier transform in QTT format and interpolation in QTT format [lindsey2023multiscale, Dolgov2012, QFT1, QFT2](@cite).
+- Tensor cross interpolation [SAVOSTYANOV2014217, 6076873, vysotsky2021tensor](@cite).
 - Visualization: Basic visualization tools. 
 
 ## Getting started 

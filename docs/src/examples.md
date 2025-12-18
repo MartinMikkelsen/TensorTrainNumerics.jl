@@ -215,10 +215,10 @@ n = 8
 d = 6
 
 domain = [collect(range(0.0, π, length = n)) for _ in 1:d]
+alg = MaxVol(tol = 1.0e-8, maxiter = 20, verbose = true)
+tt_maxvol = tt_cross(sin_6d, domain, alg; ranks = 4);
 
-tt = tt_cross(sin_6d, domain; ranks_tt = 12, eps = 1.0e-15, max_iter = 50, verbose = true)
-
-tensor_approx = ttv_to_tensor(tt);
+tensor_approx = ttv_to_tensor(tt_maxvol);
 
 tensor_exact = zeros(Float64, ntuple(_ -> n, d));
 for idx in CartesianIndices(tensor_exact)
