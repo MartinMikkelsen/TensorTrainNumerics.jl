@@ -33,7 +33,7 @@ include("solvers/euler.jl")
 export fourier_qtto, reverse_qtt_bits
 include("tt_transformations.jl")
 
-export tt_cross
+export tt_cross, tt_integrate, MaxVol, DMRG, Greedy
 include("tt_cross_interpolation.jl")
 
 end
