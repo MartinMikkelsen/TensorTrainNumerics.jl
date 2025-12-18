@@ -301,67 +301,6 @@ function tt_cross(f::Function, dims::Vector{Int}, alg::CrossAlgorithm; kwargs...
     return tt_cross(f, domain, alg; kwargs...)
 end
 
-function _contract_with_weights(cores, weights)
-    result = ones(eltype(cores[1]), 1)
-    for k in eachindex(cores)
-        contracted = sum(weights[k][i] .* cores[k][i, :, :] for i in axes(cores[k], 1))
-        result = vec(result' * contracted)
-    end
-    return result[1]
-end
-
-function _gauss_legendre(n::Int, a::T, b::T) where {T}
-    β = [k / sqrt(4k^2 - 1) for k in 1:(n - 1)]
-    J = SymTridiagonal(zeros(n), β)
-    λ, V = eigen(J)
-    nodes = (b - a) / 2 .* λ .+ (a + b) / 2
-    weights = (b - a) .* V[1, :] .^ 2
-    return nodes, weights
-end
-
-"""
-    tt_integrate(f::Function, bounds::Vector{Tuple{T, T}}; nquad::Int = 20, kwargs...) where {T <: AbstractFloat}
-
-Compute the multidimensional integral of a function using Tensor Train cross-interpolation.
-
-This function approximates the integral of a function `f` over a multidimensional rectangular domain
-by first constructing a low-rank Tensor Train approximation using cross-interpolation, then integrating
-the approximation using Gauss-Legendre quadrature.
-
-# References
-
-Vysotsky, Lev I., Alexander V. Smirnov, and Eugene E. Tyrtyshnikov. "Tensor-train numerical integration of multivariate functions with singularities." Lobachevskii Journal of Mathematics 42.7 (2021): 1608-1621.
-"""
-function tt_integrate(
-        f::Function,
-        bounds::Vector{Tuple{T, T}};
-        nquad::Int = 20,
-        kwargs...
-    ) where {T <: AbstractFloat}
-
-    d = length(bounds)
-    nodes = [_gauss_legendre(nquad, bounds[k]...)[1] for k in 1:d]
-    weights = [_gauss_legendre(nquad, bounds[k]...)[2] for k in 1:d]
-
-    tt = tt_cross(f, nodes; kwargs...)
-    cores = tt.ttv_vec
-
-    result = ones(eltype(cores[1]), 1)
-    for k in 1:d
-        contracted = sum(weights[k][i] .* cores[k][i, :, :] for i in axes(cores[k], 1))
-        result = vec(result' * contracted)
-    end
-    return result[1]
-end
-
-tt_integrate(f, d::Int, bound::Tuple{T, T} = (zero(T), one(T)); kw...) where {T <: AbstractFloat} = tt_integrate(f, fill(bound, d); kw...)
-tt_integrate(f, d::Int; kw...) = tt_integrate(f, fill((0.0, 1.0), d); kw...)
-
-function tt_integrate(f::Function, lower::Vector{T}, upper::Vector{T}; kwargs...) where {T <: AbstractFloat}
-    bounds = collect(zip(lower, upper))
-    return tt_integrate(f, bounds; kwargs...)
-end
-
 function tt_cross(
         f::Function,
         domain::Vector{<:AbstractVector{T}},
@@ -1129,4 +1068,78 @@ function _greedy_update!(cores, fibers, list_Q3, list_R, I_l, I_g, J_l, J_g, Rs,
     end
 
     return Rs[k + 1] = size(I_l[k + 1], 1)
+end
+
+"""
+    tt_integrate(f, lower, upper; alg=MaxVol(), nquad=20, kwargs...)
+
+Compute the multidimensional integral of a function using Tensor Train cross-interpolation.
+
+# Arguments
+- `f::Function`: Integrand function `f(x::Matrix) -> Vector` where each row is a point
+- `lower::Vector{T}`: Lower bounds for each dimension
+- `upper::Vector{T}`: Upper bounds for each dimension
+
+# Keyword Arguments
+- `alg::CrossAlgorithm`: Cross-interpolation algorithm (MaxVol(), Greedy(), or DMRG())
+- `nquad::Int=20`: Number of Gauss-Legendre quadrature nodes per dimension
+- `kwargs...`: Additional arguments passed to `tt_cross`
+
+# Returns
+- Approximate value of the integral
+
+# References
+Vysotsky, Lev I., Alexander V. Smirnov, and Eugene E. Tyrtyshnikov. 
+"Tensor-train numerical integration of multivariate functions with singularities." 
+Lobachevskii Journal of Mathematics 42.7 (2021): 1608-1621.
+"""
+function tt_integrate(
+        f::Function,
+        lower::Vector{T},
+        upper::Vector{T};
+        alg::CrossAlgorithm = MaxVol(),
+        nquad::Int = 20,
+        kwargs...
+    ) where {T <: Number}
+
+    d = length(lower)
+    @assert length(upper) == d "lower and upper bounds must have the same length"
+
+    nodes = Vector{Vector{T}}(undef, d)
+    weights = Vector{Vector{T}}(undef, d)
+    for k in 1:d
+        nodes[k], weights[k] = _gauss_legendre(nquad, lower[k], upper[k])
+    end
+
+    tt = tt_cross(f, nodes, alg; kwargs...)
+
+    return _contract_with_weights(tt.ttv_vec, weights)
+end
+
+function tt_integrate(
+        f::Function,
+        d::Int;
+        lower::T = 0.0,
+        upper::T = 1.0,
+        kwargs...
+    ) where {T <: Number}
+    return tt_integrate(f, fill(lower, d), fill(upper, d); kwargs...)
+end
+
+function _contract_with_weights(cores::Vector{<:Array{T,3}}, weights::Vector{<:Vector{T}}) where {T}
+    result = ones(T, 1)
+    for k in eachindex(cores)
+        contracted = sum(weights[k][i] .* cores[k][i, :, :] for i in axes(cores[k], 1))
+        result = vec(result' * contracted)
+    end
+    return result[1]
+end
+
+function _gauss_legendre(n::Int, a::T, b::T) where {T <: Number}
+    β = T[k / sqrt(4k^2 - 1) for k in 1:(n - 1)]
+    J = SymTridiagonal(zeros(T, n), β)
+    λ, V = eigen(J)
+    nodes = (b - a) / 2 .* λ .+ (a + b) / 2
+    weights = (b - a) .* V[1, :] .^ 2
+    return nodes, weights
 end
