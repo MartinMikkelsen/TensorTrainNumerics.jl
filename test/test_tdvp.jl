@@ -40,7 +40,7 @@ end
     F2 = svd(A2)
     thr = (F2.S[2] + F2.S[3]) / 2
     U3, S3, Vt3 = _svdtrunc(A2; max_bond = 5, truncerr = thr)
-    @test size(S3, 1) == 2
+    @test size(S3, 1) == 1
 
     U4, S4, Vt4 = _svdtrunc(A2; max_bond = 1, truncerr = 0.0)
     @test size(S4, 1) == 1

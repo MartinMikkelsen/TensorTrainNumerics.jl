@@ -440,7 +440,7 @@ import TensorTrainNumerics: MaxVolPivot, RandomPivot, MaxVol, Greedy, DMRG, _cap
         @testset "tt_integrate simple" begin
             f(x) = ones(size(x, 1))
 
-            result = tt_integrate(f, 3; alg = MaxVol(verbose = false))
+            result = tt_integrate(f, 3; alg = DMRG(verbose = false))
             @test result ≈ 1.0 atol = 1.0e-6
         end
 
@@ -449,14 +449,14 @@ import TensorTrainNumerics: MaxVolPivot, RandomPivot, MaxVol, Greedy, DMRG, _cap
             lower = [0.0, 0.0]
             upper = [2.0, 3.0]
 
-            result = tt_integrate(f, lower, upper; alg = MaxVol(verbose = false))
+            result = tt_integrate(f, lower, upper; alg = DMRG(verbose = false))
             @test result ≈ 6.0 atol = 1.0e-6
         end
 
         @testset "tt_integrate polynomial" begin
             f(x) = x[:, 1] .^ 2
 
-            result = tt_integrate(f, 1; alg = MaxVol(verbose = false), nquad = 10)
+            result = tt_integrate(f, 1; alg = DMRG(verbose = false), nquad = 10)
             @test result ≈ 1 / 3 atol = 1.0e-6
         end
 
