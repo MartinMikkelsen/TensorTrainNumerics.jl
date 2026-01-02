@@ -3,7 +3,7 @@ module TensorTrainNumerics
 export TTvector, TToperator, QTTvector, QTToperator, eltype, complex, ttv_decomp, tto_decomp, ttv_to_tensor, tto_to_tensor, is_qtt, is_qtt_operator, visualize, matricize, tt2qtt, concatenate, orthogonalize, copy, r_and_d_to_rks, tt_compress!
 include("tt_tools.jl")
 
-export *, +, dot, -, /, outer_product, concatenate, permute, hadamard, kron, ⊕, ⊗, euclidean_distance, euclidean_distance_normalized, ttv_to_diag_tto, norm
+export *, +, dot, -, /, outer_product, hadamard, kron, ⊕, ⊗, euclidean_distance, euclidean_distance_normalized, ttv_to_diag_tto, norm
 include("tt_operations.jl")
 
 export als_linsolve, als_eigsolve, als_gen_eigsolv
@@ -24,7 +24,7 @@ include("tt_interpolations.jl")
 export toeplitz_to_qtto, qtto_prolongation, ∇, Δ_DN, Δ_ND, Δ_NN, Δ_P, Δ, Δ⁻¹_DN, shift, zeros_tt, zeros_tto, rand_tt, id_tto, rand_tto
 include("tt_operators.jl")
 
-export index_to_point, tuple_to_index, function_to_tensor, tensor_to_grid, function_to_qtt, qtt_to_function, function_to_qtt_uniform, qtt_polynom, qtt_cos, qtt_sin, qtt_exp, qtto_to_matrix, qtt_basis_vector, qtt_chebyshev, qtt_simpson, qtt_trapezoidal
+export index_to_point, tuple_to_index, function_to_tensor, tensor_to_grid, function_to_qtt, qtt_to_function, qtt_to_vector, function_to_qtt_uniform, qtt_polynom, qtt_cos, qtt_sin, qtt_exp, qtto_to_matrix, qtt_basis_vector, qtt_chebyshev, qtt_simpson, qtt_trapezoidal
 include("qtt_tools.jl")
 
 export euler_method, implicit_euler_method, crank_nicholson_method, rk4_method

@@ -1,45 +1,6 @@
 using Test
 using Random
 
-
-@testset "permute for TTvector" begin
-
-    # Test 1: Permute a 3-dimensional TTvector (trivial ranks)
-    dims = (2, 3, 4)
-    rks = [1, 2, 2, 1]
-    x = rand_tt(dims, rks)
-    order = [2, 1, 3]
-    eps = 1.0e-12
-    y = permute(x, order, eps)
-    @test y.ttv_dims == dims[order]
-    @test y.N == 3
-    @test length(y.ttv_vec) == 3
-
-    # Test 2: Identity permutation (should not change anything)
-    order_id = [1, 2, 3]
-    y_id = permute(x, order_id, eps)
-    @test y_id.ttv_dims == dims
-    @test y_id.N == 3
-    @test length(y_id.ttv_vec) == 3
-
-    # Test 3: Permute a 4-dimensional TTvector
-    dims4 = (2, 2, 3, 2)
-    rks4 = [1, 2, 2, 2, 1]
-    x4 = rand_tt(dims4, rks4)
-    order4 = [3, 1, 4, 2]
-    y4 = permute(x4, order4, eps)
-    @test y4.ttv_dims == dims4[order4]
-    @test y4.N == 4
-    @test length(y4.ttv_vec) == 4
-
-    # Test 4: Permute twice with inverse order returns original dims
-    invorder4 = invperm(order4)
-    y4b = permute(y4, invorder4, eps)
-    @test y4b.ttv_dims == x4.ttv_dims
-    @test y4b.N == x4.N
-
-end
-
 @testset "ttv_to_diag_tto for TTvector" begin
     # Test 1: ttv_to_diag_tto on a simple 2D TTvector (all ranks 1, should match diag of full vector)
     dims = (3, 2)

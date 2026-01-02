@@ -44,6 +44,22 @@ function qtt_to_function(qtt::TTvector{T, d}) where {T <: Number, d}
     return out
 end
 
+function qtt_to_vector(qtt::TTvector{T}) where {T}
+    d = qtt.N
+    P = qtt.ttv_vec[1][:, 1, :]
+    for k in 2:d
+        G = qtt.ttv_vec[k]
+        n_prev = size(P, 1)
+        P_new = similar(P, 2 * n_prev, size(G, 3))
+        @views begin
+            P_new[1:2:end, :] .= P * G[1, :, :]
+            P_new[2:2:end, :] .= P * G[2, :, :]
+        end
+        P = P_new
+    end
+    return vec(P)
+end
+
 function function_to_qtt_uniform(f, d::Int)
     N = 2^d
     y = [f(n / N) for n in 0:(N - 1)]
