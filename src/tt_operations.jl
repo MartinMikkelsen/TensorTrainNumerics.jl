@@ -105,8 +105,8 @@ Contracts the TToperator A with the TTvector x.
 function *(A::TToperator{T, N}, v::TTvector{T, N}) where {T <: Number, N}
     @assert A.tto_dims == v.ttv_dims "Incompatible dimensions"
     y = zeros_tt(T, A.tto_dims, A.tto_rks .* v.ttv_rks)
-    @inbounds begin
-        @simd for k in 1:v.N
+    begin
+        @inbounds for k in 1:v.N
             yvec_temp = reshape(y.ttv_vec[k], (y.ttv_dims[k], A.tto_rks[k], v.ttv_rks[k], A.tto_rks[k + 1], v.ttv_rks[k + 1]))
             @tensoropt((νₖ₋₁, νₖ), yvec_temp[iₖ, αₖ₋₁, νₖ₋₁, αₖ, νₖ] = A.tto_vec[k][iₖ, jₖ, αₖ₋₁, αₖ] * v.ttv_vec[k][jₖ, νₖ₋₁, νₖ])
         end
@@ -132,10 +132,10 @@ function *(A::TToperator{T, N}, B::TToperator{T, N}) where {T <: Number, N}
     A_rks = A.tto_rks #R_0, ..., R_d
     B_rks = B.tto_rks #r_0, ..., r_d
     Y = [zeros(T, A.tto_dims[k], A.tto_dims[k], A_rks[k] * B_rks[k], A_rks[k + 1] * B_rks[k + 1]) for k in eachindex(A.tto_dims)]
-    @inbounds @simd for k in eachindex(Y)
+    @inbounds for k in eachindex(Y)
         M_temp = reshape(Y[k], A.tto_dims[k], A.tto_dims[k], A_rks[k], B_rks[k], A_rks[k + 1], B_rks[k + 1])
-        @simd for jₖ in size(M_temp, 2)
-            @simd for iₖ in size(M_temp, 1)
+        for jₖ in size(M_temp, 2)
+            for iₖ in size(M_temp, 1)
                 @tensor M_temp[iₖ, jₖ, αₖ₋₁, βₖ₋₁, αₖ, βₖ] = A.tto_vec[k][iₖ, z, αₖ₋₁, αₖ] * B.tto_vec[k][z, jₖ, βₖ₋₁, βₖ]
             end
         end
@@ -199,7 +199,7 @@ function *(a::S, A::TTvector{R, N}) where {S <: Number, R <: Number, N}
     X = copy(A.ttv_vec)
     X[i] = aT * X[i]
     if T != R
-        for k in eachindex(X)
+        @inbounds for k in eachindex(X)
             X[k] = convert.(T, X[k])
         end
     end
@@ -219,7 +219,7 @@ function *(a::S, A::TToperator{R, N}) where {S <: Number, R <: Number, N}
     X = copy(A.tto_vec)
     X[i] = aT * X[i]
     if T != R
-        for k in eachindex(X)
+        @inbounds for k in eachindex(X)
             X[k] = convert.(T, X[k])
         end
     end
@@ -253,50 +253,6 @@ function outer_product(x::TTvector{T, N}, y::TTvector{T, N}) where {T <: Number,
     return TToperator{T, N}(x.N, Y, x.ttv_dims, x.ttv_rks .* y.ttv_rks, zeros(Int64, x.N))
 end
 
-"""
-Concatenates two TTvectors along their dimensions and returns a new TTvector.
-"""
-function concatenate(tt::TTvector{T, N}, other::Union{TTvector{T}, Vector{Array{T, 3}}}, overwrite::Bool = false) where {T, N}
-    tt_base = overwrite ? tt : copy(tt)
-    if other isa TTvector{T}
-        if last(tt_base.ttv_rks) != first(other.ttv_rks)
-            throw(DimensionMismatch("Ranks do not match!"))
-        end
-        new_vec = vcat(tt_base.ttv_vec, other.ttv_vec)
-
-        new_dims = (tt_base.ttv_dims..., other.ttv_dims...)
-
-        new_rks = vcat(tt_base.ttv_rks[1:(end - 1)], other.ttv_rks)
-
-        new_ot = vcat(tt_base.ttv_ot, other.ttv_ot)
-    elseif other isa Vector{Array{T, 3}}
-        if any(ndims(core) != 3 for core in other)
-            throw(DimensionMismatch("List elements must be 3-dimensional arrays"))
-        end
-
-        if any(size(other[i], 3) != size(other[i + 1], 2) for i in 1:(length(other) - 1))
-            throw(DimensionMismatch("Ranks in the provided d list do not match"))
-        end
-        if last(tt_base.ttv_rks) != size(other[1], 2)
-            throw(DimensionMismatch("Ranks do not match between `tt` and `other`"))
-        end
-
-        new_vec = vcat(tt_base.ttv_vec, other)
-        new_dims = (tt_base.ttv_dims..., [size(core, 1) for core in other]...)
-        new_rks = vcat(tt_base.ttv_rks[1:(end - 1)], [size(core, 2) for core in other], size(other[end], 3))
-
-        new_ot = vcat(tt_base.ttv_ot, zeros(Int, length(other)))
-    else
-        throw(ArgumentError("Invalid type for `other`. Must be TTvector or Vector{Array{T, 3}}"))
-    end
-
-    N_new = length(new_dims)
-    @assert N_new isa Int64
-
-    tt_new = TTvector{T, N_new}(N_new, new_vec, Tuple(new_dims), new_rks, new_ot)
-
-    return tt_new
-end
 
 """
 Creates a diagonal TToperator from a TTvector.
@@ -332,81 +288,6 @@ function ttv_to_diag_tto(x::TTvector{T, M}) where {T <: Number, M}
 end
 
 """
-Permutes the dimensions of a TTvector according to the specified order and returns a new TTvector.
-"""
-function permute(x::TTvector{T, N}, order::Vector{Int}, eps::Real) where {T <: Number, N}
-    d = x.N
-    cores = [copy(c) for c in x.ttv_vec]
-    dims = collect(x.ttv_dims)
-    rks = copy(x.ttv_rks)
-    idx = invperm(order)
-    ϵ = eps / d^1.5
-
-    for kk in d:-1:3
-        r_k, n_k, r_kp1 = rks[kk], dims[kk], rks[kk + 1]
-        M = reshape(cores[kk], (r_k, n_k * r_kp1))'
-        F = qr(M)
-        Q = Matrix(F.Q)
-        R = F.R
-        tr = min(r_k, n_k * r_kp1)
-        cores[kk] = reshape(transpose(Q[:, 1:tr]), (tr, n_k, r_kp1))
-        rks[kk] = tr
-        rkm1, n_km1 = rks[kk - 1], dims[kk - 1]
-        Mprev = reshape(cores[kk - 1], (rkm1 * n_km1, r_k))
-        cores[kk - 1] = reshape(Mprev * R', (rkm1, n_km1, tr))
-    end
-
-    k = 1
-    while true
-        nk = k
-        while nk < d && idx[nk] < idx[nk + 1]
-            nk += 1
-        end
-        if nk == d
-            break
-        end
-
-        for kk in k:(nk - 1)
-            r_k, n_k, r_kp1 = rks[kk], dims[kk], rks[kk + 1]
-            M = reshape(cores[kk], (r_k * n_k, r_kp1))
-            F = qr(M)
-            Q = Matrix(F.Q)
-            R = F.R
-            tr = min(r_k * n_k, r_kp1)
-            cores[kk] = reshape(Q[:, 1:tr], (r_k, n_k, tr))
-            rks[kk + 1] = tr
-            r_kp2 = rks[kk + 2]
-            Mnext = reshape(cores[kk + 1], (r_kp1, dims[kk + 1] * r_kp2))
-            cores[kk + 1] = reshape(R * Mnext, (tr, dims[kk + 1], r_kp2))
-        end
-
-        k = nk
-        r_k, n_k, r_kp1, n_kp1, r_kp2 = rks[k], dims[k], rks[k + 1], dims[k + 1], rks[k + 2]
-        C = reshape(
-            reshape(cores[k], (r_k * n_k, r_kp1)) * reshape(cores[k + 1], (r_kp1, n_kp1 * r_kp2)),
-            (r_k, n_k, n_kp1, r_kp2)
-        )
-        C = permutedims(C, (1, 3, 2, 4))
-        M = reshape(C, (r_k * n_kp1, n_k * r_kp2))
-        F = svd(M; full = false)
-        s = F.S
-        thresh = maximum(s) * ϵ
-        rnew = count(x -> x > thresh, s)
-        rnew = max(rnew, 1)
-        U, V = F.U, F.Vt'
-        tmp = U * Diagonal(s)
-        cores[k] = reshape(tmp[:, 1:rnew], (r_k, n_kp1, rnew))
-        cores[k + 1] = reshape(V[:, 1:rnew]', (rnew, n_k, r_kp2))
-        rks[k + 1] = rnew
-        idx[k], idx[k + 1] = idx[k + 1], idx[k]
-        dims[k], dims[k + 1] = dims[k + 1], dims[k]
-        k = max(k - 1, 1)
-    end
-
-    return TTvector{T, N}(d, cores, Tuple(dims), rks, zeros(Int, N))
-end
-
-"""
 Computes the Hadamard product (element-wise multiplication) of two TTvectors and returns a new TTvector.
 """
 function hadamard(x::TTvector{T, N}, y::TTvector{T, N}) where {T <: Number, N}
@@ -416,7 +297,7 @@ function hadamard(x::TTvector{T, N}, y::TTvector{T, N}) where {T <: Number, N}
     dims = x.ttv_dims
     rks = [x.ttv_rks[k] * y.ttv_rks[k] for k in 1:(d + 1)]
 
-    for k in 1:d
+    @inbounds for k in 1:d
         n = dims[k]
         rx1, rx2 = x.ttv_rks[k], x.ttv_rks[k + 1]
         ry1, ry2 = y.ttv_rks[k], y.ttv_rks[k + 1]

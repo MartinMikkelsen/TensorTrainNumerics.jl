@@ -278,3 +278,23 @@ end
     I1 = TensorTrainNumerics.dot(w, A)
     @test isapprox(I1, 2 / (3 * π), atol = 1.0e-4)
 end
+
+@testset "function_to_qtt" begin
+    d = 8
+    a = 0.0
+    b = 1.0
+    f(x) = sin(π * x)
+    g(x) = cos(π * x)
+    Q(x) = exp(x)
+    tt = function_to_qtt(f, d; a = a, b = b)
+    tt2 = function_to_qtt(g, d, a = a, b = b)
+    tt3 = function_to_qtt(Q, d; a = a, b = b)
+    @test qtt_to_function(tt) ≈ qtt_to_vector(tt)
+    @test qtt_to_function(tt2) ≈ qtt_to_vector(tt2)
+    @test qtt_to_function(tt3) ≈ qtt_to_vector(tt3)
+
+    dims = (2, 2, 2, 2, 2, 2)
+    A = rand_tt(dims, 5; normalise = true)
+    @test qtt_to_function(A) ≈ qtt_to_vector(A)
+
+end

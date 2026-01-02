@@ -22,11 +22,6 @@ using TensorTrainNumerics
         return MockTTO(tto_vec)
     end
 
-    # Patch the function in the module namespace for testing
-    @eval TensorTrainNumerics begin
-        import ..Main.zeros_tto
-    end
-
     # Test for d = 3
     d = 3
     α, β, γ = 2.0, -1.0, 0.5

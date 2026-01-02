@@ -1136,7 +1136,7 @@ function tt_integrate(
     return tt_integrate(f, fill(lower, d), fill(upper, d); kwargs...)
 end
 
-function _contract_with_weights(cores::Vector{<:Array{T,3}}, weights::Vector{<:Vector{T}}) where {T}
+function _contract_with_weights(cores::Vector{<:Array{T, 3}}, weights::Vector{<:Vector{T}}) where {T}
     result = ones(T, 1)
     for k in eachindex(cores)
         contracted = sum(weights[k][i] .* cores[k][i, :, :] for i in axes(cores[k], 1))

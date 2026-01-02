@@ -1,7 +1,7 @@
 using TensorTrainNumerics
 using CairoMakie
 
-d = 8
+d = 12
 
 xes = collect(range(0.0, 1.0, length = 2^d))
 
@@ -24,7 +24,7 @@ initial_guess = rand_tt(b.ttv_dims, b.ttv_rks)
 
 x_mals = mals_linsolve(A, b, initial_guess)
 
-solution = reshape(qtt_to_function(x_mals), 2^d, 2^d)
+solution = reshape(qtt_to_vector(x_mals), 2^d, 2^d)
 
 let
     fig = Figure()
