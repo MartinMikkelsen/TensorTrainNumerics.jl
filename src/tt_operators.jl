@@ -261,7 +261,6 @@ function zeros_tt(::Type{T}, dims::NTuple{N, Int64}, rks::NTuple{M, Int64}; ot =
     return zeros_tt(T, collect(dims), collect(rks); ot = ot)
 end
 
-
 function zeros_tt!(A::TTvector)
     @assert isa(A.ttv_vec, Vector)
     for core in A.ttv_vec

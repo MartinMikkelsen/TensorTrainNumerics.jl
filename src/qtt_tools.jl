@@ -84,7 +84,7 @@ function qtt_polynom(coef, d; a = 0.0, b = 1.0)
     out.ttv_vec[1][1, 1, :] = [φ(t₁, k) for k in 0:(p - 1)]
     t₁ = a + h * 2^(d - 1) #convention : coarsest first
     out.ttv_vec[1][2, 1, :] = [φ(t₁, k) for k in 0:(p - 1)]
-    for k in 2:(d - 1)
+    @fastmath for k in 2:(d - 1)
         for j in 0:(p - 1)
             out.ttv_vec[k][1, j + 1, j + 1] = 1.0
             for i in 0:(p - 1)
@@ -110,7 +110,7 @@ function qtt_cos(d; a = 0.0, b = 1.0, λ = 1.0)
     out.ttv_vec[1][1, 1, :] = [cos(λ * π * t₁); -sin(λ * π * t₁)]
     t₁ = a + h * 2^(d - 1) #convention : coarsest first
     out.ttv_vec[1][2, 1, :] = [cos(λ * π * t₁); -sin(λ * π * t₁)]
-    for k in 2:(d - 1)
+    @fastmath for k in 2:(d - 1)
         out.ttv_vec[k][1, :, :] = [1 0;0 1]
         tₖ = h * 2^(d - k)
         out.ttv_vec[k][2, :, :] = [cos(λ * π * tₖ) -sin(λ * π * tₖ); sin(λ * π * tₖ) cos(λ * π * tₖ)]
@@ -132,7 +132,7 @@ function qtt_sin(d; a = 0.0, b = 1.0, λ = 1.0)
     out.ttv_vec[1][1, 1, :] = [sin(λ * π * t₁); cos(λ * π * t₁)]
     t₁ = a + h * 2^(d - 1) #convention : coarsest first
     out.ttv_vec[1][2, 1, :] = [sin(λ * π * t₁); cos(λ * π * t₁)]
-    for k in 2:(d - 1)
+    @fastmath for k in 2:(d - 1)
         out.ttv_vec[k][1, :, :] = [1 0;0 1]
         tₖ = h * 2^(d - k)
         out.ttv_vec[k][2, :, :] = [cos(λ * π * tₖ) -sin(λ * π * tₖ); sin(λ * π * tₖ) cos(λ * π * tₖ)]
@@ -154,7 +154,7 @@ function qtt_exp(d; a = 0.0, b = 1.0, α = 1.0, β = 0.0)
     out.ttv_vec[1][1, 1, 1] = exp(α * t₁ + β)
     t₁ = a + h * 2^(d - 1)
     out.ttv_vec[1][2, 1, 1] = exp(α * t₁ + β)
-    for k in 2:(d - 1)
+    @fastmath for k in 2:(d - 1)
         tₖ = h * 2^(d - k)
         out.ttv_vec[k][1, 1, 1] = 1.0
         out.ttv_vec[k][2, 1, 1] = exp(α * tₖ)
@@ -171,7 +171,7 @@ Converts a quantum tensor train operator (`TToperator`) into its full matrix rep
 function qtto_to_matrix(Aqtto::TToperator{T, d}) where {T, d}
     A = zeros(2^d, 2^d)
     A_tensor = tto_to_tensor(Aqtto)
-    for t in CartesianIndices(A_tensor)
+    @inbounds for t in CartesianIndices(A_tensor)
         A[tuple_to_index(Tuple(t)[1:d]), tuple_to_index(Tuple(t)[(d + 1):end])] = A_tensor[t]
     end
     return A
@@ -180,7 +180,7 @@ end
 function qtt_basis_vector(d, pos::Int, val::Number = 1.0)
     out = zeros_tt(2, d, 1)
     bits = reverse(digits(pos - 1, base = 2, pad = d))
-    for k in 1:d
+    @inbounds for k in 1:d
         out.ttv_vec[k][:, 1, 1] .= 0.0
         out.ttv_vec[k][bits[k] + 1, 1, 1] = val
         val = 1.0
@@ -201,7 +201,7 @@ function qtt_chebyshev(n, d)
     θ = acos.(clamp.(2 .* x_nodes .- 1, -1.0, 1.0))
     out.ttv_vec[1][1, 1, :] = [cos(n * θ[1]); -sin(n * θ[1])]
     out.ttv_vec[1][2, 1, :] = [cos(n * θ[2^(d - 1) + 1]); -sin(n * θ[2^(d - 1) + 1])]
-    for k in 2:(d - 1)
+    @fastmath for k in 2:(d - 1)
         out.ttv_vec[k][1, :, :] .= [1.0 0.0; 0.0 1.0]
         idx = 2^(d - k) + 1
         out.ttv_vec[k][2, :, :] .= [cos(n * θ[idx]) -sin(n * θ[idx]);sin(n * θ[idx])  cos(n * θ[idx])]
@@ -219,7 +219,7 @@ function qtt_trapezoidal(d; a = 0.0, b = 1.0)
     out.ttv_vec[1][1, 1, 1] = 1.0
     out.ttv_vec[1][2, 1, 1] = 1.0
 
-    for k in 2:(d - 1)
+    @inbounds for k in 2:(d - 1)
         out.ttv_vec[k][1, 1, 1] = 1.0
         out.ttv_vec[k][2, 1, 1] = 1.0
     end
@@ -234,7 +234,7 @@ function qtt_simpson(d; a = 0.0, b = 1.0)
     N = 2^d
     h = (b - a) / (N - 1)
     tensors = [zeros_tt(2, d, 1) for _ in 1:N]
-    for i in 0:(N - 1)
+    @inbounds for i in 0:(N - 1)
         weight = (i == 0 || i == N - 1) ? 1.0 : (isodd(i) ? 4.0 : 2.0)
         bits = reverse(digits(i, base = 2, pad = d)) .+ 1
 

@@ -98,15 +98,7 @@ TensorTrainNumerics.dot
 ```
 
 ```@docs; canonical=false
-TensorTrainNumerics.concatenate
-```
-
-```@docs; canonical=false
 TensorTrainNumerics.ttv_to_diag_tto
-```
-
-```@docs; canonical=false
-TensorTrainNumerics.permute
 ```
 
 ```@docs; canonical=false

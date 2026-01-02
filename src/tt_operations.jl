@@ -105,8 +105,8 @@ Contracts the TToperator A with the TTvector x.
 function *(A::TToperator{T, N}, v::TTvector{T, N}) where {T <: Number, N}
     @assert A.tto_dims == v.ttv_dims "Incompatible dimensions"
     y = zeros_tt(T, A.tto_dims, A.tto_rks .* v.ttv_rks)
-    @inbounds begin
-        @simd for k in 1:v.N
+    begin
+        @inbounds for k in 1:v.N
             yvec_temp = reshape(y.ttv_vec[k], (y.ttv_dims[k], A.tto_rks[k], v.ttv_rks[k], A.tto_rks[k + 1], v.ttv_rks[k + 1]))
             @tensoropt((νₖ₋₁, νₖ), yvec_temp[iₖ, αₖ₋₁, νₖ₋₁, αₖ, νₖ] = A.tto_vec[k][iₖ, jₖ, αₖ₋₁, αₖ] * v.ttv_vec[k][jₖ, νₖ₋₁, νₖ])
         end
@@ -132,10 +132,10 @@ function *(A::TToperator{T, N}, B::TToperator{T, N}) where {T <: Number, N}
     A_rks = A.tto_rks #R_0, ..., R_d
     B_rks = B.tto_rks #r_0, ..., r_d
     Y = [zeros(T, A.tto_dims[k], A.tto_dims[k], A_rks[k] * B_rks[k], A_rks[k + 1] * B_rks[k + 1]) for k in eachindex(A.tto_dims)]
-    @inbounds @simd for k in eachindex(Y)
+    @inbounds for k in eachindex(Y)
         M_temp = reshape(Y[k], A.tto_dims[k], A.tto_dims[k], A_rks[k], B_rks[k], A_rks[k + 1], B_rks[k + 1])
-        @simd for jₖ in size(M_temp, 2)
-            @simd for iₖ in size(M_temp, 1)
+        for jₖ in size(M_temp, 2)
+            for iₖ in size(M_temp, 1)
                 @tensor M_temp[iₖ, jₖ, αₖ₋₁, βₖ₋₁, αₖ, βₖ] = A.tto_vec[k][iₖ, z, αₖ₋₁, αₖ] * B.tto_vec[k][z, jₖ, βₖ₋₁, βₖ]
             end
         end

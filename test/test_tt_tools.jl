@@ -30,20 +30,6 @@ using LinearAlgebra
     @test tto.tto_rks == rks
     @test tto.tto_ot == ot
 
-
-    # Test QTTvector and is_qtt
-    qtt_vec = [randn(2, 1, 2), randn(2, 2, 2), randn(2, 2, 1)]
-    qtt_rks = [1, 2, 2, 1]
-    qtt_ot = [0, 0, 0]
-    qtt = QTTvector(qtt_vec, qtt_rks, qtt_ot)
-    @test is_qtt(qtt)
-
-    # Test QTToperator and is_qtt_operator
-    qtt_op_vec = [randn(2, 2, 1, 2), randn(2, 2, 2, 2), randn(2, 2, 2, 1)]
-    qtt_op_rks = [1, 2, 2, 1]
-    qtt_op_ot = [0, 0, 0]
-    qtt_op = QTToperator(qtt_op_vec, qtt_op_rks, qtt_op_ot)
-    @test is_qtt_operator(qtt_op)
 end
 
 @testset "TT constructors and properties" begin
@@ -73,19 +59,6 @@ end
     @test tto.tto_rks == rks
     @test tto.tto_ot == ot
 
-    # Test QTTvector and is_qtt
-    qtt_vec = [randn(2, 1, 2), randn(2, 2, 2), randn(2, 2, 1)]
-    qtt_rks = [1, 2, 2, 1]
-    qtt_ot = [0, 0, 0]
-    qtt = QTTvector(qtt_vec, qtt_rks, qtt_ot)
-    @test is_qtt(qtt)
-
-    # Test QTToperator and is_qtt_operator
-    qtt_op_vec = [randn(2, 2, 1, 2), randn(2, 2, 2, 2), randn(2, 2, 2, 1)]
-    qtt_op_rks = [1, 2, 2, 1]
-    qtt_op_ot = [0, 0, 0]
-    qtt_op = QTToperator(qtt_op_vec, qtt_op_rks, qtt_op_ot)
-    @test is_qtt_operator(qtt_op)
 end
 
 
@@ -116,19 +89,6 @@ end
     @test tto.tto_rks == rks
     @test tto.tto_ot == ot
 
-    # Test QTTvector and is_qtt
-    qtt_vec = [randn(2, 1, 2), randn(2, 2, 2), randn(2, 2, 1)]
-    qtt_rks = [1, 2, 2, 1]
-    qtt_ot = [0, 0, 0]
-    qtt = QTTvector(qtt_vec, qtt_rks, qtt_ot)
-    @test is_qtt(qtt)
-
-    # Test QTToperator and is_qtt_operator
-    qtt_op_vec = [randn(2, 2, 1, 2), randn(2, 2, 2, 2), randn(2, 2, 2, 1)]
-    qtt_op_rks = [1, 2, 2, 1]
-    qtt_op_ot = [0, 0, 0]
-    qtt_op = QTToperator(qtt_op_vec, qtt_op_rks, qtt_op_ot)
-    @test is_qtt_operator(qtt_op)
 end
 
 @testset "TTvector and TToperator functions" begin
@@ -196,19 +156,6 @@ end
     @test tto.tto_rks == rks
     @test tto.tto_ot == ot
 
-    # Test QTTvector and is_qtt
-    qtt_vec = [randn(2, 1, 2), randn(2, 2, 2), randn(2, 2, 1)]
-    qtt_rks = [1, 2, 2, 1]
-    qtt_ot = [0, 0, 0]
-    qtt = QTTvector(qtt_vec, qtt_rks, qtt_ot)
-    @test is_qtt(qtt)
-
-    # Test QTToperator and is_qtt_operator
-    qtt_op_vec = [randn(2, 2, 1, 2), randn(2, 2, 2, 2), randn(2, 2, 2, 1)]
-    qtt_op_rks = [1, 2, 2, 1]
-    qtt_op_ot = [0, 0, 0]
-    qtt_op = QTToperator(qtt_op_vec, qtt_op_rks, qtt_op_ot)
-    @test is_qtt_operator(qtt_op)
 end
 
 @testset "TTvector and TToperator functions" begin

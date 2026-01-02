@@ -67,92 +67,6 @@ function Base.complex(v::TTvector{T, M}) where {T, M}
     return TTvector{Complex{T}, M}(v.N, complex.(v.ttv_vec), v.ttv_dims, v.ttv_rks, v.ttv_ot)
 end
 
-
-"""
-    QTTvector(vec::Vector{<:Array{<:Number, 3}}, rks::Vector{Int64}, ot::Vector{Int64})
-
-Constructs a Quantized Tensor Train (QTT) vector from a given vector of 3-dimensional arrays (d).
-
-# Arguments
-- `vec::Vector{<:Array{<:Number, 3}}`: A vector containing the d of the QTT vector. Each core must be a 3-dimensional array with the first dimension equal to 2.
-- `rks::Vector{Int64}`: A vector of integer ranks for the QTT vector.
-- `ot::Vector{Int64}`: A vector of integer orthogonalization types for the QTT vector.
-
-# Returns
-- `TTvector{T, N}`: A tensor train vector of type `T` and length `N`.
-
-# Throws
-- `AssertionError`: If any core in `vec` does not have the first dimension equal to 2.
-
-"""
-function QTTvector(vec::Vector{<:Array{<:Number, 3}}, rks::Vector{Int64}, ot::Vector{Int64})
-    T = eltype(eltype(vec))
-    N = length(vec)
-    dims = ntuple(_ -> 2, N)
-    for core in vec
-        @assert size(core, 1) == 2 "Each core must have physical dimension 2."
-    end
-    return TTvector{T, N}(N, vec, dims, rks, ot)
-end
-
-"""
-    is_qtt(tt::TTvector) -> Bool
-
-Check if a given TTvector is a QTT (Quantized Tensor Train) vector.
-
-# Arguments
-- `tt::TTvector`: The tensor train vector to be checked.
-
-# Returns
-- `Bool`: Returns `true` if all dimensions of the tensor train vector are equal to 2, indicating it is a QTT vector, otherwise returns `false`.
-
-# Example
-"""
-function is_qtt(tt::TTvector)
-    return all(dim == 2 for dim in tt.ttv_dims)
-end
-"""
-    QTToperator(vec::Vector{Array{T,4}}, rks::Vector{Int64}, ot::Vector{Int64}) where {T}
-
-Constructs a Quantum Tensor Train (QTT) operator from a vector of 4-dimensional arrays (d).
-
-# Arguments
-- `vec::Vector{Array{T,4}}`: A vector containing the d of the QTT operator. Each core must be a 4-dimensional array with the first two dimensions equal to 2.
-- `rks::Vector{Int64}`: A vector containing the rank sizes of the QTT operator.
-- `ot::Vector{Int64}`: A vector containing the operator types.
-
-# Returns
-- `TToperator{T,N}`: A QTT operator constructed from the provided d, rank sizes, and operator types.
-
-# Throws
-- `AssertionError`: If any core in `vec` does not have the first two dimensions equal to 2.
-
-"""
-function QTToperator(vec::Vector{Array{T, 4}}, rks::Vector{Int64}, ot::Vector{Int64}) where {T}
-    N = length(vec)
-    dims = ntuple(_ -> 2, N)
-    for core in vec
-        @assert size(core, 1) == 2 && size(core, 2) == 2 "Each core must have physical dimension 2."
-    end
-    return TToperator{T, N}(N, vec, dims, rks, ot)
-end
-
-"""
-    is_qtt_operator(op::TToperator) -> Bool
-
-Check if a given `TToperator` is a Quantum Tensor Train (QTT) operator.
-
-# Arguments
-- `op::TToperator`: The tensor train operator to be checked.
-
-# Returns
-- `Bool`: Returns `true` if all dimensions of the tensor train operator are equal to 2, indicating it is a QTT operator. Otherwise, returns `false`.
-"""
-function is_qtt_operator(op::TToperator)
-    return all(dim == 2 for dim in op.tto_dims)
-end
-
-
 """
     rand_orthogonal(n, m; T=Float64)
 
@@ -207,7 +121,7 @@ Generate a random Tensor Train (TT) tensor with specified dimensions and ranks.
 """
 function rand_tt(::Type{T}, dims, rks; normalise = false, orthogonal = false) where {T}
     y = zeros_tt(T, dims, rks)
-    @simd for i in eachindex(y.ttv_vec)
+    @inbounds for i in eachindex(y.ttv_vec)
         y.ttv_vec[i] = randn(T, dims[i], rks[i], rks[i + 1])
         if normalise
             y.ttv_vec[i] *= 1 / sqrt(dims[i] * rks[i + 1])
@@ -287,7 +201,7 @@ function ttv_decomp(tensor::Array{T, d}; index = 1, tol = 1.0e-12) where {T <: N
     rks = ones(Int64, d + 1)
     tensor_curr = tensor
     # Calculate ttv_vec[i] for i < index
-    for i in 1:(index - 1)
+    @inbounds for i in 1:(index - 1)
         # Reshape the currently left tensor
         tensor_curr = reshape(tensor_curr, Int(rks[i] * dims[i]), :)
         # Perform the singular value decomposition
@@ -449,6 +363,7 @@ function tto_decomp(tensor::Array{T, N}; index = 1) where {T <: Number, N}
     end
     return TToperator{T, d}(d, tto_vec, tto_dims, rks, ttv.ttv_ot)
 end
+
 """
     tto_to_tensor(tto::TToperator{T,N}) where {T<:Number, N}
 
@@ -796,7 +711,6 @@ function tt2qtt(tt_tensor::TToperator{T, N}, row_dims::Vector{Vector{Int}}, col_
             row_dim = div(row_dim, row_dims[i][j])
             col_dim = div(col_dim, col_dims[i][j])
 
-            # Reshape and permute core
             core = reshape(core, (rank_prev, row_dims[i][j], row_dim, col_dims[i][j], col_dim, rank_next))
             core = permutedims(core, (1, 2, 4, 3, 5, 6))  # Now core is (r_{k-1}, row_dims[i][j], col_dims[i][j], row_dim, col_dim, r_k)
 
@@ -822,7 +736,6 @@ function tt2qtt(tt_tensor::TToperator{T, N}, row_dims::Vector{Vector{Int}}, col_
 
             # Reshape U into core and append to qtt_cores
             U_reshaped = reshape(U, (rank_prev, row_dims[i][j], col_dims[i][j], new_rank))
-            # Permute back to (n_k_row, n_k_col, r_{k-1}, r_k)
             core_to_append = permutedims(U_reshaped, (2, 3, 1, 4))
             push!(qtt_cores, core_to_append)
 
@@ -859,6 +772,7 @@ function tt2qtt(tt_tensor::TToperator{T, N}, row_dims::Vector{Vector{Int}}, col_
 
     return qtt_tensor
 end
+
 """
     tt2qtt(tt_tensor::TTvector{T,N}, dims::Vector{Vector{Int}}, threshold::Float64=0.0) where {T<:Number,N}
 
@@ -896,7 +810,6 @@ function tt2qtt(tt_tensor::TTvector{T, N}, dims::Vector{Vector{Int}}, threshold:
             # Update dim
             dim = div(dim, dims[i][j])
 
-            # Reshape and permute core
             core = reshape(core, (rank_prev, dims[i][j], dim, rank_next))
             core = permutedims(core, (1, 2, 3, 4))  # Now core is (r_{k-1}, dims[i][j], dim, r_k)
 
@@ -920,9 +833,7 @@ function tt2qtt(tt_tensor::TTvector{T, N}, dims::Vector{Vector{Int}}, threshold:
             # Update rank
             new_rank = length(S)
 
-            # Reshape U into core and append to qtt_cores
             U_reshaped = reshape(U, (rank_prev, dims[i][j], new_rank))
-            # Permute back to (n_k, r_{k-1}, r_k)
             core_to_append = permutedims(U_reshaped, (2, 1, 3))
             push!(qtt_cores, core_to_append)
 
