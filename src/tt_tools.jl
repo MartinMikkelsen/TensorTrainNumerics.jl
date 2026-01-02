@@ -56,8 +56,8 @@ struct TToperator{T <: Number, M} <: AbstractTToperator
     tto_ot::Array{Int64, 1}
 end
 
-Base.eltype(::TToperator{T, M}) where {T, M} = T
 Base.eltype(::TTvector{T, N}) where {T, N} = T
+Base.eltype(::TToperator{T, M}) where {T, M} = T
 
 function Base.complex(A::TToperator{T, M}) where {T, M}
     return TToperator{Complex{T}, M}(A.N, complex.(A.tto_vec), A.tto_dims, A.tto_rks, A.tto_ot)
@@ -153,7 +153,7 @@ Generate a random tensor train (TT) vector by adding Gaussian noise to the input
 # Returns
 - `TTvector{T,N}`: A new TT vector with added Gaussian noise.
 """
-function rand_tt(x_tt::TTvector{T, N}; ε = convert(T, 1.0e-3)) where {T, N}
+function rand_tt(x_tt::TTvector{T, N}; ε = convert(T, 1.0e-5)) where {T, N}
     tt_vec = copy(x_tt.ttv_vec)
     for i in eachindex(x_tt.ttv_vec)
         tt_vec[i] += ε * randn(x_tt.ttv_dims[i], x_tt.ttv_rks[i], x_tt.ttv_rks[i + 1])

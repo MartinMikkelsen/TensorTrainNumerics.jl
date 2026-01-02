@@ -1,6 +1,6 @@
 using Test
 using TensorTrainNumerics
-import TensorTrainNumerics: rand_orthogonal
+import TensorTrainNumerics: rand_orthogonal, tto_to_ttv, ttv_to_tto
 using LinearAlgebra
 
 @testset "TT constructors and properties" begin
@@ -507,3 +507,332 @@ end
         @test y === tt
     end
 end
+
+@testset "Base.eltype for TTvector" begin
+    N = 3
+    vec = [randn(2, 1, 2), randn(2, 2, 2), randn(2, 2, 1)]
+    dims = (2, 2, 2)
+    rks = [1, 2, 2, 1]
+    ot = [0, 0, 0]
+    tt_float = TTvector{Float64, 3}(N, vec, dims, rks, ot)
+    @test eltype(tt_float) == Float64
+
+    vec_int = [rand(Int, 2, 1, 2), rand(Int, 2, 2, 2), rand(Int, 2, 2, 1)]
+    tt_int = TTvector{Int, 3}(N, vec_int, dims, rks, ot)
+    @test eltype(tt_int) == Int
+
+    vec_complex = [randn(ComplexF64, 2, 1, 2), randn(ComplexF64, 2, 2, 2), randn(ComplexF64, 2, 2, 1)]
+    tt_complex = TTvector{ComplexF64, 3}(N, vec_complex, dims, rks, ot)
+    @test eltype(tt_complex) == ComplexF64
+
+    vec_complex32 = [randn(Complex{Float32}, 2, 1, 2), randn(Complex{Float32}, 2, 2, 2), randn(Complex{Float32}, 2, 2, 1)]
+    tt_complex32 = TTvector{Complex{Float32}, 3}(N, vec_complex32, dims, rks, ot)
+    @test eltype(tt_complex32) == Complex{Float32}
+end
+
+@testset "rand_tt with TTvector noise addition" begin
+    N = 3
+    vec = [randn(2, 1, 2), randn(2, 2, 2), randn(2, 2, 1)]
+    dims = (2, 2, 2)
+    rks = [1, 2, 2, 1]
+    ot = [0, 0, 0]
+    tt = TTvector{Float64, 3}(N, vec, dims, rks, ot)
+    
+    tt_noisy = rand_tt(tt)
+    
+    @test tt_noisy.N == tt.N
+    @test tt_noisy.ttv_dims == tt.ttv_dims
+    @test tt_noisy.ttv_rks == tt.ttv_rks
+    @test tt_noisy.ttv_ot == zeros(Int, N)
+    @test length(tt_noisy.ttv_vec) == length(tt.ttv_vec)
+    
+    @test !all(isapprox(tt_noisy.ttv_vec[i], tt.ttv_vec[i]) for i in eachindex(tt.ttv_vec))
+    
+    ε_custom = convert(Float64, 0.1)
+    tt_noisy_custom = rand_tt(tt; ε=ε_custom)
+    
+    @test tt_noisy_custom.N == tt.N
+    @test tt_noisy_custom.ttv_dims == tt.ttv_dims
+    @test tt_noisy_custom.ttv_rks == tt.ttv_rks
+    @test tt_noisy_custom.ttv_ot == zeros(Int, N)
+    
+    tt_copy = rand_tt(tt; ε=convert(Float64, 0.0))
+    
+    @test all(isapprox(tt_copy.ttv_vec[i], tt.ttv_vec[i]) for i in eachindex(tt.ttv_vec))
+    
+    vec_c = [randn(ComplexF64, 2, 1, 2), randn(ComplexF64, 2, 2, 2), randn(ComplexF64, 2, 2, 1)]
+    tt_c = TTvector{ComplexF64, 3}(N, vec_c, dims, rks, ot)
+    
+    tt_noisy_c = rand_tt(tt_c; ε=convert(ComplexF64, 1.0e-3))
+    
+    @test eltype(tt_noisy_c.ttv_vec[1]) == ComplexF64
+    @test tt_noisy_c.ttv_dims == tt_c.ttv_dims
+    @test tt_noisy_c.ttv_rks == tt_c.ttv_rks
+    
+    tt_noisy1 = rand_tt(tt)
+    tt_noisy2 = rand_tt(tt)
+    
+    @test !all(isapprox(tt_noisy1.ttv_vec[i], tt_noisy2.ttv_vec[i]) for i in eachindex(tt.ttv_vec))
+end
+
+@testset "tto_to_ttv conversion" begin
+    @testset "basic conversion preserves structure" begin
+        N = 3
+        dims = (2, 3, 2)
+        rks = [1, 2, 3, 1]
+        ot = [0, 0, 0]
+        tto_vec = [randn(2, 2, 1, 2), randn(3, 3, 2, 3), randn(2, 2, 3, 1)]
+        tto = TToperator{Float64, 3}(N, tto_vec, dims, rks, ot)
+        
+        ttv = tto_to_ttv(tto)
+        
+        @test ttv.N == tto.N
+        @test ttv.ttv_dims == tto.tto_dims .^ 2
+        @test ttv.ttv_rks == tto.tto_rks
+        @test ttv.ttv_ot == tto.tto_ot
+        @test length(ttv.ttv_vec) == length(tto.tto_vec)
+    end
+
+    @testset "core reshaping correctness" begin
+        N = 2
+        dims = (2, 3)
+        rks = [1, 2, 1]
+        ot = [0, 0]
+        tto_vec = [randn(2, 2, 1, 2), randn(3, 3, 2, 1)]
+        tto = TToperator{Float64, 2}(N, tto_vec, dims, rks, ot)
+        
+        ttv = tto_to_ttv(tto)
+        
+        for i in 1:N
+            @test size(ttv.ttv_vec[i], 1) == dims[i]^2
+            @test size(ttv.ttv_vec[i], 2) == rks[i]
+            @test size(ttv.ttv_vec[i], 3) == rks[i + 1]
+        end
+    end
+
+    @testset "data preservation through reshape" begin
+        N = 2
+        dims = (2, 2)
+        rks = [1, 2, 1]
+        ot = [0, 0]
+        tto_vec = [randn(2, 2, 1, 2), randn(2, 2, 2, 1)]
+        tto = TToperator{Float64, 2}(N, tto_vec, dims, rks, ot)
+        
+        ttv = tto_to_ttv(tto)
+        
+        for i in 1:N
+            tto_flat = reshape(tto.tto_vec[i], dims[i]^2, rks[i], rks[i + 1])
+            @test isapprox(ttv.ttv_vec[i], tto_flat)
+        end
+    end
+
+    @testset "eltype preservation" begin
+        N = 2
+        dims = (2, 2)
+        rks = [1, 2, 1]
+        ot = [0, 0]
+        tto_vec_f32 = [randn(Float32, 2, 2, 1, 2), randn(Float32, 2, 2, 2, 1)]
+        tto_f32 = TToperator{Float32, 2}(N, tto_vec_f32, dims, rks, ot)
+        
+        ttv_f32 = tto_to_ttv(tto_f32)
+        
+        @test eltype(ttv_f32) == Float32
+        @test all(eltype(core) == Float32 for core in ttv_f32.ttv_vec)
+    end
+
+    @testset "orthogonalization info preserved" begin
+        N = 3
+        dims = (2, 2, 2)
+        rks = [1, 2, 2, 1]
+        ot = [-1, 0, 1]
+        tto_vec = [randn(2, 2, 1, 2), randn(2, 2, 2, 2), randn(2, 2, 2, 1)]
+        tto = TToperator{Float64, 3}(N, tto_vec, dims, rks, ot)
+        
+        ttv = tto_to_ttv(tto)
+        
+        @test ttv.ttv_ot == tto.tto_ot
+    end
+
+    @testset "single core operator" begin
+        N = 1
+        dims = (3,)
+        rks = [1, 1]
+        ot = [0]
+        tto_vec = [randn(3, 3, 1, 1)]
+        tto = TToperator{Float64, 1}(N, tto_vec, dims, rks, ot)
+        
+        ttv = tto_to_ttv(tto)
+        
+        @test ttv.N == 1
+        @test ttv.ttv_dims == (9,)
+        @test size(ttv.ttv_vec[1]) == (9, 1, 1)
+    end
+
+    @testset "large operator conversion" begin
+        N = 4
+        dims = (2, 2, 2, 2)
+        rks = [1, 2, 3, 2, 1]
+        ot = [0, 0, 0, 0]
+        tto_vec = [randn(2, 2, rks[i], rks[i + 1]) for i in 1:N]
+        tto = TToperator{Float64, 4}(N, tto_vec, dims, rks, ot)
+        
+        ttv = tto_to_ttv(tto)
+        
+        @test ttv.N == 4
+        @test all(ttv.ttv_dims .== 4)
+        @test ttv.ttv_rks == rks
+    end
+end
+
+@testset "ttv_to_tto conversion" begin
+    @testset "basic conversion preserves structure" begin
+        N = 3
+        dims = (4, 9, 16)
+        rks = [1, 2, 3, 1]
+        ot = [0, 0, 0]
+        ttv_vec = [randn(4, 1, 2), randn(9, 2, 3), randn(16, 3, 1)]
+        ttv = TTvector{Float64, 3}(N, ttv_vec, dims, rks, ot)
+        
+        tto = ttv_to_tto(ttv)
+        
+        @test tto.N == ttv.N
+        @test tto.tto_dims == (2, 3, 4)
+        @test tto.tto_rks == ttv.ttv_rks
+        @test tto.tto_ot == ttv.ttv_ot
+        @test length(tto.tto_vec) == length(ttv.ttv_vec)
+    end
+
+    @testset "core reshaping correctness" begin
+        N = 2
+        dims = (4, 9)
+        rks = [1, 2, 1]
+        ot = [0, 0]
+        ttv_vec = [randn(4, 1, 2), randn(9, 2, 1)]
+        ttv = TTvector{Float64, 2}(N, ttv_vec, dims, rks, ot)
+        
+        tto = ttv_to_tto(ttv)
+        
+        @test size(tto.tto_vec[1]) == (2, 2, 1, 2)
+        @test size(tto.tto_vec[2]) == (3, 3, 2, 1)
+    end
+
+    @testset "data preservation through reshape" begin
+        N = 2
+        dims = (4, 4)
+        rks = [1, 2, 1]
+        ot = [0, 0]
+        ttv_vec = [randn(4, 1, 2), randn(4, 2, 1)]
+        ttv = TTvector{Float64, 2}(N, ttv_vec, dims, rks, ot)
+        
+        tto = ttv_to_tto(ttv)
+        
+        for i in 1:N
+            ttv_flat = reshape(ttv.ttv_vec[i], isqrt(dims[i]), isqrt(dims[i]), rks[i], rks[i + 1])
+            @test isapprox(tto.tto_vec[i], ttv_flat)
+        end
+    end
+
+    @testset "eltype preservation" begin
+        N = 2
+        dims = (4, 4)
+        rks = [1, 2, 1]
+        ot = [0, 0]
+        ttv_vec_f32 = [randn(Float32, 4, 1, 2), randn(Float32, 4, 2, 1)]
+        ttv_f32 = TTvector{Float32, 2}(N, ttv_vec_f32, dims, rks, ot)
+        
+        tto_f32 = ttv_to_tto(ttv_f32)
+        
+        @test eltype(tto_f32) == Float32
+        @test all(eltype(core) == Float32 for core in tto_f32.tto_vec)
+    end
+
+    @testset "orthogonalization info preserved" begin
+        N = 3
+        dims = (4, 4, 4)
+        rks = [1, 2, 2, 1]
+        ot = [-1, 0, 1]
+        ttv_vec = [randn(4, 1, 2), randn(4, 2, 2), randn(4, 2, 1)]
+        ttv = TTvector{Float64, 3}(N, ttv_vec, dims, rks, ot)
+        
+        tto = ttv_to_tto(ttv)
+        
+        @test tto.tto_ot == ttv.ttv_ot
+    end
+
+    @testset "single core operator" begin
+        N = 1
+        dims = (9,)
+        rks = [1, 1]
+        ot = [0]
+        ttv_vec = [randn(9, 1, 1)]
+        ttv = TTvector{Float64, 1}(N, ttv_vec, dims, rks, ot)
+        
+        tto = ttv_to_tto(ttv)
+        
+        @test tto.N == 1
+        @test tto.tto_dims == (3,)
+        @test size(tto.tto_vec[1]) == (3, 3, 1, 1)
+    end
+
+    @testset "non-perfect square dimensions throw error" begin
+        N = 2
+        dims = (4, 5)
+        rks = [1, 2, 1]
+        ot = [0, 0]
+        ttv_vec = [randn(4, 1, 2), randn(5, 2, 1)]
+        ttv = TTvector{Float64, 2}(N, ttv_vec, dims, rks, ot)
+        
+        @test_throws AssertionError ttv_to_tto(ttv)
+    end
+
+    @testset "large operator conversion" begin
+        N = 4
+        dims = (4, 4, 4, 4)
+        rks = [1, 2, 3, 2, 1]
+        ot = [0, 0, 0, 0]
+        ttv_vec = [randn(4, rks[i], rks[i + 1]) for i in 1:N]
+        ttv = TTvector{Float64, 4}(N, ttv_vec, dims, rks, ot)
+        
+        tto = ttv_to_tto(ttv)
+        
+        @test tto.N == 4
+        @test tto.tto_dims == (2, 2, 2, 2)
+        @test tto.tto_rks == rks
+    end
+
+    @testset "complex types" begin
+        N = 2
+        dims = (4, 9)
+        rks = [1, 2, 1]
+        ot = [0, 0]
+        ttv_vec = [randn(ComplexF64, 4, 1, 2), randn(ComplexF64, 9, 2, 1)]
+        ttv = TTvector{ComplexF64, 2}(N, ttv_vec, dims, rks, ot)
+        
+        tto = ttv_to_tto(ttv)
+        
+        @test eltype(tto) == ComplexF64
+        @test tto.tto_dims == (2, 3)
+        @test all(eltype(core) == ComplexF64 for core in tto.tto_vec)
+    end
+
+    @testset "round-trip conversion tto_to_ttv → ttv_to_tto" begin
+        N = 2
+        dims = (2, 3)
+        rks = [1, 2, 1]
+        ot = [0, 0]
+        tto_vec = [randn(2, 2, 1, 2), randn(3, 3, 2, 1)]
+        tto_orig = TToperator{Float64, 2}(N, tto_vec, dims, rks, ot)
+        
+        ttv = tto_to_ttv(tto_orig)
+        tto_back = ttv_to_tto(ttv)
+        
+        @test tto_back.N == tto_orig.N
+        @test tto_back.tto_dims == tto_orig.tto_dims
+        @test tto_back.tto_rks == tto_orig.tto_rks
+        @test tto_back.tto_ot == tto_orig.tto_ot
+        for i in 1:N
+            @test isapprox(tto_back.tto_vec[i], tto_orig.tto_vec[i])
+        end
+    end
+end
+
