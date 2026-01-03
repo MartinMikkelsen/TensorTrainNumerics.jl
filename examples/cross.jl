@@ -34,7 +34,7 @@ function Q(x)
     return vec(1.0e3 .* cos.(10 .* r2) .* exp.(-s .^ 4 ./ 1.0e3))
 end
 
-result5 = tt_integrate(Q, 10, lower = -1.0, upper = 1.0; nquad = 25, alg = DMRG(tol = 1.0e-8))
+result5 = tt_integrate(Q, 10, lower = -1.0, upper = 1.0; nquad = 25, alg = MaxVol(tol = 1.0e-8))
 
 function sin_6d(coords::Matrix{Float64})
     return vec(sin.(sum(coords, dims = 2)))
