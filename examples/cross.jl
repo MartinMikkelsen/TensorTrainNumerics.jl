@@ -34,7 +34,7 @@ function Q(x)
     return vec(1.0e3 .* cos.(10 .* r2) .* exp.(-s .^ 4 ./ 1.0e3))
 end
 
-result5 = tt_integrate(Q, 10, lower = -1.0, upper = 1.0; nquad = 25, alg = DMRG(tol = 1.0e-8))
+result5 = tt_integrate(Q, 10, lower = -1.0, upper = 1.0; nquad = 25, alg = MaxVol(tol = 1.0e-8))
 
 function sin_6d(coords::Matrix{Float64})
     return vec(sin.(sum(coords, dims = 2)))
@@ -45,16 +45,16 @@ d = 6
 
 domain = [collect(range(0.0, π, length = n)) for _ in 1:d]
 
-tt_maxvol = tt_cross(sin_6d, domain, MaxVol(tol = 1.0e-8, maxiter = 20, verbose = true); ranks = 4);
+tt_maxvol = tt_cross(sin_6d, domain, MaxVol(tol = 1.0e-12, verbose = true); ranks = 25);
 
-tt_dmrg = tt_cross(sin_6d, domain, DMRG(tol = 1.0e-8, maxiter = 20, verbose = true); ranks = 4);
+tt_dmrg = tt_cross(sin_6d, domain, DMRG(tol = 1.0e-8, maxiter = 25, verbose = true); ranks = 4);
 
 tt_greedy = tt_cross(sin_6d, domain, Greedy(tol = 1.0e-12, verbose = true, maxiter = 100));
 
 println("\nResulting TT ranks: $(tt_greedy.ttv_rks)")
 
 println("\nConverting TT back to full tensor...")
-tensor_approx = ttv_to_tensor(tt_greedy);
+tensor_approx = ttv_to_tensor(tt_dmrg);
 
 println("Building reference tensor...")
 tensor_exact = zeros(Float64, ntuple(_ -> n, d));

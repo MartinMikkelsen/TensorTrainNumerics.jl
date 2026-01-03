@@ -61,17 +61,14 @@ import TensorTrainNumerics: MaxVolPivot, RandomPivot, MaxVol, Greedy, DMRG, _cap
         @test alg.maxiter == 50
         @test alg.tol ≈ 1.0e-10
         @test alg.rmax == 500
-        @test alg.kickrank == 5
         @test alg.verbose == true
         @test alg.pivot isa MaxVolPivot
-        @test alg.nsweeps_inner == 2
 
-        alg = DMRG(maxiter = 30, tol = 1.0e-12, nsweeps_inner = 3, kickrank = 5)
+        alg = DMRG(maxiter = 30, tol = 1.0e-12, kickrank = 5)
         @test alg.maxiter == 30
         @test alg.tol ≈ 1.0e-12
-        @test alg.nsweeps_inner == 3
-        @test alg.kickrank == 5
     end
+
     @testset "tt_cross" begin
 
         @testset "MaxVol algorithm" begin
@@ -150,30 +147,6 @@ import TensorTrainNumerics: MaxVolPivot, RandomPivot, MaxVol, Greedy, DMRG, _cap
             @test Rs[3] <= 4
         end
 
-        @testset "_build_fiber_indices_left" begin
-            Is = [3, 4, 5]
-            Rs = [1, 2, 2, 1]
-            N = 3
-            lsets = [ones(Int, 1, 0), [1; 2;;], [1 1; 2 2]]
-            rsets = [[1 1; 2 2], [1; 2;;], ones(Int, 1, 0)]
-
-            indices = TensorTrainNumerics._build_fiber_indices_left(lsets, rsets, 1, Is, Rs, N)
-            @test size(indices, 1) == Rs[1] * Is[1] * Rs[2]
-            @test size(indices, 2) == N
-        end
-
-        @testset "_build_fiber_indices_right" begin
-            Is = [3, 4, 5]
-            Rs = [1, 2, 2, 1]
-            N = 3
-            lsets = [ones(Int, 1, 0), [1; 2;;], [1 1; 2 2]]
-            rsets = [[1 1; 2 2], [1; 2;;], ones(Int, 1, 0)]
-
-            indices = TensorTrainNumerics._build_fiber_indices_right(lsets, rsets, 2, Is, Rs, N)
-            @test size(indices, 1) == Rs[2] * Is[2] * Rs[3]
-            @test size(indices, 2) == N
-        end
-
         @testset "_evaluate_on_domain" begin
             domain = [[1.0, 2.0, 3.0], [10.0, 20.0]]
             indices = [1 1; 2 2; 3 1]
@@ -229,24 +202,6 @@ import TensorTrainNumerics: MaxVolPivot, RandomPivot, MaxVol, Greedy, DMRG, _cap
             @test result[4, :] == [1, 3, 4]
         end
 
-        @testset "_dmrg_update!" begin
-            domain = [[1.0, 2.0, 3.0], [1.0, 2.0, 3.0], [1.0, 2.0, 3.0]]
-            f(x) = sum(x, dims = 2)
-            Is = [3, 3, 3]
-            Rs = [1, 2, 2, 1]
-            N = 3
-
-            I_l = [ones(Int, 1, 0), [1; 2;;], [1 1; 2 2]]
-            I_g = [[1 1; 2 2], [1; 2;;], ones(Int, 1, 0)]
-
-            cores = [zeros(3, 1, 2), zeros(3, 2, 2), zeros(3, 2, 1)]
-            alg = DMRG(verbose = false)
-
-            TensorTrainNumerics._dmrg_update!(cores, I_l, I_g, Rs, f, domain, Is, 1, N, true, alg)
-            @test size(cores[1], 1) == 3
-            @test size(cores[1], 2) == 1
-        end
-
     end
 
     @testset "Greedy Helper Functions" begin
@@ -291,174 +246,59 @@ import TensorTrainNumerics: MaxVolPivot, RandomPivot, MaxVol, Greedy, DMRG, _cap
 
     end
 
-    @testset "Greedy Fiber Helper Functions" begin
 
-        @testset "_sample_fiber" begin
-            domain = [[1.0, 2.0], [10.0, 20.0, 30.0], [100.0, 200.0]]
-            f(x) = sum(x, dims = 2)
-            I_l = [ones(Int, 1, 0), [1; 2;;], [1 1; 2 2]]
-            I_g = [[1 1; 2 2], [1; 2;;], ones(Int, 1, 0)]
-            Is = [2, 3, 2]
-            N = 3
+end
 
-            fiber = TensorTrainNumerics._sample_fiber(f, domain, I_l, I_g, 2, Is, N)
-            @test size(fiber) == (2, 3, 2)
-        end
 
-        @testset "_fiber_to_Q3R" begin
-            fiber = randn(2, 3, 4)
+@testset "Integration Functions" begin
 
-            Q3, R = TensorTrainNumerics._fiber_to_Q3R(fiber)
-            @test size(Q3, 1) == 2
-            @test size(Q3, 2) == 3
-            @test size(R, 2) == 4
-        end
-
-        @testset "_Q3_to_core" begin
-            Q3 = randn(2, 3, 4)
-            row_indices = [1, 3, 5, 6]
-
-            core = TensorTrainNumerics._Q3_to_core(Q3, row_indices)
-            @test size(core, 1) == 2
-            @test size(core, 2) == 3
-            @test size(core, 3) == 4
-        end
-
-        @testset "_Q3_to_core empty indices" begin
-            Q3 = randn(2, 3, 4)
-
-            core = TensorTrainNumerics._Q3_to_core(Q3, Int[])
-            @test core === Q3
-        end
-
-        @testset "_combine_indices_left_fiber" begin
-            I_l_k = [1 2; 3 4]
-            s = 3
-
-            result = TensorTrainNumerics._combine_indices_left_fiber(I_l_k, s)
-            @test size(result) == (6, 3)
-            @test result[1, :] == [1, 2, 1]
-            @test result[3, :] == [1, 2, 2]
-        end
-
-        @testset "_combine_indices_right_fiber" begin
-            I_g_k = [1 2; 3 4]
-            s = 3
-
-            result = TensorTrainNumerics._combine_indices_right_fiber(s, I_g_k)
-            @test size(result) == (6, 3)
-            @test result[1, :] == [1, 1, 2]
-            @test result[4, :] == [1, 3, 4]
-        end
-
-        @testset "_get_row_indices" begin
-            rows = [1 2; 3 4]
-            all_rows = [1 2; 5 6; 3 4; 7 8]
-
-            indices = TensorTrainNumerics._get_row_indices(rows, all_rows)
-            @test indices == [1, 3]
-        end
-
-        @testset "_get_row_indices empty" begin
-            rows = zeros(Int, 0, 2)
-            all_rows = [1 2; 3 4]
-
-            indices = TensorTrainNumerics._get_row_indices(rows, all_rows)
-            @test isempty(indices)
-        end
-
+    @testset "_gauss_legendre" begin
+        nodes, weights = TensorTrainNumerics._gauss_legendre(5, 0.0, 1.0)
+        @test length(nodes) == 5
+        @test length(weights) == 5
+        @test sum(weights) ≈ 1.0
+        @test all(0 .< nodes .< 1)
     end
 
-
-    @testset "Greedy Superblock Functions" begin
-
-        @testset "_sample_superblock_greedy" begin
-            domain = [[1.0, 2.0], [10.0, 20.0], [100.0, 200.0]]
-            f(x) = sum(x, dims = 2)
-            I_l = [ones(Int, 1, 0), [1; 2;;], [1 1; 2 2]]
-            I_g = [[1 1; 2 2], [1; 2;;], ones(Int, 1, 0)]
-            Is = [2, 2, 2]
-            N = 3
-            j_l = [1, 2]
-            j_g = [1, 2]
-
-            result = TensorTrainNumerics._sample_superblock_greedy(f, domain, I_l, I_g, Is, 1, N, j_l, j_g)
-            @test size(result) == (2, 2)
-        end
-
-        @testset "_sample_skeleton_greedy" begin
-            cores = [randn(1, 3, 2), randn(2, 4, 1)]
-            fibers = [randn(1, 3, 2), randn(2, 4, 1)]
-            j_l = [1, 2, 3]
-            j_g = [1, 2]
-
-            result = TensorTrainNumerics._sample_skeleton_greedy(cores, fibers, 1, j_l, j_g)
-            @test size(result) == (3, 2)
-        end
-
-        @testset "_sample_skeleton_greedy dimension mismatch" begin
-            cores = [randn(1, 3, 2), randn(3, 4, 1)]
-            fibers = [randn(1, 3, 2), randn(3, 4, 1)]
-            j_l = [1, 2]
-            j_g = [1, 2]
-
-            result = TensorTrainNumerics._sample_skeleton_greedy(cores, fibers, 1, j_l, j_g)
-            @test size(result) == (2, 2)
-            @test all(result .== 0)
-        end
-
+    @testset "_gauss_legendre custom bounds" begin
+        nodes, weights = TensorTrainNumerics._gauss_legendre(3, -2.0, 2.0)
+        @test length(nodes) == 3
+        @test sum(weights) ≈ 4.0
+        @test all(-2 .< nodes .< 2)
     end
 
-    @testset "Integration Functions" begin
+    @testset "_contract_with_weights" begin
+        cores = [
+            reshape([1.0, 2.0], 2, 1, 1),
+            reshape([1.0, 2.0, 3.0], 3, 1, 1),
+        ]
+        weights = [[0.5, 0.5], [1 / 3, 1 / 3, 1 / 3]]
 
-        @testset "_gauss_legendre" begin
-            nodes, weights = TensorTrainNumerics._gauss_legendre(5, 0.0, 1.0)
-            @test length(nodes) == 5
-            @test length(weights) == 5
-            @test sum(weights) ≈ 1.0
-            @test all(0 .< nodes .< 1)
-        end
-
-        @testset "_gauss_legendre custom bounds" begin
-            nodes, weights = TensorTrainNumerics._gauss_legendre(3, -2.0, 2.0)
-            @test length(nodes) == 3
-            @test sum(weights) ≈ 4.0
-            @test all(-2 .< nodes .< 2)
-        end
-
-        @testset "_contract_with_weights" begin
-            cores = [
-                reshape([1.0, 2.0], 2, 1, 1),
-                reshape([1.0, 2.0, 3.0], 3, 1, 1),
-            ]
-            weights = [[0.5, 0.5], [1 / 3, 1 / 3, 1 / 3]]
-
-            result = TensorTrainNumerics._contract_with_weights(cores, weights)
-            @test result ≈ 1.5 * 2.0
-        end
-
-        @testset "tt_integrate simple" begin
-            f(x) = ones(size(x, 1))
-
-            result = tt_integrate(f, 3; alg = MaxVol(verbose = false))
-            @test result ≈ 1.0 atol = 1.0e-6
-        end
-
-        @testset "tt_integrate with bounds" begin
-            f(x) = ones(size(x, 1))
-            lower = [0.0, 0.0]
-            upper = [2.0, 3.0]
-
-            result = tt_integrate(f, lower, upper; alg = MaxVol(verbose = false))
-            @test result ≈ 6.0 atol = 1.0e-6
-        end
-
-        @testset "tt_integrate polynomial" begin
-            f(x) = x[:, 1] .^ 2
-
-            result = tt_integrate(f, 1; alg = MaxVol(verbose = false), nquad = 10)
-            @test result ≈ 1 / 3 atol = 1.0e-6
-        end
-
+        result = TensorTrainNumerics._contract_with_weights(cores, weights)
+        @test result ≈ 1.5 * 2.0
     end
+
+    @testset "tt_integrate simple" begin
+        f(x) = ones(size(x, 1))
+
+        result = tt_integrate(f, 3; alg = DMRG(verbose = false))
+        @test result ≈ 1.0 atol = 1.0e-6
+    end
+
+    @testset "tt_integrate with bounds" begin
+        f(x) = ones(size(x, 1))
+        lower = [0.0, 0.0]
+        upper = [2.0, 3.0]
+
+        result = tt_integrate(f, lower, upper; alg = DMRG(verbose = false))
+        @test result ≈ 6.0 atol = 1.0e-6
+    end
+
+    @testset "tt_integrate polynomial" begin
+        f(x) = x[:, 1] .^ 2
+
+        result = tt_integrate(f, 1; alg = DMRG(verbose = false), nquad = 10)
+        @test result ≈ 1 / 3 atol = 1.0e-6
+    end
+
 end

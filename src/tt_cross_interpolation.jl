@@ -38,13 +38,6 @@ struct MaxVol{T <: Real, P <: PivotAlgorithm} <: CrossAlgorithm
     pivot::P
 end
 
-"""
-# References 
-
-Dmitry Savostyanov
-Quasioptimality of maximum-volume cross interpolation of tensors
-Linear Algebra and its Applications 458, 217-244
-"""
 function MaxVol(;
         maxiter::Int = CROSS_MAXITER[],
         tol::Real = CROSS_TOL[],
@@ -64,13 +57,7 @@ struct Greedy{T <: Real, P <: PivotAlgorithm} <: CrossAlgorithm
     nsamples::Int
     pivot::P
 end
-"""
-# References 
 
-Dmitry Savostyanov
-Quasioptimality of maximum-volume cross interpolation of tensors
-Linear Algebra and its Applications 458, 217-244
-"""
 function Greedy(;
         maxiter::Int = CROSS_MAXITER[],
         tol::Real = CROSS_TOL[],
@@ -89,221 +76,17 @@ struct DMRG{T <: Real, P <: PivotAlgorithm} <: CrossAlgorithm
     kickrank::Union{Nothing, Int}
     verbose::Bool
     pivot::P
-    nsweeps_inner::Int
 end
-"""
-# References
 
-D Savostyanov, I Oseledets
-Fast adaptive interpolation of multi-dimensional arrays in tensor train format
-The 2011 International Workshop on Multidimensional (nD) Systems, 1-8
-"""
 function DMRG(;
         maxiter::Int = CROSS_MAXITER[],
         tol::Real = CROSS_TOL[],
         rmax::Int = CROSS_RMAX[],
         kickrank::Union{Nothing, Int} = CROSS_KICKRANK[],
         verbose::Bool = true,
-        pivot::PivotAlgorithm = MaxVolPivot(),
-        nsweeps_inner::Int = 2
+        pivot::PivotAlgorithm = MaxVolPivot()
     )
-    return DMRG(maxiter, tol, rmax, kickrank, verbose, pivot, nsweeps_inner)
-end
-
-function tt_cross(f::Function, domain, alg::MaxVol; kwargs...)
-end
-
-function tt_cross(f::Function, domain, alg::Greedy; kwargs...)
-end
-
-function tt_cross(f::Function, domain, alg::DMRG; kwargs...)
-end
-
-function tt_cross(f::Function, domain; alg::CrossAlgorithm = MaxVol(), kwargs...)
-    return tt_cross(f, domain, alg; kwargs...)
-end
-
-function tt_cross(
-        f::Function,
-        domain::Vector{<:AbstractVector{T}},
-        alg::MaxVol;
-        ranks::Union{Int, Vector{Int}} = 2,
-        val_size::Int = 1000
-    ) where {T <: Number}
-
-    N = length(domain)
-    Is = [length(d) for d in domain]
-
-    if isa(ranks, Int)
-        Rs = vcat([1], fill(ranks, N - 1), [1])
-    else
-        Rs = vcat([1], ranks, [1])
-    end
-    _cap_ranks!(Rs, Is, alg.rmax)
-
-    cores = Vector{Array{T, 3}}(undef, N)
-    for n in 1:N
-        cores[n] = randn(T, Is[n], Rs[n], Rs[n + 1])
-    end
-
-    lsets = Vector{Matrix{Int}}(undef, N)
-    rsets = Vector{Matrix{Int}}(undef, N)
-    lsets[1] = ones(Int, 1, 0)
-    rsets[N] = ones(Int, 1, 0)
-
-    max_R = maximum(Rs)
-    randint = zeros(Int, max_R, N)
-    for n in 1:N, r in 1:max_R
-        randint[r, n] = rand(1:Is[n])
-    end
-
-    for n in 1:(N - 1)
-        rsets[n] = randint[1:Rs[n + 1], (n + 1):N]
-    end
-    for n in 2:N
-        lsets[n] = zeros(Int, 0, 0)
-    end
-
-    Xs_val = Matrix{Int}(undef, val_size, N)
-    for d in 1:N
-        Xs_val[:, d] = rand(1:Is[d], val_size)
-    end
-    val_coords = Matrix{T}(undef, val_size, N)
-    for p in 1:val_size, d in 1:N
-        val_coords[p, d] = domain[d][Xs_val[p, d]]
-    end
-    ys_val = f(val_coords)
-    norm_ys_val = norm(ys_val)
-    if norm_ys_val < alg.tol
-        norm_ys_val = one(T)
-    end
-
-    if alg.verbose
-        @info "MaxVol cross-interpolation over $(N)D domain with $(prod(Is)) grid points"
-    end
-
-    converged = false
-    val_eps = Inf
-
-    for iter in 1:alg.maxiter
-        for j in 1:(N - 1)
-            indices = _build_fiber_indices_left(lsets, rsets, j, Is, Rs, N)
-            V = _evaluate_on_domain(f, domain, indices)
-            V = reshape(V, Rs[j] * Is[j], Rs[j + 1])
-
-            Q, _ = qr(V)
-            Q_mat = Matrix(Q)
-
-            local_indices, _ = maxvol!(copy(Q_mat), alg.pivot.tol, alg.pivot.maxiter)
-
-            V_new = Q_mat / Q_mat[local_indices, :]
-            cores[j] = reshape(V_new, Is[j], Rs[j], Rs[j + 1])
-
-            local_r = zeros(Int, length(local_indices))
-            local_i = zeros(Int, length(local_indices))
-            for (k, idx) in enumerate(local_indices)
-                local_i[k] = ((idx - 1) % Is[j]) + 1
-                local_r[k] = ((idx - 1) ÷ Is[j]) + 1
-            end
-
-            if j == 1
-                lsets[j + 1] = reshape(local_i, length(local_i), 1)
-            else
-                new_lset = zeros(Int, length(local_indices), j)
-                for k in 1:length(local_indices)
-                    new_lset[k, 1:(j - 1)] = lsets[j][local_r[k], :]
-                    new_lset[k, j] = local_i[k]
-                end
-                lsets[j + 1] = new_lset
-            end
-
-            Rs[j + 1] = length(local_indices)
-        end
-
-        for j in N:-1:2
-            indices = _build_fiber_indices_right(lsets, rsets, j, Is, Rs, N)
-            V = _evaluate_on_domain(f, domain, indices)
-            V_mat = reshape(V, Is[j] * Rs[j + 1], Rs[j])
-
-            Q, _ = qr(V_mat)
-            Q_mat = Matrix(Q)
-
-            local_indices, _ = maxvol!(copy(Q_mat), alg.pivot.tol, alg.pivot.maxiter)
-
-            V_new = Q_mat / Q_mat[local_indices, :]
-            core = zeros(T, Is[j], Rs[j], Rs[j + 1])
-            for r in 1:Rs[j], i in 1:Is[j], rp in 1:Rs[j + 1]
-                row_idx = (i - 1) * Rs[j + 1] + rp
-                core[i, r, rp] = V_new[row_idx, r]
-            end
-            cores[j] = core
-
-            local_i = zeros(Int, length(local_indices))
-            local_r = zeros(Int, length(local_indices))
-            for (k, idx) in enumerate(local_indices)
-                local_r[k] = ((idx - 1) % Rs[j + 1]) + 1
-                local_i[k] = ((idx - 1) ÷ Rs[j + 1]) + 1
-            end
-
-            if j == N
-                rsets[j - 1] = reshape(local_i, length(local_i), 1)
-            else
-                new_rset = zeros(Int, length(local_indices), N - j + 1)
-                for k in 1:length(local_indices)
-                    new_rset[k, 1] = local_i[k]
-                    new_rset[k, 2:end] = rsets[j][local_r[k], :]
-                end
-                rsets[j - 1] = new_rset
-            end
-
-            Rs[j] = length(local_indices)
-        end
-
-        indices_first = _build_fiber_indices_left(lsets, rsets, 1, Is, Rs, N)
-        V_first = _evaluate_on_domain(f, domain, indices_first)
-        cores[1] = reshape(V_first, Is[1], Rs[1], Rs[2])
-
-        y_approx = _evaluate_tt(cores, Xs_val, N)
-        val_eps = norm(ys_val - y_approx) / norm_ys_val
-
-        if alg.verbose
-            @info "Iteration $iter: ε = $(val_eps), max rank = $(maximum(Rs))"
-        end
-
-        if val_eps < alg.tol
-            converged = true
-            break
-        end
-
-        if !converged && iter < alg.maxiter && alg.kickrank !== nothing
-            newRs = copy(Rs)
-            for n in 2:N
-                newRs[n] = min(alg.rmax, newRs[n] + alg.kickrank)
-            end
-            _cap_ranks!(newRs, Is, alg.rmax)
-
-            for n in 1:(N - 1)
-                if newRs[n + 1] > Rs[n + 1]
-                    extra_rows = newRs[n + 1] - Rs[n + 1]
-                    n_cols = N - n
-                    extra = zeros(Int, extra_rows, n_cols)
-                    for er in 1:extra_rows, col in 1:n_cols
-                        extra[er, col] = rand(1:Is[n + col])
-                    end
-                    rsets[n] = vcat(rsets[n], extra)
-                end
-            end
-            Rs = newRs
-        end
-    end
-
-    if converged && alg.verbose
-        @info "Converged: ε = $(val_eps) < $(alg.tol)"
-    elseif !converged && alg.verbose
-        @warn "Max iterations reached: ε = $(val_eps)"
-    end
-
-    return TTvector{T, N}(N, cores, Tuple(Is), copy(Rs), zeros(Int, N))
+    return DMRG(maxiter, tol, rmax, kickrank, verbose, pivot)
 end
 
 function tt_cross(f::Function, domain; alg::CrossAlgorithm = MaxVol(), kwargs...)
@@ -320,112 +103,6 @@ function tt_cross(f::Function, dims::Vector{Int}; alg::CrossAlgorithm = MaxVol()
     return tt_cross(f, domain, alg; kwargs...)
 end
 
-function tt_cross(
-        f::Function,
-        domain::Vector{<:AbstractVector{T}},
-        alg::DMRG;
-        ranks::Union{Int, Vector{Int}} = 2,
-        val_size::Int = 1000
-    ) where {T <: Number}
-
-    N = length(domain)
-    Is = [length(d) for d in domain]
-
-    if isa(ranks, Int)
-        Rs = vcat([1], fill(ranks, N - 1), [1])
-    else
-        Rs = vcat([1], ranks, [1])
-    end
-    _cap_ranks!(Rs, Is, alg.rmax)
-
-    I_l = Vector{Matrix{Int}}(undef, N)
-    I_g = Vector{Matrix{Int}}(undef, N)
-    I_l[1] = ones(Int, 1, 0)
-    I_g[N] = ones(Int, 1, 0)
-
-    for k in 2:N
-        I_l[k] = zeros(Int, Rs[k], k - 1)
-        for r in 1:Rs[k], j in 1:(k - 1)
-            I_l[k][r, j] = rand(1:Is[j])
-        end
-    end
-
-    for k in 1:(N - 1)
-        I_g[k] = zeros(Int, Rs[k + 1], N - k)
-        for r in 1:Rs[k + 1], j in 1:(N - k)
-            I_g[k][r, j] = rand(1:Is[k + j])
-        end
-    end
-
-    cores = Vector{Array{T, 3}}(undef, N)
-    for n in 1:N
-        cores[n] = zeros(T, Is[n], Rs[n], Rs[n + 1])
-    end
-
-    Xs_val = Matrix{Int}(undef, val_size, N)
-    for d in 1:N
-        Xs_val[:, d] = rand(1:Is[d], val_size)
-    end
-    val_coords = Matrix{T}(undef, val_size, N)
-    for p in 1:val_size, d in 1:N
-        val_coords[p, d] = domain[d][Xs_val[p, d]]
-    end
-    ys_val = f(val_coords)
-    norm_ys_val = norm(ys_val)
-    if norm_ys_val < alg.tol
-        norm_ys_val = one(T)
-    end
-
-    if alg.verbose
-        @info "DMRG cross-interpolation over $(N)D domain with $(prod(Is)) grid points"
-    end
-
-    converged = false
-    val_eps = Inf
-
-    for iter in 1:alg.maxiter
-        for k in 1:(N - 1)
-            _dmrg_update!(cores, I_l, I_g, Rs, f, domain, Is, k, N, true, alg)
-        end
-
-        y_approx = _evaluate_tt(cores, Xs_val, N)
-        val_eps = norm(ys_val - y_approx) / norm_ys_val
-
-        if alg.verbose
-            @info "Sweep $(2 * iter - 1) (L→R): ε = $(val_eps), max rank = $(maximum(Rs))"
-        end
-
-        if val_eps < alg.tol
-            converged = true
-            break
-        end
-
-        for k in (N - 1):-1:1
-            _dmrg_update!(cores, I_l, I_g, Rs, f, domain, Is, k, N, false, alg)
-        end
-
-        y_approx = _evaluate_tt(cores, Xs_val, N)
-        val_eps = norm(ys_val - y_approx) / norm_ys_val
-
-        if alg.verbose
-            @info "Sweep $(2 * iter) (R→L): ε = $(val_eps), max rank = $(maximum(Rs))"
-        end
-
-        if val_eps < alg.tol
-            converged = true
-            break
-        end
-    end
-
-    if converged && alg.verbose
-        @info "Converged: ε = $(val_eps) < $(alg.tol)"
-    elseif !converged && alg.verbose
-        @warn "Max iterations reached: ε = $(val_eps)"
-    end
-
-    return TTvector{T, N}(N, cores, Tuple(Is), copy(Rs), zeros(Int, N))
-end
-
 function _cap_ranks!(Rs, Is, rmax)
     N = length(Is)
     for n in 2:N
@@ -437,67 +114,15 @@ function _cap_ranks!(Rs, Is, rmax)
     return Rs
 end
 
-function _build_fiber_indices_left(lsets, rsets, j, Is, Rs, N)
-    n_fibers = Rs[j] * Is[j] * Rs[j + 1]
-    indices = Matrix{Int}(undef, n_fibers, N)
-    idx = 1
-    for r_right in 1:Rs[j + 1]
-        for r_left in 1:Rs[j]
-            for i in 1:Is[j]
-                if j == 1
-                    left_idx = Int[]
-                else
-                    left_idx = lsets[j][r_left, :]
-                end
-                if j == N
-                    right_idx = Int[]
-                else
-                    right_idx = rsets[j][r_right, :]
-                end
-                indices[idx, :] = vcat(left_idx, [i], right_idx)
-                idx += 1
-            end
-        end
-    end
-    return indices
-end
-
-function _build_fiber_indices_right(lsets, rsets, j, Is, Rs, N)
-    n_fibers = Rs[j] * Is[j] * Rs[j + 1]
-    indices = Matrix{Int}(undef, n_fibers, N)
-    idx = 1
-    for r_left in 1:Rs[j]
-        for i in 1:Is[j]
-            for r_right in 1:Rs[j + 1]
-                if j == 1
-                    left_idx = Int[]
-                else
-                    left_idx = lsets[j][r_left, :]
-                end
-                if j == N
-                    right_idx = Int[]
-                else
-                    right_idx = rsets[j][r_right, :]
-                end
-                indices[idx, :] = vcat(left_idx, [i], right_idx)
-                idx += 1
-            end
-        end
-    end
-    return indices
-end
-
 function _evaluate_on_domain(f, domain::Vector{<:AbstractVector}, indices::Matrix{Int})
     N = length(domain)
     n_points = size(indices, 1)
     T = eltype(domain[1])
     coords = Matrix{T}(undef, n_points, N)
-    for p in 1:n_points
-        for d in 1:N
-            coords[p, d] = domain[d][indices[p, d]]
-        end
+    for p in 1:n_points, d in 1:N
+        coords[p, d] = domain[d][indices[p, d]]
     end
-    return f(coords)
+    return vec(f(coords))
 end
 
 function _evaluate_tt(cores, indices, N)
@@ -505,116 +130,192 @@ function _evaluate_tt(cores, indices, N)
     n_points = size(indices, 1)
     result = zeros(T, n_points)
     for p in 1:n_points
-        val = ones(T, 1)
+        val = ones(T, 1, 1)
         for d in 1:N
             idx = indices[p, d]
             core_slice = cores[d][idx, :, :]
-            val = val' * core_slice
-            val = vec(val)
+            val = val * core_slice
         end
-        result[p] = val[1]
+        result[p] = val[1, 1]
     end
     return result
 end
 
-function _sample_superblock(f, domain, I_l, I_g, k, Is, N)
-    r_l = size(I_l[k], 1)
-    r_g = size(I_g[k + 1], 1)
-    s1, s2 = Is[k], Is[k + 1]
-
-    n_samples = r_l * s1 * s2 * r_g
-    indices = Matrix{Int}(undef, n_samples, N)
-
-    idx = 1
-    for rg in 1:r_g, i2 in 1:s2, i1 in 1:s1, rl in 1:r_l
-        if k > 1
-            indices[idx, 1:(k - 1)] = I_l[k][rl, :]
+function _svdtrunc(A::AbstractMatrix{T}; max_bond::Int = typemax(Int), truncerr::Real = 0.0) where {T}
+    F = svd(A)
+    s = F.S
+    r = length(s)
+    if truncerr > 0
+        nrm = norm(s)
+        cum = zero(T)
+        for i in r:-1:1
+            cum += s[i]^2
+            if sqrt(cum) > truncerr * nrm
+                r = i
+                break
+            end
         end
-        indices[idx, k] = i1
-        indices[idx, k + 1] = i2
-        if k + 1 < N
-            indices[idx, (k + 2):N] = I_g[k + 1][rg, :]
-        end
-        idx += 1
     end
-
-    values = _evaluate_on_domain(f, domain, indices)
-    return reshape(values, r_l, s1, s2, r_g)
+    r = min(r, max_bond)
+    return F.U[:, 1:r], Diagonal(s[1:r]), F.Vt[1:r, :]
 end
 
-function _combine_indices_left(I_l_k, s)
-    r_l = size(I_l_k, 1)
-    n_cols = size(I_l_k, 2)
-    result = zeros(Int, r_l * s, n_cols + 1)
+function _build_fiber_indices(lsets, rsets, j, Is, Rs, N)
+    n_fibers = Rs[j] * Is[j] * Rs[j + 1]
+    indices = Matrix{Int}(undef, n_fibers, N)
     idx = 1
-    for i in 1:s, r in 1:r_l
-        if n_cols > 0
-            result[idx, 1:n_cols] = I_l_k[r, :]
-        end
-        result[idx, end] = i
+    for r_right in 1:Rs[j + 1], r_left in 1:Rs[j], i in 1:Is[j]
+        left_idx = j == 1 ? Int[] : lsets[j][r_left, :]
+        right_idx = j == N ? Int[] : rsets[j][r_right, :]
+        indices[idx, :] = vcat(left_idx, [i], right_idx)
         idx += 1
     end
-    return result
+    return indices
 end
 
-function _combine_indices_right(s, I_g_k)
-    r_g = size(I_g_k, 1)
-    n_cols = size(I_g_k, 2)
-    result = zeros(Int, s * r_g, n_cols + 1)
-    idx = 1
-    for r in 1:r_g, i in 1:s
-        result[idx, 1] = i
-        if n_cols > 0
-            result[idx, 2:end] = I_g_k[r, :]
-        end
-        idx += 1
+function tt_cross(
+        f::Function,
+        domain::Vector{<:AbstractVector{T}},
+        alg::MaxVol;
+        ranks::Union{Int, Vector{Int}} = 2,
+        val_size::Int = 1000
+    ) where {T <: Number}
+
+    N = length(domain)
+    Is = [length(d) for d in domain]
+
+    Rs = isa(ranks, Int) ? vcat([1], fill(ranks, N - 1), [1]) : vcat([1], ranks, [1])
+    _cap_ranks!(Rs, Is, alg.rmax)
+
+    cores = [randn(T, Is[n], Rs[n], Rs[n + 1]) for n in 1:N]
+
+    lsets = Vector{Matrix{Int}}(undef, N)
+    rsets = Vector{Matrix{Int}}(undef, N)
+    lsets[1] = ones(Int, 1, 0)
+    rsets[N] = ones(Int, 1, 0)
+
+    max_R = maximum(Rs)
+    randint = [rand(1:Is[n]) for _ in 1:max_R, n in 1:N]
+    for n in 1:(N - 1)
+        rsets[n] = randint[1:Rs[n + 1], (n + 1):N]
     end
-    return result
+    for n in 2:N
+        lsets[n] = zeros(Int, 0, 0)
+    end
+
+    Xs_val = hcat([rand(1:Is[d], val_size) for d in 1:N]...)
+    val_coords = hcat([domain[d][Xs_val[:, d]] for d in 1:N]...)
+    ys_val = f(val_coords)
+    norm_ys_val = max(norm(ys_val), alg.tol)
+
+    alg.verbose && @info "MaxVol cross-interpolation over $(N)D domain with $(prod(Is)) grid points"
+
+    converged = false
+    val_eps = Inf
+
+    for iter in 1:alg.maxiter
+        for j in 1:(N - 1)
+            indices = _build_fiber_indices(lsets, rsets, j, Is, Rs, N)
+            V = reshape(_evaluate_on_domain(f, domain, indices), Rs[j] * Is[j], Rs[j + 1])
+            Q_mat = Matrix(first(qr(V)))
+            local_indices, _ = maxvol!(copy(Q_mat), alg.pivot.tol, alg.pivot.maxiter)
+
+            G = Q_mat / Q_mat[local_indices, :]
+            cores[j] = reshape(G, Is[j], Rs[j], length(local_indices))
+
+            local_i = [((idx - 1) % Is[j]) + 1 for idx in local_indices]
+            local_r = [((idx - 1) ÷ Is[j]) + 1 for idx in local_indices]
+
+            if j == 1
+                lsets[j + 1] = reshape(local_i, :, 1)
+            else
+                new_lset = zeros(Int, length(local_indices), j)
+                for k in eachindex(local_indices)
+                    new_lset[k, 1:(j - 1)] = lsets[j][local_r[k], :]
+                    new_lset[k, j] = local_i[k]
+                end
+                lsets[j + 1] = new_lset
+            end
+            Rs[j + 1] = length(local_indices)
+        end
+
+        for j in N:-1:2
+            indices = _build_fiber_indices(lsets, rsets, j, Is, Rs, N)
+            V = reshape(_evaluate_on_domain(f, domain, indices), Rs[j] * Is[j], Rs[j + 1])
+            V_3d = reshape(V, Is[j], Rs[j], Rs[j + 1])
+            V_right = reshape(permutedims(V_3d, (2, 1, 3)), Rs[j], Is[j] * Rs[j + 1])
+            Q_mat = Matrix(first(qr(V_right')))
+            local_indices, _ = maxvol!(copy(Q_mat), alg.pivot.tol, alg.pivot.maxiter)
+
+            G = Q_mat / Q_mat[local_indices, :]
+            G_3d = reshape(G, Is[j], Rs[j + 1], Rs[j])
+            cores[j] = permutedims(G_3d, (1, 3, 2))
+
+            local_i = [((idx - 1) % Is[j]) + 1 for idx in local_indices]
+            local_r = [((idx - 1) ÷ Is[j]) + 1 for idx in local_indices]
+
+            if j == N
+                rsets[j - 1] = reshape(local_i, :, 1)
+            else
+                new_rset = zeros(Int, length(local_indices), N - j + 1)
+                for k in eachindex(local_indices)
+                    new_rset[k, 1] = local_i[k]
+                    new_rset[k, 2:end] = rsets[j][local_r[k], :]
+                end
+                rsets[j - 1] = new_rset
+            end
+            Rs[j] = length(local_indices)
+        end
+
+        indices = _build_fiber_indices(lsets, rsets, 1, Is, Rs, N)
+        V = _evaluate_on_domain(f, domain, indices)
+        cores[1] = reshape(V, Is[1], Rs[1], Rs[2])
+
+        y_approx = _evaluate_tt(cores, Xs_val, N)
+        val_eps = norm(ys_val - y_approx) / norm_ys_val
+
+        alg.verbose && @info "Iteration $iter: ε = $(val_eps), max rank = $(maximum(Rs))"
+
+        if val_eps < alg.tol
+            converged = true
+            break
+        end
+
+        if alg.kickrank !== nothing
+            newRs = copy(Rs)
+            for n in 2:N
+                newRs[n] = min(newRs[n] + alg.kickrank, alg.rmax)
+            end
+            _cap_ranks!(newRs, Is, alg.rmax)
+            for n in 1:(N - 1)
+                if newRs[n + 1] > Rs[n + 1]
+                    extra = [rand(1:Is[n + col]) for _ in 1:(newRs[n + 1] - Rs[n + 1]), col in 1:(N - n)]
+                    rsets[n] = vcat(rsets[n], extra)
+                end
+            end
+            Rs = newRs
+        end
+    end
+
+    converged && alg.verbose && @info "Converged: ε = $(val_eps) < $(alg.tol)"
+    !converged && alg.verbose && @warn "Max iterations reached: ε = $(val_eps)"
+
+    return TTvector{T, N}(N, cores, Tuple(Is), copy(Rs), zeros(Int, N))
 end
 
-function _dmrg_update!(cores, I_l, I_g, Rs, f, domain, Is, k, N, left_to_right, alg::DMRG)
-    superblock = _sample_superblock(f, domain, I_l, I_g, k, Is, N)
-    r_l, s1, s2, r_g = size(superblock)
+function _indexmerge(J1::AbstractMatrix{Int}, J2::AbstractMatrix{Int})
+    sz1, sz2 = max(size(J1, 1), 1), max(size(J2, 1), 1)
+    return hcat(repeat(Matrix(J1), sz2, 1), repeat(Matrix(J2), inner = (sz1, 1)))
+end
 
-    A = reshape(superblock, r_l * s1, s2 * r_g)
-    U, S, Vt = _svdtrunc(A; max_bond = alg.rmax, truncerr = alg.tol)
-    r = size(S, 1)
-
-    return if left_to_right
-        if k < N - 1
-            Q, _ = qr(U)
-            Q_mat = Matrix(Q)
-            I_idx, _ = maxvol!(copy(Q_mat), alg.pivot.tol, alg.pivot.maxiter)
-            G = Q_mat / Q_mat[I_idx, :]
-
-            combined = _combine_indices_left(I_l[k], s1)
-            I_l[k + 1] = combined[I_idx, :]
-            Rs[k + 1] = length(I_idx)
-
-            cores[k] = permutedims(reshape(G, r_l, s1, Rs[k + 1]), (2, 1, 3))
-        else
-            cores[k] = permutedims(reshape(U, r_l, s1, r), (2, 1, 3))
-            cores[k + 1] = permutedims(reshape(S * Vt, r, s2, r_g), (2, 1, 3))
-            Rs[k + 1] = r
-        end
-    else
-        if k > 1
-            Q, _ = qr(Vt')
-            Q_mat = Matrix(Q)
-            I_idx, _ = maxvol!(copy(Q_mat), alg.pivot.tol, alg.pivot.maxiter)
-            G = Q_mat / Q_mat[I_idx, :]
-
-            combined = _combine_indices_right(s2, I_g[k + 1])
-            I_g[k] = combined[I_idx, :]
-            Rs[k + 1] = length(I_idx)
-
-            cores[k + 1] = permutedims(reshape(G', Rs[k + 1], s2, r_g), (2, 1, 3))
-        else
-            cores[k] = permutedims(reshape(U * S, r_l, s1, r), (2, 1, 3))
-            cores[k + 1] = permutedims(reshape(Vt, r, s2, r_g), (2, 1, 3))
-            Rs[k + 1] = r
-        end
+function _form_tensor(y, mid_inv_L, mid_inv_U, N, Rs, Is)
+    cores = Vector{Array{eltype(y[1]), 3}}(undef, N)
+    for i in 1:N
+        yi = mid_inv_L[i] * reshape(y[i], Rs[i], Is[i] * Rs[i + 1])
+        yi = reshape(yi, Rs[i] * Is[i], Rs[i + 1]) * mid_inv_U[i + 1]
+        cores[i] = permutedims(reshape(yi, Rs[i], Is[i], Rs[i + 1]), (2, 1, 3))
     end
+    return cores
 end
 
 function tt_cross(
@@ -626,17 +327,16 @@ function tt_cross(
 
     N = length(domain)
     Is = [length(d) for d in domain]
-
     Rs = ones(Int, N + 1)
 
     y = Vector{Array{T, 3}}(undef, N)
     mid_inv_U = Vector{Matrix{T}}(undef, N + 1)
     mid_inv_L = Vector{Matrix{T}}(undef, N + 1)
 
-    mid_inv_U[1] = ones(T, 1, 1)
-    mid_inv_L[1] = ones(T, 1, 1)
-    mid_inv_U[N + 1] = ones(T, 1, 1)
-    mid_inv_L[N + 1] = ones(T, 1, 1)
+    for i in 1:(N + 1)
+        mid_inv_U[i] = ones(T, 1, 1)
+        mid_inv_L[i] = ones(T, 1, 1)
+    end
 
     Jyl = Vector{Matrix{Int}}(undef, N + 1)
     Jyr = Vector{Matrix{Int}}(undef, N + 1)
@@ -649,19 +349,15 @@ function tt_cross(
     ilocr[N + 1] = Int[]
 
     for i in 2:N
-        mid_inv_U[i] = ones(T, 1, 1)
-        mid_inv_L[i] = ones(T, 1, 1)
         ilocl[i] = [1]
         ilocr[i] = [1]
     end
 
     for i in 1:(N - 1)
-        Jyl[i + 1] = _indexmerge(Jyl[i], reshape(collect(1:Is[i]), :, 1))
-        Jyl[i + 1] = Jyl[i + 1][1:1, :]
+        Jyl[i + 1] = _indexmerge(Jyl[i], reshape(collect(1:Is[i]), :, 1))[1:1, :]
     end
     for i in N:-1:2
-        Jyr[i] = _indexmerge(reshape(collect(1:Is[i]), :, 1), Jyr[i + 1])
-        Jyr[i] = Jyr[i][1:1, :]
+        Jyr[i] = _indexmerge(reshape(collect(1:Is[i]), :, 1), Jyr[i + 1])[1:1, :]
     end
 
     for i in N:-1:1
@@ -671,10 +367,8 @@ function tt_cross(
             cry_mat = reshape(cry, Rs[i], Is[i] * Rs[i + 1])
             _, imax = findmax(abs.(cry_mat), dims = 2)
             ilocr[i] = [imax[1][2]]
-            Jyr[i] = _indexmerge(reshape(collect(1:Is[i]), :, 1), Jyr[i + 1])
-            Jyr[i] = Jyr[i][ilocr[i], :]
+            Jyr[i] = _indexmerge(reshape(collect(1:Is[i]), :, 1), Jyr[i + 1])[ilocr[i], :]
             mid_inv_U[i] = reshape([1 / cry_mat[1, ilocr[i][1]]], 1, 1)
-            mid_inv_L[i] = ones(T, 1, 1)
         end
         y[i] = reshape(cry, Rs[i], Is[i], Rs[i + 1])
     end
@@ -686,36 +380,21 @@ function tt_cross(
             cry_mat = reshape(cry, Rs[i] * Is[i], Rs[i + 1])
             _, imax = findmax(abs.(cry_mat), dims = 1)
             ilocl[i + 1] = [imax[1][1]]
-            Jyl[i + 1] = _indexmerge(Jyl[i], reshape(collect(1:Is[i]), :, 1))
-            Jyl[i + 1] = Jyl[i + 1][ilocl[i + 1], :]
+            Jyl[i + 1] = _indexmerge(Jyl[i], reshape(collect(1:Is[i]), :, 1))[ilocl[i + 1], :]
             mid_inv_U[i + 1] = reshape([1 / cry_mat[ilocl[i + 1][1], 1]], 1, 1)
-            mid_inv_L[i + 1] = ones(T, 1, 1)
         end
         y[i] = reshape(cry, Rs[i], Is[i], Rs[i + 1])
     end
 
-    Xs_val = Matrix{Int}(undef, val_size, N)
-    for d in 1:N
-        Xs_val[:, d] = rand(1:Is[d], val_size)
-    end
-    val_coords = Matrix{T}(undef, val_size, N)
-    for p in 1:val_size, d in 1:N
-        val_coords[p, d] = domain[d][Xs_val[p, d]]
-    end
+    Xs_val = hcat([rand(1:Is[d], val_size) for d in 1:N]...)
+    val_coords = hcat([domain[d][Xs_val[:, d]] for d in 1:N]...)
     ys_val = f(val_coords)
-    norm_ys_val = norm(ys_val)
-    if norm_ys_val < alg.tol
-        norm_ys_val = one(T)
-    end
+    norm_ys_val = max(norm(ys_val), alg.tol)
 
-    if alg.verbose
-        @info "Greedy cross-interpolation over $(N)D domain with $(prod(Is)) grid points"
-    end
+    alg.verbose && @info "Greedy cross-interpolation over $(N)D domain with $(prod(Is)) grid points"
 
     converged = false
     val_eps = Inf
-    max_dx = zero(T)
-    maxy = zero(T)
 
     for swp in 1:alg.maxiter
         max_dx = zero(T)
@@ -723,10 +402,7 @@ function tt_cross(
         for i in 1:(N - 1)
             cind1 = setdiff(1:(Rs[i] * Is[i]), ilocl[i + 1])
             cind2 = setdiff(1:(Is[i + 1] * Rs[i + 2]), ilocr[i + 1])
-
-            if isempty(cind1) || isempty(cind2)
-                continue
-            end
+            (isempty(cind1) || isempty(cind2)) && continue
 
             testsz = min(length(cind1), length(cind2), alg.nsamples)
             tind1 = cind1[rand(1:length(cind1), testsz)]
@@ -735,76 +411,51 @@ function tt_cross(
             J1 = _indexmerge(Jyl[i], reshape(collect(1:Is[i]), :, 1))
             J2 = _indexmerge(reshape(collect(1:Is[i + 1]), :, 1), Jyr[i + 2])
 
-            J = hcat(J1[tind1, :], J2[tind2, :])
-            crt = _evaluate_on_domain(f, domain, J)
-            maxy = max(maxy, maximum(abs.(crt)))
+            crt = _evaluate_on_domain(f, domain, hcat(J1[tind1, :], J2[tind2, :]))
+            maxy = maximum(abs.(crt))
 
             cry1 = reshape(y[i], Rs[i] * Is[i], Rs[i + 1])
             cry2 = reshape(y[i + 1], Rs[i + 1], Is[i + 1] * Rs[i + 2])
-
-            cre1 = cry1 * mid_inv_U[i + 1]
-            cre2 = mid_inv_L[i + 1] * cry2
+            cre1, cre2 = cry1 * mid_inv_U[i + 1], mid_inv_L[i + 1] * cry2
 
             cry_approx = [LinearAlgebra.dot(cre1[tind1[j], :], cre2[:, tind2[j]]) for j in 1:testsz]
             cre = crt - cry_approx
 
-            emax, imax_test = findmax(abs.(cre))
+            _, imax_test = findmax(abs.(cre))
             j_g_best = tind2[imax_test]
 
-            J_col = hcat(J1[cind1, :], repeat(J2[j_g_best:j_g_best, :], length(cind1), 1))
-            crt_col = _evaluate_on_domain(f, domain, J_col)
-            maxy = max(maxy, maximum(abs.(crt_col)))
-
-            cry_col = cre1[cind1, :] * cre2[:, j_g_best]
-            cre_col = crt_col - cry_col
+            crt_col = _evaluate_on_domain(f, domain, hcat(J1[cind1, :], repeat(J2[j_g_best:j_g_best, :], length(cind1), 1)))
+            cre_col = crt_col - cre1[cind1, :] * cre2[:, j_g_best]
 
             emax, imax1_local = findmax(abs.(cre_col))
             imax1 = cind1[imax1_local]
-
             dx = emax / max(maxy, eps(T))
             max_dx = max(max_dx, dx)
 
             if dx > alg.tol
-                J1m = J1[imax1:imax1, :]
-                J2m = J2[j_g_best:j_g_best, :]
+                J1m, J2m = J1[imax1:imax1, :], J2[j_g_best:j_g_best, :]
+                cre1_new = reshape(_evaluate_on_domain(f, domain, hcat(J1, repeat(J2m, size(J1, 1), 1))), Rs[i] * Is[i], 1)
+                cre2_new = reshape(_evaluate_on_domain(f, domain, hcat(repeat(J1m, size(J2, 1), 1), J2)), 1, Is[i + 1] * Rs[i + 2])
 
-                Jl = hcat(J1, repeat(J2m, size(J1, 1), 1))
-                Jr = hcat(repeat(J1m, size(J2, 1), 1), J2)
-
-                cre1_new_vec = _evaluate_on_domain(f, domain, Jl)
-                cre2_new_vec = _evaluate_on_domain(f, domain, Jr)
-
-                cre1_new = reshape(cre1_new_vec, Rs[i] * Is[i], 1)
-                cre2_new = reshape(cre2_new_vec, 1, Is[i + 1] * Rs[i + 2])
-
-                uold = mid_inv_U[i + 1]
-                lold = mid_inv_L[i + 1]
-
+                uold, lold = mid_inv_U[i + 1], mid_inv_L[i + 1]
                 erow = reshape(cry1[imax1, :], 1, Rs[i + 1])
                 ecol = cre1_new[ilocl[i + 1], 1]
-                eel = cre1_new[imax1, 1]
-
-                ecol_transformed = lold * ecol
-                erow_transformed = erow * uold
-                alpha = eel - LinearAlgebra.dot(vec(erow_transformed), ecol_transformed)
+                alpha = cre1_new[imax1, 1] - LinearAlgebra.dot(vec(erow * uold), lold * ecol)
 
                 new_U = zeros(T, Rs[i + 1] + 1, Rs[i + 1] + 1)
                 new_U[1:Rs[i + 1], 1:Rs[i + 1]] = uold
-                new_U[1:Rs[i + 1], Rs[i + 1] + 1] = -(uold * ecol_transformed) / alpha
+                new_U[1:Rs[i + 1], Rs[i + 1] + 1] = -(uold * (lold * ecol)) / alpha
                 new_U[Rs[i + 1] + 1, Rs[i + 1] + 1] = 1 / alpha
                 mid_inv_U[i + 1] = new_U
 
                 new_L = zeros(T, Rs[i + 1] + 1, Rs[i + 1] + 1)
                 new_L[1:Rs[i + 1], 1:Rs[i + 1]] = lold
-                new_L[Rs[i + 1] + 1, 1:Rs[i + 1]] = -vec(erow_transformed * lold)
+                new_L[Rs[i + 1] + 1, 1:Rs[i + 1]] = -vec(erow * uold * lold)
                 new_L[Rs[i + 1] + 1, Rs[i + 1] + 1] = 1
                 mid_inv_L[i + 1] = new_L
 
-                cry1_new = hcat(cry1, cre1_new)
-                cry2_new = vcat(cry2, cre2_new)
-                y[i] = reshape(cry1_new, Rs[i], Is[i], Rs[i + 1] + 1)
-                y[i + 1] = reshape(cry2_new, Rs[i + 1] + 1, Is[i + 1], Rs[i + 2])
-
+                y[i] = reshape(hcat(cry1, cre1_new), Rs[i], Is[i], Rs[i + 1] + 1)
+                y[i + 1] = reshape(vcat(cry2, cre2_new), Rs[i + 1] + 1, Is[i + 1], Rs[i + 2])
                 Rs[i + 1] += 1
 
                 Jyl[i + 1] = vcat(Jyl[i + 1], J1m)
@@ -815,12 +466,9 @@ function tt_cross(
         end
 
         cores_out = _form_tensor(y, mid_inv_L, mid_inv_U, N, Rs, Is)
-        y_approx = _evaluate_tt(cores_out, Xs_val, N)
-        val_eps = norm(ys_val - y_approx) / norm_ys_val
+        val_eps = norm(ys_val - _evaluate_tt(cores_out, Xs_val, N)) / norm_ys_val
 
-        if alg.verbose
-            @info "Sweep $swp: ε = $(val_eps), max_dx = $(max_dx), max rank = $(maximum(Rs))"
-        end
+        alg.verbose && @info "Sweep $swp: ε = $(val_eps), max_dx = $(max_dx), max rank = $(maximum(Rs))"
 
         if val_eps < alg.tol
             converged = true
@@ -828,281 +476,149 @@ function tt_cross(
         end
     end
 
-    if converged && alg.verbose
-        @info "Converged: ε = $(val_eps) < $(alg.tol)"
-    elseif !converged && alg.verbose
-        @warn "Max iterations reached"
-    end
+    converged && alg.verbose && @info "Converged: ε = $(val_eps) < $(alg.tol)"
+    !converged && alg.verbose && @warn "Max iterations reached"
 
-    cores_out = _form_tensor(y, mid_inv_L, mid_inv_U, N, Rs, Is)
-    return TTvector{T, N}(N, cores_out, Tuple(Is), copy(Rs), zeros(Int, N))
+    return TTvector{T, N}(N, _form_tensor(y, mid_inv_L, mid_inv_U, N, Rs, Is), Tuple(Is), copy(Rs), zeros(Int, N))
 end
 
-function _indexmerge(J1::AbstractMatrix{Int}, J2::AbstractMatrix{Int})
-    sz1 = max(size(J1, 1), 1)
-    sz2 = max(size(J2, 1), 1)
-
-    J1_mat = Matrix(J1)
-    J2_mat = Matrix(J2)
-
-    J1_rep = repeat(J1_mat, sz2, 1)
-    J2_rep = repeat(J2_mat, inner = (sz1, 1))
-
-    return hcat(J1_rep, J2_rep)
-end
-
-function _form_tensor(y, mid_inv_L, mid_inv_U, N, Rs, Is)
-    cores = Vector{Array{eltype(y[1]), 3}}(undef, N)
-    for i in 1:N
-        yi = reshape(y[i], Rs[i], Is[i] * Rs[i + 1])
-        yi = mid_inv_L[i] * yi
-        yi = reshape(yi, Rs[i] * Is[i], Rs[i + 1])
-        yi = yi * mid_inv_U[i + 1]
-        cores[i] = permutedims(reshape(yi, Rs[i], Is[i], Rs[i + 1]), (2, 1, 3))
-    end
-    return cores
-end
-
-function _sample_fiber(f, domain, I_l, I_g, k, Is, N)
-    r_l = size(I_l[k], 1)
-    r_g = size(I_g[k], 1)
-    s = Is[k]
-
-    n_samples = r_l * s * r_g
-    indices = Matrix{Int}(undef, n_samples, N)
-
+function _sample_superblock(f, domain, I_l, I_g, k, Is, N)
+    r_l, r_g = size(I_l[k], 1), size(I_g[k + 1], 1)
+    s1, s2 = Is[k], Is[k + 1]
+    indices = Matrix{Int}(undef, r_l * s1 * s2 * r_g, N)
     idx = 1
-    for rg in 1:r_g, i in 1:s, rl in 1:r_l
-        if k > 1
-            indices[idx, 1:(k - 1)] = I_l[k][rl, :]
-        end
-        indices[idx, k] = i
-        if k < N
-            indices[idx, (k + 1):N] = I_g[k][rg, :]
-        end
+    for rg in 1:r_g, i2 in 1:s2, i1 in 1:s1, rl in 1:r_l
+        k > 1 && (indices[idx, 1:(k - 1)] = I_l[k][rl, :])
+        indices[idx, k] = i1
+        indices[idx, k + 1] = i2
+        k + 1 < N && (indices[idx, (k + 2):N] = I_g[k + 1][rg, :])
         idx += 1
     end
-
-    values = _evaluate_on_domain(f, domain, indices)
-    return reshape(values, r_l, s, r_g)
+    return reshape(_evaluate_on_domain(f, domain, indices), r_l, s1, s2, r_g)
 end
 
-function _fiber_to_Q3R(fiber::Array{T, 3}) where {T}
-    r_l, s, r_g = size(fiber)
-    F = qr(reshape(fiber, r_l * s, r_g))
-    Q = Matrix(F.Q)
-    R = F.R
-    r = min(r_l * s, r_g)
-    Q3 = reshape(Q[:, 1:r], r_l, s, r)
-    return Q3, Matrix(R[1:r, :])
-end
-
-function _Q3_to_core(Q3::Array{T, 3}, row_indices::Vector{Int}) where {T}
-    r_l, s, r_g = size(Q3)
-    Q = reshape(Q3, r_l * s, r_g)
-    if isempty(row_indices)
-        return Q3
-    end
-    P = pinv(Q[row_indices, :])
-    G = Q * P
-    return reshape(G, r_l, s, length(row_indices))
-end
-
-function _combine_indices_left_fiber(I_l_k, s)
-    r_l = size(I_l_k, 1)
-    n_cols = size(I_l_k, 2)
+function _combine_indices_left(I_l_k, s)
+    r_l, n_cols = size(I_l_k, 1), size(I_l_k, 2)
     result = zeros(Int, r_l * s, n_cols + 1)
     idx = 1
     for i in 1:s, r in 1:r_l
-        if n_cols > 0
-            result[idx, 1:n_cols] = I_l_k[r, :]
-        end
+        n_cols > 0 && (result[idx, 1:n_cols] = I_l_k[r, :])
         result[idx, end] = i
         idx += 1
     end
     return result
 end
 
-function _combine_indices_right_fiber(s, I_g_k)
-    r_g = size(I_g_k, 1)
-    n_cols = size(I_g_k, 2)
+function _combine_indices_right(s, I_g_k)
+    r_g, n_cols = size(I_g_k, 1), size(I_g_k, 2)
     result = zeros(Int, s * r_g, n_cols + 1)
     idx = 1
     for r in 1:r_g, i in 1:s
         result[idx, 1] = i
-        if n_cols > 0
-            result[idx, 2:end] = I_g_k[r, :]
-        end
+        n_cols > 0 && (result[idx, 2:end] = I_g_k[r, :])
         idx += 1
     end
     return result
 end
 
-function _get_row_indices(rows::Matrix{Int}, all_rows::Matrix{Int})
-    if size(rows, 1) == 0 || size(all_rows, 1) == 0
-        return Int[]
+function tt_cross(
+        f::Function,
+        domain::Vector{<:AbstractVector{T}},
+        alg::DMRG;
+        ranks::Union{Int, Vector{Int}} = 2,
+        val_size::Int = 1000
+    ) where {T <: Number}
+
+    N = length(domain)
+    Is = [length(d) for d in domain]
+
+    if N == 1
+        coords = reshape(domain[1], :, 1)
+        vals = vec(f(coords))
+        return TTvector{T, 1}(1, [reshape(vals, Is[1], 1, 1)], Tuple(Is), [1, 1], [0])
     end
-    large_set = Dict{Vector{Int}, Int}()
-    for idx in 1:size(all_rows, 1)
-        large_set[all_rows[idx, :]] = idx
+
+    Rs = isa(ranks, Int) ? vcat([1], fill(ranks, N - 1), [1]) : vcat([1], ranks, [1])
+    _cap_ranks!(Rs, Is, alg.rmax)
+
+    I_l = Vector{Matrix{Int}}(undef, N)
+    I_g = Vector{Matrix{Int}}(undef, N)
+    I_l[1] = ones(Int, 1, 0)
+    I_g[N] = ones(Int, 1, 0)
+
+    for k in 2:N
+        I_l[k] = [rand(1:Is[j]) for _ in 1:Rs[k], j in 1:(k - 1)]
     end
-    return [large_set[rows[r, :]] for r in 1:size(rows, 1)]
+    for k in 1:(N - 1)
+        I_g[k] = [rand(1:Is[k + j]) for _ in 1:Rs[k + 1], j in 1:(N - k)]
+    end
+
+    cores = [randn(T, Is[n], Rs[n], Rs[n + 1]) for n in 1:N]
+
+    Xs_val = hcat([rand(1:Is[d], val_size) for d in 1:N]...)
+    val_coords = hcat([domain[d][Xs_val[:, d]] for d in 1:N]...)
+    ys_val = f(val_coords)
+    norm_ys_val = max(norm(ys_val), alg.tol)
+
+    alg.verbose && @info "DMRG cross-interpolation over $(N)D domain with $(prod(Is)) grid points"
+
+    converged = false
+    val_eps = Inf
+
+    for iter in 1:alg.maxiter
+        for k in 1:(N - 1)
+            superblock = _sample_superblock(f, domain, I_l, I_g, k, Is, N)
+            r_l, s1, s2, r_g = size(superblock)
+            U, S, Vt = _svdtrunc(reshape(superblock, r_l * s1, s2 * r_g); max_bond = alg.rmax, truncerr = alg.tol)
+            r = size(S, 1)
+
+            if k < N - 1
+                Q_mat = Matrix(first(qr(U)))
+                I_idx, _ = maxvol!(copy(Q_mat), alg.pivot.tol, alg.pivot.maxiter)
+                I_l[k + 1] = _combine_indices_left(I_l[k], s1)[I_idx, :]
+                Rs[k + 1] = length(I_idx)
+                cores[k] = permutedims(reshape(Q_mat / Q_mat[I_idx, :], r_l, s1, Rs[k + 1]), (2, 1, 3))
+            else
+                cores[k] = permutedims(reshape(U, r_l, s1, r), (2, 1, 3))
+                cores[k + 1] = permutedims(reshape(S * Vt, r, s2, r_g), (2, 1, 3))
+                Rs[k + 1] = r
+            end
+        end
+
+        val_eps = norm(ys_val - _evaluate_tt(cores, Xs_val, N)) / norm_ys_val
+        alg.verbose && @info "Sweep $(2 * iter - 1) (L→R): ε = $(val_eps), max rank = $(maximum(Rs))"
+        val_eps < alg.tol && (converged = true; break)
+
+        for k in (N - 1):-1:1
+            superblock = _sample_superblock(f, domain, I_l, I_g, k, Is, N)
+            r_l, s1, s2, r_g = size(superblock)
+            U, S, Vt = _svdtrunc(reshape(superblock, r_l * s1, s2 * r_g); max_bond = alg.rmax, truncerr = alg.tol)
+            r = size(S, 1)
+
+            if k > 1
+                Q_mat = Matrix(first(qr(Vt')))
+                I_idx, _ = maxvol!(copy(Q_mat), alg.pivot.tol, alg.pivot.maxiter)
+                I_g[k] = _combine_indices_right(s2, I_g[k + 1])[I_idx, :]
+                Rs[k + 1] = length(I_idx)
+                cores[k + 1] = permutedims(reshape((Q_mat / Q_mat[I_idx, :])', Rs[k + 1], s2, r_g), (2, 1, 3))
+            else
+                cores[k] = permutedims(reshape(U * S, r_l, s1, r), (2, 1, 3))
+                cores[k + 1] = permutedims(reshape(Vt, r, s2, r_g), (2, 1, 3))
+                Rs[k + 1] = r
+            end
+        end
+
+        val_eps = norm(ys_val - _evaluate_tt(cores, Xs_val, N)) / norm_ys_val
+        alg.verbose && @info "Sweep $(2 * iter) (R→L): ε = $(val_eps), max rank = $(maximum(Rs))"
+        val_eps < alg.tol && (converged = true; break)
+    end
+
+    converged && alg.verbose && @info "Converged: ε = $(val_eps) < $(alg.tol)"
+    !converged && alg.verbose && @warn "Max iterations reached: ε = $(val_eps)"
+
+    return TTvector{T, N}(N, cores, Tuple(Is), copy(Rs), zeros(Int, N))
 end
 
-function _sample_superblock_greedy(f, domain, I_l, I_g, Is, k, N, j_l, j_g)
-    i_ls = _combine_indices_left_fiber(I_l[k], Is[k])
-    i_sg = _combine_indices_right_fiber(Is[k + 1], I_g[k + 1])
-
-    i_ls_sel = i_ls[j_l, :]
-    i_sg_sel = i_sg[j_g, :]
-
-    n_l = length(j_l)
-    n_g = length(j_g)
-    indices = Matrix{Int}(undef, n_l * n_g, N)
-
-    idx = 1
-    for jg in 1:n_g, jl in 1:n_l
-        if k > 1
-            indices[idx, 1:(k - 1)] = i_ls_sel[jl, 1:(end - 1)]
-        end
-        indices[idx, k] = i_ls_sel[jl, end]
-        indices[idx, k + 1] = i_sg_sel[jg, 1]
-        if k + 1 < N
-            indices[idx, (k + 2):N] = i_sg_sel[jg, 2:end]
-        end
-        idx += 1
-    end
-
-    values = _evaluate_on_domain(f, domain, indices)
-    return reshape(values, n_l, n_g)
-end
-
-function _sample_skeleton_greedy(cores, fibers, k, j_l, j_g)
-    core_k = cores[k]
-    fiber_kp1 = fibers[k + 1]
-
-    r_l, s1, chi = size(core_k)
-    chi2, s2, r_g = size(fiber_kp1)
-
-    if chi != chi2
-        return zeros(eltype(core_k), length(j_l), length(j_g))
-    end
-
-    G = reshape(core_k, r_l * s1, chi)[j_l, :]
-    R = reshape(fiber_kp1, chi2, s2 * r_g)[:, j_g]
-    return G * R
-end
-
-function _greedy_update!(cores, fibers, list_Q3, list_R, I_l, I_g, J_l, J_g, Rs, f, domain, Is, k, N, alg::Greedy)
-    n_ls = size(I_l[k], 1) * Is[k]
-    n_sg = Is[k + 1] * size(I_g[k + 1], 1)
-
-    if n_ls == 0 || n_sg == 0
-        return
-    end
-
-    j_l_random = rand(1:n_ls, min(alg.nsamples, n_ls))
-    j_g_random = rand(1:n_sg, min(alg.nsamples, n_sg))
-
-    A_random = _sample_superblock_greedy(f, domain, I_l, I_g, Is, k, N, j_l_random, j_g_random)
-    B_random = _sample_skeleton_greedy(cores, fibers, k, j_l_random, j_g_random)
-
-    diff = abs.(A_random - B_random)
-    if all(iszero, diff)
-        return
-    end
-
-    max_idx = argmax(diff)
-    i, j = Tuple(CartesianIndices(diff)[max_idx])
-    j_l = j_l_random[i]
-    j_g = j_g_random[j]
-
-    c_A = zeros(eltype(A_random), 0)
-    c_B = zeros(eltype(A_random), 0)
-    r_A = zeros(eltype(A_random), 0)
-    r_B = zeros(eltype(A_random), 0)
-
-    for _ in 1:alg.pivot.nsamples
-        c_A = vec(_sample_superblock_greedy(f, domain, I_l, I_g, Is, k, N, collect(1:n_ls), [j_g]))
-        c_B = vec(_sample_skeleton_greedy(cores, fibers, k, collect(1:n_ls), [j_g]))
-        new_j_l = argmax(abs.(c_A - c_B))
-        if new_j_l == j_l
-            break
-        end
-        j_l = new_j_l
-
-        r_A = vec(_sample_superblock_greedy(f, domain, I_l, I_g, Is, k, N, [j_l], collect(1:n_sg)))
-        r_B = vec(_sample_skeleton_greedy(cores, fibers, k, [j_l], collect(1:n_sg)))
-        new_j_g = argmax(abs.(r_A - r_B))
-        if new_j_g == j_g
-            break
-        end
-        j_g = new_j_g
-    end
-
-    if isempty(c_A)
-        c_A = vec(_sample_superblock_greedy(f, domain, I_l, I_g, Is, k, N, collect(1:n_ls), [j_g]))
-        c_B = vec(_sample_skeleton_greedy(cores, fibers, k, collect(1:n_ls), [j_g]))
-    end
-    if isempty(r_A)
-        r_A = vec(_sample_superblock_greedy(f, domain, I_l, I_g, Is, k, N, [j_l], collect(1:n_sg)))
-        r_B = vec(_sample_skeleton_greedy(cores, fibers, k, [j_l], collect(1:n_sg)))
-    end
-
-    pivot_error = abs(c_A[j_l] - c_B[j_l])
-    if pivot_error < alg.tol
-        return
-    end
-
-    i_ls = _combine_indices_left_fiber(I_l[k], Is[k])
-    i_sg = _combine_indices_right_fiber(Is[k + 1], I_g[k + 1])
-
-    i_l_new = i_ls[j_l:j_l, :]
-    i_g_new = i_sg[j_g:j_g, :]
-
-    I_l[k + 1] = vcat(I_l[k + 1], i_l_new)
-    J_l[k + 1] = vcat(J_l[k + 1], j_l)
-    I_g[k] = vcat(I_g[k], i_g_new)
-    J_g[k] = vcat(J_g[k], j_g)
-
-    r_l, s1, chi = size(fibers[k])
-    fiber_1_flat = reshape(fibers[k], r_l * s1, chi)
-    fiber_1_new = hcat(fiber_1_flat, c_A)
-    fibers[k] = reshape(fiber_1_new, r_l, s1, chi + 1)
-
-    list_Q3[k], list_R[k] = _fiber_to_Q3R(fibers[k])
-    cores[k] = _Q3_to_core(list_Q3[k], J_l[k + 1])
-
-    chi2, s2, r_g = size(fibers[k + 1])
-    fiber_2_flat = reshape(fibers[k + 1], chi2, s2 * r_g)
-    fiber_2_new = vcat(fiber_2_flat, r_A')
-    fibers[k + 1] = reshape(fiber_2_new, chi2 + 1, s2, r_g)
-
-    if k < N - 1
-        list_Q3[k + 1], list_R[k + 1] = _fiber_to_Q3R(fibers[k + 1])
-        cores[k + 1] = _Q3_to_core(list_Q3[k + 1], J_l[k + 2])
-    else
-        cores[k + 1] = fibers[k + 1]
-    end
-
-    return Rs[k + 1] = size(I_l[k + 1], 1)
-end
-
-"""
-    tt_integrate(f, lower, upper; alg=MaxVol(), nquad=20, kwargs...)
-
-Compute the multidimensional integral of a function using Tensor Train cross-interpolation.
-
-# Arguments
-- `f::Function`: Integrand function `f(x::Matrix) -> Vector` where each row is a point
-- `lower::Vector{T}`: Lower bounds for each dimension
-- `upper::Vector{T}`: Upper bounds for each dimension
-
-# References
-Lev Vysotsky, Alexander Smirnov, Eugene Tyrtyshnikov
-Tensor-train numerical integration of multivariate functions with singularities.
-Lobachevskii Journal of Mathematics
-"""
 function tt_integrate(
         f::Function,
         lower::Vector{T},
@@ -1122,17 +638,10 @@ function tt_integrate(
     end
 
     tt = tt_cross(f, nodes, alg; kwargs...)
-
     return _contract_with_weights(tt.ttv_vec, weights)
 end
 
-function tt_integrate(
-        f::Function,
-        d::Int;
-        lower::T = 0.0,
-        upper::T = 1.0,
-        kwargs...
-    ) where {T <: Number}
+function tt_integrate(f::Function, d::Int; lower::T = 0.0, upper::T = 1.0, kwargs...) where {T <: Number}
     return tt_integrate(f, fill(lower, d), fill(upper, d); kwargs...)
 end
 
@@ -1149,7 +658,5 @@ function _gauss_legendre(n::Int, a::T, b::T) where {T <: Number}
     β = T[k / sqrt(4k^2 - 1) for k in 1:(n - 1)]
     J = SymTridiagonal(zeros(T, n), β)
     λ, V = eigen(J)
-    nodes = (b - a) / 2 .* λ .+ (a + b) / 2
-    weights = (b - a) .* V[1, :] .^ 2
-    return nodes, weights
+    return (b - a) / 2 .* λ .+ (a + b) / 2, (b - a) .* V[1, :] .^ 2
 end

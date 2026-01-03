@@ -162,7 +162,7 @@ function dot(A::TTvector{T, N}, B::TTvector{T, N}) where {T <: Number, N}
     out[1, 1] = one(T)
     @inbounds for k in eachindex(A.ttv_dims)
         M = @view(out[1:A_rks[k + 1], 1:B_rks[k + 1]])
-        @tensor M[a, b] = A.ttv_vec[k][z, α, a] * (B.ttv_vec[k][z, β, b] * out[1:A_rks[k], 1:B_rks[k]][α, β]) #size R^A_{k} × R^B_{k}
+        @tensoropt M[a, b] = A.ttv_vec[k][z, α, a] * (B.ttv_vec[k][z, β, b] * out[1:A_rks[k], 1:B_rks[k]][α, β]) #size R^A_{k} × R^B_{k}
     end
     return out[1, 1]::T
 end
