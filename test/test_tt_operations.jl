@@ -71,6 +71,38 @@ end
 end
 
 
+@testset "Hadamard TTM algorithm vs naive" begin
+    d = 8
+    x_points = LinRange(0, 1, 2^d)
+
+    A1 = qtt_exp(d)
+    A2 = qtt_sin(d, λ = π)
+    A3 = qtt_cos(d, λ = π)
+    A4 = qtt_polynom([0.0, 2.0, 3.0, -8.0, -5.0], d; a = 0.0, b = 1.0)
+
+    expected1 = cos.(π^2 * x_points) .* sin.(π^2 * x_points)
+    @test isapprox(qtt_to_function(hadamard_ttm(A2, A3)), expected1; atol = 1.0e-10)
+
+    expected2 = exp.(x_points) .* sin.(π^2 * x_points)
+    @test isapprox(qtt_to_function(hadamard_ttm(A1, A2)), expected2; atol = 1.0e-10)
+
+    values_polynom(x) = 2 * x + 3 * x^2 - 8 * x^3 - 5 * x^4
+    expected3 = values_polynom.(x_points) .* sin.(π^2 * x_points)
+
+    @test isapprox(qtt_to_function(hadamard_ttm(A4, A2)), expected3; atol = 1.0e-4)
+
+    expected4 = values_polynom.(x_points) .* cos.(π^2 * x_points)
+    @test isapprox(qtt_to_function(hadamard_ttm(A4, A3)), expected4; atol = 1.0e-4)
+
+    @test euclidean_distance(hadamard_ttm(A2, A3), hadamard(A2, A3)) / norm(hadamard(A2, A3)) < 1e-5
+    @test euclidean_distance(hadamard_ttm(A1, A2), hadamard(A1, A2)) / norm(hadamard(A1, A2)) < 1e-5
+    @test euclidean_distance(hadamard_ttm(A4, A2), hadamard(A4, A2)) / norm(hadamard(A4, A2)) < 1e-5
+    @test euclidean_distance(hadamard_ttm(A4, A3), hadamard(A4, A3)) / norm(hadamard(A4, A3)) < 1e-5
+
+    ttm_loose = hadamard_ttm(A1, A2; tol = 1e-8)
+    @test isapprox(qtt_to_function(ttm_loose), expected2; atol = 1.0e-3)
+end
+
 @testset "Norms" begin
 
     d = 8
