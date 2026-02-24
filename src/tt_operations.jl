@@ -312,6 +312,61 @@ end
 
 ⊕(x::TTvector{T, N}, y::TTvector{T, N}) where {T <: Number, N} = hadamard(x, y)
 
+# SVD with relative truncation criterion from Eq. (10) of arXiv:2410.19747.
+function _ttm_swap!(cores::Vector{Array{T, 3}}, rks::Vector{Int}, j::Int;
+                    tol::Float64 = 0.0, rmax::Int = typemax(Int)) where {T}
+    A = cores[j]         # (dA, rL, rM)
+    B = cores[j + 1]     # (dB, rM, rR)
+    dA, rL, _ = size(A)
+    dB, _, rR = size(B)
+    # Contract shared bond: C[sA, sB, m, n] = Σ_a A[sA,m,a]*B[sB,a,n], shape (dA,dB,rL,rR)
+    @tensor C[sA, sB, m, n] := A[sA, m, a] * B[sB, a, n]
+    # Permute to (rL, dB, dA, rR) and flatten: rows=(m,σB), cols=(σA,n)
+    mat = reshape(permutedims(C, (3, 2, 1, 4)), rL * dB, dA * rR)
+    U, S, Vt = _svdtrunc(mat; max_bond = rmax, truncerr = tol)
+    r = size(U, 2)
+    cores[j]     = permutedims(reshape(U, rL, dB, r), (2, 1, 3))        # (dB, rL, r)
+    cores[j + 1] = permutedims(reshape(S * Vt, r, dA, rR), (2, 1, 3))  # (dA, r, rR)
+    rks[j + 1]   = r
+end
+
+function _ttm_contract!(cores::Vector{Array{T, 3}}, rks::Vector{Int}, p::Int) where {T}
+    A = cores[p]         # (d, rL, rM)
+    B = cores[p + 1]     # (d, rM, rR)
+    d_phys, rL = size(A, 1), size(A, 2)
+    rR = size(B, 3)
+    Pi = zeros(T, d_phys, rL, rR)
+    @inbounds for s in 1:d_phys
+        mul!(view(Pi, s, :, :), view(A, s, :, :), view(B, s, :, :))
+    end
+    cores[p] = Pi
+    deleteat!(cores, p + 1)
+    deleteat!(rks, p + 1)
+end
+
+function hadamard_ttm(x::TTvector{T, N}, y::TTvector{T, N};
+                      tol::Float64 = 1e-14,
+                      rmax::Int = typemax(Int)) where {T <: Number, N}
+    @assert x.ttv_dims == y.ttv_dims "Incompatible TT dimensions"
+    d = x.N
+
+    cores = Vector{Array{T, 3}}(undef, 2d)
+    for k in 1:d
+        cores[k] = copy(x.ttv_vec[k])
+    end
+    for k in 1:d
+        cores[d + k] = permutedims(y.ttv_vec[d + 1 - k], (1, 3, 2))
+    end
+    rks = vcat(collect(x.ttv_rks), reverse(collect(y.ttv_rks))[2:end])
+    for iter in 1:d
+        for j in d:-1:(d - iter + 2)
+            _ttm_swap!(cores, rks, j; tol = tol, rmax = rmax)
+        end
+        _ttm_contract!(cores, rks, d - iter + 1)
+    end
+    return TTvector{T, N}(d, cores, x.ttv_dims, rks, zeros(Int64, d))
+end
+
 """
 Computes the Kronecker product of two TToperators and returns a new TToperator.
 """
@@ -342,7 +397,7 @@ end
 
 function euclidean_distance(a::TTvector{T, N}, b::TTvector{T, N}) where {T <: Number, N}
     @assert a.ttv_dims == b.ttv_dims "TT dimensions must match"
-    return sqrt(dot(a, a) - 2 * real(dot(b, a)) + dot(b, b))
+    return sqrt(max(real(dot(a, a) - 2 * real(dot(b, a)) + dot(b, b)), zero(real(T))))
 end
 
 function euclidean_distance_normalized(a::TTvector{T, N}, b::TTvector{T, N}) where {T <: Number, N}
