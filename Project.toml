@@ -4,10 +4,12 @@ version = "1.0.7"
 authors = ["Martin Mikkelsen"]
 
 [deps]
+ChainRulesCore = "d360d2e6-b24c-11e9-a2a3-2a2ae2dbcce4"
 IterativeSolvers = "42fd0dbc-a981-5370-80f2-aaf504508153"
 KrylovKit = "0b1a1467-8014-51b9-945f-bf0ae24f4b77"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 LinearMaps = "7a12625a-238d-50fd-b39a-03d52299707e"
+MatrixAlgebraKit = "6c742aac-3347-4629-af66-fc926824e5e4"
 Maxvol = "4cc553b9-be87-484b-81d9-b5ae2a4e3958"
 ProgressMeter = "92933f4c-e287-5a05-a399-4b506db050ca"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
@@ -15,26 +17,32 @@ TensorOperations = "6aa20fa7-93e2-5fca-9bc0-fbd0db3c71a2"
 VectorInterface = "409d34a3-91d5-4945-b6ec-7529ddf182d8"
 
 [extensions]
+TensorTrainNumericsChainRulesCoreExt = "ChainRulesCore"
 TensorTrainNumericsVectorInterfaceExt = "VectorInterface"
 
 [compat]
 Aqua = "0.8.13"
+ChainRulesCore = "1"
 IterativeSolvers = "0.9.4"
 KrylovKit = "0.6.1, 0.9, 0.10"
-LinearAlgebra = "1.6.7"
+LinearAlgebra = "1.10"
 LinearMaps = "3.11.3"
+MatrixAlgebraKit = "0.1"
 Maxvol = "1.0.0"
 ProgressMeter = "1.10.4"
 Random = "1.11.0"
 TensorOperations = "5.1.3"
 Test = "1.11.0"
 VectorInterface = "0.5.0"
-julia = "1.6.7"
+Zygote = "0.6, 0.7"
+julia = "1.10"
 
 [extras]
 Aqua = "4c88cf16-eb10-579e-8560-4a9242c79595"
+ChainRulesCore = "d360d2e6-b24c-11e9-a2a3-2a2ae2dbcce4"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 VectorInterface = "409d34a3-91d5-4945-b6ec-7529ddf182d8"
+Zygote = "e88e6eb3-aa80-5325-afca-941959d7151f"
 
 [targets]
-test = ["Test", "Aqua"]
+test = ["Test", "Aqua", "ChainRulesCore", "Zygote"]

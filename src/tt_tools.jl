@@ -3,6 +3,7 @@ using LinearAlgebra
 using Base.Threads
 using IterativeSolvers
 using TensorOperations
+using MatrixAlgebraKit
 import Base.isempty
 import Base.eltype
 import Base.copy
@@ -929,9 +930,10 @@ function concatenate(tt1::TToperator, tt2::TToperator)
 end
 
 function _svdtrunc(A; max_bond = max(size(A)...), truncerr = 0.0)
-    F = svd(A)
-    d = min(max_bond, count(F.S .>= truncerr))
-    return F.U[:, 1:d], diagm(0 => F.S[1:d]), F.Vt[1:d, :]
+    U, S, Vt = svd_compact(A)
+    s_vals = diag(S)
+    d = min(max_bond, count(s_vals .>= truncerr))
+    return U[:, 1:d], diagm(s_vals[1:d]), Vt[1:d, :]
 end
 
 function _tt_bond_truncate!(ψ::TTvector{T, N}, k::Int; max_bond::Int = typemax(Int), truncerr::Real = 0.0) where {T <: Number, N}
