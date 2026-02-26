@@ -167,24 +167,6 @@ function dot(A::TTvector{T, N}, B::TTvector{T, N}) where {T <: Number, N}
     return out[1, 1]::T
 end
 
-function dot_par(A::TTvector{T, N}, B::TTvector{T, N}) where {T <: Number, N}
-    @assert A.ttv_dims == B.ttv_dims "TT dimensions are not compatible"
-    d = length(A.ttv_dims)
-    Y = Array{Array{T, 2}, 1}(undef, d)
-    A_rks = A.ttv_rks
-    B_rks = B.ttv_rks
-    C = zeros(T, maximum(A_rks .* B_rks))
-    @threads for k in 1:d
-        M = zeros(T, A_rks[k], B_rks[k], A_rks[k + 1], B_rks[k + 1])
-        @tensor M[a, b, c, d] = A.ttv_vec[k][z, a, c] * B.ttv_vec[k][z, b, d] #size R^A_{k-1} ×  R^B_{k-1} × R^A_{k} × R^B_{k}
-        Y[k] = reshape(M, A_rks[k] * B_rks[k], A_rks[k + 1] * B_rks[k + 1])
-    end
-    @inbounds C[1:length(Y[d])] = Y[d][:]
-    for k in (d - 1):-1:1
-        @inbounds C[1:size(Y[k], 1)] = Y[k] * C[1:size(Y[k], 2)]
-    end
-    return C[1]::T
-end
 
 """
 Multiplies a TTvector by a scalar and returns a new TTvector.
