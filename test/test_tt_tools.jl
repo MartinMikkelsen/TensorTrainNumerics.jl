@@ -835,3 +835,149 @@ end
         end
     end
 end
+
+@testset "ttv_to_tensor roundtrip" begin
+    tensor = rand(3, 4, 5)
+    tt = ttv_decomp(tensor)
+    @test isapprox(ttv_to_tensor(tt), tensor; atol = 1e-12)
+
+    # Rank-1 trivial case
+    v = rand(Float64, 4)
+    core = reshape(v, 4, 1, 1)
+    tt1 = TTvector{Float64, 1}(1, [core], (4,), [1, 1], [0])
+    @test vec(ttv_to_tensor(tt1)) ≈ v
+end
+
+@testset "tto_to_tensor" begin
+    # Build a known rank-1 TToperator and verify contraction
+    # tto_vec cores have layout (row_dim, col_dim, left_rank, right_rank)
+    tto = rand_tto((2, 3, 4), 3)
+    M = tto_to_tensor(tto)
+    @test size(M) == (2, 3, 4, 2, 3, 4)
+
+    # For a scalar (N=1) operator the result should be the 2N-dim tensor
+    tto1 = rand_tto((3,), 1)
+    M1 = tto_to_tensor(tto1)
+    @test size(M1) == (3, 3)
+end
+
+@testset "r_and_d_to_rks" begin
+    dims = (2, 3, 4)
+    # Request ranks higher than the matrix rank bound
+    rks_in = [1, 100, 100, 1]
+    rks_out = r_and_d_to_rks(rks_in, dims)
+    @test rks_out[1] == 1
+    @test rks_out[end] == 1
+    # rank[2] ≤ min(prod(dims[1:1]), prod(dims[2:3])) = min(2, 12) = 2
+    @test rks_out[2] ≤ 2
+    # rank[3] ≤ min(prod(dims[1:2]), prod(dims[3:3])) = min(6, 4) = 4
+    @test rks_out[3] ≤ 4
+
+    # Requested ranks below bounds are preserved
+    rks_small = [1, 1, 1, 1]
+    @test r_and_d_to_rks(rks_small, dims) == [1, 1, 1, 1]
+end
+
+@testset "orthogonalize" begin
+    dims = (2, 3, 4)
+    tt = rand_tt(dims, [1, 2, 3, 1])
+    original_tensor = ttv_to_tensor(tt)
+
+    for center in 1:3
+        orth = orthogonalize(tt; i = center)
+
+        # Reconstruction is preserved
+        @test isapprox(ttv_to_tensor(orth), original_tensor; atol = 1e-12)
+
+        # Orthogonality flags
+        @test orth.ttv_ot[center] == 0
+        for j in 1:(center - 1); @test orth.ttv_ot[j] == 1; end
+        for j in (center + 1):3; @test orth.ttv_ot[j] == -1; end
+
+        # Left-orthogonal cores (j < center): reshape to (r_l*d, r_r) has orthonormal columns
+        for j in 1:(center - 1)
+            G = orth.ttv_vec[j]          # (d, r_l, r_r)
+            d, r_l, r_r = size(G)
+            A = reshape(permutedims(G, (2, 1, 3)), r_l * d, r_r)
+            @test isapprox(A' * A, I(r_r); atol = 1e-12)
+        end
+
+        # Right-orthogonal cores (j > center): reshape to (r_l, r_r*d) has orthonormal rows
+        for j in (center + 1):3
+            G = orth.ttv_vec[j]          # (d, r_l, r_r)
+            d, r_l, r_r = size(G)
+            A = reshape(permutedims(G, (2, 3, 1)), r_l, r_r * d)
+            @test isapprox(A * A', I(r_l); atol = 1e-12)
+        end
+    end
+end
+
+@testset "tt2qtt for TTvector" begin
+    # Rank-1 vector: split (4,) → (2,2) cores, little-endian ordering
+    v = [1.0, 2.0, 3.0, 4.0]
+    core = reshape(v, 4, 1, 1)
+    tt = TTvector{Float64, 1}(1, [core], (4,), [1, 1], [0])
+    qtt = tt2qtt(tt, [[2, 2]])
+
+    @test length(qtt.ttv_vec) == 2
+    @test all(qtt.ttv_dims .== 2)
+    @test qtt.ttv_rks[1] == 1
+    @test qtt.ttv_rks[end] == 1
+
+    # Little-endian: n_0 = fine_0 + 2*coarse_0  →  tensor[fine+1, coarse+1] = v[n+1]
+    T_qtt = ttv_to_tensor(qtt)
+    @test isapprox(T_qtt[1, 1], v[1]; atol = 1e-12)
+    @test isapprox(T_qtt[2, 1], v[2]; atol = 1e-12)
+    @test isapprox(T_qtt[1, 2], v[3]; atol = 1e-12)
+    @test isapprox(T_qtt[2, 2], v[4]; atol = 1e-12)
+
+    # Multi-core TT: split a (4,4) TT into four (2,) cores
+    tt2 = rand_tt((4, 4), [1, 3, 1])
+    qtt2 = tt2qtt(tt2, [[2, 2], [2, 2]])
+    @test length(qtt2.ttv_vec) == 4
+    @test all(qtt2.ttv_dims .== 2)
+    @test qtt2.ttv_rks[1] == 1
+    @test qtt2.ttv_rks[end] == 1
+end
+
+@testset "matricize" begin
+    d = 3
+    N = 2^d
+    # qtt_basis_vector(d, pos) has exactly one nonzero entry
+    for pos in [1, 3, 5, 8]
+        tt = qtt_basis_vector(d, pos)
+        v = matricize(tt, d)
+        @test length(v) == N
+        @test sum(abs2, v) ≈ 1.0
+        @test count(!iszero, v) == 1
+    end
+end
+
+@testset "Base.show for TTvector and TToperator" begin
+    tt = rand_tt((2, 3, 4), [1, 2, 3, 1])
+
+    # Compact show (one line)
+    s = sprint(show, tt)
+    @test s isa String
+    @test occursin("TTvector", s)
+    @test occursin("dims", s)
+    @test occursin("ranks", s)
+
+    # MIME text/plain show (diagram)
+    s_plain = sprint(show, MIME("text/plain"), tt)
+    @test s_plain isa String
+    @test occursin("•", s_plain)
+    @test occursin("2", s_plain)   # rank appears in diagram
+
+    # TToperator
+    tto = rand_tto((2, 3), 2)
+    s_op = sprint(show, tto)
+    @test occursin("TToperator", s_op)
+
+    s_op_plain = sprint(show, MIME("text/plain"), tto)
+    @test occursin("•", s_op_plain)
+
+    # visualize writes to stdout (no error, returns nothing)
+    @test visualize(tt) === nothing
+    @test visualize(tto) === nothing
+end
