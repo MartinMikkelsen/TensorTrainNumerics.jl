@@ -36,4 +36,7 @@ include("tt_transformations.jl")
 export tt_cross, tt_integrate, MaxVol, DMRG, Greedy
 include("tt_cross_interpolation.jl")
 
+export tt_core_gradient, tt_gradient, tt_core_hessian, tt_core_jacobian, tt_core_curl
+include("tt_ad.jl")
+
 end

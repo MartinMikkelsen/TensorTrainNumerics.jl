@@ -4,7 +4,7 @@ version = "1.0.7"
 authors = ["Martin Mikkelsen"]
 
 [deps]
-ChainRulesCore = "d360d2e6-b24c-11e9-a2a3-2a2ae2dbcce4"
+DifferentiationInterface = "a0c0ee7d-e4b9-4e03-894e-1c5f64a51d63"
 IterativeSolvers = "42fd0dbc-a981-5370-80f2-aaf504508153"
 KrylovKit = "0b1a1467-8014-51b9-945f-bf0ae24f4b77"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
@@ -17,12 +17,12 @@ TensorOperations = "6aa20fa7-93e2-5fca-9bc0-fbd0db3c71a2"
 VectorInterface = "409d34a3-91d5-4945-b6ec-7529ddf182d8"
 
 [extensions]
-TensorTrainNumericsChainRulesCoreExt = "ChainRulesCore"
 TensorTrainNumericsVectorInterfaceExt = "VectorInterface"
 
 [compat]
 Aqua = "0.8.13"
-ChainRulesCore = "1"
+DifferentiationInterface = "0.6"
+ForwardDiff = "0.10"
 IterativeSolvers = "0.9.4"
 KrylovKit = "0.6.1, 0.9, 0.10"
 LinearAlgebra = "1.10"
@@ -39,10 +39,10 @@ julia = "1.10"
 
 [extras]
 Aqua = "4c88cf16-eb10-579e-8560-4a9242c79595"
-ChainRulesCore = "d360d2e6-b24c-11e9-a2a3-2a2ae2dbcce4"
+ForwardDiff = "f6369f11-7733-5829-9624-2563aa707210"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 VectorInterface = "409d34a3-91d5-4945-b6ec-7529ddf182d8"
 Zygote = "e88e6eb3-aa80-5325-afca-941959d7151f"
 
 [targets]
-test = ["Test", "Aqua", "ChainRulesCore", "Zygote"]
+test = ["Test", "Aqua", "ForwardDiff", "Zygote"]
