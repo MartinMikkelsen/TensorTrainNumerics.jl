@@ -117,7 +117,7 @@ end
     S1 = qtt_to_function(A1)
     S2 = qtt_to_function(A2)
 
-    @test sqrt(LinearAlgebra.dot(S1, S1) - 2 * real(LinearAlgebra.dot(S1, S2)) + LinearAlgebra.dot(S2, S2)) == euclidean_distance(A1, A2)
+    @test isapprox(sqrt(LinearAlgebra.dot(S1, S1) - 2 * real(LinearAlgebra.dot(S1, S2)) + LinearAlgebra.dot(S2, S2)), euclidean_distance(A1, A2), atol=1.0e-10)
     @test isapprox(sqrt(1.0 + LinearAlgebra.dot(S1, S1) / LinearAlgebra.dot(S2, S2) - 2.0 * real(LinearAlgebra.dot(S2, S1)) / LinearAlgebra.dot(S2, S2)), euclidean_distance_normalized(A1, A2), atol = 1.0e-12)
 
 end
