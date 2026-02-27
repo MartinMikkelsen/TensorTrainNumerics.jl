@@ -134,11 +134,7 @@ function *(A::TToperator{T, N}, B::TToperator{T, N}) where {T <: Number, N}
     Y = [zeros(T, A.tto_dims[k], A.tto_dims[k], A_rks[k] * B_rks[k], A_rks[k + 1] * B_rks[k + 1]) for k in eachindex(A.tto_dims)]
     @inbounds for k in eachindex(Y)
         M_temp = reshape(Y[k], A.tto_dims[k], A.tto_dims[k], A_rks[k], B_rks[k], A_rks[k + 1], B_rks[k + 1])
-        for jₖ in size(M_temp, 2)
-            for iₖ in size(M_temp, 1)
-                @tensor M_temp[iₖ, jₖ, αₖ₋₁, βₖ₋₁, αₖ, βₖ] = A.tto_vec[k][iₖ, z, αₖ₋₁, αₖ] * B.tto_vec[k][z, jₖ, βₖ₋₁, βₖ]
-            end
-        end
+        @tensor M_temp[iₖ, jₖ, αₖ₋₁, βₖ₋₁, αₖ, βₖ] = A.tto_vec[k][iₖ, z, αₖ₋₁, αₖ] * B.tto_vec[k][z, jₖ, βₖ₋₁, βₖ]
     end
     return TToperator{T, N}(d, Y, A.tto_dims, A.tto_rks .* B.tto_rks, zeros(Int64, d))
 end
@@ -224,13 +220,9 @@ end
 
 function outer_product(x::TTvector{T, N}, y::TTvector{T, N}) where {T <: Number, N}
     Y = [zeros(T, x.ttv_dims[k], x.ttv_dims[k], x.ttv_rks[k] * y.ttv_rks[k], x.ttv_rks[k + 1] * y.ttv_rks[k + 1]) for k in eachindex(x.ttv_dims)]
-    @inbounds @simd for k in eachindex(Y)
+    @inbounds for k in eachindex(Y)
         M_temp = reshape(Y[k], x.ttv_dims[k], x.ttv_dims[k], x.ttv_rks[k], y.ttv_rks[k], x.ttv_rks[k + 1], y.ttv_rks[k + 1])
-        @simd for jₖ in size(M_temp, 2)
-            @simd for iₖ in size(M_temp, 1)
-                @tensor M_temp[iₖ, jₖ, αₖ₋₁, βₖ₋₁, αₖ, βₖ] = x.ttv_vec[k][iₖ, αₖ₋₁, αₖ] * conj(y.ttv_vec[k][jₖ, βₖ₋₁, βₖ])
-            end
-        end
+        @tensor M_temp[iₖ, jₖ, αₖ₋₁, βₖ₋₁, αₖ, βₖ] = x.ttv_vec[k][iₖ, αₖ₋₁, αₖ] * conj(y.ttv_vec[k][jₖ, βₖ₋₁, βₖ])
     end
     return TToperator{T, N}(x.N, Y, x.ttv_dims, x.ttv_rks .* y.ttv_rks, zeros(Int64, x.N))
 end

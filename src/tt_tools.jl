@@ -535,92 +535,94 @@ function orthogonalize(x_tt::TTvector{T, N}; i = 1::Int) where {T <: Number, N}
     return y_tt
 end
 
+function _ot_description(ot::Vector{Int})
+    all(iszero, ot)   && return "none"
+    all(==(1), ot)    && return "left-canonical"
+    all(==(-1), ot)   && return "right-canonical"
+    zeros_at = findall(iszero, ot)
+    if length(zeros_at) == 1
+        c = zeros_at[1]
+        left_ok  = c == 1 || all(==(1),  ot[1:(c - 1)])
+        right_ok = c == length(ot) || all(==(-1), ot[(c + 1):end])
+        left_ok && right_ok && return "center @ site $c"
+    end
+    return string(ot)       # fallback: raw vector
+end
 
 function Base.show(io::IO, tt::TTvector{T, N}) where {T <: Number, N}
-    print(io, "TTvector{$T, $N} dims=$(tt.ttv_dims) ranks=$(tt.ttv_rks)")
+    print(io, "MPS{$T}($(tt.N) sites)")
 end
 
 function Base.show(io::IO, tto::TToperator{T, N}) where {T <: Number, N}
-    print(io, "TToperator{$T, $N} dims=$(tto.tto_dims) ranks=$(tto.tto_rks)")
+    print(io, "MPO{$T}($(tto.N) sites)")
 end
 
-function Base.show(io::IO, ::MIME"text/plain", tt::TTvector)
-    N = tt.N
-    dims = collect(tt.ttv_dims)
-    ranks = tt.ttv_rks
-
-    max_rank_len = maximum(length.(string.(ranks)))
-
-    rwidth = max(max_rank_len, 2)
-
-    line1 = lpad(string(ranks[1]), rwidth)
-    line2 = " "^length(line1)
-    line3 = " "^length(line1)
-
-    for i in 1:N
-        segment = "-- • --"
-        rank_right = lpad(string(ranks[i + 1]), rwidth)
-        line1 *= segment * rank_right
-
-        position_C = length(line1) - rwidth - 3
-
-        spaces_needed = position_C - length(line2)
-        line2 *= repeat(" ", spaces_needed - 1) * "|"
-
-        dim_str = string(dims[i])
-        spaces_needed = position_C - length(line3) - div(length(dim_str), 2)
-        line3 *= repeat(" ", spaces_needed - 1) * dim_str
-    end
-
-    print(io, line1 * "\n" * line2 * "\n" * line3)
+function Base.show(io::IO, ::MIME"text/plain", tt::TTvector{T, N}) where {T <: Number, N}
+    println(io, "MPS{$T} with $(tt.N) sites")
+    println(io, "  Physical dims : $(tt.ttv_dims)")
+    println(io, "  Bond dims     : $(tt.ttv_rks)")
+    print(io,   "  Orthogonality : $(_ot_description(tt.ttv_ot))")
 end
 
-function Base.show(io::IO, ::MIME"text/plain", tt::TToperator)
-    N = tt.N
-    dims = collect(tt.tto_dims)
-    ranks = tt.tto_rks
-
-    total_length = 0
-    positions_C = Int[]
-
-    line1 = ""
-    for i in 1:N
-        segment = i == 1 ? " $(ranks[i])-- • --$(ranks[i + 1])" : "-- • --$(ranks[i + 1])"
-        line1 *= segment
-        push!(positions_C, total_length + findfirst(isequal('•'), segment))
-        total_length += length(segment)
-    end
-
-    function centered_line(label_fn)
-        buf = fill(' ', total_length)
-        for i in 1:N
-            s = label_fn(i)
-            start = positions_C[i] - div(length(s), 2)
-            for (j, c) in enumerate(s)
-                idx = start + j - 1
-                if 1 ≤ idx ≤ total_length
-                    buf[idx] = c
-                end
-            end
-        end
-        return String(buf)
-    end
-
-    line0 = centered_line(i -> string(dims[i]))
-    line2_buf = fill(' ', total_length)
-    for p in positions_C; line2_buf[p] = '|'; end
-    line2 = String(line2_buf)
-    line4 = centered_line(i -> string(dims[i]))
-
-    print(io, line0 * "\n" * line2 * "\n" * line1 * "\n" * line2 * "\n" * line4)
+function Base.show(io::IO, ::MIME"text/plain", tto::TToperator{T, N}) where {T <: Number, N}
+    println(io, "MPO{$T} with $(tto.N) sites")
+    println(io, "  Physical dims : $(tto.tto_dims)")
+    println(io, "  Bond dims     : $(tto.tto_rks)")
+    print(io,   "  Orthogonality : $(_ot_description(tto.tto_ot))")
 end
 
 """
     visualize(tt)
 
-Print a diagram of the TT structure to stdout. Dispatches to `Base.show`.
+Print an ASCII bond diagram of the TT structure to stdout.
 """
-visualize(tt::Union{TTvector, TToperator}) = (show(stdout, MIME("text/plain"), tt); println())
+function visualize(tt::TTvector)
+    N = tt.N
+    dims = collect(tt.ttv_dims)
+    ranks = tt.ttv_rks
+    rwidth = max(maximum(length.(string.(ranks))), 2)
+    line1 = lpad(string(ranks[1]), rwidth)
+    line2 = " "^length(line1)
+    line3 = " "^length(line1)
+    for i in 1:N
+        rank_right = lpad(string(ranks[i + 1]), rwidth)
+        line1 *= "-- • --" * rank_right
+        position_C = length(line1) - rwidth - 3
+        line2 *= repeat(" ", position_C - length(line2) - 1) * "|"
+        dim_str = string(dims[i])
+        line3 *= repeat(" ", position_C - length(line3) - div(length(dim_str), 2) - 1) * dim_str
+    end
+    println(line1); println(line2); 
+    println(line3)
+end
+
+function visualize(tt::TToperator)
+    N = tt.N
+    dims = collect(tt.tto_dims)
+    ranks = tt.tto_rks
+    total_length = 0
+    positions_C = Int[]
+    line1 = ""
+    for i in 1:N
+        seg = i == 1 ? " $(ranks[i])-- • --$(ranks[i + 1])" : "-- • --$(ranks[i + 1])"
+        line1 *= seg
+        push!(positions_C, total_length + findfirst(isequal('•'), seg))
+        total_length += length(seg)
+    end
+    function dim_line()
+        buf = fill(' ', total_length)
+        for i in 1:N
+            s = string(dims[i]); start = positions_C[i] - div(length(s), 2)
+            for (j, c) in enumerate(s)
+                idx = start + j - 1
+                1 ≤ idx ≤ total_length && (buf[idx] = c)
+            end
+        end
+        String(buf)
+    end
+    vline = String([p in positions_C ? '|' : ' ' for p in 1:total_length])
+    println(dim_line()); println(vline); println(line1); println(vline); println(dim_line())
+end
 
 """
     tt2qtt(tt_tensor::TToperator{T,N}, row_dims::Vector{Vector{Int}}, col_dims::Vector{Vector{Int}}, threshold::Float64=0.0) where {T<:Number,N}

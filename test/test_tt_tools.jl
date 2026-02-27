@@ -956,28 +956,49 @@ end
 @testset "Base.show for TTvector and TToperator" begin
     tt = rand_tt((2, 3, 4), [1, 2, 3, 1])
 
-    # Compact show (one line)
+    # Compact show: MPS{T}(N sites)
     s = sprint(show, tt)
-    @test s isa String
-    @test occursin("TTvector", s)
-    @test occursin("dims", s)
-    @test occursin("ranks", s)
+    @test occursin("MPS", s)
+    @test occursin("Float64", s)
+    @test occursin("sites", s)
 
-    # MIME text/plain show (diagram)
+    # text/plain show: informational block
     s_plain = sprint(show, MIME("text/plain"), tt)
-    @test s_plain isa String
-    @test occursin("•", s_plain)
-    @test occursin("2", s_plain)   # rank appears in diagram
+    @test occursin("MPS", s_plain)
+    @test occursin("Physical dims", s_plain)
+    @test occursin("Bond dims", s_plain)
+    @test occursin("Orthogonality", s_plain)
+
+    # Orthogonality strings
+    orth = orthogonalize(tt; i = 2)
+    s_orth = sprint(show, MIME("text/plain"), orth)
+    @test occursin("center @ site 2", s_orth)
+
+    # left-canonical: all ot == 1
+    tt_lc = TTvector{Float64, 3}(3, tt.ttv_vec, tt.ttv_dims, tt.ttv_rks, [1, 1, 1])
+    @test occursin("left-canonical", sprint(show, MIME("text/plain"), tt_lc))
+
+    # right-canonical: all ot == -1
+    tt_rc = TTvector{Float64, 3}(3, tt.ttv_vec, tt.ttv_dims, tt.ttv_rks, [-1, -1, -1])
+    @test occursin("right-canonical", sprint(show, MIME("text/plain"), tt_rc))
+
+    # no canonical form: all zeros
+    tt_nc = TTvector{Float64, 3}(3, tt.ttv_vec, tt.ttv_dims, tt.ttv_rks, [0, 0, 0])
+    @test occursin("none", sprint(show, MIME("text/plain"), tt_nc))
 
     # TToperator
     tto = rand_tto((2, 3), 2)
     s_op = sprint(show, tto)
-    @test occursin("TToperator", s_op)
+    @test occursin("MPO", s_op)
+    @test occursin("Float64", s_op)
 
     s_op_plain = sprint(show, MIME("text/plain"), tto)
-    @test occursin("•", s_op_plain)
+    @test occursin("MPO", s_op_plain)
+    @test occursin("Physical dims", s_op_plain)
+    @test occursin("Bond dims", s_op_plain)
+    @test occursin("Orthogonality", s_op_plain)
 
-    # visualize writes to stdout (no error, returns nothing)
+    # visualize still works (ASCII diagram, returns nothing)
     @test visualize(tt) === nothing
     @test visualize(tto) === nothing
 end
