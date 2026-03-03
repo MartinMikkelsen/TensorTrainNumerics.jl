@@ -210,6 +210,35 @@ import TensorTrainNumerics: MaxVolPivot, RandomPivot, MaxVol, Greedy, DMRG, _cap
             @test tt.N == 4
         end
 
+        @testset "Complex domain support" begin
+            domain = [complex.(collect(range(0.0, 1.0, length = 5)), collect(range(0.0, 0.4, length = 5))) for _ in 1:3]
+            f(x) = vec(exp.(x[:, 1] .+ 0.7 .* x[:, 2] .- 0.3 .* x[:, 3]))
+
+            function rel_sample_err(tt, f, domain; nsamp = 150, seed = 91)
+                Random.seed!(seed)
+                d = length(domain)
+                idx = hcat([rand(1:length(domain[k]), nsamp) for k in 1:d]...)
+                X = hcat([domain[k][idx[:, k]] for k in 1:d]...)
+                y = f(X)
+                yhat = TensorTrainNumerics._evaluate_tt(tt.ttv_vec, idx, d)
+                return norm(y .- yhat) / max(norm(y), eps())
+            end
+
+            tt_maxvol = tt_cross(f, domain, MaxVol(verbose = false, tol = 1.0e-8, maxiter = 20, rmax = 30); ranks = 2, val_size = 600)
+            @test rel_sample_err(tt_maxvol, f, domain; seed = 91) < 1.0e-6
+
+            tt_dmrg = tt_cross(f, domain, DMRG(verbose = false, tol = 1.0e-8, maxiter = 15, rmax = 30); ranks = 2, val_size = 600)
+            @test rel_sample_err(tt_dmrg, f, domain; seed = 92) < 1.0e-6
+
+            tt_greedy = tt_cross(
+                f,
+                domain,
+                Greedy(verbose = false, tol = 1.0e-8, maxiter = 30, nsamples = 300, pivot = RandomPivot(seed = 13, nsamples = 300));
+                val_size = 600,
+            )
+            @test rel_sample_err(tt_greedy, f, domain; seed = 93) < 1.0e-6
+        end
+
     end
 
 

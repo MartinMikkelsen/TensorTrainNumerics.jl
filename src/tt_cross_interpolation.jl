@@ -147,9 +147,9 @@ function _svdtrunc(A::AbstractMatrix{T}; max_bond::Int = typemax(Int), truncerr:
     r = length(s)
     if truncerr > 0
         nrm = norm(s)
-        cum = zero(T)
+        cum = zero(eltype(s))
         for i in r:-1:1
-            cum += s[i]^2
+            cum += abs2(s[i])
             if sqrt(cum) > truncerr * nrm
                 r = i
                 break
@@ -173,6 +173,12 @@ function _build_fiber_indices(lsets, rsets, j, Is, Rs, N)
     return indices
 end
 
+function _infer_value_type(f::Function, domain::Vector{<:AbstractVector})
+    N = length(domain)
+    probe_idx = ones(Int, 1, N)
+    return eltype(_evaluate_on_domain(f, domain, probe_idx))
+end
+
 function tt_cross(
         f::Function,
         domain::Vector{<:AbstractVector{T}},
@@ -183,11 +189,24 @@ function tt_cross(
 
     N = length(domain)
     Is = [length(d) for d in domain]
+    Tv = _infer_value_type(f, domain)
+    if Tv <: Complex
+        alg.verbose && @warn "MaxVol cross for complex-valued targets can be unstable; using DMRG cross backend"
+        dmrg_alg = DMRG(
+            maxiter = alg.maxiter,
+            tol = alg.tol,
+            rmax = alg.rmax,
+            kickrank = alg.kickrank,
+            verbose = alg.verbose,
+            pivot = alg.pivot isa MaxVolPivot ? alg.pivot : MaxVolPivot(),
+        )
+        return tt_cross(f, domain, dmrg_alg; ranks = ranks, val_size = val_size)
+    end
 
     Rs = isa(ranks, Int) ? vcat([1], fill(ranks, N - 1), [1]) : vcat([1], ranks, [1])
     _cap_ranks!(Rs, Is, alg.rmax)
 
-    cores = [randn(T, Is[n], Rs[n], Rs[n + 1]) for n in 1:N]
+    cores = [randn(Tv, Is[n], Rs[n], Rs[n + 1]) for n in 1:N]
 
     lsets = Vector{Matrix{Int}}(undef, N)
     rsets = Vector{Matrix{Int}}(undef, N)
@@ -204,8 +223,7 @@ function tt_cross(
     end
 
     Xs_val = hcat([rand(1:Is[d], val_size) for d in 1:N]...)
-    val_coords = hcat([domain[d][Xs_val[:, d]] for d in 1:N]...)
-    ys_val = f(val_coords)
+    ys_val = _evaluate_on_domain(f, domain, Xs_val)
     norm_ys_val = max(norm(ys_val), alg.tol)
 
     alg.verbose && @info "MaxVol cross-interpolation over $(N)D domain with $(prod(Is)) grid points"
@@ -300,7 +318,7 @@ function tt_cross(
     converged && alg.verbose && @info "Converged: ε = $(val_eps) < $(alg.tol)"
     !converged && alg.verbose && @warn "Max iterations reached: ε = $(val_eps)"
 
-    return TTvector{T, N}(N, cores, Tuple(Is), copy(Rs), zeros(Int, N))
+    return TTvector{eltype(cores[1]), N}(N, cores, Tuple(Is), copy(Rs), zeros(Int, N))
 end
 
 function _indexmerge(J1::AbstractMatrix{Int}, J2::AbstractMatrix{Int})
@@ -327,17 +345,18 @@ function tt_cross(
 
     N = length(domain)
     Is = [length(d) for d in domain]
+    Tv = _infer_value_type(f, domain)
     Rs = ones(Int, N + 1)
     rng = (alg.pivot isa RandomPivot && !isnothing(alg.pivot.seed)) ? MersenneTwister(alg.pivot.seed) : Random.default_rng()
     sample_budget = alg.pivot isa RandomPivot ? min(alg.nsamples, alg.pivot.nsamples) : alg.nsamples
 
-    y = Vector{Array{T, 3}}(undef, N)
-    mid_inv_U = Vector{Matrix{T}}(undef, N + 1)
-    mid_inv_L = Vector{Matrix{T}}(undef, N + 1)
+    y = Vector{Array{Tv, 3}}(undef, N)
+    mid_inv_U = Vector{Matrix{Tv}}(undef, N + 1)
+    mid_inv_L = Vector{Matrix{Tv}}(undef, N + 1)
 
     for i in 1:(N + 1)
-        mid_inv_U[i] = ones(T, 1, 1)
-        mid_inv_L[i] = ones(T, 1, 1)
+        mid_inv_U[i] = ones(Tv, 1, 1)
+        mid_inv_L[i] = ones(Tv, 1, 1)
     end
 
     Jyl = Vector{Matrix{Int}}(undef, N + 1)
@@ -378,7 +397,7 @@ function tt_cross(
             if abs(piv) > max(alg.tol, eps(real(float(abs(piv)))))
                 mid_inv_L[i] = reshape([1 / piv], 1, 1)
             else
-                mid_inv_L[i] = ones(T, 1, 1)
+                mid_inv_L[i] = ones(Tv, 1, 1)
             end
         end
         y[i] = reshape(cry, Rs[i], Is[i], Rs[i + 1])
@@ -396,15 +415,14 @@ function tt_cross(
             if abs(piv) > max(alg.tol, eps(real(float(abs(piv)))))
                 mid_inv_U[i + 1] = reshape([1 / piv], 1, 1)
             else
-                mid_inv_U[i + 1] = ones(T, 1, 1)
+                mid_inv_U[i + 1] = ones(Tv, 1, 1)
             end
         end
         y[i] = reshape(cry, Rs[i], Is[i], Rs[i + 1])
     end
 
     Xs_val = hcat([rand(1:Is[d], val_size) for d in 1:N]...)
-    val_coords = hcat([domain[d][Xs_val[:, d]] for d in 1:N]...)
-    ys_val = f(val_coords)
+    ys_val = _evaluate_on_domain(f, domain, Xs_val)
     norm_ys_val = max(norm(ys_val), alg.tol)
 
     alg.verbose && @info "Greedy cross-interpolation over $(N)D domain with $(prod(Is)) grid points"
@@ -445,7 +463,7 @@ function tt_cross(
 
             emax, imax1_local = findmax(abs.(cre_col))
             imax1 = cind1[imax1_local]
-            dx = emax / max(maxy, eps(T))
+            dx = emax / max(maxy, eps(real(float(one(Tv)))))
             max_dx = max(max_dx, dx)
 
             if dx > alg.tol && Rs[i + 1] < alg.rmax
@@ -459,13 +477,13 @@ function tt_cross(
                 alpha = cre1_new[imax1, 1] - LinearAlgebra.dot(vec(erow * uold), lold * ecol)
                 (!isfinite(real(alpha)) || !isfinite(imag(alpha)) || abs(alpha) <= max(alg.tol, eps(real(float(abs(alpha)))))) && continue
 
-                new_U = zeros(T, Rs[i + 1] + 1, Rs[i + 1] + 1)
+                new_U = zeros(Tv, Rs[i + 1] + 1, Rs[i + 1] + 1)
                 new_U[1:Rs[i + 1], 1:Rs[i + 1]] = uold
                 new_U[1:Rs[i + 1], Rs[i + 1] + 1] = -(uold * (lold * ecol)) / alpha
                 new_U[Rs[i + 1] + 1, Rs[i + 1] + 1] = 1 / alpha
                 mid_inv_U[i + 1] = new_U
 
-                new_L = zeros(T, Rs[i + 1] + 1, Rs[i + 1] + 1)
+                new_L = zeros(Tv, Rs[i + 1] + 1, Rs[i + 1] + 1)
                 new_L[1:Rs[i + 1], 1:Rs[i + 1]] = lold
                 new_L[Rs[i + 1] + 1, 1:Rs[i + 1]] = -vec(erow * uold * lold)
                 new_L[Rs[i + 1] + 1, Rs[i + 1] + 1] = 1
@@ -504,7 +522,7 @@ function tt_cross(
         return tt_cross(f, domain, dmrg_alg; ranks = init_rank, val_size = val_size)
     end
 
-    return TTvector{T, N}(N, _form_tensor(y, mid_inv_L, mid_inv_U, N, Rs, Is), Tuple(Is), copy(Rs), zeros(Int, N))
+    return TTvector{eltype(y[1]), N}(N, _form_tensor(y, mid_inv_L, mid_inv_U, N, Rs, Is), Tuple(Is), copy(Rs), zeros(Int, N))
 end
 
 function _sample_superblock(f, domain, I_l, I_g, k, Is, N)
@@ -556,11 +574,12 @@ function tt_cross(
 
     N = length(domain)
     Is = [length(d) for d in domain]
+    Tv = _infer_value_type(f, domain)
 
     if N == 1
         coords = reshape(domain[1], :, 1)
         vals = vec(f(coords))
-        return TTvector{T, 1}(1, [reshape(vals, Is[1], 1, 1)], Tuple(Is), [1, 1], [0])
+        return TTvector{eltype(vals), 1}(1, [reshape(vals, Is[1], 1, 1)], Tuple(Is), [1, 1], [0])
     end
 
     Rs = isa(ranks, Int) ? vcat([1], fill(ranks, N - 1), [1]) : vcat([1], ranks, [1])
@@ -578,11 +597,10 @@ function tt_cross(
         I_g[k] = [rand(1:Is[k + j]) for _ in 1:Rs[k + 1], j in 1:(N - k)]
     end
 
-    cores = [randn(T, Is[n], Rs[n], Rs[n + 1]) for n in 1:N]
+    cores = [randn(Tv, Is[n], Rs[n], Rs[n + 1]) for n in 1:N]
 
     Xs_val = hcat([rand(1:Is[d], val_size) for d in 1:N]...)
-    val_coords = hcat([domain[d][Xs_val[:, d]] for d in 1:N]...)
-    ys_val = f(val_coords)
+    ys_val = _evaluate_on_domain(f, domain, Xs_val)
     norm_ys_val = max(norm(ys_val), alg.tol)
 
     alg.verbose && @info "DMRG cross-interpolation over $(N)D domain with $(prod(Is)) grid points"
@@ -641,7 +659,7 @@ function tt_cross(
     converged && alg.verbose && @info "Converged: ε = $(val_eps) < $(alg.tol)"
     !converged && alg.verbose && @warn "Max iterations reached: ε = $(val_eps)"
 
-    return TTvector{T, N}(N, cores, Tuple(Is), copy(Rs), zeros(Int, N))
+    return TTvector{eltype(cores[1]), N}(N, cores, Tuple(Is), copy(Rs), zeros(Int, N))
 end
 
 function tt_integrate(
