@@ -287,8 +287,10 @@ end
 ⊕(x::TTvector{T, N}, y::TTvector{T, N}) where {T <: Number, N} = hadamard(x, y)
 
 # SVD with relative truncation criterion from Eq. (10) of arXiv:2410.19747.
-function _ttm_swap!(cores::Vector{Array{T, 3}}, rks::Vector{Int}, j::Int;
-                    tol::Float64 = 0.0, rmax::Int = typemax(Int)) where {T}
+function _ttm_swap!(
+        cores::Vector{Array{T, 3}}, rks::Vector{Int}, j::Int;
+        tol::Float64 = 0.0, rmax::Int = typemax(Int)
+    ) where {T}
     A = cores[j]         # (dA, rL, rM)
     B = cores[j + 1]     # (dB, rM, rR)
     dA, rL, _ = size(A)
@@ -299,9 +301,9 @@ function _ttm_swap!(cores::Vector{Array{T, 3}}, rks::Vector{Int}, j::Int;
     mat = reshape(permutedims(C, (3, 2, 1, 4)), rL * dB, dA * rR)
     U, S, Vt = _svdtrunc(mat; max_bond = rmax, truncerr = tol)
     r = size(U, 2)
-    cores[j]     = permutedims(reshape(U, rL, dB, r), (2, 1, 3))        # (dB, rL, r)
+    cores[j] = permutedims(reshape(U, rL, dB, r), (2, 1, 3))        # (dB, rL, r)
     cores[j + 1] = permutedims(reshape(S * Vt, r, dA, rR), (2, 1, 3))  # (dA, r, rR)
-    rks[j + 1]   = r
+    return rks[j + 1] = r
 end
 
 function _ttm_contract!(cores::Vector{Array{T, 3}}, rks::Vector{Int}, p::Int) where {T}
@@ -315,12 +317,14 @@ function _ttm_contract!(cores::Vector{Array{T, 3}}, rks::Vector{Int}, p::Int) wh
     end
     cores[p] = Pi
     deleteat!(cores, p + 1)
-    deleteat!(rks, p + 1)
+    return deleteat!(rks, p + 1)
 end
 
-function hadamard_ttm(x::TTvector{T, N}, y::TTvector{T, N};
-                      tol::Float64 = 1e-14,
-                      rmax::Int = typemax(Int)) where {T <: Number, N}
+function hadamard_ttm(
+        x::TTvector{T, N}, y::TTvector{T, N};
+        tol::Float64 = 1.0e-14,
+        rmax::Int = typemax(Int)
+    ) where {T <: Number, N}
     @assert x.ttv_dims == y.ttv_dims "Incompatible TT dimensions"
     d = x.N
 

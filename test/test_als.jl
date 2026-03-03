@@ -112,7 +112,7 @@ end
 
     E, _ = als_eigsolve(A, x0; sweep_schedule = [4], rmax_schedule = [2])
 
-    @test E[end] ≤ E[1] + 1e-8
+    @test E[end] ≤ E[1] + 1.0e-8
 end
 
 @testset "als_eigsolve: multi-stage schedule with rank growth and noise" begin
@@ -120,10 +120,12 @@ end
     A = als_spd_op(d, 2.0)
     x0 = rand_tt(ntuple(_ -> 2, d), [1, 1, 1, 1, 1]; normalise = true)
 
-    E, x_opt = als_eigsolve(A, x0;
+    E, x_opt = als_eigsolve(
+        A, x0;
         sweep_schedule = [2, 4],
-        rmax_schedule  = [1, 2],
-        noise_schedule = [0.0, 1e-3])
+        rmax_schedule = [1, 2],
+        noise_schedule = [0.0, 1.0e-3]
+    )
 
     @test x_opt isa TTvector{Float64}
     @test maximum(x_opt.ttv_rks) ≤ 2
@@ -135,9 +137,11 @@ end
     A = als_spd_op(d, 2.0)
     x0 = rand_tt(ntuple(_ -> 2, d), [1, 2, 2, 2, 1]; normalise = true)
 
-    E, x_opt = als_eigsolve(A, x0;
+    E, x_opt = als_eigsolve(
+        A, x0;
         sweep_schedule = [2], rmax_schedule = [2],
-        it_solver = true, itslv_thresh = 1)
+        it_solver = true, itslv_thresh = 1
+    )
 
     @test x_opt isa TTvector{Float64}
     @test isfinite(E[end])

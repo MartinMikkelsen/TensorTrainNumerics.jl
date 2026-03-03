@@ -839,7 +839,7 @@ end
 @testset "ttv_to_tensor roundtrip" begin
     tensor = rand(3, 4, 5)
     tt = ttv_decomp(tensor)
-    @test isapprox(ttv_to_tensor(tt), tensor; atol = 1e-12)
+    @test isapprox(ttv_to_tensor(tt), tensor; atol = 1.0e-12)
 
     # Rank-1 trivial case
     v = rand(Float64, 4)
@@ -887,19 +887,23 @@ end
         orth = orthogonalize(tt; i = center)
 
         # Reconstruction is preserved
-        @test isapprox(ttv_to_tensor(orth), original_tensor; atol = 1e-12)
+        @test isapprox(ttv_to_tensor(orth), original_tensor; atol = 1.0e-12)
 
         # Orthogonality flags
         @test orth.ttv_ot[center] == 0
-        for j in 1:(center - 1); @test orth.ttv_ot[j] == 1; end
-        for j in (center + 1):3; @test orth.ttv_ot[j] == -1; end
+        for j in 1:(center - 1)
+            @test orth.ttv_ot[j] == 1
+        end
+        for j in (center + 1):3
+            @test orth.ttv_ot[j] == -1
+        end
 
         # Left-orthogonal cores (j < center): reshape to (r_l*d, r_r) has orthonormal columns
         for j in 1:(center - 1)
             G = orth.ttv_vec[j]          # (d, r_l, r_r)
             d, r_l, r_r = size(G)
             A = reshape(permutedims(G, (2, 1, 3)), r_l * d, r_r)
-            @test isapprox(A' * A, I(r_r); atol = 1e-12)
+            @test isapprox(A' * A, I(r_r); atol = 1.0e-12)
         end
 
         # Right-orthogonal cores (j > center): reshape to (r_l, r_r*d) has orthonormal rows
@@ -907,7 +911,7 @@ end
             G = orth.ttv_vec[j]          # (d, r_l, r_r)
             d, r_l, r_r = size(G)
             A = reshape(permutedims(G, (2, 3, 1)), r_l, r_r * d)
-            @test isapprox(A * A', I(r_l); atol = 1e-12)
+            @test isapprox(A * A', I(r_l); atol = 1.0e-12)
         end
     end
 end
@@ -926,10 +930,10 @@ end
 
     # Little-endian: n_0 = fine_0 + 2*coarse_0  →  tensor[fine+1, coarse+1] = v[n+1]
     T_qtt = ttv_to_tensor(qtt)
-    @test isapprox(T_qtt[1, 1], v[1]; atol = 1e-12)
-    @test isapprox(T_qtt[2, 1], v[2]; atol = 1e-12)
-    @test isapprox(T_qtt[1, 2], v[3]; atol = 1e-12)
-    @test isapprox(T_qtt[2, 2], v[4]; atol = 1e-12)
+    @test isapprox(T_qtt[1, 1], v[1]; atol = 1.0e-12)
+    @test isapprox(T_qtt[2, 1], v[2]; atol = 1.0e-12)
+    @test isapprox(T_qtt[1, 2], v[3]; atol = 1.0e-12)
+    @test isapprox(T_qtt[2, 2], v[4]; atol = 1.0e-12)
 
     # Multi-core TT: split a (4,4) TT into four (2,) cores
     tt2 = rand_tt((4, 4), [1, 3, 1])

@@ -263,8 +263,10 @@ consistent with the rest of the package's QTT convention.
 
 An optional `threshold` (relative to the largest singular value) controls rank truncation.
 """
-function to_qtt(tt::TTvector{T, N}, split_dims::Vector{Vector{Int}};
-        threshold::Float64 = 0.0) where {T <: Number, N}
+function to_qtt(
+        tt::TTvector{T, N}, split_dims::Vector{Vector{Int}};
+        threshold::Float64 = 0.0
+    ) where {T <: Number, N}
     @assert length(split_dims) == N "split_dims must have one entry per TT core"
     for i in 1:N
         @assert prod(split_dims[i]) == tt.ttv_dims[i] "prod(split_dims[$i]) must equal $(tt.ttv_dims[i])"

@@ -196,7 +196,7 @@ end
         for n in [0, 1, 2, 3, N ÷ 2, N - 1]
             v = qtt_to_vector(qtt_chebyshev(n, d))
             expected = cos.(n .* θ)  # T_n(cos(θ_j)) = cos(n·θ_j)
-            @test v ≈ expected atol=1e-12
+            @test v ≈ expected atol = 1.0e-12
         end
     end
 end

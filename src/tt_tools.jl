@@ -542,7 +542,7 @@ function _ot_description(ot::Vector{Int})
     zeros_at = findall(iszero, ot)
     if length(zeros_at) == 1
         c = zeros_at[1]
-        left_ok  = c == 1 || all(==(1),  ot[1:(c - 1)])
+        left_ok = c == 1 || all(==(1), ot[1:(c - 1)])
         right_ok = c == length(ot) || all(==(-1), ot[(c + 1):end])
         left_ok && right_ok && return "center @ site $c"
     end
@@ -550,25 +550,25 @@ function _ot_description(ot::Vector{Int})
 end
 
 function Base.show(io::IO, tt::TTvector{T, N}) where {T <: Number, N}
-    print(io, "MPS{$T}($(tt.N) sites)")
+    return print(io, "MPS{$T}($(tt.N) sites)")
 end
 
 function Base.show(io::IO, tto::TToperator{T, N}) where {T <: Number, N}
-    print(io, "MPO{$T}($(tto.N) sites)")
+    return print(io, "MPO{$T}($(tto.N) sites)")
 end
 
 function Base.show(io::IO, ::MIME"text/plain", tt::TTvector{T, N}) where {T <: Number, N}
     println(io, "MPS{$T} with $(tt.N) sites")
     println(io, "  Physical dims : $(tt.ttv_dims)")
     println(io, "  Bond dims     : $(tt.ttv_rks)")
-    print(io,   "  Orthogonality : $(_ot_description(tt.ttv_ot))")
+    return print(io, "  Orthogonality : $(_ot_description(tt.ttv_ot))")
 end
 
 function Base.show(io::IO, ::MIME"text/plain", tto::TToperator{T, N}) where {T <: Number, N}
     println(io, "MPO{$T} with $(tto.N) sites")
     println(io, "  Physical dims : $(tto.tto_dims)")
     println(io, "  Bond dims     : $(tto.tto_rks)")
-    print(io,   "  Orthogonality : $(_ot_description(tto.tto_ot))")
+    return print(io, "  Orthogonality : $(_ot_description(tto.tto_ot))")
 end
 
 """
@@ -592,8 +592,8 @@ function visualize(tt::TTvector)
         dim_str = string(dims[i])
         line3 *= repeat(" ", position_C - length(line3) - div(length(dim_str), 2) - 1) * dim_str
     end
-    println(line1); println(line2); 
-    println(line3)
+    println(line1); println(line2)
+    return println(line3)
 end
 
 function visualize(tt::TToperator)
@@ -618,10 +618,11 @@ function visualize(tt::TToperator)
                 1 ≤ idx ≤ total_length && (buf[idx] = c)
             end
         end
-        String(buf)
+        return String(buf)
     end
     vline = String([p in positions_C ? '|' : ' ' for p in 1:total_length])
-    println(dim_line()); println(vline); println(line1); println(vline); println(dim_line())
+    println(dim_line()); println(vline); println(line1); println(vline)
+    return println(dim_line())
 end
 
 """

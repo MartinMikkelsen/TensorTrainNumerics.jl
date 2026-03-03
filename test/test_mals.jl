@@ -36,7 +36,7 @@ end
     b = rand_tt(ntuple(_ -> 2, d), [1, 2, 2, 2, 1])
     x0 = rand_tt(ntuple(_ -> 2, d), [1, 2, 2, 2, 1])
 
-    x = mals_linsolve(A, b, x0; tol = 1e-10, rmax = 8)
+    x = mals_linsolve(A, b, x0; tol = 1.0e-10, rmax = 8)
 
     @test mals_rel_residual(A, x, b) < 0.5
 end
@@ -47,7 +47,7 @@ end
     b = rand_tt(ntuple(_ -> 2, d), [1, 1, 1, 1, 1])
     x0 = rand_tt(ntuple(_ -> 2, d), [1, 1, 1, 1, 1])
 
-    x = mals_linsolve(A, b, x0; tol = 1e-12, rmax = 4)
+    x = mals_linsolve(A, b, x0; tol = 1.0e-12, rmax = 4)
 
     @test mals_rel_residual(A, x, b) < 0.05
 end
@@ -59,7 +59,7 @@ end
     x0 = rand_tt(ntuple(_ -> 2, d), [1, 1, 1, 1, 1])
     rmax = 4
 
-    x = mals_linsolve(A, b, x0; tol = 1e-10, rmax = rmax)
+    x = mals_linsolve(A, b, x0; tol = 1.0e-10, rmax = rmax)
 
     @test maximum(x.ttv_rks) ≤ rmax
 end
@@ -70,7 +70,7 @@ end
     b = rand_tt(ntuple(_ -> 2, d), [1, 2, 2, 2, 1])
     x0 = rand_tt(ntuple(_ -> 2, d), [1, 2, 2, 2, 1])
 
-    x_loose = mals_linsolve(A, b, x0; tol = 1e-2, rmax = 8)
+    x_loose = mals_linsolve(A, b, x0; tol = 1.0e-2, rmax = 8)
     x_tight = mals_linsolve(A, b, x0; tol = 0.0, rmax = 8)
 
     @test maximum(x_loose.ttv_rks) ≤ maximum(x_tight.ttv_rks) + 2
@@ -114,7 +114,7 @@ end
 
     E, _, _ = mals_eigsolve(A, x0; sweep_schedule = [4], rmax_schedule = [4])
 
-    @test E[end] ≤ E[1] + 1e-8
+    @test E[end] ≤ E[1] + 1.0e-8
 end
 
 @testset "mals_eigsolve: multi-stage sweep schedule with rank growth" begin
@@ -146,9 +146,11 @@ end
     A = mals_spd_op(d, 2.0)
     x0 = rand_tt(ntuple(_ -> 2, d), [1, 2, 2, 2, 1]; normalise = true)
 
-    E, x_opt, _ = mals_eigsolve(A, x0;
+    E, x_opt, _ = mals_eigsolve(
+        A, x0;
         sweep_schedule = [2], rmax_schedule = [4],
-        it_solver = true, itslv_thresh = 1)
+        it_solver = true, itslv_thresh = 1
+    )
 
     @test x_opt isa TTvector{Float64}
     @test isfinite(E[end])

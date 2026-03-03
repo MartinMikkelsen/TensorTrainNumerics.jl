@@ -218,7 +218,7 @@ function als_linsolve(A::TToperator{T}, b::TTvector{T}, tt_start::TTvector{T}; s
             end
         end
     end
-    return_info ? (tt_opt, (; residual = norm(A * tt_opt - b) / max(norm(b), eps(real(T))))) : tt_opt
+    return return_info ? (tt_opt, (; residual = norm(A * tt_opt - b) / max(norm(b), eps(real(T))))) : tt_opt
 end
 
 """
