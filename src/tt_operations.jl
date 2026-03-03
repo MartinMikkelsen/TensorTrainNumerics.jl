@@ -134,11 +134,7 @@ function *(A::TToperator{T, N}, B::TToperator{T, N}) where {T <: Number, N}
     Y = [zeros(T, A.tto_dims[k], A.tto_dims[k], A_rks[k] * B_rks[k], A_rks[k + 1] * B_rks[k + 1]) for k in eachindex(A.tto_dims)]
     @inbounds for k in eachindex(Y)
         M_temp = reshape(Y[k], A.tto_dims[k], A.tto_dims[k], A_rks[k], B_rks[k], A_rks[k + 1], B_rks[k + 1])
-        for jₖ in size(M_temp, 2)
-            for iₖ in size(M_temp, 1)
-                @tensor M_temp[iₖ, jₖ, αₖ₋₁, βₖ₋₁, αₖ, βₖ] = A.tto_vec[k][iₖ, z, αₖ₋₁, αₖ] * B.tto_vec[k][z, jₖ, βₖ₋₁, βₖ]
-            end
-        end
+        @tensor M_temp[iₖ, jₖ, αₖ₋₁, βₖ₋₁, αₖ, βₖ] = A.tto_vec[k][iₖ, z, αₖ₋₁, αₖ] * B.tto_vec[k][z, jₖ, βₖ₋₁, βₖ]
     end
     return TToperator{T, N}(d, Y, A.tto_dims, A.tto_rks .* B.tto_rks, zeros(Int64, d))
 end
@@ -167,24 +163,6 @@ function dot(A::TTvector{T, N}, B::TTvector{T, N}) where {T <: Number, N}
     return out[1, 1]::T
 end
 
-function dot_par(A::TTvector{T, N}, B::TTvector{T, N}) where {T <: Number, N}
-    @assert A.ttv_dims == B.ttv_dims "TT dimensions are not compatible"
-    d = length(A.ttv_dims)
-    Y = Array{Array{T, 2}, 1}(undef, d)
-    A_rks = A.ttv_rks
-    B_rks = B.ttv_rks
-    C = zeros(T, maximum(A_rks .* B_rks))
-    @threads for k in 1:d
-        M = zeros(T, A_rks[k], B_rks[k], A_rks[k + 1], B_rks[k + 1])
-        @tensor M[a, b, c, d] = A.ttv_vec[k][z, a, c] * B.ttv_vec[k][z, b, d] #size R^A_{k-1} ×  R^B_{k-1} × R^A_{k} × R^B_{k}
-        Y[k] = reshape(M, A_rks[k] * B_rks[k], A_rks[k + 1] * B_rks[k + 1])
-    end
-    @inbounds C[1:length(Y[d])] = Y[d][:]
-    for k in (d - 1):-1:1
-        @inbounds C[1:size(Y[k], 1)] = Y[k] * C[1:size(Y[k], 2)]
-    end
-    return C[1]::T
-end
 
 """
 Multiplies a TTvector by a scalar and returns a new TTvector.
@@ -242,13 +220,9 @@ end
 
 function outer_product(x::TTvector{T, N}, y::TTvector{T, N}) where {T <: Number, N}
     Y = [zeros(T, x.ttv_dims[k], x.ttv_dims[k], x.ttv_rks[k] * y.ttv_rks[k], x.ttv_rks[k + 1] * y.ttv_rks[k + 1]) for k in eachindex(x.ttv_dims)]
-    @inbounds @simd for k in eachindex(Y)
+    @inbounds for k in eachindex(Y)
         M_temp = reshape(Y[k], x.ttv_dims[k], x.ttv_dims[k], x.ttv_rks[k], y.ttv_rks[k], x.ttv_rks[k + 1], y.ttv_rks[k + 1])
-        @simd for jₖ in size(M_temp, 2)
-            @simd for iₖ in size(M_temp, 1)
-                @tensor M_temp[iₖ, jₖ, αₖ₋₁, βₖ₋₁, αₖ, βₖ] = x.ttv_vec[k][iₖ, αₖ₋₁, αₖ] * conj(y.ttv_vec[k][jₖ, βₖ₋₁, βₖ])
-            end
-        end
+        @tensor M_temp[iₖ, jₖ, αₖ₋₁, βₖ₋₁, αₖ, βₖ] = x.ttv_vec[k][iₖ, αₖ₋₁, αₖ] * conj(y.ttv_vec[k][jₖ, βₖ₋₁, βₖ])
     end
     return TToperator{T, N}(x.N, Y, x.ttv_dims, x.ttv_rks .* y.ttv_rks, zeros(Int64, x.N))
 end
@@ -313,8 +287,10 @@ end
 ⊕(x::TTvector{T, N}, y::TTvector{T, N}) where {T <: Number, N} = hadamard(x, y)
 
 # SVD with relative truncation criterion from Eq. (10) of arXiv:2410.19747.
-function _ttm_swap!(cores::Vector{Array{T, 3}}, rks::Vector{Int}, j::Int;
-                    tol::Float64 = 0.0, rmax::Int = typemax(Int)) where {T}
+function _ttm_swap!(
+        cores::Vector{Array{T, 3}}, rks::Vector{Int}, j::Int;
+        tol::Float64 = 0.0, rmax::Int = typemax(Int)
+    ) where {T}
     A = cores[j]         # (dA, rL, rM)
     B = cores[j + 1]     # (dB, rM, rR)
     dA, rL, _ = size(A)
@@ -325,9 +301,9 @@ function _ttm_swap!(cores::Vector{Array{T, 3}}, rks::Vector{Int}, j::Int;
     mat = reshape(permutedims(C, (3, 2, 1, 4)), rL * dB, dA * rR)
     U, S, Vt = _svdtrunc(mat; max_bond = rmax, truncerr = tol)
     r = size(U, 2)
-    cores[j]     = permutedims(reshape(U, rL, dB, r), (2, 1, 3))        # (dB, rL, r)
+    cores[j] = permutedims(reshape(U, rL, dB, r), (2, 1, 3))        # (dB, rL, r)
     cores[j + 1] = permutedims(reshape(S * Vt, r, dA, rR), (2, 1, 3))  # (dA, r, rR)
-    rks[j + 1]   = r
+    return rks[j + 1] = r
 end
 
 function _ttm_contract!(cores::Vector{Array{T, 3}}, rks::Vector{Int}, p::Int) where {T}
@@ -341,12 +317,14 @@ function _ttm_contract!(cores::Vector{Array{T, 3}}, rks::Vector{Int}, p::Int) wh
     end
     cores[p] = Pi
     deleteat!(cores, p + 1)
-    deleteat!(rks, p + 1)
+    return deleteat!(rks, p + 1)
 end
 
-function hadamard_ttm(x::TTvector{T, N}, y::TTvector{T, N};
-                      tol::Float64 = 1e-14,
-                      rmax::Int = typemax(Int)) where {T <: Number, N}
+function hadamard_ttm(
+        x::TTvector{T, N}, y::TTvector{T, N};
+        tol::Float64 = 1.0e-14,
+        rmax::Int = typemax(Int)
+    ) where {T <: Number, N}
     @assert x.ttv_dims == y.ttv_dims "Incompatible TT dimensions"
     d = x.N
 

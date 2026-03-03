@@ -92,6 +92,48 @@ import TensorTrainNumerics: MaxVolPivot, RandomPivot, MaxVol, Greedy, DMRG, _cap
             @test tt.N == 3
         end
 
+        @testset "Greedy regression: zero-lock avoidance" begin
+            f(x) = vec(prod(x, dims = 2))
+            domain = [collect(range(0.0, 1.0, length = 5)) for _ in 1:3]
+            alg = Greedy(
+                verbose = false,
+                tol = 1.0e-8,
+                maxiter = 20,
+                nsamples = 300,
+                pivot = RandomPivot(seed = 7, nsamples = 300),
+            )
+            tt = tt_cross(f, domain, alg)
+            approx = TensorTrainNumerics.ttv_to_tensor(tt)
+            exact = zeros(size(approx))
+            for I in CartesianIndices(exact)
+                x = reshape([domain[d][I[d]] for d in 1:3], 1, :)
+                exact[I] = f(x)[1]
+            end
+            relerr = norm(approx - exact) / max(norm(exact), eps())
+            @test relerr < 1.0e-8
+        end
+
+        @testset "Greedy regression: oscillatory stability" begin
+            f(x) = vec(cos.(8 .* sum(x .^ 2, dims = 2)) .* exp.(-(sum(x, dims = 2)) .^ 2))
+            domain = [collect(range(-1.0, 1.0, length = 6)) for _ in 1:4]
+            alg = Greedy(
+                verbose = false,
+                tol = 1.0e-6,
+                maxiter = 20,
+                nsamples = 400,
+                pivot = RandomPivot(seed = 11, nsamples = 400),
+            )
+            tt = tt_cross(f, domain, alg)
+            approx = TensorTrainNumerics.ttv_to_tensor(tt)
+            exact = zeros(size(approx))
+            for I in CartesianIndices(exact)
+                x = reshape([domain[d][I[d]] for d in 1:4], 1, :)
+                exact[I] = f(x)[1]
+            end
+            relerr = norm(approx - exact) / max(norm(exact), eps())
+            @test relerr < 1.0e-4
+        end
+
         @testset "DMRG algorithm" begin
             f(x) = exp.(-sum(x .^ 2, dims = 2))
             domain = [range(-1, 1, length = 12) |> collect for _ in 1:4]
@@ -99,6 +141,47 @@ import TensorTrainNumerics: MaxVolPivot, RandomPivot, MaxVol, Greedy, DMRG, _cap
             tt = tt_cross(f, domain, DMRG(verbose = false, tol = 1.0e-6))
             @test tt isa TTvector
             @test tt.N == 4
+        end
+
+        @testset "5D Wishart Laplace transform (parameterized)" begin
+            d = 5
+            nu = d + 2
+            p = nu / 2
+
+            Sigma = [
+                1.0  0.3  0.2  0.1  0.18
+                0.3  1.2  0.25 0.15 0.22
+                0.2  0.25 0.9  0.2  0.28
+                0.1  0.15 0.2  1.1  0.19
+                0.18 0.22 0.28 0.19 1.05
+            ]
+            @test isposdef(Sigma)
+
+            sigma = 2 .* Sigma
+
+            f_tilde_wishart(s::AbstractVector, sigma::AbstractMatrix, p::Real) =
+                det(Matrix{Float64}(I, length(s), length(s)) + sigma * Diagonal(s))^(-p)
+
+            f_tt(X::AbstractMatrix{<:Real}) = [f_tilde_wishart(@view(X[i, :]), sigma, p) for i in 1:size(X, 1)]
+
+            domain = [collect(range(0.0, 2.0, length = 8)) for _ in 1:d]
+            Random.seed!(2026)
+            tt = tt_cross(
+                f_tt,
+                domain,
+                MaxVol(verbose = false, tol = 1.0e-6, maxiter = 25, rmax = 60, kickrank = 2);
+                ranks = 2,
+                val_size = 1500,
+            )
+
+            Random.seed!(2027)
+            ncheck = 200
+            idx = hcat([rand(1:length(domain[k]), ncheck) for k in 1:d]...)
+            ys = f_tt(hcat([domain[k][idx[:, k]] for k in 1:d]...))
+            yhat = TensorTrainNumerics._evaluate_tt(tt.ttv_vec, idx, d)
+            rel_l2 = norm(ys .- yhat) / max(norm(ys), eps())
+
+            @test rel_l2 < 1.0e-4
         end
 
         @testset "Default algorithm" begin

@@ -535,141 +535,94 @@ function orthogonalize(x_tt::TTvector{T, N}; i = 1::Int) where {T <: Number, N}
     return y_tt
 end
 
+function _ot_description(ot::Vector{Int})
+    all(iszero, ot)   && return "none"
+    all(==(1), ot)    && return "left-canonical"
+    all(==(-1), ot)   && return "right-canonical"
+    zeros_at = findall(iszero, ot)
+    if length(zeros_at) == 1
+        c = zeros_at[1]
+        left_ok = c == 1 || all(==(1), ot[1:(c - 1)])
+        right_ok = c == length(ot) || all(==(-1), ot[(c + 1):end])
+        left_ok && right_ok && return "center @ site $c"
+    end
+    return string(ot)       # fallback: raw vector
+end
+
+function Base.show(io::IO, tt::TTvector{T, N}) where {T <: Number, N}
+    return print(io, "MPS{$T}($(tt.N) sites)")
+end
+
+function Base.show(io::IO, tto::TToperator{T, N}) where {T <: Number, N}
+    return print(io, "MPO{$T}($(tto.N) sites)")
+end
+
+function Base.show(io::IO, ::MIME"text/plain", tt::TTvector{T, N}) where {T <: Number, N}
+    println(io, "MPS{$T} with $(tt.N) sites")
+    println(io, "  Physical dims : $(tt.ttv_dims)")
+    println(io, "  Bond dims     : $(tt.ttv_rks)")
+    return print(io, "  Orthogonality : $(_ot_description(tt.ttv_ot))")
+end
+
+function Base.show(io::IO, ::MIME"text/plain", tto::TToperator{T, N}) where {T <: Number, N}
+    println(io, "MPO{$T} with $(tto.N) sites")
+    println(io, "  Physical dims : $(tto.tto_dims)")
+    println(io, "  Bond dims     : $(tto.tto_rks)")
+    return print(io, "  Orthogonality : $(_ot_description(tto.tto_ot))")
+end
 
 """
-    visualize(tt::TTvector)
+    visualize(tt)
 
-Visualizes a Tensor Train (TT) vector by creating a textual representation of its dimensions and ranks.
-
-# Arguments
-- `tt::TTvector`: A Tensor Train vector object.
+Print an ASCII bond diagram of the TT structure to stdout.
 """
 function visualize(tt::TTvector)
     N = tt.N
     dims = collect(tt.ttv_dims)
     ranks = tt.ttv_rks
-
-    max_rank_len = maximum(length.(string.(ranks)))
-    max_dim_len = maximum(length.(string.(dims)))
-
-    rwidth = max(max_rank_len, 2)  # Minimum width of 2 for readability
-    dwidth = max(max_dim_len, 1)
-
-    seg_length = rwidth + 6 + rwidth  # '-- C --' is 6 characters
-
+    rwidth = max(maximum(length.(string.(ranks))), 2)
     line1 = lpad(string(ranks[1]), rwidth)
     line2 = " "^length(line1)
     line3 = " "^length(line1)
-
     for i in 1:N
-        segment = "-- • --"
         rank_right = lpad(string(ranks[i + 1]), rwidth)
-        line1 *= segment * rank_right
-
-        position_C = length(line1) - rwidth - 3  # 'C' is 3 characters before the right rank
-
-        line2_len = length(line2)
-        spaces_needed = position_C - line2_len
-        line2 *= repeat(" ", spaces_needed - 1) * "|"
-
+        line1 *= "-- • --" * rank_right
+        position_C = length(line1) - rwidth - 3
+        line2 *= repeat(" ", position_C - length(line2) - 1) * "|"
         dim_str = string(dims[i])
-        dim_len = length(dim_str)
-        line3_len = length(line3)
-        spaces_needed = position_C - line3_len - div(dim_len, 2)
-        line3 *= repeat(" ", spaces_needed - 1) * dim_str
+        line3 *= repeat(" ", position_C - length(line3) - div(length(dim_str), 2) - 1) * dim_str
     end
-
-    diagram = line1 * "\n" * line2 * "\n" * line3
-
-    return println(diagram)
+    println(line1); println(line2)
+    return println(line3)
 end
-"""
-    visualize(tt::TToperator)
 
-Visualizes a Tensor Train (TT) operator by creating a textual representation of its dimensions and ranks.
-
-# Arguments
-- `tt::TToperator`: A Tensor Train operator object.
-"""
 function visualize(tt::TToperator)
     N = tt.N
     dims = collect(tt.tto_dims)
     ranks = tt.tto_rks
-
-    # Initialize top dimensions line (line0)
     total_length = 0
-    line0_chars = []
-    positions_C = []
-
-    # Build the first line (ranks and nodes)
+    positions_C = Int[]
     line1 = ""
     for i in 1:N
-        # Create rank-node-rank segment
-        if i == 1
-            segment = " $(ranks[i])-- • --$(ranks[i + 1])"
-        else
-            segment = "-- • --$(ranks[i + 1])"
-        end
-        line1 *= segment
-
-        # Find the position of '•' in the segment
-        pos_C = total_length + findfirst(isequal('•'), segment)
-        push!(positions_C, pos_C)
-        total_length += length(segment)
-
+        seg = i == 1 ? " $(ranks[i])-- • --$(ranks[i + 1])" : "-- • --$(ranks[i + 1])"
+        line1 *= seg
+        push!(positions_C, total_length + findfirst(isequal('•'), seg))
+        total_length += length(seg)
     end
-
-    # Top Dimensions (line0)
-    line0_chars = fill(' ', total_length)
-    for i in 1:N
-        pos_C = positions_C[i]
-        dim_str = "$(dims[i])"
-        dim_len = length(dim_str)
-
-        # Center dimension above the vertical line
-        start_pos = pos_C - div(dim_len, 2)
-        for j in 1:dim_len
-            idx = start_pos + j - 1
-            if idx >= 1 && idx <= total_length
-                line0_chars[idx] = dim_str[j]
+    function dim_line()
+        buf = fill(' ', total_length)
+        for i in 1:N
+            s = string(dims[i]); start = positions_C[i] - div(length(s), 2)
+            for (j, c) in enumerate(s)
+                idx = start + j - 1
+                1 ≤ idx ≤ total_length && (buf[idx] = c)
             end
         end
+        return String(buf)
     end
-    line0 = String(line0_chars)
-
-    # Build the second line (vertical connections to top dimensions)
-    line2_chars = fill(' ', total_length)
-    for pos_C in positions_C
-        line2_chars[pos_C] = '|'
-    end
-    line2 = String(line2_chars)
-
-    # Reuse the vertical line for line3
-    line3 = line2
-
-    # Bottom Dimensions (line4)
-    line4_chars = fill(' ', total_length)
-    for i in 1:N
-        pos_C = positions_C[i]
-        dim_str = "$(dims[i])"
-        dim_len = length(dim_str)
-
-        # Center dimension under the vertical line
-        start_pos = pos_C - div(dim_len, 2)
-        for j in 1:dim_len
-            idx = start_pos + j - 1
-            if idx >= 1 && idx <= total_length
-                line4_chars[idx] = dim_str[j]
-            end
-        end
-    end
-    line4 = String(line4_chars)
-
-    # Combine all the lines
-    diagram = line0 * "\n" * line2 * "\n" * line1 * "\n" * line3 * "\n" * line4
-
-    # Display the diagram
-    return println(diagram)
+    vline = String([p in positions_C ? '|' : ' ' for p in 1:total_length])
+    println(dim_line()); println(vline); println(line1); println(vline)
+    return println(dim_line())
 end
 
 """
@@ -890,7 +843,6 @@ function matricize(qtt::TTvector{T}, core::Int)::Vector{T} where {T <: Number}
     values = zeros(T, n)
 
     for i in 1:n
-        x_le_p = sum(((i >> (k - 1)) & 1) / 2^k for k in 1:core)  # Calculate the dyadic point
         index_bits = bitstring(i - 1)[(end - core + 1):end]  # Binary representation
         indices = [parse(Int, bit) + 1 for bit in index_bits]  # Indices for CartesianIndex
         values[i] = full_tensor[CartesianIndex(indices...)]

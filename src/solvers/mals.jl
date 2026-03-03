@@ -215,14 +215,31 @@ function K_eigmin_mals(
 end
 
 """
-Returns the solution `tt_opt :: TTvector` of Ax=b using the MALS algorithm where A is given as `TToperator` and `b`, `tt_start` are `TTvector`.
-The ranks are adapted at each microstep by keeping the singular values larger than `tol`.
+    mals_linsolve(A, b, tt_start; tol=1e-12, rmax, return_info=false)
+
+Solve `Ax = b` using the Modified Alternating Linear Scheme (MALS). Unlike ALS,
+the bond dimensions adapt at each micro-step by discarding singular values below `tol`.
+
+# Arguments
+- `A::TToperator{T}`: system operator in TT format.
+- `b::TTvector{T}`: right-hand side in TT format.
+- `tt_start::TTvector{T}`: initial guess.
+
+# Keyword arguments
+- `tol::Float64=1e-12`: relative SVD truncation threshold for rank adaptation.
+- `rmax::Int`: maximum allowed bond dimension (defaults to `√(∏ dims)`).
+- `return_info::Bool=false`: when `true`, return `(tt_opt, info)` where
+  `info = (; residual)` holds the final relative residual `‖A tt_opt − b‖ / ‖b‖`.
+
+# Returns
+`TTvector{T}`, or `(TTvector{T}, NamedTuple)` when `return_info=true`.
 """
 function mals_linsolve(
         A::TToperator{T}, b::TTvector{T},
         tt_start::TTvector{T};
         tol::Float64 = 1.0e-12,
-        rmax::Int = round(Int, sqrt(prod(tt_start.ttv_dims)))
+        rmax::Int = round(Int, sqrt(prod(tt_start.ttv_dims))),
+        return_info::Bool = false
     ) where {T <: Number}
 
     d = b.N
@@ -285,15 +302,32 @@ function mals_linsolve(
         end
     end
 
-    return tt_opt
+    return return_info ? (tt_opt, (; residual = norm(A * tt_opt - b) / max(norm(b), eps(real(T))))) : tt_opt
 end
 
 """
-Returns the list of the approximate smallest eigenvalue at each microstep, the corresponding eigenvector as a `TTvector` and the list of the maximum rank at each microstep.
+    mals_eigsolve(A, tt_start; tol, sweep_schedule, rmax_schedule, it_solver, linsolv_maxiter, linsolv_tol, itslv_thresh)
 
-`A` is given as `TToperator` and `tt_start` is a `TTvector`.
-The ranks are adapted at each microstep by keeping the singular values larger than `tol`.
-The number of total sweeps is given by `sweep_schedule[end]`. The maximum rank is prescribed at each sweep `sweep_schedule[k] ≤ i < sweep_schedule[k+1]` by `rmax_schedule[k]`.
+Find the lowest eigenvalue and eigenvector of `A` using the Modified Alternating Linear
+Scheme with bond-adaptive rank growth.
+
+# Arguments
+- `A::TToperator{T}`: the operator whose smallest eigenvalue is sought.
+- `tt_start::TTvector{T}`: initial guess for the eigenvector.
+
+# Keyword arguments
+- `tol::Float64=1e-12`: relative SVD truncation threshold for rank adaptation.
+- `sweep_schedule::Vector{Int}=[2]`: sweep count at which each rank stage ends.
+- `rmax_schedule::Vector{Int}`: maximum bond dimension at each stage.
+- `it_solver::Bool=false`: use an iterative eigensolver for local subproblems.
+- `linsolv_maxiter::Int=200`: maximum iterations for the iterative eigensolver.
+- `linsolv_tol::Float64`: tolerance for the iterative eigensolver (default `√tol`).
+- `itslv_thresh::Int=256`: local problem size above which iterative solve activates.
+
+# Returns
+`(E, tt_opt, r_hist)` where `E::Vector{Float64}` is the eigenvalue history,
+`tt_opt::TTvector{T}` is the approximate eigenvector, and `r_hist::Vector{Int}`
+records the maximum bond dimension after each micro-step.
 """
 function mals_eigsolve(
         A::TToperator{T}, tt_start::TTvector{T};

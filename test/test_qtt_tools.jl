@@ -187,6 +187,20 @@ end
     end
 end
 
+@testset "qtt_chebyshev end-to-end" begin
+    for d in 2:5
+        N = 2^d
+        x_nodes, _ = gauss_chebyshev_lobatto(N; shifted = true)
+        θ = acos.(clamp.(2 .* x_nodes .- 1, -1.0, 1.0))  # θ[j+1] = π·j/(N-1)
+
+        for n in [0, 1, 2, 3, N ÷ 2, N - 1]
+            v = qtt_to_vector(qtt_chebyshev(n, d))
+            expected = cos.(n .* θ)  # T_n(cos(θ_j)) = cos(n·θ_j)
+            @test v ≈ expected atol = 1.0e-12
+        end
+    end
+end
+
 @testset "function_to_qtt" begin
     # Test for f(x) = sin(x)
     d = 3

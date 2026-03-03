@@ -39,9 +39,7 @@ end
 Converts a quantized tensor train (QTT) vector `qtt` into a function representation.
 """
 function qtt_to_function(qtt::TTvector{T, d}) where {T <: Number, d}
-    tensor = ttv_to_tensor(qtt)
-    out = tensor_to_grid(tensor)
-    return out
+    return qtt_to_vector(qtt)
 end
 
 function qtt_to_vector(qtt::TTvector{T}) where {T}
@@ -252,4 +250,123 @@ function qtt_simpson(d; a = 0.0, b = 1.0)
     end
 
     return (h / 3) * simpson_tt
+end
+
+"""
+    to_qtt(tt, split_dims; threshold=0.0)
+
+Convert a `TTvector` to QTT format by splitting each core's physical dimension via SVD.
+
+`split_dims[i]` is a list of integers whose product equals `tt.ttv_dims[i]`, specifying
+how to factor that core. The **first** entry is the coarsest (most significant) dimension,
+consistent with the rest of the package's QTT convention.
+
+An optional `threshold` (relative to the largest singular value) controls rank truncation.
+"""
+function to_qtt(
+        tt::TTvector{T, N}, split_dims::Vector{Vector{Int}};
+        threshold::Float64 = 0.0
+    ) where {T <: Number, N}
+    @assert length(split_dims) == N "split_dims must have one entry per TT core"
+    for i in 1:N
+        @assert prod(split_dims[i]) == tt.ttv_dims[i] "prod(split_dims[$i]) must equal $(tt.ttv_dims[i])"
+    end
+
+    qtt_cores = Vector{Array{T, 3}}()
+    new_rks = Int[1]
+    new_dims = Int[]
+
+    for i in 1:N
+        # Work in (r_l, n, r_r) layout for easy reshaping
+        core = permutedims(tt.ttv_vec[i], (2, 1, 3))
+        rank_prev = new_rks[end]
+        rank_next = tt.ttv_rks[i + 1]
+        remaining = tt.ttv_dims[i]
+
+        for j in 1:(length(split_dims[i]) - 1)
+            split_size = split_dims[i][j]
+            remaining = div(remaining, split_size)
+
+            # BIG-ENDIAN split: split_size is COARSE (outer), remaining is FINE (inner).
+            # reshape (r_l, n, r_r) → (r_l, remaining, split_size, r_r) in column-major
+            # gives n_0 = fine_0 + coarse_0 * remaining ≡ coarse_0 * remaining + fine_0 ✓
+            core = reshape(core, (rank_prev, remaining, split_size, rank_next))
+            core = permutedims(core, (1, 3, 2, 4))   # (r_l, split_size, remaining, r_r)
+            M = reshape(core, (rank_prev * split_size, remaining * rank_next))
+
+            F = svd(M; full = false)
+            U, S, Vt = F.U, F.S, F.Vt
+            if threshold > 0.0
+                keep = findall(S ./ S[1] .> threshold)
+                U, S, Vt = U[:, keep], S[keep], Vt[keep, :]
+            end
+            new_rank = length(S)
+
+            # Left QTT core: reshape U → (r_l, split_size, new_rank), permute → (split_size, r_l, new_rank)
+            push!(qtt_cores, permutedims(reshape(U, (rank_prev, split_size, new_rank)), (2, 1, 3)))
+            push!(new_rks, new_rank)
+            push!(new_dims, split_size)
+
+            core = reshape(Diagonal(S) * Vt, (new_rank, remaining, rank_next))
+            rank_prev = new_rank
+        end
+
+        # Last (or only) QTT core for this TT core: core is (r_l, remaining, r_r)
+        push!(qtt_cores, permutedims(core, (2, 1, 3)))
+        push!(new_rks, rank_next)
+        push!(new_dims, remaining)
+    end
+
+    N_new = length(qtt_cores)
+    return TTvector{T, N_new}(N_new, qtt_cores, Tuple(new_dims), new_rks, zeros(Int64, N_new))
+end
+
+"""
+    to_ttv(qtt, merge_numbers)
+
+Convert a QTT (or any `TTvector`) back to TT format by contracting consecutive cores.
+
+`merge_numbers[i]` is the number of consecutive QTT cores to merge into TT core `i`.
+`sum(merge_numbers)` must equal the total number of QTT cores.
+
+Physical dimensions are merged using the same BIG-ENDIAN convention as `to_qtt`:
+the earlier (coarser) core provides the more significant bits.
+"""
+function to_ttv(qtt::TTvector{T, M}, merge_numbers::Vector{Int}) where {T <: Number, M}
+    @assert sum(merge_numbers) == M "merge_numbers must sum to $(M) (the number of QTT cores)"
+
+    tt_cores = Vector{Array{T, 3}}()
+    k = 1
+
+    for count in merge_numbers
+        # Work in (r_l, n, r_r) layout
+        core = permutedims(qtt.ttv_vec[k], (2, 1, 3))   # (r_l, n1, r_mid)
+
+        for j in (k + 1):(k + count - 1)
+            G2 = permutedims(qtt.ttv_vec[j], (2, 1, 3))  # (r_mid, n2, r_r)
+            r_l, n1, r_mid = size(core, 1), size(core, 2), size(core, 3)
+            n2, r_r = size(G2, 2), size(G2, 3)
+
+            # Contract core × G2 over r_mid, then BIG-ENDIAN merge of physical dims.
+            # G1_mat: (r_l*n1, r_mid)  — r_l fast (column-major)
+            # G2_mat: (r_mid, n2*r_r)  — n2 fast
+            G1_mat = reshape(core, (r_l * n1, r_mid))
+            G2_mat = reshape(G2, (r_mid, n2 * r_r))
+            Mc = G1_mat * G2_mat                          # (r_l*n1, n2*r_r)
+
+            # Reshape to (r_l, n1, n2, r_r), permute to (r_l, n2, n1, r_r),
+            # then reshape to (r_l, n1*n2, r_r) → BIG-ENDIAN merged dim ✓
+            Mc_r = reshape(Mc, (r_l, n1, n2, r_r))
+            core = reshape(permutedims(Mc_r, (1, 3, 2, 4)), (r_l, n1 * n2, r_r))
+        end
+
+        # Convert back to (n, r_l, r_r) TTvector format
+        push!(tt_cores, permutedims(core, (2, 1, 3)))
+        k += count
+    end
+
+    N_new = length(tt_cores)
+    new_dims = ntuple(i -> size(tt_cores[i], 1), N_new)
+    new_rks = vcat([size(c, 2) for c in tt_cores], size(tt_cores[end], 3))
+    return TTvector{T, N_new}(N_new, tt_cores, new_dims, new_rks, zeros(Int64, N_new))
 end

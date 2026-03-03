@@ -94,13 +94,116 @@ end
     expected4 = values_polynom.(x_points) .* cos.(π^2 * x_points)
     @test isapprox(qtt_to_function(hadamard_ttm(A4, A3)), expected4; atol = 1.0e-4)
 
-    @test euclidean_distance(hadamard_ttm(A2, A3), hadamard(A2, A3)) / norm(hadamard(A2, A3)) < 1e-5
-    @test euclidean_distance(hadamard_ttm(A1, A2), hadamard(A1, A2)) / norm(hadamard(A1, A2)) < 1e-5
-    @test euclidean_distance(hadamard_ttm(A4, A2), hadamard(A4, A2)) / norm(hadamard(A4, A2)) < 1e-5
-    @test euclidean_distance(hadamard_ttm(A4, A3), hadamard(A4, A3)) / norm(hadamard(A4, A3)) < 1e-5
+    @test euclidean_distance(hadamard_ttm(A2, A3), hadamard(A2, A3)) / norm(hadamard(A2, A3)) < 1.0e-5
+    @test euclidean_distance(hadamard_ttm(A1, A2), hadamard(A1, A2)) / norm(hadamard(A1, A2)) < 1.0e-5
+    @test euclidean_distance(hadamard_ttm(A4, A2), hadamard(A4, A2)) / norm(hadamard(A4, A2)) < 1.0e-5
+    @test euclidean_distance(hadamard_ttm(A4, A3), hadamard(A4, A3)) / norm(hadamard(A4, A3)) < 1.0e-5
 
-    ttm_loose = hadamard_ttm(A1, A2; tol = 1e-8)
+    ttm_loose = hadamard_ttm(A1, A2; tol = 1.0e-8)
     @test isapprox(qtt_to_function(ttm_loose), expected2; atol = 1.0e-3)
+end
+
+@testset "add!" begin
+    x = rand_tt((2, 3), [1, 2, 1])
+    y = rand_tt((2, 3), [1, 3, 1])
+    expected_tensor = ttv_to_tensor(x + y)
+    add!(x, y)
+    @test isapprox(ttv_to_tensor(x), expected_tensor; atol = 1.0e-12)
+    @test x.ttv_rks == [1, 5, 1]
+    @test all(x.ttv_ot .== 0)
+end
+
+@testset "TToperator callable" begin
+    dims = (2, 3)
+    A = rand_tto(dims, 2)
+    v = rand_tt(dims, [1, 2, 1])
+    @test isapprox(ttv_to_tensor(A(v)), ttv_to_tensor(A * v); atol = 1.0e-12)
+    @test isapprox(ttv_to_tensor(A(v, Val(:x))), ttv_to_tensor(A * v); atol = 1.0e-12)
+end
+
+@testset "TToperator * TToperator" begin
+    dims = (2, 3)
+    A = rand_tto(dims, 2)
+    B = rand_tto(dims, 2)
+    C = A * B
+    n = prod(dims)
+    A_mat = reshape(tto_to_tensor(A), n, n)
+    B_mat = reshape(tto_to_tensor(B), n, n)
+    C_mat = reshape(tto_to_tensor(C), n, n)
+    @test isapprox(C_mat, A_mat * B_mat; atol = 1.0e-12)
+    @test C.tto_dims == A.tto_dims
+    @test C.tto_rks == A.tto_rks .* B.tto_rks
+end
+
+@testset "Array{TTvector} * Vector (linear combination)" begin
+    dims = (2, 3)
+    a = rand_tt(dims, [1, 2, 1])
+    b = rand_tt(dims, [1, 3, 1])
+    coeffs = [2.0, -1.5]
+    result = [a, b] * coeffs
+    expected = 2.0 * ttv_to_tensor(a) + (-1.5) * ttv_to_tensor(b)
+    @test isapprox(ttv_to_tensor(result), expected; atol = 1.0e-12)
+end
+
+@testset "TTvector / scalar" begin
+    x = rand_tt((2, 3), [1, 2, 1])
+    a = 3.0
+    y = x / a
+    @test isapprox(ttv_to_tensor(y), ttv_to_tensor(x) / a; atol = 1.0e-12)
+end
+
+@testset "outer_product" begin
+    dims = (2, 3)
+    x = rand_tt(dims, [1, 2, 1])
+    y = rand_tt(dims, [1, 3, 1])
+    M = outer_product(x, y)
+
+    @test M.tto_dims == dims
+    @test M.tto_rks == x.ttv_rks .* y.ttv_rks
+
+    # Full tensor: M[i1,i2, j1,j2] = x[i1,i2] * conj(y[j1,j2])
+    Tx = ttv_to_tensor(x)
+    Ty = ttv_to_tensor(y)
+    TM = tto_to_tensor(M)
+    for i1 in 1:dims[1], i2 in 1:dims[2], j1 in 1:dims[1], j2 in 1:dims[2]
+        @test isapprox(TM[i1, i2, j1, j2], Tx[i1, i2] * conj(Ty[j1, j2]); atol = 1.0e-12)
+    end
+
+    # Key property: (x ⊗ y†) * z = ⟨y, z⟩ * x
+    z = rand_tt(dims, [1, 2, 1])
+    Mz = M * z
+    @test isapprox(ttv_to_tensor(Mz), TensorTrainNumerics.dot(y, z) * ttv_to_tensor(x); atol = 1.0e-12)
+end
+
+@testset "kron for TTvector" begin
+    a = rand_tt((2, 3), [1, 2, 1])
+    b = rand_tt((4, 5), [1, 3, 1])
+    c = kron(a, b)
+    @test c.N == a.N + b.N
+    @test c.ttv_dims == (2, 3, 4, 5)
+    @test c.ttv_rks[1] == 1 && c.ttv_rks[end] == 1
+    Ta = ttv_to_tensor(a)
+    Tb = ttv_to_tensor(b)
+    Tc = ttv_to_tensor(c)
+    for i1 in 1:2, i2 in 1:3, j1 in 1:4, j2 in 1:5
+        @test isapprox(Tc[i1, i2, j1, j2], Ta[i1, i2] * Tb[j1, j2]; atol = 1.0e-12)
+    end
+end
+
+@testset "kron for TToperator" begin
+    A = rand_tto((2, 3), 2)
+    B = rand_tto((4, 5), 2)
+    C = kron(A, B)
+    @test C.N == A.N + B.N
+    @test C.tto_dims == (2, 3, 4, 5)
+    @test C.tto_rks[1] == 1 && C.tto_rks[end] == 1
+
+    # Property: kron(A, B) * kron(a, b) ≈ kron(A*a, B*b)
+    a = rand_tt((2, 3), [1, 2, 1])
+    b = rand_tt((4, 5), [1, 3, 1])
+    lhs = ttv_to_tensor(kron(A, B) * kron(a, b))
+    rhs = ttv_to_tensor(kron(A * a, B * b))
+    @test isapprox(lhs, rhs; atol = 1.0e-12)
 end
 
 @testset "Norms" begin
@@ -117,7 +220,7 @@ end
     S1 = qtt_to_function(A1)
     S2 = qtt_to_function(A2)
 
-    @test sqrt(LinearAlgebra.dot(S1, S1) - 2 * real(LinearAlgebra.dot(S1, S2)) + LinearAlgebra.dot(S2, S2)) == euclidean_distance(A1, A2)
+    @test isapprox(sqrt(LinearAlgebra.dot(S1, S1) - 2 * real(LinearAlgebra.dot(S1, S2)) + LinearAlgebra.dot(S2, S2)), euclidean_distance(A1, A2), atol = 1.0e-10)
     @test isapprox(sqrt(1.0 + LinearAlgebra.dot(S1, S1) / LinearAlgebra.dot(S2, S2) - 2.0 * real(LinearAlgebra.dot(S2, S1)) / LinearAlgebra.dot(S2, S2)), euclidean_distance_normalized(A1, A2), atol = 1.0e-12)
 
 end

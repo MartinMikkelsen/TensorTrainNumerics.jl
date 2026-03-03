@@ -196,7 +196,8 @@ function right_core_move!(x_tt::TTvector{T}, V, V_move, i::Int, tol::Float64, r_
     x_tt.ttv_vec[i] = permutedims(reshape(u_V[:, 1:x_tt.ttv_rks[i + 1]], x_tt.ttv_rks[i], x_tt.ttv_dims[i], :), (2, 1, 3))
     x_tt.ttv_ot[i] = 1
     x_tt.ttv_ot[i + 1] = 0
-    V_moveview = @view(V_move[1:x_tt.ttv_rks[i + 1], 1:x_tt.ttv_dims[i + 1], 1:size(V, 3)])
+    mid_size = div(size(v_V, 1), size(V, 3))  # = dim[i+1] for N≥2, = 1 for N=1
+    V_moveview = @view(V_move[1:x_tt.ttv_rks[i + 1], 1:mid_size, 1:size(V, 3)])
     @tensor V_moveview[αk, ik, βk] = reshape(v_V'[1:x_tt.ttv_rks[i + 1], :], x_tt.ttv_rks[i + 1], :, size(V, 3))[αk, ik, βk]
     for ak in axes(V_moveview, 1)
         V_moveview[ak, :, :] = V_moveview[ak, :, :] * (s_V[ak])
@@ -219,7 +220,8 @@ function left_core_move!(x_tt::TTvector{T}, V, V_move, j::Int, tol::Float64, r_m
     x_tt.ttv_vec[j] = permutedims(reshape(v_V'[1:x_tt.ttv_rks[j], :], x_tt.ttv_rks[j], :, x_tt.ttv_rks[j + 1]), (2, 1, 3))
     x_tt.ttv_ot[j] = -1
     x_tt.ttv_ot[j - 1] = 0
-    V_moveview = @view(V_move[1:size(V, 1), 1:x_tt.ttv_dims[j - 1], 1:x_tt.ttv_rks[j]])
+    mid_size = div(size(u_V, 1), size(V, 1))  # = dim[j-1] for N≥2, = 1 for N=1
+    V_moveview = @view(V_move[1:size(V, 1), 1:mid_size, 1:x_tt.ttv_rks[j]])
     @tensor V_moveview[αk, ik, βk] = reshape(u_V[:, 1:x_tt.ttv_rks[j]], size(V, 1), :, x_tt.ttv_rks[j])[αk, ik, βk]
     for bk in axes(V_moveview, 3)
         V_moveview[:, :, bk] = V_moveview[:, :, bk] * s_V[bk]
@@ -322,7 +324,7 @@ function update_left(tt_opt, V0, V_view, V_move, V_temp, i, N, tol, rmax, Aip, H
 
     #update the initialization
     V_moveview = @view(V_move[1:tt_opt.ttv_rks[i], 1:prod(tt_opt.ttv_dims[i:(i + N - 2)]), 1:tt_opt.ttv_rks[i + N - 1]])
-    V_tempview = @view(V_temp[1:tt_opt.ttv_rks[i - 1], 1:tt_opt.ttv_dims[i - 1], 1:size(V_moveview, 2), 1:size(V_moveview, 3)])
+    V_tempview = @view(V_temp[1:tt_opt.ttv_rks[i - 1], 1:size(V_moveview, 2), 1:tt_opt.ttv_dims[i - 1], 1:size(V_moveview, 3)])
     @tensor V_tempview[αk, J, ik, γk] = V_moveview[βk, J, γk] * tt_opt.ttv_vec[i - 1][ik, αk, βk]
     V0_view = @view(V0[1:tt_opt.ttv_rks[i], 1:prod(tt_opt.ttv_dims[i:(i + N - 2)]), 1:tt_opt.ttv_rks[i + N - 1]])
     V0_view = reshape(V_tempview, size(V_tempview, 1), :, size(V_tempview, 4))
@@ -348,9 +350,31 @@ end
 #end
 
 """
-Solve Ax=b using the ALS algorithm where A is given as `TToperator` and `b`, `tt_start` are `TTvector`.
-The ranks of the solution is the same as `tt_start`.
-`sweep_count` is the number of total sweeps in the ALS.
+    dmrg_linsolve(A, b, tt_start; N=2, tol, sweep_schedule, rmax_schedule, it_solver, linsolv_maxiter, linsolv_tol, itslv_thresh, return_info=false)
+
+Solve `Ax = b` using the DMRG-style alternating linear scheme. `N` controls the number
+of sites optimized simultaneously at each micro-step (`N=1`: single-site, `N=2`: two-site
+with adaptive rank growth).
+
+# Arguments
+- `A::TToperator{T}`: system operator in TT format.
+- `b::TTvector{T}`: right-hand side in TT format.
+- `tt_start::TTvector{T}`: initial guess.
+
+# Keyword arguments
+- `N::Int=2`: micro-step window size. `N=1` fixes ranks; `N≥2` adapts them via SVD truncation.
+- `tol::Float64=1e-12`: relative SVD truncation threshold (used when `N≥2`).
+- `sweep_schedule::Vector{Int}=[2]`: sweep count at which each rank stage ends.
+- `rmax_schedule::Vector{Int}`: maximum bond dimension at each stage.
+- `it_solver::Bool=true`: use an iterative solver for the local subproblem.
+- `linsolv_maxiter::Int=200`: maximum iterations for the iterative solver.
+- `linsolv_tol::Float64`: tolerance for the iterative solver (default `√tol`).
+- `itslv_thresh::Int=256`: local problem size above which iterative solve activates.
+- `return_info::Bool=false`: when `true`, return `(tt_opt, info)` where
+  `info = (; residual)` holds the final relative residual `‖A tt_opt − b‖ / ‖b‖`.
+
+# Returns
+`TTvector{T}`, or `(TTvector{T}, NamedTuple)` when `return_info=true`.
 """
 function dmrg_linsolve(
         A::TToperator{T}, b::TTvector{T}, tt_start::TTvector{T}; sweep_count = 2, N = 2, tol = 1.0e-12::Float64,
@@ -359,7 +383,8 @@ function dmrg_linsolve(
         it_solver = true,
         linsolv_maxiter = 200::Int64, #maximum of iterations for the iterative solver
         linsolv_tol = max(sqrt(tol), 1.0e-8)::Float64, #tolerance of the iterative linear solver
-        itslv_thresh = 256::Int #switch from full to iterative
+        itslv_thresh = 256::Int, #switch from full to iterative
+        return_info::Bool = false
     ) where {T <: Number}
     # als finds the minimum of the operator J:1/2*<Ax,Ax> - <x,b>
     # input:
@@ -402,7 +427,7 @@ function dmrg_linsolve(
                 V_moveview = @view(V_move[1:tt_opt.ttv_rks[1], 1:prod(tt_opt.ttv_dims[1:(N - 1)]), 1:tt_opt.ttv_rks[N]])
                 tt_opt.ttv_vec[1] = permutedims(reshape(V_moveview, 1, tt_opt.ttv_dims[1], :), (2, 1, 3))
                 tt_opt.ttv_ot[1] = 0
-                return tt_opt
+                return return_info ? (tt_opt, (; residual = norm(A * tt_opt - b) / max(norm(b), eps(real(T))))) : tt_opt
             end
         end
         # First half sweep
@@ -433,13 +458,34 @@ function dmrg_linsolve(
             update_Hb!(tt_opt.ttv_vec[i + N - 1], b.ttv_vec[i + N - 1], H_bi_view, H_bim)
         end
     end
-    return tt_opt
+    return return_info ? (tt_opt, (; residual = norm(A * tt_opt - b) / max(norm(b), eps(real(T))))) : tt_opt
 end
 
 """
-Returns the lowest eigenvalue of A by minimizing the Rayleigh quotient in the ALS algorithm.
+    dmrg_eigsolve(A, tt_start; N=2, tol, sweep_schedule, rmax_schedule, it_solver, linsolv_maxiter, linsolv_tol, itslv_thresh)
 
-The ranks can be increased in the course of the ALS: if `sweep_schedule[k] ≤ i <sweep_schedule[k+1]` is the current number of sweeps then the ranks is given by `rmax_schedule[k]`.
+Find the lowest eigenvalue and eigenvector of `A` using the DMRG-style alternating
+eigensolver. `N` controls the micro-step window size (`N=1`: single-site, `N=2`:
+two-site with adaptive bond dimension).
+
+# Arguments
+- `A::TToperator{T}`: the operator whose smallest eigenvalue is sought.
+- `tt_start::TTvector{T}`: initial guess for the eigenvector.
+
+# Keyword arguments
+- `N::Int=2`: micro-step window size. `N=1` fixes ranks; `N≥2` adapts them via SVD truncation.
+- `tol::Float64=1e-12`: relative SVD truncation threshold (used when `N≥2`).
+- `sweep_schedule::Vector{Int}=[2]`: sweep count at which each rank stage ends.
+- `rmax_schedule::Vector{Int}`: maximum bond dimension at each stage.
+- `it_solver::Bool=false`: use an iterative eigensolver for local subproblems.
+- `linsolv_maxiter::Int=200`: maximum iterations for the iterative eigensolver.
+- `linsolv_tol::Float64`: tolerance for the iterative eigensolver (default `√tol`).
+- `itslv_thresh::Int=256`: local problem size above which iterative solve activates.
+
+# Returns
+`(E, tt_opt, r_hist)` where `E::Vector{Float64}` is the eigenvalue history,
+`tt_opt::TTvector{T}` is the approximate eigenvector, and `r_hist::Vector{Int}`
+records the maximum bond dimension after each micro-step.
 """
 function dmrg_eigsolve(
         A::TToperator{T},
@@ -478,7 +524,7 @@ function dmrg_eigsolve(
             if i_schedule > length(sweep_schedule)
                 #last step to complete the sweep
                 Gi_view, Hi_view, V_view = update_G_H_V(G[1], H[1], V, tt_opt.ttv_dims, tt_opt.ttv_rks, 1, N)
-                λ = K_eigmin(G[1], H[1], V0_view, Amid_list[1], V_view; it_solver = it_solver, maxiter = linsolv_maxiter, tol = linsolv_tol, itslv_thresh = itslv_thresh)
+                λ = K_eigmin(Gi_view, Hi_view, V0_view, Amid_list[1], V_view; it_solver = it_solver, maxiter = linsolv_maxiter, tol = linsolv_tol, itslv_thresh = itslv_thresh)
                 push!(E, λ)
                 push!(r_hist, maximum(tt_opt.ttv_rks))
                 for i in N:-1:2

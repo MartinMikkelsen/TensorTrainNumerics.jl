@@ -135,11 +135,28 @@ end
 
 
 """
-Solve Ax=b using the ALS algorithm where A is given as `TToperator` and `b`, `tt_start` are `TTvector`.
-The ranks of the solution is the same as `tt_start`.
-`sweep_count` is the number of total sweeps in the ALS.
+    als_linsolve(A, b, tt_start; sweep_count=2, it_solver=false, r_itsolver=5000, return_info=false)
+
+Solve `Ax = b` using the Alternating Linear Scheme (ALS). The TT-ranks of the solution are
+fixed to those of `tt_start`.
+
+# Arguments
+- `A::TToperator{T}`: system operator in TT format.
+- `b::TTvector{T}`: right-hand side in TT format.
+- `tt_start::TTvector{T}`: initial guess; its ranks determine the solution ranks.
+
+# Keyword arguments
+- `sweep_count::Int=2`: total ALS sweeps; each sweep is one forward + one backward half-sweep.
+  An odd value stops after the forward half-sweep.
+- `it_solver::Bool=false`: use an iterative solver for the local subproblem.
+- `r_itsolver::Int=5000`: local problem size above which the iterative solver activates.
+- `return_info::Bool=false`: when `true`, return `(tt_opt, info)` where `info = (; residual)`
+  holds the final relative residual `‖A tt_opt − b‖ / ‖b‖`.
+
+# Returns
+- `TTvector{T}`, or `(TTvector{T}, NamedTuple)` when `return_info=true`.
 """
-function als_linsolve(A::TToperator{T}, b::TTvector{T}, tt_start::TTvector{T}; sweep_count = 2, it_solver = false, r_itsolver = 5000) where {T <: Number}
+function als_linsolve(A::TToperator{T}, b::TTvector{T}, tt_start::TTvector{T}; sweep_count = 2, it_solver = false, r_itsolver = 5000, return_info = false) where {T <: Number}
     # als finds the minimum of the operator J:1/2*<Ax,Ax> - <x,b>
     # input:
     # 	A: the tensor operator in its tensor train format
@@ -188,7 +205,7 @@ function als_linsolve(A::TToperator{T}, b::TTvector{T}, tt_start::TTvector{T}; s
         end
 
         if nsweeps == sweep_count
-            return tt_opt
+            return_info ? (tt_opt, (; residual = norm(A * tt_opt - b) / max(norm(b), eps(real(T))))) : tt_opt
         else
             nsweeps += 1
             # Second half sweep
@@ -201,13 +218,32 @@ function als_linsolve(A::TToperator{T}, b::TTvector{T}, tt_start::TTvector{T}; s
             end
         end
     end
-    return tt_opt
+    return return_info ? (tt_opt, (; residual = norm(A * tt_opt - b) / max(norm(b), eps(real(T))))) : tt_opt
 end
 
 """
-Returns the lowest eigenvalue of A by minimizing the Rayleigh quotient in the ALS algorithm.
+    als_eigsolve(A, tt_start; sweep_schedule, rmax_schedule, noise_schedule, it_solver, itslv_thresh, maxiter, linsolv_tol)
 
-The ranks can be increased in the course of the ALS: if `sweep_schedule[k] ≤ i <sweep_schedule[k+1]` is the current number of sweeps then the ranks is given by `rmax_schedule[k]`.
+Find the lowest eigenvalue and eigenvector of `A` by minimizing the Rayleigh quotient
+via the Alternating Linear Scheme.
+
+# Arguments
+- `A::TToperator{T}`: the operator whose smallest eigenvalue is sought.
+- `tt_start::TTvector{T}`: initial guess for the eigenvector.
+
+# Keyword arguments
+- `sweep_schedule::Vector{Int}=[2]`: each entry gives the sweep number at which the rank
+  is increased; the algorithm terminates after `sweep_schedule[end]` sweeps.
+- `rmax_schedule::Vector{Int}`: maximum bond dimension at each stage.
+- `noise_schedule::Vector{Float64}`: white-noise amplitude added when increasing ranks.
+- `it_solver::Bool=false`: use an iterative eigensolver for local subproblems.
+- `itslv_thresh::Int=1024`: local problem size above which iterative solve activates.
+- `maxiter::Int=200`: maximum iterations for the iterative eigensolver.
+- `linsolv_tol::Float64=1e-8`: tolerance for the iterative eigensolver.
+
+# Returns
+`(E, tt_opt)` where `E::Vector{Float64}` is the eigenvalue history (one entry per
+micro-step) and `tt_opt::TTvector{T}` is the approximate eigenvector at termination.
 """
 function als_eigsolve(
         A::TToperator{T},
@@ -281,7 +317,25 @@ function als_eigsolve(
 end
 
 """
-returns the smallest eigenpair Ax = Sx
+    als_gen_eigsolv(A, S, tt_start; sweep_schedule, rmax_schedule, tol, it_solver, itslv_thresh)
+
+Find the smallest generalized eigenpair `Ax = λ S x` using the ALS algorithm.
+
+# Arguments
+- `A::TToperator{T}`: the operator on the left-hand side.
+- `S::TToperator{T}`: the positive-definite metric operator on the right-hand side.
+- `tt_start::TTvector{T}`: initial guess for the eigenvector.
+
+# Keyword arguments
+- `sweep_schedule::Vector{Int}=[2]`: sweep count at which each rank stage ends.
+- `rmax_schedule::Vector{Int}`: maximum bond dimension at each stage.
+- `tol::Float64=1e-10`: tolerance for the local generalized eigensolver.
+- `it_solver::Bool=false`: use an iterative solver for local subproblems.
+- `itslv_thresh::Int=2500`: local problem size above which iterative solve activates.
+
+# Returns
+`(E, tt_opt)` where `E` is the eigenvalue history and `tt_opt` is the approximate
+eigenvector, or `nothing` if the schedule is exhausted without a final return.
 """
 function als_gen_eigsolv(A::TToperator{T}, S::TToperator{T}, tt_start::TTvector{T}; sweep_schedule = [2], rmax_schedule = [maximum(tt_start.ttv_rks)], tol = 1.0e-10, it_solver = false, itslv_thresh = 2500) where {T <: Number}
     d = A.N
