@@ -328,6 +328,8 @@ function tt_cross(
     N = length(domain)
     Is = [length(d) for d in domain]
     Rs = ones(Int, N + 1)
+    rng = (alg.pivot isa RandomPivot && !isnothing(alg.pivot.seed)) ? MersenneTwister(alg.pivot.seed) : Random.default_rng()
+    sample_budget = alg.pivot isa RandomPivot ? min(alg.nsamples, alg.pivot.nsamples) : alg.nsamples
 
     y = Vector{Array{T, 3}}(undef, N)
     mid_inv_U = Vector{Matrix{T}}(undef, N + 1)
@@ -354,10 +356,14 @@ function tt_cross(
     end
 
     for i in 1:(N - 1)
-        Jyl[i + 1] = _indexmerge(Jyl[i], reshape(collect(1:Is[i]), :, 1))[1:1, :]
+        Jcand = _indexmerge(Jyl[i], reshape(collect(1:Is[i]), :, 1))
+        row = argmax(abs.(domain[i]))
+        Jyl[i + 1] = Jcand[row:row, :]
     end
     for i in N:-1:2
-        Jyr[i] = _indexmerge(reshape(collect(1:Is[i]), :, 1), Jyr[i + 1])[1:1, :]
+        Jcand = _indexmerge(reshape(collect(1:Is[i]), :, 1), Jyr[i + 1])
+        row = argmax(abs.(domain[i]))
+        Jyr[i] = Jcand[row:row, :]
     end
 
     for i in N:-1:1
@@ -368,7 +374,12 @@ function tt_cross(
             _, imax = findmax(abs.(cry_mat), dims = 2)
             ilocr[i] = [imax[1][2]]
             Jyr[i] = _indexmerge(reshape(collect(1:Is[i]), :, 1), Jyr[i + 1])[ilocr[i], :]
-            mid_inv_U[i] = reshape([1 / cry_mat[1, ilocr[i][1]]], 1, 1)
+            piv = cry_mat[1, ilocr[i][1]]
+            if abs(piv) > max(alg.tol, eps(real(float(abs(piv)))))
+                mid_inv_L[i] = reshape([1 / piv], 1, 1)
+            else
+                mid_inv_L[i] = ones(T, 1, 1)
+            end
         end
         y[i] = reshape(cry, Rs[i], Is[i], Rs[i + 1])
     end
@@ -381,7 +392,12 @@ function tt_cross(
             _, imax = findmax(abs.(cry_mat), dims = 1)
             ilocl[i + 1] = [imax[1][1]]
             Jyl[i + 1] = _indexmerge(Jyl[i], reshape(collect(1:Is[i]), :, 1))[ilocl[i + 1], :]
-            mid_inv_U[i + 1] = reshape([1 / cry_mat[ilocl[i + 1][1], 1]], 1, 1)
+            piv = cry_mat[ilocl[i + 1][1], 1]
+            if abs(piv) > max(alg.tol, eps(real(float(abs(piv)))))
+                mid_inv_U[i + 1] = reshape([1 / piv], 1, 1)
+            else
+                mid_inv_U[i + 1] = ones(T, 1, 1)
+            end
         end
         y[i] = reshape(cry, Rs[i], Is[i], Rs[i + 1])
     end
@@ -397,16 +413,16 @@ function tt_cross(
     val_eps = Inf
 
     for swp in 1:alg.maxiter
-        max_dx = zero(T)
+        max_dx = 0.0
 
         for i in 1:(N - 1)
             cind1 = setdiff(1:(Rs[i] * Is[i]), ilocl[i + 1])
             cind2 = setdiff(1:(Is[i + 1] * Rs[i + 2]), ilocr[i + 1])
             (isempty(cind1) || isempty(cind2)) && continue
 
-            testsz = min(length(cind1), length(cind2), alg.nsamples)
-            tind1 = cind1[rand(1:length(cind1), testsz)]
-            tind2 = cind2[rand(1:length(cind2), testsz)]
+            testsz = min(length(cind1), length(cind2), sample_budget)
+            tind1 = cind1[rand(rng, 1:length(cind1), testsz)]
+            tind2 = cind2[rand(rng, 1:length(cind2), testsz)]
 
             J1 = _indexmerge(Jyl[i], reshape(collect(1:Is[i]), :, 1))
             J2 = _indexmerge(reshape(collect(1:Is[i + 1]), :, 1), Jyr[i + 2])
@@ -432,7 +448,7 @@ function tt_cross(
             dx = emax / max(maxy, eps(T))
             max_dx = max(max_dx, dx)
 
-            if dx > alg.tol
+            if dx > alg.tol && Rs[i + 1] < alg.rmax
                 J1m, J2m = J1[imax1:imax1, :], J2[j_g_best:j_g_best, :]
                 cre1_new = reshape(_evaluate_on_domain(f, domain, hcat(J1, repeat(J2m, size(J1, 1), 1))), Rs[i] * Is[i], 1)
                 cre2_new = reshape(_evaluate_on_domain(f, domain, hcat(repeat(J1m, size(J2, 1), 1), J2)), 1, Is[i + 1] * Rs[i + 2])
@@ -441,6 +457,7 @@ function tt_cross(
                 erow = reshape(cry1[imax1, :], 1, Rs[i + 1])
                 ecol = cre1_new[ilocl[i + 1], 1]
                 alpha = cre1_new[imax1, 1] - LinearAlgebra.dot(vec(erow * uold), lold * ecol)
+                (!isfinite(real(alpha)) || !isfinite(imag(alpha)) || abs(alpha) <= max(alg.tol, eps(real(float(abs(alpha)))))) && continue
 
                 new_U = zeros(T, Rs[i + 1] + 1, Rs[i + 1] + 1)
                 new_U[1:Rs[i + 1], 1:Rs[i + 1]] = uold
@@ -478,6 +495,14 @@ function tt_cross(
 
     converged && alg.verbose && @info "Converged: ε = $(val_eps) < $(alg.tol)"
     !converged && alg.verbose && @warn "Max iterations reached"
+
+    fallback_tol = max(sqrt(alg.tol), 10 * alg.tol)
+    if !converged && (!isfinite(val_eps) || val_eps > fallback_tol)
+        alg.verbose && @warn "Greedy cross appears stalled/unstable (ε = $(val_eps)); retrying with DMRG cross"
+        init_rank = min(maximum(Rs), alg.rmax)
+        dmrg_alg = DMRG(maxiter = alg.maxiter, tol = alg.tol, rmax = alg.rmax, kickrank = nothing, verbose = alg.verbose)
+        return tt_cross(f, domain, dmrg_alg; ranks = init_rank, val_size = val_size)
+    end
 
     return TTvector{T, N}(N, _form_tensor(y, mid_inv_L, mid_inv_U, N, Rs, Is), Tuple(Is), copy(Rs), zeros(Int, N))
 end
