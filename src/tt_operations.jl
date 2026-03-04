@@ -12,7 +12,8 @@ import LinearAlgebra: norm
 Adds two TTvectors and returns a new TTvector.
 """
 function +(x::TTvector{T, N}, y::TTvector{T, N}) where {T <: Number, N}
-    @assert x.ttv_dims == y.ttv_dims "Incompatible dimensions"
+    x.ttv_dims == y.ttv_dims ||
+        throw(DimensionMismatch("TTvector dimensions do not match: $(x.ttv_dims) vs $(y.ttv_dims)"))
     d = x.N
     ttv_vec = Array{Array{T, 3}, 1}(undef, d)
     rks = x.ttv_rks + y.ttv_rks
@@ -39,7 +40,8 @@ function +(x::TTvector{T, N}, y::TTvector{T, N}) where {T <: Number, N}
 end
 
 function add!(x::TTvector{T, N}, y::TTvector{T, N}) where {T <: Number, N}
-    @assert x.ttv_dims == y.ttv_dims "Incompatible dimensions"
+    x.ttv_dims == y.ttv_dims ||
+        throw(DimensionMismatch("TTvector dimensions do not match: $(x.ttv_dims) vs $(y.ttv_dims)"))
     d = x.N
     ttv_vec = Array{Array{T, 3}, 1}(undef, d)
     rks = x.ttv_rks + y.ttv_rks
@@ -73,7 +75,8 @@ end
 Adds two TToperators and returns a new TToperator.
 """
 function +(x::TToperator{T, N}, y::TToperator{T, N}) where {T <: Number, N}
-    @assert x.tto_dims == y.tto_dims "Incompatible dimensions"
+    x.tto_dims == y.tto_dims ||
+        throw(DimensionMismatch("TToperator dimensions do not match: $(x.tto_dims) vs $(y.tto_dims)"))
     d = x.N
     tto_vec = Array{Array{T, 4}, 1}(undef, d)
     rks = x.tto_rks + y.tto_rks
@@ -103,7 +106,8 @@ end
 Contracts the TToperator A with the TTvector x.
 """
 function *(A::TToperator{T, N}, v::TTvector{T, N}) where {T <: Number, N}
-    @assert A.tto_dims == v.ttv_dims "Incompatible dimensions"
+    A.tto_dims == v.ttv_dims ||
+        throw(DimensionMismatch("TToperator dims $(A.tto_dims) do not match TTvector dims $(v.ttv_dims)"))
     y = zeros_tt(T, A.tto_dims, A.tto_rks .* v.ttv_rks)
     begin
         @inbounds for k in 1:v.N
@@ -127,7 +131,8 @@ end
 Multiplies two TToperators and returns a new TToperator.
 """
 function *(A::TToperator{T, N}, B::TToperator{T, N}) where {T <: Number, N}
-    @assert A.tto_dims == B.tto_dims "Incompatible dimensions"
+    A.tto_dims == B.tto_dims ||
+        throw(DimensionMismatch("TToperator dimensions do not match: $(A.tto_dims) vs $(B.tto_dims)"))
     d = A.N
     A_rks = A.tto_rks #R_0, ..., R_d
     B_rks = B.tto_rks #r_0, ..., r_d
@@ -151,7 +156,8 @@ end
 Computes the dot product of two TTvectors and returns a scalar.
 """
 function dot(A::TTvector{T, N}, B::TTvector{T, N}) where {T <: Number, N}
-    @assert A.ttv_dims == B.ttv_dims "TT dimensions are not compatible"
+    A.ttv_dims == B.ttv_dims ||
+        throw(DimensionMismatch("TTvector dimensions do not match: $(A.ttv_dims) vs $(B.ttv_dims)"))
     A_rks = A.ttv_rks
     B_rks = B.ttv_rks
     out = zeros(T, maximum(A_rks), maximum(B_rks))
@@ -205,6 +211,9 @@ function *(a::S, A::TToperator{R, N}) where {S <: Number, R <: Number, N}
 end
 
 Base.:*(A::TTvector{T, N}, a::S) where {T <: Number, S <: Number, N} = a * A
+
+-(A::TTvector{T, N}) where {T <: Number, N} = *(-one(T), A)
+-(A::TToperator{T, N}) where {T <: Number, N} = *(-one(T), A)
 
 function -(A::TTvector{T, N}, B::TTvector{T, N}) where {T <: Number, N}
     return *(-1.0, B) + A
@@ -265,7 +274,8 @@ end
 Computes the Hadamard product (element-wise multiplication) of two TTvectors and returns a new TTvector.
 """
 function hadamard(x::TTvector{T, N}, y::TTvector{T, N}) where {T <: Number, N}
-    @assert x.ttv_dims == y.ttv_dims "Incompatible TT dimensions"
+    x.ttv_dims == y.ttv_dims ||
+        throw(DimensionMismatch("TTvector dimensions do not match: $(x.ttv_dims) vs $(y.ttv_dims)"))
     d = x.N
     ttv_vec = Vector{Array{T, 3}}(undef, d)
     dims = x.ttv_dims
@@ -299,7 +309,7 @@ function _ttm_swap!(
     @tensor C[sA, sB, m, n] := A[sA, m, a] * B[sB, a, n]
     # Permute to (rL, dB, dA, rR) and flatten: rows=(m,σB), cols=(σA,n)
     mat = reshape(permutedims(C, (3, 2, 1, 4)), rL * dB, dA * rR)
-    U, S, Vt = _svdtrunc(mat; max_bond = rmax, truncerr = tol)
+    U, S, Vt = svdtrunc(mat; max_bond = rmax, truncerr = tol)
     r = size(U, 2)
     cores[j] = permutedims(reshape(U, rL, dB, r), (2, 1, 3))        # (dB, rL, r)
     cores[j + 1] = permutedims(reshape(S * Vt, r, dA, rR), (2, 1, 3))  # (dA, r, rR)
@@ -325,7 +335,8 @@ function hadamard_ttm(
         tol::Float64 = 1.0e-14,
         rmax::Int = typemax(Int)
     ) where {T <: Number, N}
-    @assert x.ttv_dims == y.ttv_dims "Incompatible TT dimensions"
+    x.ttv_dims == y.ttv_dims ||
+        throw(DimensionMismatch("TTvector dimensions do not match: $(x.ttv_dims) vs $(y.ttv_dims)"))
     d = x.N
 
     cores = Vector{Array{T, 3}}(undef, 2d)
@@ -374,12 +385,14 @@ end
 ⊗(a::TTvector{T, d1}, b::TTvector{T, d2}) where {T, d1, d2} = kron(a, b)
 
 function euclidean_distance(a::TTvector{T, N}, b::TTvector{T, N}) where {T <: Number, N}
-    @assert a.ttv_dims == b.ttv_dims "TT dimensions must match"
+    a.ttv_dims == b.ttv_dims ||
+        throw(DimensionMismatch("TTvector dimensions do not match: $(a.ttv_dims) vs $(b.ttv_dims)"))
     return sqrt(max(real(dot(a, a) - 2 * real(dot(b, a)) + dot(b, b)), zero(real(T))))
 end
 
 function euclidean_distance_normalized(a::TTvector{T, N}, b::TTvector{T, N}) where {T <: Number, N}
-    @assert a.ttv_dims == b.ttv_dims "TT dimensions must match"
+    a.ttv_dims == b.ttv_dims ||
+        throw(DimensionMismatch("TTvector dimensions do not match: $(a.ttv_dims) vs $(b.ttv_dims)"))
     return sqrt(1.0 + dot(a, a) / dot(b, b) - 2.0 * real(dot(b, a)) / dot(b, b))
 end
 

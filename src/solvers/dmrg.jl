@@ -499,7 +499,8 @@ function dmrg_eigsolve(
         linsolv_tol = max(sqrt(tol), 1.0e-8)::Float64, #tolerance of the iterative linear solver
         itslv_thresh = 256::Int #switch from full to iterative
     ) where {T <: Number}
-    @assert(length(rmax_schedule) == length(sweep_schedule), "Sweep schedule error")
+    length(rmax_schedule) == length(sweep_schedule) ||
+        throw(ArgumentError("rmax_schedule and sweep_schedule must have the same length; got $(length(rmax_schedule)) vs $(length(sweep_schedule))"))
 
     d = tt_start.N
     # Initialize the to be returned tensor in its tensor train format

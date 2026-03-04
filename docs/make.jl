@@ -10,6 +10,7 @@ makedocs(
         "index.md",
         "theory.md",
         "examples.md",
+        "solvers.md",
         "resources.md",
         "API.md",
     ],

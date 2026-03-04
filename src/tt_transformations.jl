@@ -36,7 +36,7 @@ end
 Reference: https://arxiv.org/pdf/2404.03182
 """
 function fourier_qtto(d::Int; sign::Float64 = -1.0, K::Int = 25, normalize::Bool = true)
-    @assert d ≥ 1
+    d ≥ 1 || throw(ArgumentError("fourier_qtto requires d ≥ 1, got $d"))
     P = cheb_lobatto_grid(K)
     r = K + 1
 

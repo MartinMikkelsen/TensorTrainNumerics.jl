@@ -6,7 +6,11 @@ using TensorOperations
 import Base.isempty
 import Base.eltype
 import Base.copy
+import Base.similar
+import Base.copyto!
 import Base.complex
+import Base.size
+import Base.length
 import KrylovKit: orthogonalize
 
 abstract type AbstractTTvector end
@@ -48,7 +52,7 @@ A structure representing a Tensor Train (TT) operator.
 # Type Parameters
 - `T<:Number`: The type of the elements in the TT vector.
 """
-struct TToperator{T <: Number, M} <: AbstractTToperator
+mutable struct TToperator{T <: Number, M} <: AbstractTToperator
     N::Int64
     tto_vec::Array{Array{T, 4}, 1}
     tto_dims::NTuple{M, Int64}
@@ -58,6 +62,12 @@ end
 
 Base.eltype(::TTvector{T, N}) where {T, N} = T
 Base.eltype(::TToperator{T, M}) where {T, M} = T
+
+# size returns the tuple of physical dimensions; length returns the number of cores/modes
+Base.size(v::TTvector) = v.ttv_dims
+Base.size(A::TToperator) = A.tto_dims
+Base.length(v::TTvector) = v.N
+Base.length(A::TToperator) = A.N
 
 function Base.complex(A::TToperator{T, M}) where {T, M}
     return TToperator{Complex{T}, M}(A.N, complex.(A.tto_vec), A.tto_dims, A.tto_rks, A.tto_ot)
@@ -178,6 +188,20 @@ function Base.copy(x_tt::TTvector{T, N}) where {T <: Number, N}
         y_tt.ttv_vec[i] = copy(x_tt.ttv_vec[i])
     end
     return y_tt
+end
+
+function Base.similar(x_tt::TTvector{T, N}, ::Type{S} = T) where {T <: Number, N, S <: Number}
+    new_cores = [similar(c, S) for c in x_tt.ttv_vec]
+    return TTvector{S, N}(x_tt.N, new_cores, x_tt.ttv_dims, copy(x_tt.ttv_rks), copy(x_tt.ttv_ot))
+end
+
+function Base.copyto!(dst::TTvector{T, N}, src::TTvector{T, N}) where {T <: Number, N}
+    for i in 1:dst.N
+        copyto!(dst.ttv_vec[i], src.ttv_vec[i])
+    end
+    copyto!(dst.ttv_rks, src.ttv_rks)
+    copyto!(dst.ttv_ot, src.ttv_ot)
+    return dst
 end
 
 """
@@ -324,7 +348,8 @@ Convert a `TTvector` to a `TToperator`.
 This function converts a `TTvector` to a `TToperator` by reshaping the core tensors of the `TTvector` into 4-dimensional arrays. The reshaping is done such that the first two dimensions of each core tensor are the square roots of the original dimensions, and the last two dimensions are the ranks of the `TTvector`.
 """
 function ttv_to_tto(x::TTvector{T, N}) where {T <: Number, N}
-    @assert(isqrt.(x.ttv_dims) .^ 2 == x.ttv_dims, DimensionMismatch)
+    all(isqrt(d)^2 == d for d in x.ttv_dims) ||
+        throw(DimensionMismatch("all physical dimensions must be perfect squares to form an operator; got ttv_dims=$(x.ttv_dims)"))
     d = x.N
     Att_vec = Array{Array{T, 4}, 1}(undef, d)
     x_rks = x.ttv_rks
@@ -480,7 +505,8 @@ function tt_up_rks(x_tt::TTvector{T, N}, rk_max::Int; rks = vcat(1, rk_max * one
     d = x_tt.N
     vec_out = Array{Array{T}}(undef, d)
     out_ot = zeros(Int64, d)
-    @assert(rk_max > maximum(x_tt.ttv_rks), "New bond dimension too low")
+    rk_max > maximum(x_tt.ttv_rks) ||
+        throw(ArgumentError("rk_max=$rk_max must be greater than the current maximum rank $(maximum(x_tt.ttv_rks))"))
     rks = r_and_d_to_rks(rks, x_tt.ttv_dims; rmax = rk_max)
     for i in 1:d
         vec_out[i] = tt_up_rks_noise(x_tt.ttv_vec[i], x_tt.ttv_ot[i], rks[i], rks[i + 1], ϵ_wn)
@@ -503,7 +529,8 @@ Orthogonalizes the given Tensor Train (TT) vector `x_tt` with respect to the `i`
 """
 function orthogonalize(x_tt::TTvector{T, N}; i = 1::Int) where {T <: Number, N}
     d = x_tt.N
-    @assert(1 ≤ i ≤ d, DimensionMismatch("Impossible orthogonalization"))
+    1 ≤ i ≤ d ||
+        throw(ArgumentError("orthogonalization center i=$i is out of range 1:$d"))
     y_rks = r_and_d_to_rks(x_tt.ttv_rks, x_tt.ttv_dims)
     y_tt = zeros_tt(T, x_tt.ttv_dims, y_rks)
     FR = ones(T, 1, 1)
@@ -880,14 +907,15 @@ function concatenate(tt1::TToperator, tt2::TToperator)
     return TToperator{eltype(tt1), length(tto_dims)}(N, tto_vec, tto_dims, tto_rks, tto_ot)
 end
 
-function _svdtrunc(A; max_bond = max(size(A)...), truncerr = 0.0)
+function svdtrunc(A; max_bond = max(size(A)...), truncerr = 0.0)
     F = svd(A)
     d = min(max_bond, count(F.S .>= truncerr))
     return F.U[:, 1:d], diagm(0 => F.S[1:d]), F.Vt[1:d, :]
 end
 
 function _tt_bond_truncate!(ψ::TTvector{T, N}, k::Int; max_bond::Int = typemax(Int), truncerr::Real = 0.0) where {T <: Number, N}
-    @assert(1 ≤ k < ψ.N, "k must be in 1:(N-1)")
+    1 ≤ k < ψ.N ||
+        throw(ArgumentError("bond index k=$k must be in 1:$(ψ.N - 1)"))
 
     A = permutedims(ψ.ttv_vec[k], (2, 1, 3))
     B = permutedims(ψ.ttv_vec[k + 1], (2, 1, 3))
@@ -895,7 +923,7 @@ function _tt_bond_truncate!(ψ::TTvector{T, N}, k::Int; max_bond::Int = typemax(
     @tensor AAC[α, s1, s2, β] := A[α, s1, γ] * B[γ, s2, β]
     Dl, d1, d2, Dr = size(AAC)
 
-    U, S, Vt = _svdtrunc(reshape(AAC, Dl * d1, d2 * Dr); max_bond = max_bond, truncerr = truncerr)
+    U, S, Vt = svdtrunc(reshape(AAC, Dl * d1, d2 * Dr); max_bond = max_bond, truncerr = truncerr)
 
     svec = diag(S)
     s_sqrt = sqrt.(svec)
@@ -916,7 +944,8 @@ function _tt_bond_truncate!(ψ::TTvector{T, N}, k::Int; max_bond::Int = typemax(
 end
 
 function tt_compress!(ψ::TTvector{T, N}, max_bond::Int; truncerr::Real = 0.0, sweeps::Int = 1, verbose::Bool = false) where {T <: Number, N}
-    @assert(sweeps ≥ 1, "sweeps must be >= 1")
+    sweeps ≥ 1 ||
+        throw(ArgumentError("sweeps must be ≥ 1, got $sweeps"))
     for sw in 1:sweeps
         if verbose
             @info "TT compress: sweep $sw (L→R)"

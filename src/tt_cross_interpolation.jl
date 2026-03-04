@@ -141,7 +141,7 @@ function _evaluate_tt(cores, indices, N)
     return result
 end
 
-function _svdtrunc(A::AbstractMatrix{T}; max_bond::Int = typemax(Int), truncerr::Real = 0.0) where {T}
+function svdtrunc(A::AbstractMatrix{T}; max_bond::Int = typemax(Int), truncerr::Real = 0.0) where {T}
     F = svd(A)
     s = F.S
     r = length(s)
@@ -612,7 +612,7 @@ function tt_cross(
         for k in 1:(N - 1)
             superblock = _sample_superblock(f, domain, I_l, I_g, k, Is, N)
             r_l, s1, s2, r_g = size(superblock)
-            U, S, Vt = _svdtrunc(reshape(superblock, r_l * s1, s2 * r_g); max_bond = alg.rmax, truncerr = alg.tol)
+            U, S, Vt = svdtrunc(reshape(superblock, r_l * s1, s2 * r_g); max_bond = alg.rmax, truncerr = alg.tol)
             r = size(S, 1)
 
             if k < N - 1
@@ -635,7 +635,7 @@ function tt_cross(
         for k in (N - 1):-1:1
             superblock = _sample_superblock(f, domain, I_l, I_g, k, Is, N)
             r_l, s1, s2, r_g = size(superblock)
-            U, S, Vt = _svdtrunc(reshape(superblock, r_l * s1, s2 * r_g); max_bond = alg.rmax, truncerr = alg.tol)
+            U, S, Vt = svdtrunc(reshape(superblock, r_l * s1, s2 * r_g); max_bond = alg.rmax, truncerr = alg.tol)
             r = size(S, 1)
 
             if k > 1
@@ -672,7 +672,8 @@ function tt_integrate(
     ) where {T <: Number}
 
     d = length(lower)
-    @assert length(upper) == d "lower and upper bounds must have the same length"
+    length(upper) == d ||
+        throw(ArgumentError("lower and upper bounds must have the same length; got $(d) vs $(length(upper))"))
 
     nodes = Vector{Vector{T}}(undef, d)
     weights = Vector{Vector{T}}(undef, d)

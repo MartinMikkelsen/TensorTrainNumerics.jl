@@ -267,9 +267,11 @@ function to_qtt(
         tt::TTvector{T, N}, split_dims::Vector{Vector{Int}};
         threshold::Float64 = 0.0
     ) where {T <: Number, N}
-    @assert length(split_dims) == N "split_dims must have one entry per TT core"
+    length(split_dims) == N ||
+        throw(ArgumentError("split_dims must have one entry per TT core: expected $N, got $(length(split_dims))"))
     for i in 1:N
-        @assert prod(split_dims[i]) == tt.ttv_dims[i] "prod(split_dims[$i]) must equal $(tt.ttv_dims[i])"
+        prod(split_dims[i]) == tt.ttv_dims[i] ||
+            throw(DimensionMismatch("prod(split_dims[$i])=$(prod(split_dims[i])) must equal ttv_dims[$i]=$(tt.ttv_dims[i])"))
     end
 
     qtt_cores = Vector{Array{T, 3}}()
@@ -333,7 +335,8 @@ Physical dimensions are merged using the same BIG-ENDIAN convention as `to_qtt`:
 the earlier (coarser) core provides the more significant bits.
 """
 function to_ttv(qtt::TTvector{T, M}, merge_numbers::Vector{Int}) where {T <: Number, M}
-    @assert sum(merge_numbers) == M "merge_numbers must sum to $(M) (the number of QTT cores)"
+    sum(merge_numbers) == M ||
+        throw(ArgumentError("sum(merge_numbers) must equal the number of QTT cores $M; got $(sum(merge_numbers))"))
 
     tt_cores = Vector{Array{T, 3}}()
     k = 1

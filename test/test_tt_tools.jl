@@ -430,7 +430,7 @@ end
         @test y.ttv_rks[2] == 1
     end
 
-    @testset "invalid k throws AssertionError" begin
+    @testset "invalid k throws ArgumentError" begin
         N = 3
         dims = (2, 2, 2)
         rks = [1, 2, 2, 1]
@@ -438,8 +438,8 @@ end
         vec = [randn(2, 1, 2), randn(2, 2, 2), randn(2, 2, 1)]
         tt = TTvector{Float64, 3}(N, vec, dims, rks, ot)
 
-        @test_throws AssertionError TensorTrainNumerics._tt_bond_truncate!(tt, 0)
-        @test_throws AssertionError TensorTrainNumerics._tt_bond_truncate!(tt, tt.N)
+        @test_throws ArgumentError TensorTrainNumerics._tt_bond_truncate!(tt, 0)
+        @test_throws ArgumentError TensorTrainNumerics._tt_bond_truncate!(tt, tt.N)
     end
 end
 
@@ -491,7 +491,7 @@ end
         vec = [randn(dims[1], rks[1], rks[2]), randn(dims[2], rks[2], rks[3]), randn(dims[3], rks[3], rks[4])]
         tt = TTvector{Float64, N}(N, vec, dims, rks, ot)
 
-        @test_throws AssertionError TensorTrainNumerics.tt_compress!(tt, 2; sweeps = 0)
+        @test_throws ArgumentError TensorTrainNumerics.tt_compress!(tt, 2; sweeps = 0)
     end
 
     @testset "multiple sweeps return and type" begin
@@ -782,7 +782,7 @@ end
         ttv_vec = [randn(4, 1, 2), randn(5, 2, 1)]
         ttv = TTvector{Float64, 2}(N, ttv_vec, dims, rks, ot)
 
-        @test_throws AssertionError ttv_to_tto(ttv)
+        @test_throws DimensionMismatch ttv_to_tto(ttv)
     end
 
     @testset "large operator conversion" begin

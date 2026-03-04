@@ -256,7 +256,8 @@ function als_eigsolve(
         maxiter = 200::Int64, #maximum of iterations for the iterative solver
         linsolv_tol = 1.0e-8::Float64
     ) where {T <: Number} #tolerance of the iterative linear solver
-    @assert(length(rmax_schedule) == length(sweep_schedule) == length(noise_schedule), "Sweep schedule error")
+    length(rmax_schedule) == length(sweep_schedule) == length(noise_schedule) ||
+        throw(ArgumentError("rmax_schedule, sweep_schedule, and noise_schedule must have the same length; got $(length(rmax_schedule)), $(length(sweep_schedule)), $(length(noise_schedule))"))
     d = A.N
     # Initialize the to be returned tensor in its tensor train format
     tt_opt = orthogonalize(tt_start)

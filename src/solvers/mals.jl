@@ -341,10 +341,8 @@ function mals_eigsolve(
     ) where {T <: Number}
 
     d = A.N
-    @assert(
-        length(rmax_schedule) == length(sweep_schedule),
-        "Sweep schedule error"
-    )
+    length(rmax_schedule) == length(sweep_schedule) ||
+        throw(ArgumentError("rmax_schedule and sweep_schedule must have the same length; got $(length(rmax_schedule)) vs $(length(sweep_schedule))"))
 
     tt_opt = orthogonalize(tt_start)
     dims = tt_start.ttv_dims

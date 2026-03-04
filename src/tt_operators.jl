@@ -43,7 +43,7 @@ end
 Constructs a tensor train operator (TTO) representation of the Laplacian with Dirichlet-Neumann boundary conditions
 """
 function Δ_DN(d::Int)
-    @assert d ≥ 4 "Dimension must be at least 4"
+    d ≥ 4 || throw(ArgumentError("Δ_DN requires d ≥ 4, got $d"))
     out = zeros_tto(2, d, 4)
     id = [1 0; 0 1]
     J = [0 1; 0 0]
@@ -64,7 +64,7 @@ end
 Constructs a tensor train operator (TTO) representation of the Laplacian with Neumann-Dirichlet boundary conditions
 """
 function Δ_ND(d::Int)
-    @assert d ≥ 4 "Dimension must be at least 4"
+    d ≥ 4 || throw(ArgumentError("Δ_ND requires d ≥ 4, got $d"))
     out = zeros_tto(2, d, 4)
     id = [1 0; 0 1]
     J = [0 1; 0 0]
@@ -85,7 +85,7 @@ end
 Constructs a tensor train operator (TTO) representation of the Laplacian with Neumann-Neumann boundary conditions
 """
 function Δ_NN(d)
-    @assert d ≥ 4 "Dimension must be at least 4"
+    d ≥ 4 || throw(ArgumentError("Δ_NN requires d ≥ 4, got $d"))
     out = zeros_tto(ntuple(_ -> 2, d), [4; fill(5, d - 1); 4])
     id = [1 0; 0 1]
     J = [0 1; 0 0]
@@ -107,7 +107,7 @@ end
 Constructs a tensor train operator (TTO) representation of the Laplacian with periodic boundary conditions
 """
 function Δ_P(d)
-    @assert d ≥ 4 "Dimension must be at least 4"
+    d ≥ 4 || throw(ArgumentError("Δ_P requires d ≥ 4, got $d"))
     out = zeros_tto(ntuple(_ -> 2, d), fill(5, d + 1))
     id = [1 0; 0 1]
     J = [0 1; 0 0]
@@ -139,7 +139,7 @@ end
 Constructs a tensor train operator (TTO) representation of the inverse Laplacian with Dirichlet-Neumann boundary conditions
 """
 function Δ⁻¹_DN(d::Int)
-    @assert d ≥ 2 "Dimension must be at least 2"
+    d ≥ 2 || throw(ArgumentError("Δ⁻¹_DN requires d ≥ 2, got $d"))
     out = zeros_tto(2, d, 4)
     id = [1 0; 0 1]
     E = [1 1; 1 1]
@@ -171,7 +171,7 @@ end
 Constructs a tensor train operator (TTO) representation of the prolongation operator for multigrid methods
 """
 function qtto_prolongation(d::Int)
-    @assert d ≥ 2 "Dimension must be at least 2"
+    d ≥ 2 || throw(ArgumentError("qtto_prolongation requires d ≥ 2, got $d"))
     out = zeros_tto(2, d, 2)
     id = [1.0 0.0; 0.0 1.0]
     J = [0.0 1.0; 0.0 0.0]
@@ -237,7 +237,8 @@ function zeros_tt(dims, rks; ot = zeros(Int64, length(dims)))
 end
 
 function zeros_tt(::Type{T}, dims::NTuple{N, Int64}, rks; ot = zeros(Int64, length(dims))) where {T, N}
-    @assert length(dims) + 1 == length(rks) "Dimensions and ranks are not compatible"
+    length(dims) + 1 == length(rks) ||
+        throw(ArgumentError("length(rks) must equal length(dims)+1; got $(length(rks)) vs $(length(dims)+1)"))
     tt_vec = [zeros(T, dims[i], rks[i], rks[i + 1]) for i in eachindex(dims)]
     return TTvector{T, N}(N, tt_vec, dims, deepcopy(rks), deepcopy(ot))
 end
@@ -262,7 +263,6 @@ function zeros_tt(::Type{T}, dims::NTuple{N, Int64}, rks::NTuple{M, Int64}; ot =
 end
 
 function zeros_tt!(A::TTvector)
-    @assert isa(A.ttv_vec, Vector)
     for core in A.ttv_vec
         fill!(core, zero(eltype(core)))
     end
@@ -292,7 +292,8 @@ function zeros_tto(dims, rks)
 end
 
 function zeros_tto(::Type{T}, dims::NTuple{N, Int64}, rks) where {T, N}
-    @assert length(dims) + 1 == length(rks) "Dimensions and ranks are not compatible"
+    length(dims) + 1 == length(rks) ||
+        throw(ArgumentError("length(rks) must equal length(dims)+1; got $(length(rks)) vs $(length(dims)+1)"))
     vec = [zeros(T, dims[i], dims[i], rks[i], rks[i + 1]) for i in eachindex(dims)]
     return TToperator{T, N}(N, vec, dims, rks, zeros(Int64, N))
 end

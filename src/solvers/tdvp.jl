@@ -3,7 +3,7 @@ using ProgressMeter
 using TensorOperations
 using LinearAlgebra
 using TensorTrainNumerics
-import TensorTrainNumerics: _svdtrunc
+import TensorTrainNumerics: svdtrunc
 
 function _sync_ranks_from_lsr!(ψ::TTvector, A_lsr::Vector{<:AbstractArray})
     N = ψ.N
@@ -242,7 +242,7 @@ function tdvp2sweep!(
         end
 
         Dl, d1, d2, Dr = size(AAC)
-        U, S, Vt = _svdtrunc(
+        U, S, Vt = svdtrunc(
             reshape(AAC, Dl * d1, d2 * Dr);
             max_bond = max_bond, truncerr = truncerr
         )
@@ -265,7 +265,7 @@ function tdvp2sweep!(
         end
 
         Dl, d1, d2, Dr = size(AAC)
-        U, S, Vt = _svdtrunc(
+        U, S, Vt = svdtrunc(
             reshape(AAC, Dl * d1, d2 * Dr);
             max_bond = max_bond, truncerr = truncerr
         )
