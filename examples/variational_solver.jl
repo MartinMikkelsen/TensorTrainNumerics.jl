@@ -1,6 +1,7 @@
 using TensorTrainNumerics
 using OptimKit
 using KrylovKit
+using LinearAlgebra
 
 d = 6
 N = 2^d
@@ -22,7 +23,7 @@ end
 x0 = rand_tt(f.ttv_dims, f.ttv_rks)
 
 method = GradientDescent()
-x, fx, gx, numfg, normgradhistor = optimize(fg, x0, method)
+x, fx, gx, numfg, normgradhistor = optimize(fg, x0, method; precondition=svdtrunc((x,2)))
 
 relres = norm(A * x - f) / max(norm(f), eps())
 println("relative residual = ", relres)
