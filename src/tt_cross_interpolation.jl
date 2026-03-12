@@ -128,19 +128,24 @@ end
 function _evaluate_tt(cores, indices, N)
     T = eltype(cores[1])
     n_points = size(indices, 1)
-    result = zeros(T, n_points)
-    for p in 1:n_points
-        val = ones(T, 1, 1)
-        for d in 1:N
-            idx = indices[p, d]
-            core_slice = cores[d][idx, :, :]
-            val = val * core_slice
-        end
-        result[p] = val[1, 1]
+    # state shape: (n_points, r_left) — starts as (n_points, 1)
+    state = ones(T, n_points, 1)
+    for d in 1:N
+        r_r = size(cores[d], 3)
+        # slices: (n_points, r_left, r_right) — gather physical-index slice per point
+        slices = cores[d][indices[:, d], :, :]
+        # reshape state to (n_points, r_left, 1), broadcast-multiply with slices
+        # (n_points, r_left, r_right), sum over r_left (axis 2) → (n_points, r_right)
+        state = reshape(sum(reshape(state, n_points, :, 1) .* slices, dims = 2), n_points, r_r)
     end
-    return result
+    return vec(state)
 end
 
+# Local _svdtrunc for cross interpolation: uses relative-norm truncation
+# (keeps singular values until the cumulative tail norm exceeds truncerr * ‖s‖).
+# tt_tools.jl has a separate _svdtrunc with absolute-threshold truncation
+# (count(s .>= truncerr)). The two strategies are intentionally different and
+# should not be consolidated.
 function _svdtrunc(A::AbstractMatrix{T}; max_bond::Int = typemax(Int), truncerr::Real = 0.0) where {T}
     F = svd(A)
     s = F.S
@@ -163,11 +168,13 @@ end
 function _build_fiber_indices(lsets, rsets, j, Is, Rs, N)
     n_fibers = Rs[j] * Is[j] * Rs[j + 1]
     indices = Matrix{Int}(undef, n_fibers, N)
+    n_left  = j - 1       # lsets[j] has j-1 columns
+    n_right = N - j       # rsets[j] has N-j columns
     idx = 1
     for r_right in 1:Rs[j + 1], r_left in 1:Rs[j], i in 1:Is[j]
-        left_idx = j == 1 ? Int[] : lsets[j][r_left, :]
-        right_idx = j == N ? Int[] : rsets[j][r_right, :]
-        indices[idx, :] = vcat(left_idx, [i], right_idx)
+        j > 1 && (indices[idx, 1:n_left]              = lsets[j][r_left, :])
+        indices[idx, j]                               = i
+        j < N && (indices[idx, (j + 1):(j + n_right)] = rsets[j][r_right, :])
         idx += 1
     end
     return indices
@@ -452,7 +459,7 @@ function tt_cross(
             cry2 = reshape(y[i + 1], Rs[i + 1], Is[i + 1] * Rs[i + 2])
             cre1, cre2 = cry1 * mid_inv_U[i + 1], mid_inv_L[i + 1] * cry2
 
-            cry_approx = [LinearAlgebra.dot(cre1[tind1[j], :], cre2[:, tind2[j]]) for j in 1:testsz]
+            cry_approx = [sum(cre1[tind1[j], :] .* cre2[:, tind2[j]]) for j in 1:testsz]
             cre = crt - cry_approx
 
             _, imax_test = findmax(abs.(cre))
@@ -474,7 +481,7 @@ function tt_cross(
                 uold, lold = mid_inv_U[i + 1], mid_inv_L[i + 1]
                 erow = reshape(cry1[imax1, :], 1, Rs[i + 1])
                 ecol = cre1_new[ilocl[i + 1], 1]
-                alpha = cre1_new[imax1, 1] - LinearAlgebra.dot(vec(erow * uold), lold * ecol)
+                alpha = cre1_new[imax1, 1] - sum(vec(erow * uold) .* vec(lold * ecol))
                 (!isfinite(real(alpha)) || !isfinite(imag(alpha)) || abs(alpha) <= max(alg.tol, eps(real(float(abs(alpha)))))) && continue
 
                 new_U = zeros(Tv, Rs[i + 1] + 1, Rs[i + 1] + 1)
