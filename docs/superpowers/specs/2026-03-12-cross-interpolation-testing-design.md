@@ -12,7 +12,9 @@
 
 - MaxVol and Greedy lack full-tensor accuracy verification.
 - Complex-domain paths in MaxVol and Greedy are undertested ("tests pass but I don't trust them").
-- DMRG is considered more trustworthy; it already handles the complex fallback from MaxVol.
+- DMRG is considered more trustworthy.
+
+**Important dispatch note:** When `tt_cross(..., MaxVol(...))` is called with a complex-valued function, the existing code at lines 193–204 immediately redirects to `tt_cross(..., DMRG(...))`. This means complex-valued tests targeting MaxVol actually exercise DMRG under the hood. Tests must account for this — either assert on the dispatch explicitly, or target DMRG directly for complex cases.
 
 ---
 
@@ -28,26 +30,32 @@ relerr = norm(ttv_to_tensor(tt) - exact) / max(norm(exact), eps())
 @test relerr < tol
 ```
 
-### Test Cases (all three algorithms: MaxVol, Greedy, DMRG)
+### Real-valued test cases (all three algorithms: MaxVol, Greedy, DMRG)
 
-| Class | Function | Grid | Expected rank | Purpose |
+| Class | Function | Grid | Expected rank | Tolerance |
 |---|---|---|---|---|
-| Rank-1 separable, real | `f(x) = ∏ sin(xₖ)` | 6×6×6×6 | 1 | Any error = clear algorithm bug |
-| Rank-1 separable, complex | `f(x) = ∏ exp(i·xₖ)` | 5×5×5 | 1 | Isolates complex path bugs |
-| Low-rank polynomial, real | `f(x) = (x₁+x₂+x₃)²` | 8×8×8 | ≤3 | Known exact TT rank |
-| Low-rank polynomial, complex | `f(x) = x₁·x₂·x₃` on complex grid | 5×5×5 | 1 | Complex grid, separable |
-| Smooth Gaussian, real | `f(x) = exp(-‖x‖²)` | 8×8×8×8 | small | Standard benchmark |
-| Smooth, complex | `f(x) = exp(i·∑xₖ²)` | 6×6×6 | small | Full complex path |
+| Rank-1 separable | `f(x) = ∏ sin(xₖ)` | 6×6×6×6 | 1 | 1e-8 |
+| Low-rank polynomial | `f(x) = (x₁+x₂+x₃)²` | 8×8×8 | ≤3 | 1e-6 |
+| Smooth Gaussian | `f(x) = exp(-‖x‖²)` | 8×8×8×8 | small | 1e-4 |
 
-### Tolerances
+### Complex-valued test cases
 
-- Rank-1 separable: `tol = 1e-8` (should reach near machine precision).
-- Low-rank polynomial: `tol = 1e-6`.
-- Smooth: `tol = 1e-4`.
+Complex-valued inputs are handled differently per algorithm:
+- **MaxVol**: silently redirects to DMRG (line 193–204), so complex MaxVol tests assert on the DMRG code path.
+- **Greedy**: has its own complex path (suspected `dot` bug — see Section 2).
+- **DMRG**: native complex support via Julia's LinearAlgebra (`svd`, `qr`) and `maxvol!` (which supports `ComplexF32`/`ComplexF64` natively).
 
-### Test Organization
+| Class | Function | Grid | Algorithms | Tolerance |
+|---|---|---|---|---|
+| Rank-1 separable | `f(x) = ∏ exp(i·xₖ)`, grid in `[0,1]` | 5×5×5 | Greedy, DMRG | 1e-8 |
+| Low-rank separable | `f(x) = x₁·x₂·x₃`, grid `collect(range(1.0+0.5im, 2.0+1.0im, 5))` per dim | 5×5×5 | Greedy, DMRG | 1e-8 |
+| Smooth complex | `f(x) = exp(i·∑xₖ²)`, grid in `[0,1]` | 6×6×6 | Greedy, DMRG | 1e-4 |
 
-Tests are added to the existing `@testset "tt_cross"` block in `test/test_tt_cross_interpolation.jl`. Each function class becomes a nested `@testset`. Within each, a helper loops over algorithms to avoid repetition:
+Note: MaxVol is excluded from complex test cases since it dispatches to DMRG; the DMRG row already covers that code path.
+
+### Test organization
+
+Tests are added to the existing `@testset "tt_cross"` block. Each function class becomes a nested `@testset`. A helper loops over algorithms for the real-valued cases:
 
 ```julia
 for (alg_name, alg) in [("MaxVol", MaxVol(...)), ("Greedy", Greedy(...)), ("DMRG", DMRG(...))]
@@ -59,28 +67,48 @@ for (alg_name, alg) in [("MaxVol", MaxVol(...)), ("Greedy", Greedy(...)), ("DMRG
 end
 ```
 
+For complex cases, only Greedy and DMRG appear in the loop.
+
 ---
 
 ## Section 2: Complex-Domain Audit & Fixes
 
-### Suspected Bug Sites
+### MaxVol — no fix needed
 
-**MaxVol — `maxvol!` on complex Q:**
+`maxvol!` from `Maxvol.jl` is defined with type constraint `T <: Union{Float32, Float64, ComplexF32, ComplexF64}` and handles complex matrices natively. The `qr(V)` → `Matrix(first(qr(V)))` path correctly produces a `ComplexF64` Q matrix that `maxvol!` can handle. No changes needed for MaxVol.
 
-At lines 238–239 and 265–266, `qr(V)` produces a complex unitary Q, which is then passed to `maxvol!`. The `Maxvol.jl` package may assume real input. Action: check `maxvol!` source/docs; if it doesn't handle complex, wrap with `real.(Q)` only when the imaginary part is negligible, or apply `maxvol!` to `[real(Q); imag(Q)]` stacked vertically (a standard workaround).
+The existing dispatch to DMRG for complex-valued targets (line 193–204) is an intentional stability choice, not a workaround for a `maxvol!` limitation.
 
-**Greedy — `dot` conjugates first argument:**
+### Greedy — `dot` conjugation bug
 
-At lines 455 and 477, `LinearAlgebra.dot(a, b)` computes `∑ conj(aᵢ)·bᵢ`, not `∑ aᵢ·bᵢ`. The Greedy cross algorithm (TT-CROSS skeleton approximation) expects a plain bilinear product, not a sesquilinear inner product. For real inputs these are identical, masking the bug. Fix: replace with `sum(cre1[tind1[j], :] .* cre2[:, tind2[j]])` and similarly for the `alpha` computation.
+At two sites, `LinearAlgebra.dot(a, b)` computes `∑ conj(aᵢ)·bᵢ` (sesquilinear), but the Greedy cross skeleton approximation requires a plain bilinear product `∑ aᵢ·bᵢ`. For real inputs these are identical, masking the bug.
 
-**DMRG:** No complex issues identified. `svd`, `qr` on complex matrices are correct in Julia's LinearAlgebra. No changes needed.
+**Line 455:**
+```julia
+# Current (wrong for complex):
+cry_approx = [LinearAlgebra.dot(cre1[tind1[j], :], cre2[:, tind2[j]]) for j in 1:testsz]
+# Fix:
+cry_approx = [sum(cre1[tind1[j], :] .* cre2[:, tind2[j]]) for j in 1:testsz]
+```
 
-### Audit Steps
+**Line 477:**
+```julia
+# Current (wrong for complex):
+alpha = cre1_new[imax1, 1] - LinearAlgebra.dot(vec(erow * uold), lold * ecol)
+# Fix:
+alpha = cre1_new[imax1, 1] - sum(vec(erow * uold) .* vec(lold * ecol))
+```
+Note: at this code site, `ecol = cre1_new[ilocl[i+1], 1]` where `ilocl[i+1]` is always a length-1 vector (each bond holds a single pivot during Greedy rank growth). So `lold * ecol` is a length-`Rs[i+1]` vector and `vec(erow * uold)` is also length-`Rs[i+1]`; the element-wise `sum(.*)` correctly produces a scalar. If this path were ever reached with multiple pivots per bond, the fix would need to be the scalar `(vec(erow * uold))' * vec(lold * ecol)` (bilinear, not Hermitian).
 
-1. Read `Maxvol.jl` source to confirm whether `maxvol!` handles complex matrices.
-2. If not: implement and test the stacked-real workaround for the MaxVol cross path.
-3. Replace `dot` with explicit element-wise products in Greedy (lines 455, 477).
-4. Re-run the new complex test cases to confirm fixes.
+### DMRG — no fix needed
+
+`svd` and `qr` on complex matrices are correct in Julia's LinearAlgebra. `maxvol!` supports `ComplexF32`/`ComplexF64` natively. No changes needed.
+
+### Audit steps
+
+1. Apply the two Greedy `dot` fixes above.
+2. Run the new complex separable test cases for Greedy to confirm the fix.
+3. Verify the existing complex test in `test_tt_cross_interpolation.jl` (lines 213–240) still passes; if it previously passed via DMRG fallback (Greedy stalled → DMRG), confirm the fix allows Greedy to succeed directly.
 
 ---
 
@@ -88,34 +116,39 @@ At lines 455 and 477, `LinearAlgebra.dot(a, b)` computes `∑ conj(aᵢ)·bᵢ`,
 
 ### `_evaluate_tt` vectorization
 
-Current implementation (lines 128–142) loops over each point with repeated `1×1` matrix multiplications, allocating per-point. Rewrite to process all P points simultaneously:
+Current implementation (lines 128–142) loops over each point with per-point `1×1` matrix multiplications. Rewrite to process all P points simultaneously. Note: cores have layout `(phys_dim, left_rank, right_rank)`, so indexing `cores[d][indices[:, d], :, :]` correctly gathers slices as `(n_points, r_left, r_right)`.
 
 ```julia
 function _evaluate_tt(cores, indices, N)
     T = eltype(cores[1])
     n_points = size(indices, 1)
-    # state: (n_points,) vector of partial products as row vectors
-    state = ones(T, n_points, 1)
+    state = ones(T, n_points, 1)  # (n_points, r_right) after each step
     for d in 1:N
-        # gather core slices for each point: (n_points, r_left, r_right)
         r_r = size(cores[d], 3)
-        slices = cores[d][indices[:, d], :, :]  # (n_points, r_left, r_r)
-        # batched matmul: state (n_points, 1, r_l) × slices (n_points, r_l, r_r)
+        slices = cores[d][indices[:, d], :, :]  # (n_points, r_left, r_right)
+        # contract state (n_points, 1, r_left) with slices (n_points, r_left, r_right)
         state = reshape(sum(reshape(state, n_points, 1, :) .* slices, dims=2), n_points, r_r)
     end
     return vec(state)
 end
 ```
 
-This eliminates per-point allocation and is amenable to vectorization by the Julia compiler.
-
 ### `_build_fiber_indices` allocation
 
-The inner `vcat(left_idx, [i], right_idx)` (line 170) allocates a new vector for every fiber. Replace with a pre-allocated `indices` buffer written in-place using sliced assignment — the outer `indices` matrix already exists, so just fill rows directly without the intermediate `vcat`.
+The inner `vcat(left_idx, [i], right_idx)` (line 170) allocates a new vector per fiber. Replace with direct sliced assignment into the pre-allocated `indices` matrix:
+
+```julia
+# instead of: indices[idx, :] = vcat(left_idx, [i], right_idx)
+n_left = j - 1
+n_right = N - j
+j > 1  && (indices[idx, 1:n_left]         = lsets[j][r_left, :])
+           indices[idx, j]                 = i
+j < N  && (indices[idx, (j+1):(j+n_right)] = rsets[j][r_right, :])
+```
 
 ### `_svdtrunc` consolidation
 
-The local `_svdtrunc` in `tt_cross_interpolation.jl` (lines 144–161) duplicates logic from `tt_tools.jl` but uses plain `svd` instead of MatrixAlgebraKit's `svd_compact`. Add a comment clarifying the reason (cross file needs to handle complex matrices; MAK's compact SVD should also handle complex — verify and consolidate if safe, otherwise document the intentional separation).
+The local `_svdtrunc` in `tt_cross_interpolation.jl` (lines 144–161) uses plain `svd`, while `tt_tools.jl` uses MatrixAlgebraKit's `svd_compact`. Verify whether MatrixAlgebraKit's `svd_compact` handles complex matrices correctly; if so, consolidate. If not, add an explicit comment explaining the intentional separation.
 
 ---
 
@@ -131,6 +164,6 @@ The local `_svdtrunc` in `tt_cross_interpolation.jl` (lines 144–161) duplicate
 ## Success Criteria
 
 1. All new test cases pass at stated tolerances for all three algorithms.
-2. Complex separable functions (rank-1) achieve `relerr < 1e-8` for all algorithms.
+2. Complex separable functions (rank-1) achieve `relerr < 1e-8` for Greedy and DMRG.
 3. No regression in existing tests.
-4. `_evaluate_tt` rewrite passes all tests and is measurably faster on a benchmark (informal).
+4. `_evaluate_tt` rewrite passes all existing and new tests.
