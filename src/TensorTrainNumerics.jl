@@ -36,4 +36,10 @@ include("tt_transformations.jl")
 export tt_cross, tt_integrate, MaxVol, DMRG, Greedy
 include("tt_cross_interpolation.jl")
 
+export QTTGrid, npoints, gridstep, nodes
+export diffusion_operator, advection_operator, reaction_operator, laplacian
+export EllipticPDE, ParabolicPDE, source, solve, PDESolution, to_array
+export ALSLinsolve, MALSLinsolve, DMRGLinsolve, TDVP1Solver, TDVP2Solver
+include("tt_pde.jl")
+
 end
