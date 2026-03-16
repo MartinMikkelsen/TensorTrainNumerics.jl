@@ -3,10 +3,7 @@ using LinearAlgebra
 using Base.Threads
 using IterativeSolvers
 using TensorOperations
-import Base.isempty
-import Base.eltype
-import Base.copy
-import Base.complex
+import Base: isempty, eltype, copy, complex
 import KrylovKit: orthogonalize
 
 abstract type AbstractTTvector end
