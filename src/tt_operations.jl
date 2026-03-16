@@ -1,10 +1,6 @@
 using Base.Threads
 using TensorOperations
-import Base.+
-import Base.-
-import Base.*
-import Base./
-import Base.kron
+import Base: +, -, *, /, kron
 using LinearAlgebra
 import LinearAlgebra: norm
 
