@@ -1,5 +1,6 @@
 using Test
 using LinearAlgebra
+
 import TensorTrainNumerics: MaxVolPivot, RandomPivot, MaxVol, Greedy, DMRG, _cap_ranks!
 
 @testset "Cross Interpolation Algorithms" begin
@@ -225,7 +226,13 @@ import TensorTrainNumerics: MaxVolPivot, RandomPivot, MaxVol, Greedy, DMRG, _cap
                 return norm(y .- yhat) / max(norm(y), eps())
             end
 
-            tt_maxvol = tt_cross(f, domain, MaxVol(verbose = false, tol = 1.0e-8, maxiter = 20, rmax = 30); ranks = 2, val_size = 600)
+            tt_maxvol = tt_cross(
+                f,
+                domain,
+                MaxVol(verbose = true, tol = 1.0e-8, maxiter = 20, rmax = 30);
+                ranks = 2,
+                val_size = 600,
+            )
             @test rel_sample_err(tt_maxvol, f, domain; seed = 91) < 1.0e-6
 
             tt_dmrg = tt_cross(f, domain, DMRG(verbose = false, tol = 1.0e-8, maxiter = 15, rmax = 30); ranks = 2, val_size = 600)
@@ -318,8 +325,6 @@ import TensorTrainNumerics: MaxVolPivot, RandomPivot, MaxVol, Greedy, DMRG, _cap
             end
         end
 
-        # MaxVol is excluded from complex tests: tt_cross with MaxVol and a complex-valued f
-        # silently redirects to DMRG (lines 193-204 of tt_cross_interpolation.jl).
         @testset "Accuracy: rank-1 separable (complex)" begin
             # f(x) = ∏ exp(i·xₖ) on a real grid — complex-valued, rank-1 in TT
             domain = [collect(range(0.0, 1.0, length = 5)) for _ in 1:3]
@@ -333,6 +338,7 @@ import TensorTrainNumerics: MaxVolPivot, RandomPivot, MaxVol, Greedy, DMRG, _cap
 
             tol = 1e-8
             for (alg_name, alg) in [
+                ("MaxVol", MaxVol(verbose = false, tol = 1e-10, maxiter = 30)),
                 ("Greedy", Greedy(verbose = false, tol = 1e-10, maxiter = 30, nsamples = 500, pivot = RandomPivot(seed = 55))),
                 ("DMRG",   DMRG(verbose = false, tol = 1e-10, maxiter = 30)),
             ]
@@ -358,6 +364,7 @@ import TensorTrainNumerics: MaxVolPivot, RandomPivot, MaxVol, Greedy, DMRG, _cap
 
             tol = 1e-8
             for (alg_name, alg) in [
+                ("MaxVol", MaxVol(verbose = false, tol = 1e-10, maxiter = 30)),
                 ("Greedy", Greedy(verbose = false, tol = 1e-10, maxiter = 30, nsamples = 500, pivot = RandomPivot(seed = 66))),
                 ("DMRG",   DMRG(verbose = false, tol = 1e-10, maxiter = 30)),
             ]
@@ -383,6 +390,7 @@ import TensorTrainNumerics: MaxVolPivot, RandomPivot, MaxVol, Greedy, DMRG, _cap
 
             tol = 1e-4
             for (alg_name, alg) in [
+                ("MaxVol", MaxVol(verbose = false, tol = 1e-6, maxiter = 50, rmax = 20)),
                 ("Greedy", Greedy(verbose = false, tol = 1e-6, maxiter = 50, nsamples = 500, pivot = RandomPivot(seed = 77))),
                 ("DMRG",   DMRG(verbose = false, tol = 1e-6, maxiter = 50, rmax = 20)),
             ]

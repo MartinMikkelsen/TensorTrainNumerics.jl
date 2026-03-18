@@ -117,7 +117,7 @@ end
 function _evaluate_on_domain(f, domain::Vector{<:AbstractVector}, indices::Matrix{Int})
     N = length(domain)
     n_points = size(indices, 1)
-    T = eltype(domain[1])
+    T = promote_type(map(eltype, domain)...)
     coords = Matrix{T}(undef, n_points, N)
     for p in 1:n_points, d in 1:N
         coords[p, d] = domain[d][indices[p, d]]
@@ -188,18 +188,6 @@ function tt_cross(
     N = length(domain)
     Is = [length(d) for d in domain]
     Tv = _infer_value_type(f, domain)
-    if Tv <: Complex
-        alg.verbose && @warn "MaxVol cross for complex-valued targets can be unstable; using DMRG cross backend"
-        dmrg_alg = DMRG(
-            maxiter = alg.maxiter,
-            tol = alg.tol,
-            rmax = alg.rmax,
-            kickrank = alg.kickrank,
-            verbose = alg.verbose,
-            pivot = alg.pivot isa MaxVolPivot ? alg.pivot : MaxVolPivot(),
-        )
-        return tt_cross(f, domain, dmrg_alg; ranks = ranks, val_size = val_size)
-    end
 
     Rs = isa(ranks, Int) ? vcat([1], fill(ranks, N - 1), [1]) : vcat([1], ranks, [1])
     _cap_ranks!(Rs, Is, alg.rmax)
@@ -260,7 +248,9 @@ function tt_cross(
             V = reshape(_evaluate_on_domain(f, domain, indices), Rs[j] * Is[j], Rs[j + 1])
             V_3d = reshape(V, Is[j], Rs[j], Rs[j + 1])
             V_right = reshape(permutedims(V_3d, (2, 1, 3)), Rs[j], Is[j] * Rs[j + 1])
-            Q_mat = Matrix(first(qr(V_right')))
+            # Use a plain transpose here: TT cross uses bilinear products, so an
+            # adjoint would introduce a spurious conjugation for complex targets.
+            Q_mat = Matrix(first(qr(transpose(V_right))))
             local_indices, _ = maxvol!(copy(Q_mat), alg.pivot.tol, alg.pivot.maxiter)
 
             G = Q_mat / Q_mat[local_indices, :]
