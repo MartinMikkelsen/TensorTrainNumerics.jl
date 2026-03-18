@@ -38,8 +38,11 @@ tt = ttv_decomp(tensor; tol = 1.0e-12)
 tensor_reconstructed = ttv_to_tensor(tt)
 relerr = norm(tensor - tensor_reconstructed) / norm(tensor)
 
-println(tt)
 println("Relative error: ", relerr)
+```
+which returns
+```julia
+Relative error: 4.447195710046155e-16
 ```
 
 ### 2. Build a TT approximation from function evaluations with `tt_cross`
@@ -64,7 +67,10 @@ relerr = norm(approx - exact) / norm(exact)
 println(tt)
 println("Relative error: ", relerr)
 ```
-
+which returns
+```julia
+Relative error: 2.661496213238571e-16
+```
 ### 3. Solve a small linear system in QTT format
 
 ```julia
@@ -72,7 +78,7 @@ using LinearAlgebra
 using TensorTrainNumerics
 
 d = 6
-A = Δ_ND(d)
+A = id_tto(d)
 b = qtt_sin(d, λ = π)
 x0 = rand_tt(b.ttv_dims, b.ttv_rks)
 
@@ -84,7 +90,10 @@ relerr = norm(sol - rhs) / norm(rhs)
 
 println("Relative error: ", relerr)
 ```
-
+which returns 
+```julia
+Relative error: 4.560872651853784e-16
+```
 ## Key features
 
 - Tensor Train Decomposition: Algorithms for decomposing high-dimensional tensors into tensor train format 
