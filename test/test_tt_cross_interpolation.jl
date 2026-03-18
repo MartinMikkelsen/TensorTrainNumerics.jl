@@ -1,4 +1,6 @@
 using Test
+using LinearAlgebra
+
 import TensorTrainNumerics: MaxVolPivot, RandomPivot, MaxVol, Greedy, DMRG, _cap_ranks!
 
 @testset "Cross Interpolation Algorithms" begin
@@ -224,7 +226,13 @@ import TensorTrainNumerics: MaxVolPivot, RandomPivot, MaxVol, Greedy, DMRG, _cap
                 return norm(y .- yhat) / max(norm(y), eps())
             end
 
-            tt_maxvol = tt_cross(f, domain, MaxVol(verbose = false, tol = 1.0e-8, maxiter = 20, rmax = 30); ranks = 2, val_size = 600)
+            tt_maxvol = tt_cross(
+                f,
+                domain,
+                MaxVol(verbose = true, tol = 1.0e-8, maxiter = 20, rmax = 30);
+                ranks = 2,
+                val_size = 600,
+            )
             @test rel_sample_err(tt_maxvol, f, domain; seed = 91) < 1.0e-6
 
             tt_dmrg = tt_cross(f, domain, DMRG(verbose = false, tol = 1.0e-8, maxiter = 15, rmax = 30); ranks = 2, val_size = 600)
@@ -237,6 +245,162 @@ import TensorTrainNumerics: MaxVolPivot, RandomPivot, MaxVol, Greedy, DMRG, _cap
                 val_size = 600,
             )
             @test rel_sample_err(tt_greedy, f, domain; seed = 93) < 1.0e-6
+        end
+
+        @testset "Accuracy: rank-1 separable (real)" begin
+            # f(x) = ∏ sin(xₖ) has exact TT rank 1 — any relerr here is a clear bug
+            domain = [collect(range(0.1, 1.0, length = 6)) for _ in 1:4]
+            f(X) = vec(prod(sin.(X), dims = 2))
+
+            exact = zeros(6, 6, 6, 6)
+            for I in CartesianIndices(exact)
+                x = reshape([domain[d][I[d]] for d in 1:4], 1, 4)
+                exact[I] = f(x)[1]
+            end
+
+            tol = 1e-8
+            for (alg_name, alg) in [
+                ("MaxVol", MaxVol(verbose = false, tol = 1e-10, maxiter = 30)),
+                ("Greedy", Greedy(verbose = false, tol = 1e-10, maxiter = 30, nsamples = 500, pivot = RandomPivot(seed = 42))),
+                ("DMRG",   DMRG(verbose = false, tol = 1e-10, maxiter = 30)),
+            ]
+                @testset "$alg_name" begin
+                    tt = tt_cross(f, domain, alg)
+                    approx = TensorTrainNumerics.ttv_to_tensor(tt)
+                    relerr = norm(approx - exact) / max(norm(exact), eps())
+                    @test relerr < tol
+                end
+            end
+        end
+
+        @testset "Accuracy: low-rank polynomial (real)" begin
+            # f(x) = (x₁ + x₂ + x₃)² has exact TT rank ≤ 3
+            domain = [collect(range(0.0, 1.0, length = 8)) for _ in 1:3]
+            f(X) = vec(sum(X, dims = 2) .^ 2)
+
+            exact = zeros(8, 8, 8)
+            for I in CartesianIndices(exact)
+                x = reshape([domain[d][I[d]] for d in 1:3], 1, 3)
+                exact[I] = f(x)[1]
+            end
+
+            tol = 1e-6
+            for (alg_name, alg) in [
+                ("MaxVol", MaxVol(verbose = false, tol = 1e-8, maxiter = 30, rmax = 10)),
+                ("Greedy", Greedy(verbose = false, tol = 1e-8, maxiter = 30, nsamples = 500, pivot = RandomPivot(seed = 43))),
+                ("DMRG",   DMRG(verbose = false, tol = 1e-8, maxiter = 30, rmax = 10)),
+            ]
+                @testset "$alg_name" begin
+                    tt = tt_cross(f, domain, alg)
+                    approx = TensorTrainNumerics.ttv_to_tensor(tt)
+                    relerr = norm(approx - exact) / max(norm(exact), eps())
+                    @test relerr < tol
+                end
+            end
+        end
+
+        @testset "Accuracy: smooth Gaussian (real)" begin
+            # f(x) = exp(-‖x‖²)
+            domain = [collect(range(-1.0, 1.0, length = 8)) for _ in 1:4]
+            f(X) = vec(exp.(-sum(X .^ 2, dims = 2)))
+
+            exact = zeros(8, 8, 8, 8)
+            for I in CartesianIndices(exact)
+                x = reshape([domain[d][I[d]] for d in 1:4], 1, 4)
+                exact[I] = f(x)[1]
+            end
+
+            tol = 1e-4
+            for (alg_name, alg) in [
+                ("MaxVol", MaxVol(verbose = false, tol = 1e-6, maxiter = 50, rmax = 20)),
+                ("Greedy", Greedy(verbose = false, tol = 1e-6, maxiter = 50, nsamples = 500, pivot = RandomPivot(seed = 44))),
+                ("DMRG",   DMRG(verbose = false, tol = 1e-6, maxiter = 50, rmax = 20)),
+            ]
+                @testset "$alg_name" begin
+                    tt = tt_cross(f, domain, alg)
+                    approx = TensorTrainNumerics.ttv_to_tensor(tt)
+                    relerr = norm(approx - exact) / max(norm(exact), eps())
+                    @test relerr < tol
+                end
+            end
+        end
+
+        @testset "Accuracy: rank-1 separable (complex)" begin
+            # f(x) = ∏ exp(i·xₖ) on a real grid — complex-valued, rank-1 in TT
+            domain = [collect(range(0.0, 1.0, length = 5)) for _ in 1:3]
+            f(X) = vec(prod(exp.(im .* X), dims = 2))
+
+            exact = zeros(ComplexF64, 5, 5, 5)
+            for I in CartesianIndices(exact)
+                x = reshape([domain[d][I[d]] for d in 1:3], 1, 3)
+                exact[I] = f(x)[1]
+            end
+
+            tol = 1e-8
+            for (alg_name, alg) in [
+                ("MaxVol", MaxVol(verbose = false, tol = 1e-10, maxiter = 30)),
+                ("Greedy", Greedy(verbose = false, tol = 1e-10, maxiter = 30, nsamples = 500, pivot = RandomPivot(seed = 55))),
+                ("DMRG",   DMRG(verbose = false, tol = 1e-10, maxiter = 30)),
+            ]
+                @testset "$alg_name" begin
+                    tt = tt_cross(f, domain, alg)
+                    approx = TensorTrainNumerics.ttv_to_tensor(tt)
+                    relerr = norm(approx - exact) / max(norm(exact), eps())
+                    @test relerr < tol
+                end
+            end
+        end
+
+        @testset "Accuracy: low-rank separable (complex grid)" begin
+            # f(x) = x₁·x₂·x₃ on a complex grid — rank-1, complex-valued domain
+            domain = [collect(range(1.0 + 0.5im, 2.0 + 1.0im, length = 5)) for _ in 1:3]
+            f(X) = vec(prod(X, dims = 2))
+
+            exact = zeros(ComplexF64, 5, 5, 5)
+            for I in CartesianIndices(exact)
+                x = reshape([domain[d][I[d]] for d in 1:3], 1, 3)
+                exact[I] = f(x)[1]
+            end
+
+            tol = 1e-8
+            for (alg_name, alg) in [
+                ("MaxVol", MaxVol(verbose = false, tol = 1e-10, maxiter = 30)),
+                ("Greedy", Greedy(verbose = false, tol = 1e-10, maxiter = 30, nsamples = 500, pivot = RandomPivot(seed = 66))),
+                ("DMRG",   DMRG(verbose = false, tol = 1e-10, maxiter = 30)),
+            ]
+                @testset "$alg_name" begin
+                    tt = tt_cross(f, domain, alg)
+                    approx = TensorTrainNumerics.ttv_to_tensor(tt)
+                    relerr = norm(approx - exact) / max(norm(exact), eps())
+                    @test relerr < tol
+                end
+            end
+        end
+
+        @testset "Accuracy: smooth function (complex-valued)" begin
+            # f(x) = exp(i·∑xₖ²) on a real grid
+            domain = [collect(range(0.0, 1.0, length = 6)) for _ in 1:3]
+            f(X) = vec(exp.(im .* sum(X .^ 2, dims = 2)))
+
+            exact = zeros(ComplexF64, 6, 6, 6)
+            for I in CartesianIndices(exact)
+                x = reshape([domain[d][I[d]] for d in 1:3], 1, 3)
+                exact[I] = f(x)[1]
+            end
+
+            tol = 1e-4
+            for (alg_name, alg) in [
+                ("MaxVol", MaxVol(verbose = false, tol = 1e-6, maxiter = 50, rmax = 20)),
+                ("Greedy", Greedy(verbose = false, tol = 1e-6, maxiter = 50, nsamples = 500, pivot = RandomPivot(seed = 77))),
+                ("DMRG",   DMRG(verbose = false, tol = 1e-6, maxiter = 50, rmax = 20)),
+            ]
+                @testset "$alg_name" begin
+                    tt = tt_cross(f, domain, alg)
+                    approx = TensorTrainNumerics.ttv_to_tensor(tt)
+                    relerr = norm(approx - exact) / max(norm(exact), eps())
+                    @test relerr < tol
+                end
+            end
         end
 
     end

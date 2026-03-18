@@ -94,9 +94,9 @@ println("Relative error for implicit Euler: ", rel_implicit)
 println("Relative error for Crank-Nicolson: ", rel_crank)
 ```
 
-# Discrete Fourier Transform
+## Discrete Fourier Transform
 
-Based on [QFT1](@cite) we also have access to the discrete Fourier transform (DFT) in QTT format. Below is an example of how to use it. You can use the `fourier_qtto` function to create a QTT representation of the Fourier transform operator where the `sign` parameter determines if its the Fourier transform or the inverse Fourier transform. 
+Based on [QFT1](@cite) we also have access to the discrete Fourier transform (DFT) in QTT format. Below is an example of how to use it. You can use the `fourier_qtto` function to create a QTT representation of the Fourier transform operator, where the `sign` parameter determines whether it is the Fourier transform or the inverse Fourier transform.
 
 ```@example DFT
 using TensorTrainNumerics   
@@ -119,7 +119,7 @@ x_qtt = function_to_qtt_uniform(f, d)
 y_qtt = F * x_qtt
 ```
 
-# Variational solver
+## Variational Solver
 
 You can also solve differential equations by optimizing a variational functional. Below is an example of how to use the `variational_solver` function to solve Burgers equation based on - [OptimKit.jl](https://github.com/Jutho/OptimKit.jl) 
 
@@ -198,13 +198,12 @@ axislegend(ax)
 fig
 ```
 
-# TT-cross approximation
+## TT-Cross Approximation
 
-The TT-cross algorithm allows you to approximate a high-dimensional tensor from function calls. Below is an example of how to use the `tt_cross` function to
+The TT-cross algorithm allows you to approximate a high-dimensional tensor from function calls. Below we approximate a smooth six-dimensional function on a tensor-product grid, reconstruct the full tensor on this modest example, and compare the TT-cross approximation against the reference tensor.
 
 ```@example TTcross
 using LinearAlgebra
-using CairoMakie
 using TensorTrainNumerics
 
 function sin_6d(coords::Matrix{Float64})
@@ -230,9 +229,10 @@ error = norm(tensor_approx - tensor_exact) / norm(tensor_exact)
 
 max_error = maximum(abs.(tensor_approx - tensor_exact))
 ```
-And we can check the difference at random indices
+We can print the global error metrics and then check a few random entries directly.
 ```@example TTcross
 println("Relative error: ", error)
+println("Maximum absolute error: ", max_error)
 for _ in 1:5
     idx = Tuple(rand(1:n) for _ in 1:d)
     coords = [domain[k][idx[k]] for k in 1:d]

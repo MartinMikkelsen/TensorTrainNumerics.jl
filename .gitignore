@@ -25,4 +25,3 @@ docs/site/
 # environment.
 Manifest.toml
 docs/build/
-*.md

@@ -117,7 +117,7 @@ end
 function _evaluate_on_domain(f, domain::Vector{<:AbstractVector}, indices::Matrix{Int})
     N = length(domain)
     n_points = size(indices, 1)
-    T = eltype(domain[1])
+    T = promote_type(map(eltype, domain)...)
     coords = Matrix{T}(undef, n_points, N)
     for p in 1:n_points, d in 1:N
         coords[p, d] = domain[d][indices[p, d]]
@@ -128,17 +128,13 @@ end
 function _evaluate_tt(cores, indices, N)
     T = eltype(cores[1])
     n_points = size(indices, 1)
-    result = zeros(T, n_points)
-    for p in 1:n_points
-        val = ones(T, 1, 1)
-        for d in 1:N
-            idx = indices[p, d]
-            core_slice = cores[d][idx, :, :]
-            val = val * core_slice
-        end
-        result[p] = val[1, 1]
+    state = ones(T, n_points, 1)
+    for d in 1:N
+        r_r = size(cores[d], 3)
+        slices = cores[d][indices[:, d], :, :]
+        state = reshape(sum(reshape(state, n_points, :, 1) .* slices, dims = 2), n_points, r_r)
     end
-    return result
+    return vec(state)
 end
 
 function _svdtrunc(A::AbstractMatrix{T}; max_bond::Int = typemax(Int), truncerr::Real = 0.0) where {T}
@@ -163,11 +159,13 @@ end
 function _build_fiber_indices(lsets, rsets, j, Is, Rs, N)
     n_fibers = Rs[j] * Is[j] * Rs[j + 1]
     indices = Matrix{Int}(undef, n_fibers, N)
+    n_left  = j - 1
+    n_right = N - j
     idx = 1
     for r_right in 1:Rs[j + 1], r_left in 1:Rs[j], i in 1:Is[j]
-        left_idx = j == 1 ? Int[] : lsets[j][r_left, :]
-        right_idx = j == N ? Int[] : rsets[j][r_right, :]
-        indices[idx, :] = vcat(left_idx, [i], right_idx)
+        j > 1 && (indices[idx, 1:n_left]              = lsets[j][r_left, :])
+        indices[idx, j]                               = i
+        j < N && (indices[idx, (j + 1):(j + n_right)] = rsets[j][r_right, :])
         idx += 1
     end
     return indices
@@ -190,18 +188,6 @@ function tt_cross(
     N = length(domain)
     Is = [length(d) for d in domain]
     Tv = _infer_value_type(f, domain)
-    if Tv <: Complex
-        alg.verbose && @warn "MaxVol cross for complex-valued targets can be unstable; using DMRG cross backend"
-        dmrg_alg = DMRG(
-            maxiter = alg.maxiter,
-            tol = alg.tol,
-            rmax = alg.rmax,
-            kickrank = alg.kickrank,
-            verbose = alg.verbose,
-            pivot = alg.pivot isa MaxVolPivot ? alg.pivot : MaxVolPivot(),
-        )
-        return tt_cross(f, domain, dmrg_alg; ranks = ranks, val_size = val_size)
-    end
 
     Rs = isa(ranks, Int) ? vcat([1], fill(ranks, N - 1), [1]) : vcat([1], ranks, [1])
     _cap_ranks!(Rs, Is, alg.rmax)
@@ -262,7 +248,9 @@ function tt_cross(
             V = reshape(_evaluate_on_domain(f, domain, indices), Rs[j] * Is[j], Rs[j + 1])
             V_3d = reshape(V, Is[j], Rs[j], Rs[j + 1])
             V_right = reshape(permutedims(V_3d, (2, 1, 3)), Rs[j], Is[j] * Rs[j + 1])
-            Q_mat = Matrix(first(qr(V_right')))
+            # Use a plain transpose here: TT cross uses bilinear products, so an
+            # adjoint would introduce a spurious conjugation for complex targets.
+            Q_mat = Matrix(first(qr(transpose(V_right))))
             local_indices, _ = maxvol!(copy(Q_mat), alg.pivot.tol, alg.pivot.maxiter)
 
             G = Q_mat / Q_mat[local_indices, :]
@@ -452,7 +440,7 @@ function tt_cross(
             cry2 = reshape(y[i + 1], Rs[i + 1], Is[i + 1] * Rs[i + 2])
             cre1, cre2 = cry1 * mid_inv_U[i + 1], mid_inv_L[i + 1] * cry2
 
-            cry_approx = [LinearAlgebra.dot(cre1[tind1[j], :], cre2[:, tind2[j]]) for j in 1:testsz]
+            cry_approx = [sum(cre1[tind1[j], :] .* cre2[:, tind2[j]]) for j in 1:testsz]
             cre = crt - cry_approx
 
             _, imax_test = findmax(abs.(cre))
@@ -474,7 +462,7 @@ function tt_cross(
                 uold, lold = mid_inv_U[i + 1], mid_inv_L[i + 1]
                 erow = reshape(cry1[imax1, :], 1, Rs[i + 1])
                 ecol = cre1_new[ilocl[i + 1], 1]
-                alpha = cre1_new[imax1, 1] - LinearAlgebra.dot(vec(erow * uold), lold * ecol)
+                alpha = cre1_new[imax1, 1] - sum(vec(erow * uold) .* vec(lold * ecol))
                 (!isfinite(real(alpha)) || !isfinite(imag(alpha)) || abs(alpha) <= max(alg.tol, eps(real(float(abs(alpha)))))) && continue
 
                 new_U = zeros(Tv, Rs[i + 1] + 1, Rs[i + 1] + 1)
