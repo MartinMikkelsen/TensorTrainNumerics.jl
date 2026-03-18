@@ -15,7 +15,7 @@ p = nu / 2
     0.1  0.15 0.2  1.1  0.19
     0.18 0.22 0.28 0.19 1.05
 ]
-Σ
+
 @assert isposdef(Σ)
 println("Eigenvalues of Σ: ", round.(eigvals(Σ); sigdigits = 4))
 println("Condition number: ", round(cond(Σ); sigdigits = 4))
