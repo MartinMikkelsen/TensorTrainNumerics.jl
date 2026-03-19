@@ -1,6 +1,6 @@
 name = "TensorTrainNumerics"
 uuid = "304e70ee-b558-420e-aed5-de4d05b6ca2b"
-version = "1.0.9"
+version = "1.1.0"
 authors = ["Martin Mikkelsen"]
 
 [deps]
