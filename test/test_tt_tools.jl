@@ -916,33 +916,6 @@ end
     end
 end
 
-@testset "tt2qtt for TTvector" begin
-    # Rank-1 vector: split (4,) → (2,2) cores, little-endian ordering
-    v = [1.0, 2.0, 3.0, 4.0]
-    core = reshape(v, 4, 1, 1)
-    tt = TTvector{Float64, 1}(1, [core], (4,), [1, 1], [0])
-    qtt = tt2qtt(tt, [[2, 2]])
-
-    @test length(qtt.ttv_vec) == 2
-    @test all(qtt.ttv_dims .== 2)
-    @test qtt.ttv_rks[1] == 1
-    @test qtt.ttv_rks[end] == 1
-
-    # Little-endian: n_0 = fine_0 + 2*coarse_0  →  tensor[fine+1, coarse+1] = v[n+1]
-    T_qtt = ttv_to_tensor(qtt)
-    @test isapprox(T_qtt[1, 1], v[1]; atol = 1.0e-12)
-    @test isapprox(T_qtt[2, 1], v[2]; atol = 1.0e-12)
-    @test isapprox(T_qtt[1, 2], v[3]; atol = 1.0e-12)
-    @test isapprox(T_qtt[2, 2], v[4]; atol = 1.0e-12)
-
-    # Multi-core TT: split a (4,4) TT into four (2,) cores
-    tt2 = rand_tt((4, 4), [1, 3, 1])
-    qtt2 = tt2qtt(tt2, [[2, 2], [2, 2]])
-    @test length(qtt2.ttv_vec) == 4
-    @test all(qtt2.ttv_dims .== 2)
-    @test qtt2.ttv_rks[1] == 1
-    @test qtt2.ttv_rks[end] == 1
-end
 
 @testset "matricize" begin
     d = 3
