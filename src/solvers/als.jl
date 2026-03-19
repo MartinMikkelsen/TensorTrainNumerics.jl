@@ -42,12 +42,12 @@ function update_Hb!(x_vec::Array{T, 3}, b_vec::Array{T, 3}, H_bi::Array{T, 2}, H
     return nothing
 end
 
-function update_G!(x_vec::Array{T, 3}, A_vec::Array{T, 4}, Gi::AbstractArray{T, 5}, Gip::AbstractArray{T, 5}) where {T <: Number}
+function update_G!(x_vec::Array{T, 3}, A_vec::Array{T, 4}, Gi::AbstractArray{<:Any, 5}, Gip::AbstractArray{<:Any, 5}) where {T <: Number}
     @tensor Gip[j, α, k, β, J] = (conj.(x_vec)[l, ϕ, α] * (Gi[l, ϕ, m, χ, L] * x_vec[m, χ, β])) * A_vec[j, k, L, J]
     return nothing
 end
 
-function update_Gb!(x_vec::Array{T, 3}, b_vec::Array{T, 3}, G_bi::AbstractArray{T, 3}, G_bip::AbstractArray{T, 3}) where {T <: Number}
+function update_Gb!(x_vec::Array{T, 3}, b_vec::Array{T, 3}, G_bi::AbstractArray{<:Any, 3}, G_bip::AbstractArray{<:Any, 3}) where {T <: Number}
     @tensoropt((ϕ, χ), G_bip[i, α, β] = b_vec[i, ϕ, β] * G_bi[j, χ, ϕ] * conj.(x_vec)[j, χ, α])
     return nothing
 end

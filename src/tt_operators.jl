@@ -258,7 +258,7 @@ function zeros_tt(::Type{T}, dims::Vector{Int}, rks::Vector{Int}; ot = zeros(Int
 end
 
 function zeros_tt(::Type{T}, dims::NTuple{N, Int64}, rks::NTuple{M, Int64}; ot = zeros(Int64, length(dims))) where {T, N, M}
-    return zeros_tt(T, collect(dims), collect(rks); ot = ot)
+    return zeros_tt(T, collect(Int64, dims), collect(Int64, rks); ot = ot)
 end
 
 function zeros_tt!(A::TTvector)

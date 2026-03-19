@@ -69,8 +69,6 @@ function get_nodes(N::Int, node_type::String = "chebyshev")
         return chebyshev_lobatto_nodes(N)
     elseif node_type == "equally_spaced"
         return equally_spaced_nodes(N)
-    elseif node_type == "legendre"
-        return legendre_nodes(N)
     else
         error("Unknown node type: $node_type")
     end

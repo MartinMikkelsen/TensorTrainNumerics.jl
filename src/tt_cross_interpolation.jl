@@ -208,7 +208,7 @@ function tt_cross(
         lsets[n] = zeros(Int, 0, 0)
     end
 
-    Xs_val = hcat([rand(1:Is[d], val_size) for d in 1:N]...)
+    Xs_val = hcat([rand(1:Is[d], val_size) for d in 1:N]...)::Matrix{Int}
     ys_val = _evaluate_on_domain(f, domain, Xs_val)
     norm_ys_val = max(norm(ys_val), alg.tol)
 

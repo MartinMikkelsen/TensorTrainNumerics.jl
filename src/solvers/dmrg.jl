@@ -23,12 +23,12 @@ function init_H(x_tt::TTvector{T}, A_tto::TToperator{T}, N::Int, rmax) where {T 
     return H
 end
 
-function update_H!(x_vec::Array{T, 3}, A_vec::Array{T, 4}, Hi::AbstractArray{T, 3}, Him::AbstractArray{T, 3}) where {T <: Number}
+function update_H!(x_vec::Array{T, 3}, A_vec::Array{T, 4}, Hi::AbstractArray{<:Any, 3}, Him::AbstractArray{<:Any, 3}) where {T <: Number}
     @tensoropt((ϕ, χ), Him[a, α, β] = conj.(x_vec)[j, α, ϕ] * Hi[z, ϕ, χ] * x_vec[k, β, χ] * A_vec[j, k, a, z]) #size (rAim, rim, rim)
     return nothing
 end
 
-function update_G!(x_vec::Array{T, 3}, A_vec::Array{T, 4}, Gi::AbstractArray{T, 3}, Gip::AbstractArray{T, 3}) where {T <: Number}
+function update_G!(x_vec::Array{T, 3}, A_vec::Array{T, 4}, Gi::AbstractArray{<:Any, 3}, Gip::AbstractArray{<:Any, 3}) where {T <: Number}
     @tensoropt((ϕ, χ), Gip[a, α, β] = conj.(x_vec)[j, ϕ, α] * Gi[z, ϕ, χ] * x_vec[k, χ, β] * A_vec[j, k, z, a]) #size (rAi, ri, ri)
     return nothing
 end
@@ -379,7 +379,7 @@ with adaptive rank growth).
 function dmrg_linsolve(
         A::TToperator{T}, b::TTvector{T}, tt_start::TTvector{T}; sweep_count = 2, N = 2, tol = 1.0e-12::Float64,
         sweep_schedule = [2]::Array{Int64, 1}, #Number of sweeps for each bond dimension in rmax_schedule
-        rmax_schedule = [isqrt(prod(tt_start.ttv_dims))]::Array{Int64, 1}, #maximum rank in sweep_schedule
+        rmax_schedule = [isqrt(prod(tt_start.ttv_dims)::Int)]::Array{Int64, 1}, #maximum rank in sweep_schedule
         it_solver = true,
         linsolv_maxiter = 200::Int64, #maximum of iterations for the iterative solver
         linsolv_tol = max(sqrt(tol), 1.0e-8)::Float64, #tolerance of the iterative linear solver
@@ -493,7 +493,7 @@ function dmrg_eigsolve(
         N = 2::Integer, #Number of open sites, N=1 is one-site DMRG, N=2 is two-site DMRG...
         tol = 1.0e-12::Float64, #truncation in left or right core move (doesn't matter for N=1)
         sweep_schedule = [2]::Array{Int64, 1}, #Number of sweeps for each bond dimension in rmax_schedule
-        rmax_schedule = [isqrt(prod(tt_start.ttv_dims))]::Array{Int64, 1}, #maximum rank in sweep_schedule
+        rmax_schedule = [isqrt(prod(tt_start.ttv_dims)::Int)]::Array{Int64, 1}, #maximum rank in sweep_schedule
         it_solver = false::Bool, #linear solver for the microstep
         linsolv_maxiter = 200::Int64, #maximum of iterations for the iterative solver
         linsolv_tol = max(sqrt(tol), 1.0e-8)::Float64, #tolerance of the iterative linear solver
