@@ -41,10 +41,10 @@ function implicit_euler_method(
     @showprogress for h in steps
         M = I - h * A
 
-        next = tt_solver == "mals" ? mals_linsolve(M, solution, guess; kwargs...) :
+        next = (tt_solver == "mals" ? mals_linsolve(M, solution, guess; kwargs...) :
             tt_solver == "als" ? als_linsolve(M, solution, guess; kwargs...) :
             tt_solver == "dmrg" ? dmrg_linsolve(M, solution, guess; kwargs...) :
-            error("Unknown TT solver: $tt_solver")
+            error("Unknown TT solver: $tt_solver"))::TTvector
 
         if normalize
             next = next / norm(next)
@@ -84,10 +84,10 @@ function crank_nicholson_method(
         LHS = I - (h / 2) * A
         RHS = (I + (h / 2) * A) * solution
 
-        next = tt_solver == "mals" ? mals_linsolve(LHS, RHS, guess; kwargs...) :
+        next = (tt_solver == "mals" ? mals_linsolve(LHS, RHS, guess; kwargs...) :
             tt_solver == "als" ? als_linsolve(LHS, RHS, guess; kwargs...) :
             tt_solver == "dmrg" ? dmrg_linsolve(LHS, RHS, guess; kwargs...) :
-            error("Unknown TT solver: $tt_solver")
+            error("Unknown TT solver: $tt_solver"))::TTvector
 
         if normalize
             next = next / norm(next)

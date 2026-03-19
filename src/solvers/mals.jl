@@ -7,7 +7,7 @@ Implementation based on the presentation in
 Holtz, Sebastian, Thorsten Rohwedder, and Reinhold Schneider. "The alternating linear scheme for tensor optimization in the tensor train format." SIAM Journal on Scientific Computing 34.2 (2012): A683-A713.
 """
 
-function updateH_mals!(x_vec::Array{T, 3}, A_vec::Array{T, 4}, Hi::AbstractArray{T, 5}, Him::AbstractArray{T, 5}) where {T <: Number}
+function updateH_mals!(x_vec::Array{T, 3}, A_vec::Array{T, 4}, Hi::AbstractArray{<:Any, 5}, Him::AbstractArray{<:Any, 5}) where {T <: Number}
     @tensor(Him[a, i, α, l, β] = conj.(x_vec)[j, α, x] * (Hi[z, j, x, k, y] * x_vec[k, β, y]) * A_vec[i, l, a, z])
     return nothing
 end
@@ -58,7 +58,7 @@ end
 
 function updateHb_mals!(
         xtt_vec::Array{T, 3}, btt_vec::Array{T, 3},
-        Hbi::AbstractArray{T, 3}, Hbim::AbstractArray{T, 3}
+        Hbi::AbstractArray{<:Any, 3}, Hbim::AbstractArray{<:Any, 3}
     ) where {T <: Number}
     @tensor Hbim[β, i, χ] = conj.(xtt_vec)[j, χ, a] * Hbi[γ, j, a] * btt_vec[i, β, γ]
     return nothing
@@ -144,13 +144,14 @@ function right_core_move_mals(
 end
 
 function K_full_mals(
-        Gi::AbstractArray{T, 5}, Hi::AbstractArray{T, 5},
+        Gi::AbstractArray{<:Any, 5}, Hi::AbstractArray{<:Any, 5},
         K_dims::NTuple{4, Int}
-    ) where {T <: Number}
+    )
+    T = promote_type(eltype(Gi), eltype(Hi))
     K = zeros(T, prod(K_dims), prod(K_dims))
     Krshp = reshape(K, (K_dims..., K_dims...))
     @tensor Krshp[a, b, c, d, e, f, g, h] = Gi[a, b, e, f, z] * Hi[z, c, d, g, h]
-    return Hermitian(K)
+    return Hermitian(K::AbstractMatrix)
 end
 
 function Ksolve_mals(
@@ -238,7 +239,7 @@ function mals_linsolve(
         A::TToperator{T}, b::TTvector{T},
         tt_start::TTvector{T};
         tol::Float64 = 1.0e-12,
-        rmax::Int = round(Int, sqrt(prod(tt_start.ttv_dims))),
+        rmax::Int = round(Int, sqrt(prod(tt_start.ttv_dims)::Int)),
         return_info::Bool = false
     ) where {T <: Number}
 
@@ -333,7 +334,7 @@ function mals_eigsolve(
         A::TToperator{T}, tt_start::TTvector{T};
         tol::Float64 = 1.0e-12,
         sweep_schedule::Vector{Int} = [2],
-        rmax_schedule::Vector{Int} = [round(Int, sqrt(prod(tt_start.ttv_dims)))],
+        rmax_schedule::Vector{Int} = [round(Int, sqrt(prod(tt_start.ttv_dims)::Int))],
         it_solver::Bool = false,
         linsolv_maxiter::Int = 200,
         linsolv_tol::Float64 = max(sqrt(tol), 1.0e-8),
