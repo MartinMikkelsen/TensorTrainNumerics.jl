@@ -604,7 +604,14 @@ function tt_cross(
             r = size(S, 1)
 
             if k < N - 1
-                Q_mat = Matrix(first(qr(U)))
+                if alg.kickrank !== nothing
+                    r_kick = min(r + alg.kickrank, alg.rmax, r_l * s1)
+                    Q_mat = r_kick > r ?
+                        Matrix(first(qr(hcat(U, randn(Tv, r_l * s1, r_kick - r)))))[:, 1:r_kick] :
+                        Matrix(first(qr(U)))
+                else
+                    Q_mat = Matrix(first(qr(U)))
+                end
                 I_idx, _ = maxvol!(copy(Q_mat), alg.pivot.tol, alg.pivot.maxiter)
                 I_l[k + 1] = _combine_indices_left(I_l[k], s1)[I_idx, :]
                 Rs[k + 1] = length(I_idx)
@@ -627,7 +634,14 @@ function tt_cross(
             r = size(S, 1)
 
             if k > 1
-                Q_mat = Matrix(first(qr(Vt')))
+                if alg.kickrank !== nothing
+                    r_kick = min(r + alg.kickrank, alg.rmax, s2 * r_g)
+                    Q_mat = r_kick > r ?
+                        Matrix(first(qr(hcat(Vt', randn(Tv, s2 * r_g, r_kick - r)))))[:, 1:r_kick] :
+                        Matrix(first(qr(Vt')))
+                else
+                    Q_mat = Matrix(first(qr(Vt')))
+                end
                 I_idx, _ = maxvol!(copy(Q_mat), alg.pivot.tol, alg.pivot.maxiter)
                 I_g[k] = _combine_indices_right(s2, I_g[k + 1])[I_idx, :]
                 Rs[k + 1] = length(I_idx)

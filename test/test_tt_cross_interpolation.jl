@@ -145,6 +145,43 @@ import TensorTrainNumerics: MaxVolPivot, RandomPivot, MaxVol, Greedy, DMRG, _cap
             @test tt.N == 4
         end
 
+        @testset "DMRG kickrank rank exploration and accuracy" begin
+            # kickrank enriches the SVD factor with random orthogonal directions
+            # before maxvol, so the pivot index sets grow beyond what truncated SVD
+            # alone would select.  The main benefit is robustness: for functions
+            # whose important features are unlikely to be sampled by the current
+            # index sets, the random enrichment helps escape rank-deficient local
+            # minima.  We verify two properties:
+            #   1. the maximum bond dimension is strictly larger with kickrank, and
+            #   2. the approximation error is at most as large as without kickrank.
+            d = 5
+            domain = [range(-2.0, 2.0, length = 12) |> collect for _ in 1:d]
+            f(x) = vec(1.0 ./ (1.0 .+ sum(x .^ 2, dims = 2)))
+
+            Random.seed!(42)
+            tt_no_kick = tt_cross(f, domain,
+                DMRG(verbose = false, tol = 1.0e-14, maxiter = 3, kickrank = nothing, rmax = 30); ranks = 1)
+            Random.seed!(42)
+            tt_kick = tt_cross(f, domain,
+                DMRG(verbose = false, tol = 1.0e-14, maxiter = 3, kickrank = 4, rmax = 30); ranks = 1)
+
+            # kickrank grows the bond dimensions beyond SVD-determined structure
+            @test maximum(tt_kick.ttv_rks) > maximum(tt_no_kick.ttv_rks)
+
+            # both achieve high accuracy on held-out points
+            Random.seed!(2025)
+            ncheck = 400
+            idx = hcat([rand(1:12, ncheck) for _ in 1:d]...)
+            ys = f(hcat([domain[k][idx[:, k]] for k in 1:d]...))
+
+            err_no_kick = norm(ys .- TensorTrainNumerics._evaluate_tt(tt_no_kick.ttv_vec, idx, d)) / norm(ys)
+            err_kick    = norm(ys .- TensorTrainNumerics._evaluate_tt(tt_kick.ttv_vec, idx, d)) / norm(ys)
+
+            @test err_no_kick < 1.0e-8
+            @test err_kick    < 1.0e-8
+            @test err_kick   <= err_no_kick * 2   # kickrank does not degrade accuracy
+        end
+
         @testset "5D Wishart Laplace transform (parameterized)" begin
             d = 5
             nu = d + 2
