@@ -4,6 +4,7 @@ version = "1.1.0"
 authors = ["Martin Mikkelsen"]
 
 [deps]
+GLMakie = "e9467ef8-e4e7-5192-8a1a-b1aee30e663a"
 IterativeSolvers = "42fd0dbc-a981-5370-80f2-aaf504508153"
 KrylovKit = "0b1a1467-8014-51b9-945f-bf0ae24f4b77"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
@@ -19,8 +20,9 @@ TensorTrainNumericsVectorInterfaceExt = "VectorInterface"
 
 [compat]
 Aqua = "0.8.13"
-JET = "0.9, 0.10, 0.11"
+GLMakie = "0.13.9"
 IterativeSolvers = "0.9.4"
+JET = "0.9, 0.10, 0.11"
 KrylovKit = "0.6.1, 0.9, 0.10"
 LinearAlgebra = "1.6.7"
 LinearMaps = "3.11.3"
