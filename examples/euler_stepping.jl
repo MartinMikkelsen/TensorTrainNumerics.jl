@@ -12,15 +12,15 @@ u₀ = qtt_sin(d, λ = π)
 init = rand_tt(u₀.ttv_dims, u₀.ttv_rks)
 steps = collect(range(0.0, 10.0, 1000))
 
-solution_explicit, error_explicit = euler_method(A, u₀, steps; return_error = true, normalize = true)
+solution_explicit, error_explicit = euler_method(A, u₀, steps; return_error = true, normalize = false)
 
-solution_implicit, rel_implicit = implicit_euler_method(A, u₀, init, steps; return_error = true, normalize = true)
+solution_implicit, rel_implicit = implicit_euler_method(A, u₀, init, steps; return_error = true, normalize = false)
 
-solution_crank, rel_crank = crank_nicholson_method(A, u₀, init, steps; return_error = true, tt_solver = "mals")
+solution_crank, rel_crank = crank_nicholson_method(A, u₀, init, steps; return_error = true, tt_solver = "mals", normalize = false)
 
 solution_krylov, rel_krylov = expintegrator(A, last(steps), u₀)
 
-solution_runge, error_runge = rk4_method(A, u₀, steps, 25; return_error = true)
+solution_runge, error_runge = rk4_method(A, u₀, steps, 25; return_error = true, normalize = false)
 
 let
     fig = Figure()

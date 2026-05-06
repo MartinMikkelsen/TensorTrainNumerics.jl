@@ -78,7 +78,7 @@ VectorInterface.length(a::TToperator) = prod(a.tto_dims)
 zero(a::TTvector) = zeros_tt(eltype(a), a.ttv_dims, a.ttv_rks)
 
 function VectorInterface.inner(a::TTvector, b::TTvector)
-    return real(TensorTrainNumerics.dot(a, b))
+    return TensorTrainNumerics.dot(a, b)
 end
 
 VectorInterface.scalartype(a::TTvector) = eltype(a)
