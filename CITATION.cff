@@ -1,0 +1,11 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+authors:
+- family-names: "Martin"
+  given-names: "Mikkelsen"
+  orcid: "0009-0005-3932-6563"
+title: "TensorTrainNumerics.jl"
+version: 1.1.0
+doi: 10.5281/zenodo.1234
+date-released: 2026-3-19
+url: "https://github.com/MartinMikkelsen/TensorTrainNumerics.jl"
