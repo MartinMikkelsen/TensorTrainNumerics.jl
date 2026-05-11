@@ -149,12 +149,12 @@ u₀ = qtt_sin(d, λ = π) # sin(π^2 x)
 steps = collect(range(0.0, 10.0, 1000))
 init = rand_tt(u₀.ttv_dims, u₀.ttv_rks)
 ```
-Finally, we can solve the problem using the explicit Euler method, the implicit Euler method, the Crank-Nicolson scheme and a Krylov-based exponential integrator
+Finally, we can solve the problem using the explicit Euler method, the implicit Euler method, the Crank-Nicolson scheme and a Krylov-based exponential integrator. To compare the actual amplitudes across methods, we keep `normalize = false`.
 ```@example heat
 
-solution_implicit, rel_implicit = implicit_euler_method(A, u₀, init, steps; return_error = true, normalize = true)
+solution_implicit, rel_implicit = implicit_euler_method(A, u₀, init, steps; return_error = true, normalize = false)
 
-solution_crank, rel_crank = crank_nicholson_method(A, u₀, init, steps; return_error = true, tt_solver = "mals")
+solution_crank, rel_crank = crank_nicholson_method(A, u₀, init, steps; return_error = true, tt_solver = "mals", normalize = false)
 
 solution_krylov, rel_krylov = expintegrator(A, last(steps), u₀)
 ```
@@ -166,14 +166,7 @@ fig = Figure()
 ax = Axis(fig[1, 1], xlabel = "x", ylabel = "u(x)", title = "Comparison of Time-Stepping Methods")
 lines!(ax, xes, qtt_to_function(solution_implicit), label = "Implicit Euler", linestyle = :dot, linewidth = 3)
 lines!(ax, xes, qtt_to_function(solution_crank), label = "Crank-Nicolson", linestyle = :dash, linewidth = 3)
-axislegend(ax)
-fig
-```
-And similarly for the Krylov-based exponential integrator
-```@example heat
-fig = Figure()
-ax = Axis(fig[1, 1], xlabel = "x", ylabel = "u(x)", title = "Comparison of Time-Stepping Methods")
-lines!(ax, xes, qtt_to_function(solution_krylov), label = "Krylov", linestyle = :solid, linewidth = 3)
+lines!(ax, xes, qtt_to_function(solution_krylov), label = "Krylov", linestyle = :dot, linewidth = 3)
 axislegend(ax)
 fig
 ```
