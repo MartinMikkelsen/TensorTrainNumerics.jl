@@ -64,6 +64,14 @@ function Base.complex(v::TTvector{T, M}) where {T, M}
     return TTvector{Complex{T}, M}(v.N, complex.(v.ttv_vec), v.ttv_dims, v.ttv_rks, v.ttv_ot)
 end
 
+function Base.conj(A::TToperator{T, M}) where {T, M}
+    return TToperator{T, M}(A.N, conj.(A.tto_vec), A.tto_dims, A.tto_rks, A.tto_ot)
+end
+
+function Base.conj(v::TTvector{T, M}) where {T, M}
+    return TTvector{T, M}(v.N, conj.(v.ttv_vec), v.ttv_dims, v.ttv_rks, v.ttv_ot)
+end
+
 """
     rand_orthogonal(n, m; T=Float64)
 

@@ -254,7 +254,7 @@ function zeros_tt(n::Integer, d::Integer, r; ot = zeros(Int64, d), r_and_d = tru
 end
 
 function zeros_tt(::Type{T}, dims::Vector{Int}, rks::Vector{Int}; ot = zeros(Int64, length(dims))) where {T}
-    return zeros_tt(T, Tuple(dims), Tuple(rks); ot = ot)
+    return zeros_tt(T, Tuple(dims), rks; ot = ot)
 end
 
 function zeros_tt(::Type{T}, dims::NTuple{N, Int64}, rks::NTuple{M, Int64}; ot = zeros(Int64, length(dims))) where {T, N, M}
@@ -274,16 +274,16 @@ function ones_tt(dims)
 end
 
 function ones_tt(::Type{T}, dims) where {T}
-    N = length(dims)
-    vec = [ones(T, n, 1, 1) for n in dims]
+    tdims = Tuple(dims)
+    N = length(tdims)
+    vec = [ones(T, n, 1, 1) for n in tdims]
     rks = ones(Int64, N + 1)
     ot = zeros(Int64, N)
-    return TTvector{T, N}(N, vec, dims, rks, ot)
+    return TTvector{T, N}(N, vec, tdims, rks, ot)
 end
 
 function ones_tt(n::Integer, d::Integer)
-    dims = n * ones(Int64, d)
-    return ones_tt(dims)
+    return ones_tt(ntuple(_ -> Int64(n), d))
 end
 
 
