@@ -1,4 +1,4 @@
-# Nonlinear ALS (SCF-ALS) for 1D NLS / GPE ground-state problems
+# Nonlinear ALS / MALS (SCF-ALS / SCF-MALS) for 1D NLS / GPE ground-state problems
 #
 # Method: Self-Consistent Field + Alternating Linear Scheme (SCF-ALS)
 # The nonlinear density |ψ|² is frozen once per outer sweep, converting
@@ -18,6 +18,7 @@
 using LinearAlgebra
 
 _density_tt(ψ::TTvector) = hadamard(conj(ψ), ψ)
+_nls_diag_operator(ψ::TTvector{T}, g::Number) where {T <: Number} = convert(T, g) * ttv_to_diag_tto(_density_tt(ψ))
 
 function _nls_chemical_potential(ψ::TTvector{T}, H_lin::TToperator{T}, g::Real) where {T <: Number}
     ρ = _density_tt(ψ)
@@ -77,9 +78,8 @@ function nonlinear_als_eigsolve(
     for sweep in 1:sweep_count
 
         # ── SCF step: rebuild frozen-density operator ─────────────────────
-        # |ψ|² in TT format; ranks = rks .* rks (entry-wise)
-        ρ    = _density_tt(tt_opt)
-        D_nl = gT * ttv_to_diag_tto(ρ)    # g · diag(|ψ|²), same rank as ρ
+        # Frozen-density operator g · diag(|ψ|²)
+        D_nl = _nls_diag_operator(tt_opt, gT)
 
         # ── Initialize left environments (G) ─────────────────────────────
         G_lin = Array{Array{T}}(undef, d)
@@ -138,6 +138,108 @@ function nonlinear_als_eigsolve(
 end
 
 """
+    nonlinear_mals_eigsolve(H_lin, g, tt_start; tol, sweep_schedule, rmax_schedule, it_solver, linsolv_maxiter, linsolv_tol, itslv_thresh, verbose)
+
+Ground-state solver for the 1D NLS / GPE eigenvalue problem
+
+    (H_lin + g · diag(|ψ|²)) ψ = μ ψ ,   ‖ψ‖ = 1 ,
+
+via SCF-MALS: at the start of each sweep the density is frozen, producing a
+linearized effective operator that is minimized with one rank-adaptive
+two-site MALS sweep.
+
+# Arguments
+- `H_lin    :: TToperator{T}` — linear Hamiltonian (kinetic + trap potential)
+- `g        :: Real`          — nonlinear coupling (g > 0 repulsive, g < 0 attractive)
+- `tt_start :: TTvector{T}`   — initial guess (need not be normalized)
+
+# Keyword arguments
+- `tol::Float64=1e-12` — relative SVD truncation threshold for rank adaptation.
+- `sweep_schedule::Vector{Int}=[2]` — SCF-MALS sweep schedule, using the same stage semantics as `mals_eigsolve`.
+- `rmax_schedule::Vector{Int}` — maximum bond dimension at each stage.
+- `it_solver::Bool=false` — use an iterative eigensolver for local two-site subproblems.
+- `linsolv_maxiter::Int=200` — maximum iterations for the iterative eigensolver.
+- `linsolv_tol::Float64=max(sqrt(tol), 1e-8)` — tolerance for the iterative eigensolver.
+- `itslv_thresh::Int=256` — local problem size above which iterative solve activates.
+- `verbose::Bool=true` — print the global μ, pre-normalization norm, and max rank after each sweep.
+
+# Returns
+`(μ_hist, ψ, r_hist)` where `μ_hist :: Vector{Float64}` collects the global
+chemical potential of the normalized iterate after each full SCF-MALS sweep,
+`ψ :: TTvector{T}` is the approximate ground state with ‖ψ‖ = 1, and
+`r_hist :: Vector{Int}` stores the maximum bond dimension after each local
+two-site update.
+
+# Notes
+- Rank adaptation follows the same truncation and sweep-schedule conventions as `mals_eigsolve`.
+- Normalization is ‖ψ‖² = 1 in the discrete l² sense; multiply by the
+  grid spacing h to get the physical integral norm.
+"""
+function nonlinear_mals_eigsolve(
+        H_lin   :: TToperator{T},
+        g       :: Real,
+        tt_start:: TTvector{T};
+        tol::Float64 = 1.0e-12,
+        sweep_schedule::Vector{Int} = [2],
+        rmax_schedule::Vector{Int} = [round(Int, sqrt(prod(tt_start.ttv_dims)::Int))],
+        it_solver::Bool = false,
+        linsolv_maxiter::Int = 200,
+        linsolv_tol::Float64 = max(sqrt(tol), 1.0e-8),
+        itslv_thresh::Int = 256,
+        verbose::Bool = true
+    ) where {T <: Number}
+
+    @assert(length(rmax_schedule) == length(sweep_schedule), "Sweep schedule error")
+
+    tt_opt = orthogonalize(tt_start)
+    tt_opt = (one(T) / norm(tt_opt)) * tt_opt
+
+    μ_hist = Float64[]
+    r_hist = Int[]
+    nsweeps = 0
+    i_schedule = 1
+
+    while i_schedule <= length(sweep_schedule)
+        nsweeps += 1
+
+        if nsweeps == sweep_schedule[i_schedule]
+            i_schedule += 1
+            if i_schedule > length(sweep_schedule)
+                return μ_hist, tt_opt, r_hist
+            end
+        end
+
+        D_nl = _nls_diag_operator(tt_opt, g)
+        H_eff = H_lin + D_nl
+
+        _, tt_opt, r_hist_sweep = mals_eigsolve(
+            H_eff, tt_opt;
+            tol = tol,
+            sweep_schedule = [2],
+            rmax_schedule = [rmax_schedule[i_schedule]],
+            it_solver = it_solver,
+            linsolv_maxiter = linsolv_maxiter,
+            linsolv_tol = linsolv_tol,
+            itslv_thresh = itslv_thresh
+        )
+        append!(r_hist, r_hist_sweep)
+
+        n_prev = norm(tt_opt)
+        tt_opt = (one(T) / n_prev) * tt_opt
+        μ = _nls_chemical_potential(tt_opt, H_lin, g)
+        push!(μ_hist, μ)
+
+        if verbose
+            println("  sweep $nsweeps  μ ≈ $(round(μ, digits=8))" *
+                    "  ‖ψ‖_before_norm = $(round(n_prev, sigdigits=6))" *
+                    "  max_rank = $(maximum(tt_opt.ttv_rks))")
+        end
+    end
+
+    return μ_hist, tt_opt, r_hist
+end
+
+"""
     nonlinear_tdvp_imagtime(H_lin, g, tt_start; dτ, n_steps, verbose)
 
 Ground-state solver for the 1D NLS / GPE equation using imaginary-time ALS:
@@ -191,8 +293,7 @@ function nonlinear_tdvp_imagtime(
         rks = ψ.ttv_rks
 
         # ── SCF step: rebuild frozen-density operator ─────────────────────
-        ρ    = _density_tt(ψ)
-        D_nl = gT * ttv_to_diag_tto(ρ)
+        D_nl = _nls_diag_operator(ψ, gT)
 
         # ── Initialize left environments (G) ─────────────────────────────
         G_lin = Array{Array{T}}(undef, d)

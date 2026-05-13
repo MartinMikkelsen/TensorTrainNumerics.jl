@@ -65,3 +65,61 @@ end
     @test all(isfinite, μ_hist)
     @test isapprox(μ_hist[end], nonlinear_chemical_potential(ψ, H_lin, g); rtol = 1.0e-10, atol = 1.0e-10)
 end
+
+@testset "nonlinear_mals_eigsolve returns global sweep-wise μ history" begin
+    d = 4
+    g = 0.8
+    H_lin = nonlinear_spd_op(d, 4.0)
+    ψ0 = rand_tt(ntuple(_ -> 2, d), [1, 1, 1, 1, 1]; normalise = true)
+
+    μ_hist, ψ, r_hist = nonlinear_mals_eigsolve(
+        H_lin, g, ψ0;
+        tol = 1.0e-10,
+        sweep_schedule = [4],
+        rmax_schedule = [4],
+        verbose = false
+    )
+
+    @test length(μ_hist) == 3
+    @test !isempty(r_hist)
+    @test maximum(ψ.ttv_rks) ≤ 4
+    @test isapprox(μ_hist[end], nonlinear_chemical_potential(ψ, H_lin, g); rtol = 1.0e-10, atol = 1.0e-10)
+
+    ψ_step = ψ0
+    μ_expected = Float64[]
+    for _ in 1:3
+        μ_one, ψ_step, _ = nonlinear_mals_eigsolve(
+            H_lin, g, ψ_step;
+            tol = 1.0e-10,
+            sweep_schedule = [2],
+            rmax_schedule = [4],
+            verbose = false
+        )
+        push!(μ_expected, only(μ_one))
+    end
+
+    @test isapprox(μ_hist, μ_expected; rtol = 1.0e-10, atol = 1.0e-10)
+end
+
+@testset "nonlinear_mals_eigsolve handles complex TT states" begin
+    d = 4
+    g = 0.6
+    H_lin = complex(nonlinear_spd_op(d, 3.5))
+    ψ0 = complex(rand_tt(ntuple(_ -> 2, d), [1, 1, 1, 1, 1]; normalise = true))
+    for (k, core) in pairs(ψ0.ttv_vec)
+        ψ0.ttv_vec[k] .= cis(0.15 * k) .* core
+    end
+
+    μ_hist, ψ, r_hist = nonlinear_mals_eigsolve(
+        H_lin, g, ψ0;
+        tol = 1.0e-10,
+        sweep_schedule = [3],
+        rmax_schedule = [4],
+        verbose = false
+    )
+
+    @test length(μ_hist) == 2
+    @test !isempty(r_hist)
+    @test all(isfinite, μ_hist)
+    @test isapprox(μ_hist[end], nonlinear_chemical_potential(ψ, H_lin, g); rtol = 1.0e-10, atol = 1.0e-10)
+end

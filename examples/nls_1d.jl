@@ -5,11 +5,14 @@
 # Trap:     V(x) = κ(x - 0.5)²  (harmonic, centered at 0.5)
 # Norm:     ‖ψ‖² = 1  (discrete l² norm; physical integral norm = h·‖ψ‖²)
 #
-# Solver: nonlinear_als_eigsolve (SCF-ALS)
-# At each outer sweep the density |ψ|² is frozen, giving a linear
-# eigenvalue problem solved site-by-site with standard ALS micro-steps.
+# Solvers:
+#   nonlinear_als_eigsolve  — SCF-ALS   (single-site, fixed-rank)
+#   nonlinear_mals_eigsolve — SCF-MALS  (two-site, rank-adaptive)
+# At each outer sweep the density |ψ|² is frozen, giving a linearized
+# eigenvalue problem solved by ALS or MALS micro-steps.
 
 using TensorTrainNumerics
+using Printf
 
 # ── Grid ──────────────────────────────────────────────────────────────────
 L = 8             # 2^L = 256 grid points
@@ -29,6 +32,16 @@ H_lin  = H_kin + ttv_to_diag_tto(V_trap)
 
 println("H_lin TTO ranks: ", H_lin.tto_rks)
 
+function run_nls_mals(H, g, ψ0; n_sweeps = 12, tol = 1.0e-10, rmax = 8, verbose = false)
+    return nonlinear_mals_eigsolve(
+        H, g, ψ0;
+        tol = tol,
+        sweep_schedule = [n_sweeps + 1],
+        rmax_schedule = [rmax],
+        verbose = verbose
+    )
+end
+
 # ── Initial guess: random rank-4 TT ──────────────────────────────────────
 r = 4
 tt0 = rand_tt(fill(2, L), r; normalise = true)
@@ -41,38 +54,57 @@ println("  μ_linear = $μ_lin")
 
 # ── Nonlinear SCF-ALS ─────────────────────────────────────────────────────
 println("\n=== Nonlinear SCF-ALS  (g = $g) ===")
-μ_hist, ψ = nonlinear_als_eigsolve(H_lin, g, ψ_lin; sweep_count = 12, verbose = true)
-μ_nl = μ_hist[end]
+μ_hist_als, ψ_als = nonlinear_als_eigsolve(H_lin, g, ψ_lin; sweep_count = 12, verbose = true)
+μ_nl_als = μ_hist_als[end]
+
+# ── Nonlinear SCF-MALS ────────────────────────────────────────────────────
+println("\n=== Nonlinear SCF-MALS  (g = $g) ===")
+μ_hist_mals, ψ_mals, r_hist_mals = run_nls_mals(H_lin, g, ψ_lin; n_sweeps = 12, rmax = 8, verbose = true)
+μ_nl_mals = μ_hist_mals[end]
 
 # ── Diagnostics ──────────────────────────────────────────────────────────
 println("\n=== Diagnostics ===")
 println("  μ_linear    = $(round(μ_lin, digits=6))")
-println("  μ_nonlinear = $(round(μ_nl,  digits=6))")
-println("  Δμ = μ_nl - μ_lin = $(round(μ_nl - μ_lin, digits=6))  " *
-        "(positive for repulsive g > 0)")
+println("  μ_ALS        = $(round(μ_nl_als,  digits=6))")
+println("  μ_MALS       = $(round(μ_nl_mals, digits=6))")
+println("  Δμ_ALS  = μ_ALS  - μ_lin = $(round(μ_nl_als  - μ_lin, digits=6))")
+println("  Δμ_MALS = μ_MALS - μ_lin = $(round(μ_nl_mals - μ_lin, digits=6))")
+println("  |μ_ALS - μ_MALS| = $(round(abs(μ_nl_als - μ_nl_mals), digits=10))")
 
-ψ_vec = qtt_to_function(ψ)
-println("  ‖ψ‖²            = $(round(sum(abs2, ψ_vec), digits=8))  (should be 1)")
-println("  ‖ψ‖² · h        = $(round(sum(abs2, ψ_vec) * h, digits=6))  (physical integral norm)")
-println("  max |ψ|         = $(round(maximum(abs, ψ_vec), digits=6))")
-println("  E_NLS           = $(round(nls_energy(ψ, H_lin, g), digits=6))")
-println("  TT ranks of ψ   = $(ψ.ttv_rks)")
+for (name, ψ, r_hist) in [("SCF-ALS", ψ_als, Int[]), ("SCF-MALS", ψ_mals, r_hist_mals)]
+    ψ_vec = qtt_to_function(ψ)
+    println("\n  [$name]")
+    println("    ‖ψ‖²            = $(round(sum(abs2, ψ_vec), digits=8))  (should be 1)")
+    println("    ‖ψ‖² · h        = $(round(sum(abs2, ψ_vec) * h, digits=6))  (physical integral norm)")
+    println("    max |ψ|         = $(round(maximum(abs, ψ_vec), digits=6))")
+    println("    E_NLS           = $(round(nls_energy(ψ, H_lin, g), digits=6))")
+    println("    TT ranks of ψ   = $(ψ.ttv_rks)")
+    isempty(r_hist) || println("    max local rank history = $(maximum(r_hist))")
+end
 
 # ── Convergence history ───────────────────────────────────────────────────
 println("\n=== μ at last 5 sweeps (should be converged) ===")
-for μi in μ_hist[end-4:end]
-    println("  μ = $(round(μi, digits=8))")
+for (name, hist) in [("SCF-ALS", μ_hist_als), ("SCF-MALS", μ_hist_mals)]
+    println("  [$name]")
+    for μi in hist[max(1, end - 4):end]
+        println("    μ = $(round(μi, digits=8))")
+    end
 end
 
 # ── Coupling scan: μ vs g ─────────────────────────────────────────────────
 println("\n=== μ vs g (using linear ground state as warm start) ===")
+@printf("  %6s  %12s  %12s  %10s\n", "g", "μ_ALS", "μ_MALS", "|Δ|")
 for gi in [0.0, 10.0, 50.0, 100.0, 200.0]
     if gi == 0.0
-        μi = μ_lin
+        μ_als_i = μ_lin
+        μ_mals_i = μ_lin
     else
-        μh, _ = nonlinear_als_eigsolve(H_lin, gi, ψ_lin;
-                                        sweep_count = 10, verbose = false)
-        μi = μh[end]
+        μh_als, _ = nonlinear_als_eigsolve(H_lin, gi, ψ_lin;
+                                           sweep_count = 10, verbose = false)
+        μ_als_i = μh_als[end]
+        μh_mals, _, _ = run_nls_mals(H_lin, gi, ψ_lin; n_sweeps = 10, rmax = 8, verbose = false)
+        μ_mals_i = μh_mals[end]
     end
-    println("  g = $(lpad(gi, 6))  →  μ = $(round(μi, digits=6))")
+    @printf("  %6.1f  %12.6f  %12.6f  %10.2e\n",
+            gi, μ_als_i, μ_mals_i, abs(μ_als_i - μ_mals_i))
 end
