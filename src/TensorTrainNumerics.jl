@@ -9,7 +9,7 @@ include("tt_operations.jl")
 export als_linsolve, als_eigsolve, als_gen_eigsolv
 include("solvers/als.jl")
 
-export nonlinear_als_eigsolve, nonlinear_mals_eigsolve, nonlinear_tdvp_imagtime, nls_energy
+export nonlinear_als_eigsolve, nonlinear_mals_eigsolve, nonlinear_tdvp_imagtime, nls_energy, burgers_scf_als_step, burgers_scf_als, burgers_scf_mals_step, burgers_scf_mals, allen_cahn_als_step, allen_cahn_als, allen_cahn_mals_step, allen_cahn_mals
 include("solvers/nonlinear.jl")
 
 export mals_eigsolve, mals_linsolve

@@ -86,7 +86,7 @@ Constructs a tensor train operator (TTO) representation of the Laplacian with Ne
 """
 function Δ_NN(d)
     @assert d ≥ 4 "Dimension must be at least 4"
-    out = zeros_tto(ntuple(_ -> 2, d), [4; fill(5, d - 1); 4])
+    out = zeros_tto(ntuple(_ -> 2, d), [1; fill(5, d - 1); 1])
     id = [1 0; 0 1]
     J = [0 1; 0 0]
     I₁ = [1 0; 0 0]

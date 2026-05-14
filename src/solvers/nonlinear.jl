@@ -373,3 +373,501 @@ function nls_energy(ψ::TTvector{T}, H_lin::TToperator{T}, g::Real) where {T <: 
     E_nl  = real(convert(T, g) / 2 * dot(ρ, ρ))         # (g/2)‖ψ‖₄⁴
     return E_lin + E_nl
 end
+
+"""
+    burgers_scf_als_step(u_prev, D_x, D_xx, ν, dt; ...)
+
+One implicit-Euler time step for the viscous Burgers equation
+
+    ∂_t u + u · ∂_x u = ν · ∂_xx u
+
+via Picard (SCF) linearization: freeze the advection coefficient at the
+current iterate, solve the resulting linear system with ALS, repeat until
+convergence.  The linear system at each Picard iteration is
+
+    [(1/dt)·I + diag(u^k)·D_x + ν·D_xx] · u^{k+1} = u^{prev}/dt
+
+Note: `D_xx` here is the negative Laplacian (`Δ_DN`, positive eigenvalues), so
+`+ν·D_xx` corresponds to the stabilising `−ν·∂²/∂x²` term in the PDE.
+
+MALS is intentionally not supported: `mals_linsolve` symmetrises the local
+matrix via `Hermitian(K)`, which discards the antisymmetric advection
+contribution and produces wrong results for non-Hermitian operators.
+
+# Arguments
+- `u_prev :: TTvector{T}`   — solution at the previous time step
+- `D_x    :: TToperator{T}` — first-derivative operator (already scaled by 1/dx)
+- `D_xx   :: TToperator{T}` — second-derivative operator (already scaled by 1/dx²),
+                               expected to be the negative Laplacian (positive eigenvalues)
+- `ν      :: Real`          — viscosity
+- `dt     :: Real`          — time step
+
+# Keyword arguments
+- `max_scf   :: Int  = 10`   — maximum Picard iterations per step
+- `scf_tol   :: Real = 1e-8` — relative convergence: ‖u^{k+1} − u^k‖ / ‖u^{k+1}‖
+- `max_bond  :: Int  = 20`   — TT bond dimension cap after compression
+- `als_sweeps:: Int  = 5`    — number of ALS sweeps for the inner linear solve
+- `verbose   :: Bool = false` — print per-Picard-iteration residual
+
+# Returns
+`u_new :: TTvector{T}` — solution at the new time level
+"""
+function burgers_scf_als_step(
+        u_prev    :: TTvector{T},
+        D_x       :: TToperator{T},
+        D_xx      :: TToperator{T},
+        ν         :: Real,
+        dt        :: Real;
+        max_scf   :: Int  = 10,
+        scf_tol   :: Real = 1e-8,
+        max_bond  :: Int  = 20,
+        als_sweeps:: Int  = 5,
+        verbose   :: Bool = false
+    ) where {T <: Number}
+
+    d     = u_prev.N
+    I_tto = id_tto(T, d; n_dim = 2)
+    rhs   = convert(T, inv(dt)) * u_prev
+    νT    = convert(T, ν)
+    invdt = convert(T, inv(dt))
+
+    u = u_prev
+    for iter in 1:max_scf
+        u_old = u
+        A_adv = ttv_to_diag_tto(u) * D_x
+        A_eff = invdt * I_tto + A_adv + νT * D_xx
+        u = als_linsolve(A_eff, rhs, u_old; sweep_count = als_sweeps)
+        u = tt_compress!(u, max_bond)
+        rel_diff = norm(u - u_old) / (norm(u) + eps(real(T)))
+        verbose && println("    Picard $iter  rel_diff = $(round(rel_diff, sigdigits=4))")
+        rel_diff < scf_tol && break
+    end
+    return u
+end
+
+"""
+    burgers_scf_als(u₀, D_x, D_xx, ν, dt, n_steps; ...)
+
+Time-integrate the viscous Burgers equation for `n_steps` implicit-Euler steps
+using `burgers_scf_als_step` at each step.
+
+# Arguments
+- `u₀      :: TTvector{T}`   — initial condition
+- `D_x     :: TToperator{T}` — first-derivative operator (scaled by 1/dx)
+- `D_xx    :: TToperator{T}` — second-derivative operator (scaled by 1/dx²)
+- `ν       :: Real`          — viscosity
+- `dt      :: Real`          — time step size
+- `n_steps :: Int`           — number of time steps
+
+# Keyword arguments
+Forwarded to `burgers_scf_als_step`: `max_scf`, `scf_tol`, `max_bond`, `als_sweeps`, `verbose`.
+- `verbose_steps :: Bool = false` — print max rank after each time step
+
+# Returns
+`u :: TTvector{T}` — solution at time `n_steps * dt`
+"""
+function burgers_scf_als(
+        u₀           :: TTvector{T},
+        D_x          :: TToperator{T},
+        D_xx         :: TToperator{T},
+        ν            :: Real,
+        dt           :: Real,
+        n_steps      :: Int;
+        max_scf      :: Int  = 10,
+        scf_tol      :: Real = 1e-8,
+        max_bond     :: Int  = 20,
+        als_sweeps   :: Int  = 5,
+        verbose      :: Bool = false,
+        verbose_steps:: Bool = false
+    ) where {T <: Number}
+
+    u = u₀
+    for step in 1:n_steps
+        u = burgers_scf_als_step(u, D_x, D_xx, ν, dt;
+                max_scf = max_scf, scf_tol = scf_tol,
+                max_bond = max_bond, als_sweeps = als_sweeps,
+                verbose = verbose)
+        verbose_steps &&
+            println("  step $step / $n_steps  max_rank = $(maximum(u.ttv_rks))")
+    end
+    return u
+end
+
+"""
+    burgers_scf_mals_step(u_prev, D_x, D_xx, ν, dt; ...)
+
+One implicit-Euler time step for the viscous Burgers equation via Picard (SCF)
+linearization with a **rank-adaptive two-site ALS sweep**.
+
+Identical in spirit to `burgers_scf_als_step` but uses two-site (MALS-style)
+local solves that allow bond dimension to grow up to `max_bond`.  The local
+2-site matrix is assembled without the `Hermitian()` wrapping used by
+`mals_linsolve`, which is required because the advection term `diag(u)·D_x`
+makes `A_eff` non-Hermitian.
+
+# Keyword arguments
+- `max_scf   :: Int  = 10`   — maximum Picard iterations per step
+- `scf_tol   :: Real = 1e-8` — relative convergence: ‖u^{k+1} − u^k‖ / ‖u^{k+1}‖
+- `max_bond  :: Int  = 20`   — maximum TT bond dimension (hard cap on SVD rank)
+- `verbose   :: Bool = false` — print per-Picard-iteration residual
+"""
+function burgers_scf_mals_step(
+        u_prev   :: TTvector{T},
+        D_x      :: TToperator{T},
+        D_xx     :: TToperator{T},
+        ν        :: Real,
+        dt       :: Real;
+        max_scf  :: Int  = 10,
+        scf_tol  :: Real = 1e-8,
+        max_bond :: Int  = 20,
+        verbose  :: Bool = false
+    ) where {T <: Number}
+
+    d     = u_prev.N
+    dims  = u_prev.ttv_dims
+    I_tto = id_tto(T, d; n_dim = 2)
+    rhs   = convert(T, inv(dt)) * u_prev
+    νT    = convert(T, ν)
+    invdt = convert(T, inv(dt))
+
+    u = orthogonalize(u_prev)
+
+    for iter in 1:max_scf
+        u_old = u
+
+        A_adv = ttv_to_diag_tto(u) * D_x
+        A_eff = invdt * I_tto + A_adv + νT * D_xx
+        A_rks = A_eff.tto_rks
+        b_rks = rhs.ttv_rks
+
+        # Allocate left environments G (for A_eff) and G_b (for rhs)
+        G   = Array{Array{T, 5}}(undef, d)
+        G_b = Array{Array{T, 3}}(undef, d)
+        for i in 1:d
+            rmax_i = min(max_bond, prod(dims[1:(i - 1)]), prod(dims[i:end]))
+            G[i]   = zeros(T, dims[i], rmax_i, dims[i], rmax_i, A_rks[i + 1])
+            G_b[i] = zeros(T, dims[i], rmax_i, b_rks[i + 1])
+        end
+        G[1][:, 1:1, :, 1:1, :] = reshape(A_eff.tto_vec[1][:, :, 1, :], dims[1], 1, dims[1], 1, :)
+        G_b[1] = reshape(rhs.ttv_vec[1], dims[1], 1, :)
+
+        H   = init_H_mals(u, A_eff, max_bond)
+        H_b = init_Hb_mals(u, rhs, max_bond)
+
+        # Forward half-sweep: 2-site updates at pairs (1,2), (2,3), ..., (d-1,d)
+        for i in 1:(d - 1)
+            rks  = u.ttv_rks
+            Gi   = @view G[i][:, 1:rks[i],     :, 1:rks[i],     :]
+            Hi   = @view H[i][:, :, 1:rks[i+2], :, 1:rks[i+2]]
+            G_bi = @view G_b[i][:, 1:rks[i],   :]
+            H_bi = @view H_b[i][:, :, 1:rks[i+2]]
+
+            K_dims = (dims[i], rks[i], dims[i+1], rks[i+2])
+            K  = zeros(T, prod(K_dims), prod(K_dims))
+            Kr = reshape(K, (K_dims..., K_dims...))
+            @tensor Kr[a, b, c, q, e, f, g, h] = Gi[a, b, e, f, z] * Hi[z, c, q, g, h]
+            Pb = zeros(T, K_dims)
+            @tensor Pb[a, b, c, q] = G_bi[a, b, z] * H_bi[z, c, q]
+
+            V = reshape(K \ Pb[:], K_dims)
+            u = right_core_move_mals(u, i, V, 0.0, max_bond)
+
+            rks   = u.ttv_rks
+            Gip   = @view G[i+1][:, 1:rks[i+1], :, 1:rks[i+1], :]
+            G_bip = @view G_b[i+1][:, 1:rks[i+1], :]
+            update_G!(u.ttv_vec[i], A_eff.tto_vec[i+1], Gi, Gip)
+            update_Gb!(u.ttv_vec[i], rhs.ttv_vec[i+1], G_bi, G_bip)
+        end
+
+        # Backward half-sweep: 2-site updates at pairs (d-1,d), ..., (1,2)
+        for i in (d - 1):-1:1
+            rks  = u.ttv_rks
+            Gi   = @view G[i][:, 1:rks[i],     :, 1:rks[i],     :]
+            Hi   = @view H[i][:, :, 1:rks[i+2], :, 1:rks[i+2]]
+            G_bi = @view G_b[i][:, 1:rks[i],   :]
+            H_bi = @view H_b[i][:, :, 1:rks[i+2]]
+
+            K_dims = (dims[i], rks[i], dims[i+1], rks[i+2])
+            K  = zeros(T, prod(K_dims), prod(K_dims))
+            Kr = reshape(K, (K_dims..., K_dims...))
+            @tensor Kr[a, b, c, q, e, f, g, h] = Gi[a, b, e, f, z] * Hi[z, c, q, g, h]
+            Pb = zeros(T, K_dims)
+            @tensor Pb[a, b, c, q] = G_bi[a, b, z] * H_bi[z, c, q]
+
+            V = reshape(K \ Pb[:], K_dims)
+            u = left_core_move_mals(u, i, V, 0.0, max_bond)
+
+            if i > 1
+                rks   = u.ttv_rks
+                Him   = @view H[i-1][:, :, 1:rks[i+1], :, 1:rks[i+1]]
+                H_bim = @view H_b[i-1][:, :, 1:rks[i+1]]
+                updateH_mals!(u.ttv_vec[i+1], A_eff.tto_vec[i], Hi, Him)
+                updateHb_mals!(u.ttv_vec[i+1], rhs.ttv_vec[i], H_bi, H_bim)
+            end
+        end
+
+        rel_diff = norm(u - u_old) / (norm(u) + eps(real(T)))
+        verbose && println("    Picard $iter  rel_diff = $(round(rel_diff, sigdigits=4))")
+        rel_diff < scf_tol && break
+    end
+    return u
+end
+
+"""
+    burgers_scf_mals(u₀, D_x, D_xx, ν, dt, n_steps; ...)
+
+Time-integrate the viscous Burgers equation for `n_steps` implicit-Euler steps
+using `burgers_scf_mals_step` (rank-adaptive two-site ALS) at each step.
+
+# Arguments
+- `u₀      :: TTvector{T}`   — initial condition
+- `D_x     :: TToperator{T}` — first-derivative operator (scaled by 1/dx)
+- `D_xx    :: TToperator{T}` — second-derivative operator (scaled by 1/dx²)
+- `ν       :: Real`          — viscosity
+- `dt      :: Real`          — time step size
+- `n_steps :: Int`           — number of time steps
+
+# Keyword arguments
+Forwarded to `burgers_scf_mals_step`: `max_scf`, `scf_tol`, `max_bond`, `verbose`.
+- `verbose_steps :: Bool = false` — print max rank after each time step
+"""
+function burgers_scf_mals(
+        u₀           :: TTvector{T},
+        D_x          :: TToperator{T},
+        D_xx         :: TToperator{T},
+        ν            :: Real,
+        dt           :: Real,
+        n_steps      :: Int;
+        max_scf      :: Int  = 10,
+        scf_tol      :: Real = 1e-8,
+        max_bond     :: Int  = 20,
+        verbose      :: Bool = false,
+        verbose_steps:: Bool = false
+    ) where {T <: Number}
+
+    u = u₀
+    for step in 1:n_steps
+        u = burgers_scf_mals_step(u, D_x, D_xx, ν, dt;
+                max_scf = max_scf, scf_tol = scf_tol,
+                max_bond = max_bond, verbose = verbose)
+        verbose_steps &&
+            println("  step $step / $n_steps  max_rank = $(maximum(u.ttv_rks))")
+    end
+    return u
+end
+
+# ─── Allen-Cahn ──────────────────────────────────────────────────────────────
+#
+# PDE:  ∂_t u = ε²·∂_xx u + u - u³
+#
+# Implicit Euler + Picard linearisation (freeze u² in the cubic term):
+#
+#   [(1/dt - 1)·I + ε²·D_xx + diag((u^k)²)] · u^{k+1} = u^{prev}/dt
+#
+# where D_xx = (1/dx²)·Δ_DN is the discrete negative Laplacian.
+# The effective operator is symmetric positive semi-definite for dt < 1,
+# so standard `als_linsolve` / `mals_linsolve` (which uses Hermitian(K))
+# are both correct here — no special non-symmetric treatment needed.
+
+"""
+    allen_cahn_als_step(u_prev, D_xx, ε, dt; ...)
+
+One implicit-Euler time step for the Allen-Cahn equation
+
+    ∂_t u = ε²·∂_xx u + u - u³
+
+via Picard (SCF) linearization: freeze u² in the cubic term, giving
+
+    [(1/dt - 1)·I + ε²·D_xx + diag((u^k)²)] · u^{k+1} = u^{prev}/dt
+
+`D_xx` should be the negative Laplacian (positive eigenvalues, e.g.
+`(1/dx²) * Δ_DN(d)`).  The effective operator is symmetric, so 1-site ALS
+solves it correctly at fixed rank.
+
+# Arguments
+- `u_prev :: TTvector{T}`   — solution at the previous time step
+- `D_xx   :: TToperator{T}` — second-derivative operator (negative Laplacian, scaled by 1/dx²)
+- `ε      :: Real`          — interface width parameter
+- `dt     :: Real`          — time step
+
+# Keyword arguments
+- `max_scf   :: Int  = 10`   — maximum Picard iterations per step
+- `scf_tol   :: Real = 1e-8` — relative convergence: ‖u^{k+1} − u^k‖ / ‖u^{k+1}‖
+- `max_bond  :: Int  = 20`   — TT bond dimension cap after compression
+- `als_sweeps:: Int  = 5`    — ALS sweeps for the inner linear solve
+- `verbose   :: Bool = false` — print per-Picard-iteration residual
+"""
+function allen_cahn_als_step(
+        u_prev    :: TTvector{T},
+        D_xx      :: TToperator{T},
+        ε         :: Real,
+        dt        :: Real;
+        max_scf   :: Int  = 10,
+        scf_tol   :: Real = 1e-8,
+        max_bond  :: Int  = 20,
+        als_sweeps:: Int  = 5,
+        verbose   :: Bool = false
+    ) where {T <: Number}
+
+    d     = u_prev.N
+    I_tto = id_tto(T, d; n_dim = 2)
+    invdt = convert(T, inv(dt))
+    εT    = convert(T, ε)
+    rhs   = invdt * u_prev
+
+    u = u_prev
+    for iter in 1:max_scf
+        u_old    = u
+        A_react  = ttv_to_diag_tto(hadamard(u, u))         # diag(u²)
+        A_eff    = (invdt - one(T)) * I_tto + εT^2 * D_xx + A_react
+        u        = als_linsolve(A_eff, rhs, u_old; sweep_count = als_sweeps)
+        u        = tt_compress!(u, max_bond)
+        rel_diff = norm(u - u_old) / (norm(u) + eps(real(T)))
+        verbose && println("    Picard $iter  rel_diff = $(round(rel_diff, sigdigits=4))")
+        rel_diff < scf_tol && break
+    end
+    return u
+end
+
+"""
+    allen_cahn_als(u₀, D_xx, ε, dt, n_steps; ...)
+
+Time-integrate the Allen-Cahn equation for `n_steps` implicit-Euler steps
+using `allen_cahn_als_step` (1-site ALS, fixed rank) at each step.
+
+# Arguments
+- `u₀      :: TTvector{T}`   — initial condition
+- `D_xx    :: TToperator{T}` — negative Laplacian operator (scaled by 1/dx²)
+- `ε       :: Real`          — interface width parameter
+- `dt      :: Real`          — time step size
+- `n_steps :: Int`           — number of time steps
+
+# Keyword arguments
+Forwarded to `allen_cahn_als_step`: `max_scf`, `scf_tol`, `max_bond`, `als_sweeps`, `verbose`.
+- `verbose_steps :: Bool = false` — print max rank after each time step
+
+# Returns
+`Vector{TTvector{T}}` of length `n_steps + 1`: entry `k` is the solution at
+time `(k-1)*dt`, with `sol[1] == u₀` and `sol[end]` the solution at `T = n_steps*dt`.
+"""
+function allen_cahn_als(
+        u₀           :: TTvector{T},
+        D_xx         :: TToperator{T},
+        ε            :: Real,
+        dt           :: Real,
+        n_steps      :: Int;
+        max_scf      :: Int  = 10,
+        scf_tol      :: Real = 1e-8,
+        max_bond     :: Int  = 20,
+        als_sweeps   :: Int  = 5,
+        verbose      :: Bool = false,
+        verbose_steps:: Bool = false
+    ) where {T <: Number}
+
+    u         = u₀
+    snapshots = TTvector{T}[u₀]
+    for step in 1:n_steps
+        u = allen_cahn_als_step(u, D_xx, ε, dt;
+                max_scf = max_scf, scf_tol = scf_tol,
+                max_bond = max_bond, als_sweeps = als_sweeps,
+                verbose = verbose)
+        push!(snapshots, u)
+        verbose_steps &&
+            println("  step $step / $n_steps  max_rank = $(maximum(u.ttv_rks))")
+    end
+    return snapshots
+end
+
+"""
+    allen_cahn_mals_step(u_prev, D_xx, ε, dt; ...)
+
+One implicit-Euler time step for the Allen-Cahn equation via Picard (SCF)
+linearization with a rank-adaptive two-site ALS sweep.
+
+Identical to `allen_cahn_als_step` but uses `mals_linsolve` for rank-adaptive
+2-site local solves.  Because the Allen-Cahn effective operator is symmetric
+(diffusion + diagonal reaction), `mals_linsolve` (which wraps the local
+matrix in `Hermitian`) is correct here — unlike the non-symmetric Burgers case.
+
+# Keyword arguments
+- `max_scf  :: Int  = 10`
+- `scf_tol  :: Real = 1e-8`
+- `max_bond :: Int  = 20`  — passed as `rmax` to `mals_linsolve`
+- `verbose  :: Bool = false`
+"""
+function allen_cahn_mals_step(
+        u_prev   :: TTvector{T},
+        D_xx     :: TToperator{T},
+        ε        :: Real,
+        dt       :: Real;
+        max_scf  :: Int  = 10,
+        scf_tol  :: Real = 1e-8,
+        max_bond :: Int  = 20,
+        verbose  :: Bool = false
+    ) where {T <: Number}
+
+    d     = u_prev.N
+    I_tto = id_tto(T, d; n_dim = 2)
+    invdt = convert(T, inv(dt))
+    εT    = convert(T, ε)
+    rhs   = invdt * u_prev
+
+    u = orthogonalize(u_prev)
+    for iter in 1:max_scf
+        u_old    = u
+        A_react  = ttv_to_diag_tto(hadamard(u, u))
+        A_eff    = (invdt - one(T)) * I_tto + εT^2 * D_xx + A_react
+        u        = mals_linsolve(A_eff, rhs, u_old; rmax = max_bond)
+        rel_diff = norm(u - u_old) / (norm(u) + eps(real(T)))
+        verbose && println("    Picard $iter  rel_diff = $(round(rel_diff, sigdigits=4))")
+        rel_diff < scf_tol && break
+    end
+    return u
+end
+
+"""
+    allen_cahn_mals(u₀, D_xx, ε, dt, n_steps; ...)
+
+Time-integrate the Allen-Cahn equation for `n_steps` implicit-Euler steps
+using `allen_cahn_mals_step` (rank-adaptive two-site ALS) at each step.
+
+# Arguments
+- `u₀      :: TTvector{T}`   — initial condition
+- `D_xx    :: TToperator{T}` — negative Laplacian operator (scaled by 1/dx²)
+- `ε       :: Real`          — interface width parameter
+- `dt      :: Real`          — time step size
+- `n_steps :: Int`           — number of time steps
+
+# Keyword arguments
+Forwarded to `allen_cahn_mals_step`: `max_scf`, `scf_tol`, `max_bond`, `verbose`.
+- `verbose_steps :: Bool = false` — print max rank after each time step
+
+# Returns
+`Vector{TTvector{T}}` of length `n_steps + 1`: entry `k` is the solution at
+time `(k-1)*dt`, with `sol[1] == u₀` and `sol[end]` the solution at `T = n_steps*dt`.
+"""
+function allen_cahn_mals(
+        u₀           :: TTvector{T},
+        D_xx         :: TToperator{T},
+        ε            :: Real,
+        dt           :: Real,
+        n_steps      :: Int;
+        max_scf      :: Int  = 10,
+        scf_tol      :: Real = 1e-8,
+        max_bond     :: Int  = 20,
+        verbose      :: Bool = false,
+        verbose_steps:: Bool = false
+    ) where {T <: Number}
+
+    u         = u₀
+    snapshots = TTvector{T}[u₀]
+    for step in 1:n_steps
+        u = allen_cahn_mals_step(u, D_xx, ε, dt;
+                max_scf = max_scf, scf_tol = scf_tol,
+                max_bond = max_bond, verbose = verbose)
+        push!(snapshots, u)
+        verbose_steps &&
+            println("  step $step / $n_steps  max_rank = $(maximum(u.ttv_rks))")
+    end
+    return snapshots
+end
