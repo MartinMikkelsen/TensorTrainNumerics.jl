@@ -128,10 +128,7 @@ for k in eachindex(g_vals)
 end
 axislegend(ax3; position = :lt, framevisible = false)
 
-save("gpe_2d_ground_state.pdf", fig)
-display(fig)
-println("\nSaved gpe_2d_ground_state.pdf")
-println()
+
 @printf("%-6s  %10s  %10s  %10s  %10s  %8s  %8s\n",
         "g", "μ_ALS", "μ_MALS", "Δμ_ALS", "|Δ|", "r_ALS", "r_MALS")
 println("-"^76)

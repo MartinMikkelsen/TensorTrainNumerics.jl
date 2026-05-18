@@ -156,11 +156,6 @@ for (k, g) in enumerate(g_vals)
 end
 axislegend(ax3; position = :lt, labelsize = 12, framevisible = false)
 
-# ── Save ───────────────────────────────────────────────────────────────────
-save("nls_1d_ground_state.pdf", fig)
-display(fig)
-println("Saved nls_1d_ground_state.pdf")
-println()
 println("g        μ_ALS     μ_MALS    |Δ|        rmax_ALS  rmax_MALS  (ε=$compress_tol)")
 println("-"^78)
 for (k, g) in enumerate(g_vals)

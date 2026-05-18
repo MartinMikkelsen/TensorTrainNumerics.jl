@@ -13,7 +13,7 @@ end
 function function_to_tensor(f, d; a = 0.0, b = 1.0)
     out = zeros(ntuple(x -> 2, d))
     for t in CartesianIndices(out)
-        out[t] = f(index_to_point(Tuple(t); L = b - a))
+        out[t] = f(a + (b - a) * index_to_point(Tuple(t)))
     end
     return out
 end

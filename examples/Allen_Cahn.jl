@@ -8,14 +8,14 @@ Nt    = 100
 ε     = 0.05
 
 N   = 2^d
-dx  = L / N
+dx  = L / (N - 1)
 dt  = T_end / Nt
 
-Dxx = (1/dx^2) * Δ(d)
+Dxx = (1/dx^2) * Δ_NN(d)
 
 # Initial condition: sin(2πx) ∈ [-1, 1] — will phase-separate into ±1 plateaus
 u₀  = function_to_qtt(x -> sin(2π * x), d)
-xes = (1:N) ./ N
+xes = (0:N-1) ./ (N-1)
 tes = (0:Nt) .* dt
 
 t_mals = @elapsed sol = allen_cahn_mals(u₀, Dxx, ε, dt, Nt;
@@ -45,5 +45,4 @@ let
     axislegend(ax2)
 
     display(fig)
-    save("allen_cahn.pdf", fig)
 end

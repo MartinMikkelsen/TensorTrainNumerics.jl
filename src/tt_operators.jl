@@ -26,10 +26,59 @@ function shift(d::Int)
 end
 
 """
+Constructs a centered first-difference TTO representing S₊₁ − S₋₁.
+Multiply by `1/(2dx)` to obtain the centered first-derivative operator.
+"""
+function ∇_c(d::Int)
+    return toeplitz_to_qtto(0, 1, -1, d)
+end
+
+"""
+Constructs a centered third-difference TTO representing S₊₂ − 2S₊₁ + 2S₋₁ − S₋₂.
+Multiply by `1/(2dx³)` to obtain the centered third-derivative operator.
+Computed as `∇_c(d) * (S₊₁ + S₋₁ − 2I)`.
+"""
+function ∇3(d::Int)
+    return ∇_c(d) * toeplitz_to_qtto(-2, 1, 1, d)
+end
+
+"""
 Constructs a tensor train operator (TTO) representation of the gradient matrix
 """
 function ∇(d::Int)
     return toeplitz_to_qtto(1, 0, -1, d)
+end
+
+# Rank-1 TTO whose matrix is ⊗_k M_k (same 2×2 matrix at every site).
+function _periodic_wrap(d::Int, M::Matrix{Float64})
+    out = zeros_tto(2, d, 1)
+    for k in 1:d
+        out.tto_vec[k][:, :, 1, 1] = M
+    end
+    return out
+end
+
+"""
+Periodic centered first-difference: S₊₁ − S₋₁ with wrap-around.
+Equivalent to ∇_c(d) plus the two corner corrections that make the shift operators circular.
+Multiply by `1/(2dx)` to obtain the centered first-derivative operator.
+"""
+function ∇_c_P(d::Int)
+    Jt = [0.0 0.0; 1.0 0.0]   # |eₙ⟩⟨e₁|: adds (row N, col 1) = S₊₁ wrap
+    J  = [0.0 1.0; 0.0 0.0]   # |e₁⟩⟨eₙ|: adds (row 1, col N) = S₋₁ wrap
+    return ∇_c(d) + _periodic_wrap(d, Jt) - _periodic_wrap(d, J)
+end
+
+"""
+Periodic centered third-difference: S₊₂ − 2S₊₁ + 2S₋₁ − S₋₂ with wrap-around.
+Computed as `∇_c_P(d) * (S₊₁_P + S₋₁_P − 2I)`.
+Multiply by `1/(2dx³)` to obtain the centered third-derivative operator.
+"""
+function ∇3_P(d::Int)
+    Jt = [0.0 0.0; 1.0 0.0]
+    J  = [0.0 1.0; 0.0 0.0]
+    T_P = toeplitz_to_qtto(-2, 1, 1, d) + _periodic_wrap(d, Jt) + _periodic_wrap(d, J)
+    return ∇_c_P(d) * T_P
 end
 
 """
@@ -108,7 +157,7 @@ Constructs a tensor train operator (TTO) representation of the Laplacian with pe
 """
 function Δ_P(d)
     @assert d ≥ 4 "Dimension must be at least 4"
-    out = zeros_tto(ntuple(_ -> 2, d), fill(5, d + 1))
+    out = zeros_tto(ntuple(_ -> 2, d), [1; fill(5, d - 1); 1])
     id = [1 0; 0 1]
     J = [0 1; 0 0]
     for i in 1:2

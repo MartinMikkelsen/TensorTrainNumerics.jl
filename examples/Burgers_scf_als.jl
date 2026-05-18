@@ -29,5 +29,4 @@ let
     lines!(ax, xes, qtt_to_function(v_scf), label = "SCF-ALS", linewidth = 2, color = :blue)
     axislegend(ax)
     display(fig)
-    save("burgers_scf_als.pdf", fig)
 end
