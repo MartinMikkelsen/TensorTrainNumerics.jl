@@ -164,7 +164,7 @@ function qtt_exp(d; a = 0.0, b = 1.0, α = 1.0, β = 0.0)
 end
 
 """
-Converts a quantum tensor train operator (`TToperator`) into its full matrix representation.
+Converts a quantics tensor train operator (`TToperator`) into its full matrix representation.
 """
 function qtto_to_matrix(Aqtto::TToperator{T, d}) where {T, d}
     A = zeros(2^d, 2^d)
@@ -226,30 +226,6 @@ function qtt_trapezoidal(d; a = 0.0, b = 1.0)
     out.ttv_vec[d][2, 1, 1] = 1.0
 
     return h * out
-end
-
-function qtt_simpson(d; a = 0.0, b = 1.0)
-    N = 2^d
-    h = (b - a) / (N - 1)
-    tensors = [zeros_tt(2, d, 1) for _ in 1:N]
-    @inbounds for i in 0:(N - 1)
-        weight = (i == 0 || i == N - 1) ? 1.0 : (isodd(i) ? 4.0 : 2.0)
-        bits = reverse(digits(i, base = 2, pad = d)) .+ 1
-
-        for k in 1:d
-            fill!(tensors[i + 1].ttv_vec[k], 0.0)
-            tensors[i + 1].ttv_vec[k][bits[k], 1, 1] = 1.0
-        end
-
-        tensors[i + 1] = weight * tensors[i + 1]
-    end
-
-    simpson_tt = tensors[1]
-    for j in 2:N
-        simpson_tt += tensors[j]
-    end
-
-    return (h / 3) * simpson_tt
 end
 
 """
@@ -602,7 +578,6 @@ function Base.:+(a::TTvector, b::QTTvector)
     a + TTvector(b)
 end
 
-# Division: QTTvector / scalar (preserves metadata)
 function Base.:/(q::QTTvector, α::Number)
     QTTvector(TTvector(q) / α, q.n_dims, q.bits_per_dim, q.ordering)
 end
@@ -613,7 +588,6 @@ dot(a::QTTvector, b::TTvector) = dot(TTvector(a), b)
 LinearAlgebra.dot(a::TTvector, b::QTTvector) = dot(a, TTvector(b))
 LinearAlgebra.dot(a::QTTvector, b::TTvector) = dot(TTvector(a), b)
 
-# --- operator arithmetic cross-dispatch ---
 function Base.:-(A::TToperator, B::QTToperator)
     A - TToperator(B)
 end
@@ -646,7 +620,6 @@ function _swap_adjacent_sites(A::AbstractArray{T, 3}, B::AbstractArray{T, 3};
     d1, rl, rm = size(A)   # (phys_dim=2, left_rank, mid_rank)
     d2, _rm, rr = size(B)  # (phys_dim=2, mid_rank, right_rank)
 
-    # Contract: C[σ1, σ2, l, r] = Σ_m A[σ1, l, m] * B[σ2, m, r]
     C = zeros(T, d1, d2, rl, rr)
     for σ1 in 1:d1, σ2 in 1:d2, l in 1:rl, r in 1:rr
         for m in 1:rm
@@ -654,15 +627,8 @@ function _swap_adjacent_sites(A::AbstractArray{T, 3}, B::AbstractArray{T, 3};
         end
     end
 
-    # Swap physical indices: C_swapped[σ2, σ1, l, r]
-    # Then rearrange to (σ2, l, σ1, r) for correct column-major reshape into a matrix.
-    # Row index = (σ2, l) → σ2 + d2*(l-1) (σ2 fast in column-major when laid out as (d2,rl))
-    # Col index = (σ1, r) → σ1 + d1*(r-1)
     C_for_svd = permutedims(C, (2, 3, 1, 4))  # (d2, rl, d1, rr) = (σ2, l, σ1, r)
 
-    # Reshape to matrix for SVD: (d2*rl, d1*rr)
-    # New core k: shape (d2, rl, rnew) — σ2 as physical, l as left
-    # New core k+1: shape (d1, rnew, rr) — σ1 as physical, r as right
     M = reshape(C_for_svd, d2 * rl, d1 * rr)
     F = svd(M)
 
@@ -677,11 +643,7 @@ function _swap_adjacent_sites(A::AbstractArray{T, 3}, B::AbstractArray{T, 3};
     S = Diagonal(sv[1:r_new])
     Vt = F.Vt[1:r_new, :]        # (r_new, d1*rr)
 
-    # New core k: U has shape (d2*rl, r_new); reshape to (d2, rl, r_new),
-    # then permute to (d2, rl, r_new) — already the correct (phys, left, right) layout
     new_A = reshape(U, d2, rl, r_new)
-    # New core k+1: S*Vt has shape (r_new, d1*rr); reshape to (r_new, d1, rr),
-    # then permute to (d1, r_new, rr) for (phys, left, right) layout
     SV = S * Vt
     new_B = permutedims(reshape(SV, r_new, d1, rr), (2, 1, 3))
 
@@ -731,13 +693,9 @@ function reorder(q::QTTvector, new_ordering::Symbol; threshold::Real = 0.0)
     bits_per_dim = q.bits_per_dim
     N = q.N
 
-    # Build the permutation array (0-based values, 1-based positions).
-    # perm[src+1] = tgt means: the site currently at position src+1 has
-    # target position tgt (0-based).  Bubble-sorting perm in ascending order
-    # produces exactly the adjacent swaps needed to move each site to its target.
     perm = zeros(Int, N)
     if q.ordering == :serial && new_ordering == :interleaved
-        # Serial site (d-1)*bits_per_dim + b  →  interleaved position b*n_dims + (d-1)
+
         for d in 1:n_dims, b in 0:(bits_per_dim - 1)
             src = (d - 1) * bits_per_dim + b
             tgt = b * n_dims + (d - 1)
@@ -762,7 +720,6 @@ function reorder(q::QTTvector, new_ordering::Symbol; threshold::Real = 0.0)
         cores[k + 1] = new_kp1
     end
 
-    # Recompute rank vector from the (possibly updated) cores
     rks = ones(Int, N + 1)
     for k in 1:N
         rks[k + 1] = size(cores[k], 3)
@@ -851,7 +808,6 @@ function _swap_adjacent_sites_op(A::AbstractArray{T, 4}, B::AbstractArray{T, 4};
     d1, _, rl, rm = size(A)   # (phys, phys, left_rank, mid_rank)
     d2, _, _rm, rr = size(B)  # (phys, phys, mid_rank, right_rank)
 
-    # Contract: C[i1,j1,i2,j2,l,r] = Σ_m A[i1,j1,l,m] * B[i2,j2,m,r]
     C = zeros(T, d1, d1, d2, d2, rl, rr)
     for i1 in 1:d1, j1 in 1:d1, i2 in 1:d2, j2 in 1:d2, l in 1:rl, r in 1:rr
         for m in 1:rm
@@ -859,12 +815,7 @@ function _swap_adjacent_sites_op(A::AbstractArray{T, 4}, B::AbstractArray{T, 4};
         end
     end
 
-    # After swapping sites: new_A is at position k (now site with dim d2),
-    # new_B is at position k+1 (now site with dim d1).
-    # Rearrange C to (i2,j2,l,i1,j1,r) and reshape to matrix for SVD.
-    # Row index: (i2, j2, l), Col index: (i1, j1, r)
-    C_for_svd = permutedims(C, (3, 4, 5, 1, 2, 6))  # (i2, j2, l, i1, j1, r)
-
+    C_for_svd = permutedims(C, (3, 4, 5, 1, 2, 6)) 
     M = reshape(C_for_svd, d2 * d2 * rl, d1 * d1 * rr)
     F = svd(M)
 
@@ -878,9 +829,8 @@ function _swap_adjacent_sites_op(A::AbstractArray{T, 4}, B::AbstractArray{T, 4};
     U = F.U[:, 1:r_new]           # (d2*d2*rl, r_new)
     SV = Diagonal(sv[1:r_new]) * F.Vt[1:r_new, :]  # (r_new, d1*d1*rr)
 
-    # new_A: reshape U to (d2, d2, rl, r_new)
     new_A = reshape(U, d2, d2, rl, r_new)
-    # new_B: reshape SV to (r_new, d1, d1, rr), permute to (d1, d1, r_new, rr)
+
     new_B = permutedims(reshape(SV, r_new, d1, d1, rr), (2, 3, 1, 4))
 
     return new_A, new_B
@@ -920,7 +870,6 @@ function reorder(A::QTToperator, new_ordering::Symbol; threshold::Real = 0.0)
 
     swaps = _bubble_sort_swaps(perm)
 
-    # Apply swaps to a mutable copy of the operator cores
     cores = deepcopy(A.tto_vec)
     for k in swaps
         new_k, new_kp1 = _swap_adjacent_sites_op(cores[k], cores[k + 1]; threshold = threshold)
@@ -928,7 +877,6 @@ function reorder(A::QTToperator, new_ordering::Symbol; threshold::Real = 0.0)
         cores[k + 1] = new_kp1
     end
 
-    # Recompute rank vector from the (possibly updated) cores
     rks = ones(Int, N + 1)
     for k in 1:N
         rks[k + 1] = size(cores[k], 4)

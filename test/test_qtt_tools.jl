@@ -283,16 +283,6 @@ end
 
 end
 
-@testset "qtt_simpson" begin
-    d = 8
-    a = 0.0
-    b = 1.0
-    A = qtt_sin(d, λ = 3.0)
-    w = qtt_simpson(d)
-    I1 = TensorTrainNumerics.dot(w, A)
-    @test isapprox(I1, 2 / (3 * π), atol = 1.0e-4)
-end
-
 @testset "function_to_qtt" begin
     d = 8
     a = 0.0
