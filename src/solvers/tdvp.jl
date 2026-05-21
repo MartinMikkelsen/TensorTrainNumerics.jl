@@ -43,10 +43,11 @@ function _update_right_env(A, M, FR)
 end
 
 function tdvp1sweep!(
-        dt, ψ::TTvector{T, N}, H::TToperator{T, N}, F::Union{Nothing, Vector{Any}} = nothing;
+        dt, ψ::AbstractTTvector, H::AbstractTToperator, F::Union{Nothing, Vector{Any}} = nothing;
         verbose::Bool = true, kwargs...
-    ) where {T <: Number, N}
+    )
 
+    T = eltype(ψ)
     Tc = (dt isa Complex || T <: Complex) ? Complex{real(T)} : T
     Nsites = ψ.N
 
@@ -151,8 +152,8 @@ function tdvp1sweep!(
 end
 
 function tdvp(
-        H::TToperator,
-        u₀::TTvector,
+        H::AbstractTToperator,
+        u₀::AbstractTTvector,
         steps::Vector{Float64};
         normalize::Bool = true,
         return_error::Bool = false,
@@ -206,10 +207,11 @@ function _applyH2_lsr(AAC, FL, FR, M1, M2)
 end
 
 function tdvp2sweep!(
-        dt, ψ::TTvector{T, N}, H::TToperator{T, N}, F::Union{Nothing, Vector{Any}} = nothing;
+        dt, ψ::AbstractTTvector, H::AbstractTToperator, F::Union{Nothing, Vector{Any}} = nothing;
         verbose::Bool = true, max_bond::Int = typemax(Int), truncerr::Real = 0.0, kwargs...
-    ) where {T <: Number, N}
+    )
 
+    T = eltype(ψ)
     Tc = (dt isa Complex || T <: Complex) ? Complex{real(T)} : T
     Nsites = ψ.N
 
@@ -286,8 +288,8 @@ function tdvp2sweep!(
 end
 
 function tdvp2(
-        H::TToperator,
-        u₀::TTvector,
+        H::AbstractTToperator,
+        u₀::AbstractTTvector,
         steps::Vector{Float64};
         normalize::Bool = true,
         return_error::Bool = false,

@@ -1,6 +1,6 @@
 module TensorTrainNumerics
 
-export TTvector, TToperator, eltype, complex, ttv_decomp, tto_decomp, ttv_to_tensor, tto_to_tensor, tto_to_ttv, visualize, matricize, concatenate, orthogonalize, copy, r_and_d_to_rks, tt_compress!, _svdtrunc
+export AbstractTTvector, AbstractTToperator, TTvector, TToperator, eltype, complex, ttv_decomp, tto_decomp, ttv_to_tensor, tto_to_tensor, tto_to_ttv, visualize, matricize, concatenate, orthogonalize, copy, r_and_d_to_rks, tt_compress!, _svdtrunc
 include("tt_tools.jl")
 
 export *, +, dot, -, /, add!, outer_product, hadamard, hadamard_ttm, kron, ⊕, ⊗, euclidean_distance, euclidean_distance_normalized, ttv_to_diag_tto, norm
@@ -21,10 +21,10 @@ include("solvers/tdvp.jl")
 export chebyshev_lobatto_nodes, gauss_chebyshev_lobatto, equally_spaced_nodes, get_nodes, lagrange_basis, interpolating_qtt, lagrange_rank_revealing
 include("tt_interpolations.jl")
 
-export toeplitz_to_qtto, qtto_prolongation, ∇, Δ_DN, Δ_ND, Δ_NN, Δ_P, Δ, Δ⁻¹_DN, shift, zeros_tt, zeros_tto, rand_tt, id_tto, rand_tto
+export toeplitz_to_qtto, qtto_prolongation, ∇, Δ_DN, Δ_ND, Δ_NN, Δ_P, Δ, Δ⁻¹_DN, shift, zeros_tt, zeros_tto, rand_tt, id_tto, rand_tto, qtt_laplacian
 include("tt_operators.jl")
 
-export index_to_point, tuple_to_index, function_to_tensor, tensor_to_grid, function_to_qtt, qtt_to_function, qtt_to_vector, function_to_qtt_uniform, qtt_polynom, qtt_cos, qtt_sin, qtt_exp, qtto_to_matrix, qtt_basis_vector, qtt_chebyshev, qtt_simpson, qtt_trapezoidal, to_qtt, to_ttv
+export index_to_point, tuple_to_index, function_to_tensor, tensor_to_grid, function_to_qtt, qtt_to_function, qtt_to_vector, function_to_qtt_uniform, qtt_polynom, qtt_cos, qtt_sin, qtt_exp, qtto_to_matrix, qtt_basis_vector, qtt_chebyshev, qtt_simpson, qtt_trapezoidal, to_qtt, to_ttv, QTTvector, QTToperator, check_compat, function_to_qttv, qttv_to_array, reorder
 include("qtt_tools.jl")
 
 export euler_method, implicit_euler_method, crank_nicholson_method, rk4_method

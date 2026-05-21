@@ -12,7 +12,8 @@ function updateH_mals!(x_vec::Array{T, 3}, A_vec::Array{T, 4}, Hi::AbstractArray
     return nothing
 end
 
-function init_H_mals(x_tt::TTvector{T}, A::TToperator{T}, rmax::Int) where {T <: Number}
+function init_H_mals(x_tt::AbstractTTvector, A::AbstractTToperator, rmax::Int)
+    T = eltype(x_tt)
     d = x_tt.N
     H = Array{Array{T, 5}}(undef, d - 1)
     # H[d-1] from the last operator core
@@ -64,7 +65,8 @@ function updateHb_mals!(
     return nothing
 end
 
-function init_Hb_mals(x_tt::TTvector{T}, b::TTvector{T}, rmax::Int) where {T <: Number}
+function init_Hb_mals(x_tt::AbstractTTvector, b::AbstractTTvector, rmax::Int)
+    T = eltype(x_tt)
     d = x_tt.N
     Hb = Array{Array{T, 3}}(undef, d - 1)
     # Base case: H_b[d-1] from the last vector core
@@ -90,7 +92,7 @@ function init_Hb_mals(x_tt::TTvector{T}, b::TTvector{T}, rmax::Int) where {T <: 
 end
 
 function left_core_move_mals(
-        xtt::TTvector{T}, i::Integer, V::Array{T, 4},
+        xtt::AbstractTTvector, i::Integer, V::Array{T, 4},
         tol::Float64, rmax::Integer
     ) where {T <: Number}
     # Perform the truncated SVD on the 2-core block V
@@ -117,7 +119,7 @@ function left_core_move_mals(
 end
 
 function right_core_move_mals(
-        xtt::TTvector{T}, i::Integer, V::Array{T, 4},
+        xtt::AbstractTTvector, i::Integer, V::Array{T, 4},
         tol::Float64, rmax::Integer
     ) where {T <: Number}
     # Perform the truncated SVD on the 2-core block V
@@ -236,13 +238,13 @@ the bond dimensions adapt at each micro-step by discarding singular values below
 `TTvector{T}`, or `(TTvector{T}, NamedTuple)` when `return_info=true`.
 """
 function mals_linsolve(
-        A::TToperator{T}, b::TTvector{T},
-        tt_start::TTvector{T};
+        A::AbstractTToperator, b::AbstractTTvector,
+        tt_start::AbstractTTvector;
         tol::Float64 = 1.0e-12,
         rmax::Int = round(Int, sqrt(prod(tt_start.ttv_dims)::Int)),
         return_info::Bool = false
-    ) where {T <: Number}
-
+    )
+    T = eltype(tt_start)
     d = b.N
 
     # Initialize the TT iterate
@@ -331,7 +333,7 @@ Scheme with bond-adaptive rank growth.
 records the maximum bond dimension after each micro-step.
 """
 function mals_eigsolve(
-        A::TToperator{T}, tt_start::TTvector{T};
+        A::AbstractTToperator, tt_start::AbstractTTvector;
         tol::Float64 = 1.0e-12,
         sweep_schedule::Vector{Int} = [2],
         rmax_schedule::Vector{Int} = [round(Int, sqrt(prod(tt_start.ttv_dims)::Int))],
@@ -339,8 +341,8 @@ function mals_eigsolve(
         linsolv_maxiter::Int = 200,
         linsolv_tol::Float64 = max(sqrt(tol), 1.0e-8),
         itslv_thresh::Int = 256
-    ) where {T <: Number}
-
+    )
+    T = eltype(tt_start)
     d = A.N
     @assert(
         length(rmax_schedule) == length(sweep_schedule),

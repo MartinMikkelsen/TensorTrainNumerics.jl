@@ -7,7 +7,8 @@ Implementation based on the presentation in
 Holtz, Sebastian, Thorsten Rohwedder, and Reinhold Schneider. "The alternating linear scheme for tensor optimization in the tensor train format." SIAM Journal on Scientific Computing 34.2 (2012): A683-A713.
 """
 
-function init_H(x_tt::TTvector{T}, A_tto::TToperator{T}, N::Int, rmax) where {T <: Number}
+function init_H(x_tt::AbstractTTvector, A_tto::AbstractTToperator, N::Int, rmax)
+    T = eltype(x_tt)
     d = x_tt.N
     H = Array{Array{T, 3}, 1}(undef, d + 1 - N)
     H[d + 1 - N] = ones(T, 1, 1, 1)
@@ -52,7 +53,8 @@ function K_full(Gi::AbstractArray{T, 3}, Hi::AbstractArray{T, 3}, Amid_tensor::A
     return Hermitian(reshape(K, prod(K_dims), prod(K_dims)))
 end
 
-function init_Hb(x_tt::TTvector{T}, b_tt::TTvector{T}, N::Integer, rmax) where {T <: Number}
+function init_Hb(x_tt::AbstractTTvector, b_tt::AbstractTTvector, N::Integer, rmax)
+    T = eltype(x_tt)
     d = x_tt.N
     H_b = Array{Array{T, 2}, 1}(undef, d + 1 - N)
     H_b[d + 1 - N] = ones(T, 1, 1)
@@ -78,7 +80,7 @@ function update_Gb!(x_vec::Array{T, 3}, b_vec::Array{T, 3}, G_bi::AbstractArray{
     return nothing
 end
 
-function b_mid(b_tt::TTvector{T}, i::Integer, j::Integer) where {T <: Number}
+function b_mid(b_tt::AbstractTTvector, i::Integer, j::Integer)
     b_out = permutedims(b_tt.ttv_vec[i], (2, 1, 3))
     for k in (i + 1):j
         @tensor btemp[αk, ik, jk, βk] := b_out[αk, ik, ξk] * b_tt.ttv_vec[k][jk, ξk, βk]
@@ -182,7 +184,7 @@ function cut_off_index(s::Array{T}, tol::Float64; degen_tol = 1.0e-10) where {T 
     return k
 end
 
-function right_core_move!(x_tt::TTvector{T}, V, V_move, i::Int, tol::Float64, r_max::Integer; verbose::Bool = true) where {T <: Number}
+function right_core_move!(x_tt::AbstractTTvector, V, V_move, i::Int, tol::Float64, r_max::Integer; verbose::Bool = true)
     # Perform the truncated svd
     u_V, s_V, v_V = svd(reshape(V, x_tt.ttv_rks[i] * x_tt.ttv_dims[i], :))
     # Update the ranks to the truncated one
@@ -206,7 +208,7 @@ function right_core_move!(x_tt::TTvector{T}, V, V_move, i::Int, tol::Float64, r_
     return nothing
 end
 
-function left_core_move!(x_tt::TTvector{T}, V, V_move, j::Int, tol::Float64, r_max::Integer; verbose::Bool = true) where {T <: Number}
+function left_core_move!(x_tt::AbstractTTvector, V, V_move, j::Int, tol::Float64, r_max::Integer; verbose::Bool = true)
     # Perform the truncated svd
     u_V, s_V, v_V = svd(reshape(V, :, x_tt.ttv_dims[j] * x_tt.ttv_rks[j + 1]))
     # Update the ranks to the truncated one
@@ -256,7 +258,9 @@ function K_eigmin(Gi_view::AbstractArray{T, 3}, Hi_view::AbstractArray{T, 3}, V0
     return λ
 end
 
-function init_dmrg(A::TToperator{T, d}, tt_opt::TTvector{T, d}, rks, N::Integer) where {T <: Number, d}
+function init_dmrg(A::AbstractTToperator, tt_opt::AbstractTTvector, rks, N::Integer)
+    T = eltype(tt_opt)
+    d = tt_opt.N
     rmax = maximum(rks)
     G = Array{Array{T, 3}, 1}(undef, d + 1 - N)
     Amid_list = Array{Array{T, 4}, 1}(undef, d + 1 - N)
@@ -276,7 +280,9 @@ function init_dmrg(A::TToperator{T, d}, tt_opt::TTvector{T, d}, rks, N::Integer)
     return G, Amid_list, H, V0, V, V_move, V_temp, V0_view
 end
 
-function init_dmrg_b(b::TTvector{T, d}, tt_opt::TTvector{T, d}, rks, N) where {T <: Number, d}
+function init_dmrg_b(b::AbstractTTvector, tt_opt::AbstractTTvector, rks, N)
+    T = eltype(b)
+    d = b.N
     rmax = maximum(rks)
     G_b = zeros.(T, rks[1:(d + 1 - N)], b.ttv_rks[1:(d + 1 - N)]) #Array{Array{T,2},1}(undef, d+1-N)
     bmid_list = Array{Array{T, 3}, 1}(undef, d + 1 - N)
@@ -377,7 +383,7 @@ with adaptive rank growth).
 `TTvector{T}`, or `(TTvector{T}, NamedTuple)` when `return_info=true`.
 """
 function dmrg_linsolve(
-        A::TToperator{T}, b::TTvector{T}, tt_start::TTvector{T}; sweep_count = 2, N = 2, tol = 1.0e-12::Float64,
+        A::AbstractTToperator, b::AbstractTTvector, tt_start::AbstractTTvector; sweep_count = 2, N = 2, tol = 1.0e-12::Float64,
         sweep_schedule = [2]::Array{Int64, 1}, #Number of sweeps for each bond dimension in rmax_schedule
         rmax_schedule = [isqrt(prod(tt_start.ttv_dims)::Int)]::Array{Int64, 1}, #maximum rank in sweep_schedule
         it_solver = true,
@@ -385,7 +391,7 @@ function dmrg_linsolve(
         linsolv_tol = max(sqrt(tol), 1.0e-8)::Float64, #tolerance of the iterative linear solver
         itslv_thresh = 256::Int, #switch from full to iterative
         return_info::Bool = false
-    ) where {T <: Number}
+    )
     # als finds the minimum of the operator J:1/2*<Ax,Ax> - <x,b>
     # input:
     # 	A: the tensor operator in its tensor train format
@@ -395,6 +401,7 @@ function dmrg_linsolve(
     # 			in its tensor train format
 
     # Initialize the to be returned tensor in its tensor train format
+    T = eltype(tt_start)
     d = b.N
     rmax = maximum(rmax_schedule)
     if N == 1
@@ -488,8 +495,8 @@ two-site with adaptive bond dimension).
 records the maximum bond dimension after each micro-step.
 """
 function dmrg_eigsolve(
-        A::TToperator{T},
-        tt_start::TTvector{T}; #TT initial guess
+        A::AbstractTToperator,
+        tt_start::AbstractTTvector; #TT initial guess
         N = 2::Integer, #Number of open sites, N=1 is one-site DMRG, N=2 is two-site DMRG...
         tol = 1.0e-12::Float64, #truncation in left or right core move (doesn't matter for N=1)
         sweep_schedule = [2]::Array{Int64, 1}, #Number of sweeps for each bond dimension in rmax_schedule
@@ -498,7 +505,7 @@ function dmrg_eigsolve(
         linsolv_maxiter = 200::Int64, #maximum of iterations for the iterative solver
         linsolv_tol = max(sqrt(tol), 1.0e-8)::Float64, #tolerance of the iterative linear solver
         itslv_thresh = 256::Int #switch from full to iterative
-    ) where {T <: Number}
+    )
     @assert(length(rmax_schedule) == length(sweep_schedule), "Sweep schedule error")
 
     d = tt_start.N
@@ -534,7 +541,7 @@ function dmrg_eigsolve(
                 V_moveview = @view(V_move[1:tt_opt.ttv_rks[1], 1:prod(tt_opt.ttv_dims[1:(N - 1)]), 1:tt_opt.ttv_rks[N]])
                 tt_opt.ttv_vec[1] = permutedims(reshape(V_moveview, 1, tt_opt.ttv_dims[1], :), (2, 1, 3))
                 tt_opt.ttv_ot[1] = 0
-                return E::Array{Float64, 1}, tt_opt::TTvector{T}, r_hist::Array{Int, 1}
+                return E::Array{Float64, 1}, tt_opt::AbstractTTvector, r_hist::Array{Int, 1}
             end
         end
         # First half sweep
@@ -559,5 +566,5 @@ function dmrg_eigsolve(
             push!(r_hist, maximum(tt_opt.ttv_rks))
         end
     end
-    return E::Array{Float64, 1}, tt_opt::TTvector{T}, r_hist::Array{Int, 1}
+    return E::Array{Float64, 1}, tt_opt::AbstractTTvector, r_hist::Array{Int, 1}
 end
