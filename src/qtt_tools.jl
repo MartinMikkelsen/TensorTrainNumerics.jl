@@ -509,10 +509,6 @@ function check_compat(A::QTToperator, B::QTToperator)
     @assert A.ordering == B.ordering "QTToperator ordering mismatch: $(A.ordering) ≠ $(B.ordering)"
 end
 
-# ──────────────────────────────────────────────────────────────────────────────
-# QTT-preserving dispatch for QTTvector
-# ──────────────────────────────────────────────────────────────────────────────
-
 function orthogonalize(q::QTTvector; i::Int = 1)
     QTTvector(orthogonalize(TTvector(q); i = i), q.n_dims, q.bits_per_dim, q.ordering)
 end
@@ -553,7 +549,6 @@ function LinearAlgebra.dot(a::QTTvector, b::QTTvector)
     dot(TTvector(a), TTvector(b))
 end
 
-# Module-level dot dispatch for QTTvector (matches tt_operations.jl convention)
 function dot(a::QTTvector, b::QTTvector)
     check_compat(a, b)
     dot(TTvector(a), TTvector(b))
@@ -562,10 +557,6 @@ end
 function LinearAlgebra.norm(q::QTTvector)
     norm(TTvector(q))
 end
-
-# ──────────────────────────────────────────────────────────────────────────────
-# QTT-preserving dispatch for QTToperator
-# ──────────────────────────────────────────────────────────────────────────────
 
 function Base.copy(A::QTToperator{T, M}) where {T, M}
     tto = TToperator(A)
@@ -587,12 +578,6 @@ function Base.:*(A::QTToperator, ψ::QTTvector)
     QTTvector(TToperator(A) * TTvector(ψ), ψ.n_dims, ψ.bits_per_dim, ψ.ordering)
 end
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Cross-type dispatch: mixed TTvector/QTTvector and TToperator/QTToperator ops.
-# These strip QTT metadata so the plain TT arithmetic can proceed.
-# ──────────────────────────────────────────────────────────────────────────────
-
-# --- operator × vector cross-dispatch ---
 function Base.:*(A::TToperator, q::QTTvector)
     A * TTvector(q)
 end
@@ -601,7 +586,6 @@ function Base.:*(A::QTToperator, v::TTvector)
     TToperator(A) * v
 end
 
-# --- vector arithmetic cross-dispatch ---
 function Base.:-(a::QTTvector, b::TTvector)
     TTvector(a) - b
 end
@@ -623,14 +607,11 @@ function Base.:/(q::QTTvector, α::Number)
     QTTvector(TTvector(q) / α, q.n_dims, q.bits_per_dim, q.ordering)
 end
 
-# Cross-type dot products (module-level dot, matching tt_operations.jl convention)
-function dot(a::TTvector, b::QTTvector)
-    dot(a, TTvector(b))
-end
+dot(a::TTvector, b::QTTvector) = dot(a, TTvector(b))
+dot(a::QTTvector, b::TTvector) = dot(TTvector(a), b)
 
-function dot(a::QTTvector, b::TTvector)
-    dot(TTvector(a), b)
-end
+LinearAlgebra.dot(a::TTvector, b::QTTvector) = dot(a, TTvector(b))
+LinearAlgebra.dot(a::QTTvector, b::TTvector) = dot(TTvector(a), b)
 
 # --- operator arithmetic cross-dispatch ---
 function Base.:-(A::TToperator, B::QTToperator)

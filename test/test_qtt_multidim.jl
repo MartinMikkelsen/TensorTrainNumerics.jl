@@ -254,6 +254,43 @@ end
     @test A3.N == 9
 end
 
+@testset "Cross-type dispatch" begin
+    ttv = rand_tt(fill(2, 6), 2)
+    q = QTTvector(ttv, 2, 3, :interleaved)
+    tto = rand_tto(ntuple(_ -> 2, 6), 2)
+    A = QTToperator(tto, 2, 3, :interleaved)
+
+    # TToperator * QTTvector → TTvector (strips QTT metadata)
+    r1 = tto * q
+    @test r1 isa TTvector
+
+    # QTToperator * TTvector → TTvector (strips QTT metadata)
+    r2 = A * ttv
+    @test r2 isa TTvector
+
+    # QTTvector ± TTvector → TTvector
+    @test (q + ttv) isa TTvector
+    @test (q - ttv) isa TTvector
+    @test (ttv + q) isa TTvector
+    @test (ttv - q) isa TTvector
+
+    # QTTvector / scalar → QTTvector (preserves metadata)
+    r3 = q / 2.0
+    @test r3 isa QTTvector
+    @test r3.ordering == :interleaved
+
+    # Cross-type dot products (qualify to avoid ambiguity with TensorTrainNumerics.dot)
+    @test LinearAlgebra.dot(q, ttv) isa Number
+    @test LinearAlgebra.dot(ttv, q) isa Number
+
+    # TToperator ± QTToperator → TToperator
+    B = rand_tto(ntuple(_ -> 2, 6), 2)
+    @test (B + A) isa TToperator
+    @test (B - A) isa TToperator
+    @test (A + B) isa TToperator
+    @test (A - B) isa TToperator
+end
+
 @testset "Solvers accept QTTvector" begin
     # 1D problem: 4-site QTT (bits_per_dim=4, n_dims=1)
     d = 4
