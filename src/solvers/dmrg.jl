@@ -35,7 +35,7 @@ function update_G!(x_vec::Array{T, 3}, A_vec::Array{T, 4}, Gi::AbstractArray{<:A
 end
 
 #returns the contracted tensor A_i[\\mu_i] ⋯ A_j[\\mu_j] ∈ R^{R^A_{i-1} × n_i × n_i × ⋯ × n_j × n_j ×  R^A_j}
-function Amid(A_tto::TToperator{T}, i::Int, j::Int) where {T <: Number}
+function Amid(A_tto::AbstractTToperator, i::Int, j::Int)
     A = permutedims(A_tto.tto_vec[i], (3, 1, 2, 4))
     for k in (i + 1):j
         C = reshape(A, A_tto.tto_rks[i], prod(A_tto.tto_dims[i:(k - 1)]), :, A_tto.tto_rks[k])

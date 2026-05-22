@@ -9,6 +9,7 @@ makedocs(
     pages = [
         "index.md",
         "theory.md",
+        "qtt.md",
         "solvers.md",
         "examples.md",
         "resources.md",

@@ -1,173 +1,161 @@
-# Quantics tensor trains
+# Tensor Train Basics
 
-Quantics tensor trains (QTT) are a powerful tool for representing and manipulating high-dimensional data in a compressed format. They are particularly useful for solving high-dimensional partial differential equations and large-scale linear algebra problems, where traditional methods may be computationally infeasible due to the curse of dimensionality.
+A **tensor train** (TT) decomposes a high-dimensional array into a chain of three-index cores connected by shared bond indices. For a vector $v \in \mathbb{R}^{n_1 \times n_2 \times \cdots \times n_N}$ the TT format reads
 
-## Defining tensor train vectors
-
-You can construct a quantics tensor train in several ways. The most straightforward way is to use the function `function_to_qtt`, which takes a function and a discretization level as input and returns a QTT representation of the function evaluated on a uniform grid.
-
-
-### Mathematical functions in QTT format
-
-You can also use the built-in functions for common mathematical functions, such as `qtt_exp`, `qtt_sin`, `qtt_cos`, `qtt_polynom`, and `qtt_chebyshev`. These functions provide efficient QTT representations of the corresponding mathematical functions [Khoromskij](@cite). These are illustrated in the following 
-
-```@example 3
-using TensorTrainNumerics
-using CairoMakie
-
-d = 8
-
-A1 = qtt_exp(d)
-A2 = qtt_sin(d, λ = π)
-A3 = qtt_cos(d, λ = π)
-A4 = qtt_polynom([0.0, 2.0, 3.0, -8.0, -5.0], d; a = 0.0, b = 1.0)
-
-
-qtt_values_exponential = qtt_to_function(A1)
-qtt_values_sin = qtt_to_function(A2)
-qtt_values_cos = qtt_to_function(A3)
-qtt_values_polynom = qtt_to_function(A4)
-
-
-values_exp(x) = exp(x)
-values_sin(x) = sin(x * π^2)
-values_cos(x) = cos(x * π^2)
-values_polynom(x) = 2 * x + 3 * x^2 - 8 * x^3 - 5 * x^4
-
-x_points = LinRange(0, 1, 2^8)
-original_values_exponential = values_exp.(x_points)
-original_values_sin = values_sin.(x_points)
-original_values_cos = values_cos.(x_points)
-original_values_polynom = values_polynom.(x_points)
-
-let
-    fig = Figure()
-    ax1 = Axis(fig[2, 2], title = "Exp Approximation", xlabel = "x", ylabel = "f(x)")
-    ax2 = Axis(fig[1, 1], title = "Sin Approximation", xlabel = "x", ylabel = "f(x)")
-    ax3 = Axis(fig[1, 2], title = "Cos Approximation", xlabel = "x", ylabel = "f(x)")
-    ax4 = Axis(fig[2, 1], title = "Polynomial Approximation", xlabel = "x", ylabel = "f(x)")
-
-
-    lines!(ax1, x_points, original_values_exponential, label = "Exponential function")
-    lines!(ax1, x_points, qtt_values_exponential, label = "QTT exponential function", linestyle = :dash, color = :green)
-
-    lines!(ax2, x_points, original_values_sin, label = "Sine function")
-    lines!(ax2, x_points, qtt_values_sin, label = "QTT sine function", linestyle = :dash, color = :red)
-
-    lines!(ax3, x_points, original_values_cos, label = "Sine function")
-    lines!(ax3, x_points, qtt_values_cos, label = "QTT sine function", linestyle = :dash, color = :red)
-
-    lines!(ax4, x_points, original_values_polynom, label = "Sine function")
-    lines!(ax4, x_points, qtt_values_polynom, label = "QTT sine function", linestyle = :dash, color = :red)
-
-    fig
-end
-```
-
-### Interpolation-based QTT construction
-
-You can also build a QTT based on interpolation techniques based on [lindsey2023multiscale](@cite). The function `interpolating_qtt` constructs a QTT representation of a given function using polynomial interpolation at Chebyshev nodes. Another option is to use the function `lagrange_rank_revealing`, which constructs a QTT representation using a rank-revealing approach based on Lagrange interpolation as shown in this example
-
-```@example 2
-using CairoMakie
-using TensorTrainNumerics
-
-f = x -> cos(1 / (x^3 + 0.01)) + sin(π * x)
-num_cores = 10  
-N = 150 
-
-qtt = interpolating_qtt(f, num_cores, N)
-qtt_rank_revealing = lagrange_rank_revealing(f, num_cores, N)
-
-qtt_values = matricize(qtt, num_cores)
-qtt_values_rank_revealing = matricize(qtt_rank_revealing, num_cores)
-
-x_points = LinRange(0, 1, 2^num_cores)
-original_values = f.(x_points)
-
-fig = Figure()
-ax = Axis(fig[1, 1], title="Function Approximation", xlabel="x", ylabel="f(x)")
-
-lines!(ax, x_points, original_values, label="Original Function")
-lines!(ax, x_points, qtt_values_rank_revealing, label="QTT, rank rev.", linestyle=:dash, color=:green)
-lines!(ax, x_points, qtt_values, label="QTT", linestyle=:dash, color=:red)
-
-axislegend(ax)
-fig
-```
-We can visualize the interpolating QTT as 
-```@example 2
-visualize(qtt)
-```
-And similarly for the rank-revealing
-```@example 2
-visualize(qtt_rank_revealing)
-```
-
-## Defining tensor train operators
-
-Suppose we want to construct the finite difference discretization of the second derivative operator with Dirichlet-Neumann boundary conditions on the interval \([0, 1]\). We can use the function `Δ_DN` to create a QTT representation of the corresponding tridiagonal matrix. 
-
-```@example QTT_operators
-using TensorTrainNumerics
-
-d = 8
-A = Δ_DN(d)
-```
-
-And we can check the matrix representation by matricizing it
-```@example QTT_operators
-mat_A = qtto_to_matrix(A)
-```
-
-## Solving equations in the QTT framework
-
-To illustrate how to solve a differential equation consider the following 1D heat/diffusion equation in semi-discrete form with Dirichlet-Dirichlet boundary conditions
 ```math
-\begin{aligned}
-u_t(x,t) &= u_{xx}(x,t),\qquad x\in(0,1),\ t\ge 0,\\
-u(x,0) &= \sin(\pi x),\\
-u(0,t)&=0,\quad u(1,t)=0.
-\end{aligned}
+v(i_1, i_2, \ldots, i_N) = G_1(i_1)\, G_2(i_2) \cdots G_N(i_N),
 ```
-We define the operator
 
-```@example heat
+where each **core** $G_k$ is a matrix-valued function of the *physical index* $i_k \in \{1,\ldots,n_k\}$: the slice $G_k(i_k) \in \mathbb{R}^{r_{k-1} \times r_k}$ is an ordinary matrix. The boundary conditions $r_0 = r_N = 1$ make the product a scalar for every multi-index $(i_1, \ldots, i_N)$.
+
+The integers $r_1, \ldots, r_{N-1}$ are the **bond dimensions** (also called TT-ranks). A function with low TT-rank can be stored and manipulated in $\mathcal{O}(NnR^2)$ memory instead of $\mathcal{O}(n^N)$.
+
+A **tensor train operator** (TTO) has two physical indices per core and represents a matrix $A \in \mathbb{R}^{(n_1\cdots n_N)\times(n_1\cdots n_N)}$:
+
+```math
+A(i_1,j_1,\ldots,i_N,j_N) = W_1(i_1,j_1)\, W_2(i_2,j_2) \cdots W_N(i_N,j_N),
+```
+
+where $W_k(i_k,j_k) \in \mathbb{R}^{r_{k-1}\times r_k}$.
+
+## Core index convention
+
+TensorTrainNumerics.jl stores cores in **(physical, left bond, right bond)** order for vectors and **(row physical, column physical, left bond, right bond)** order for operators. Concretely, the core array at site $k$ has `size(core) == (n_k, r_{k-1}, r_k)` for a TT-vector. This differs from some tensor-network libraries that put bond indices first, but makes it natural to write `G[:, l, r]` to obtain the $l, r$ matrix slice.
+
+## Types
+
+```julia
+abstract type AbstractTTvector{T}    end
+abstract type AbstractTToperator{T}  end
+
+mutable struct TTvector{T <: Number, N}  <: AbstractTTvector{T}
+struct         TToperator{T <: Number, N} <: AbstractTToperator{T}
+```
+
+Both are parametrized by the element type `T` and the number of sites `N`.  The abstract supertypes let solvers and arithmetic accept both plain TT objects and the richer `QTTvector`/`QTToperator` wrappers described in the [QTT page](qtt.md).
+
+## Constructing TT-vectors
+
+```@example ttbasics
 using TensorTrainNumerics
-using CairoMakie
-using KrylovKit
 
-d = 8
-N = 2^d
-h = 1 / (N-1)
-xes = collect(range(0.0, 1.0, 2^d))
-A = h^2 * toeplitz_to_qtto(-2, 1.0, 1.0, d)
+dims = (2, 2, 2, 2)    # physical dimension at each site
+rks  = [1, 3, 3, 3, 1] # bond dimensions (length N+1)
+
+v = rand_tt(dims, rks)   # random TT-vector
+z = zeros_tt(dims, rks)  # zero TT-vector
 ```
-We then define some initial condition, random guess and some time steps
-```@example heat
-u₀ = qtt_sin(d, λ = π) # sin(π^2 x)
-steps = collect(range(0.0, 10.0, 1000))
-init = rand_tt(u₀.ttv_dims, u₀.ttv_rks)
+
+The fields `v.ttv_dims`, `v.ttv_rks`, and `v.ttv_vec` hold the dimensions, bond dimensions, and array of cores respectively.
+
+## Constructing TT-operators
+
+```@example ttbasics
+A = rand_tto(dims, 3)   # random TTO, max bond = 3
+I = id_tto(4)           # identity on {1,…,2}^4 in TT form
 ```
-Finally, we can solve the problem using the explicit Euler method, the implicit Euler method, the Crank-Nicolson scheme and a Krylov-based exponential integrator. To compare the actual amplitudes across methods, we keep `normalize = false`.
-```@example heat
 
-solution_implicit, rel_implicit = implicit_euler_method(A, u₀, init, steps; return_error = true, normalize = false)
+The function `toeplitz_to_qtto(α, β, γ, d)` produces a tridiagonal Toeplitz operator — useful for finite-difference stencils:
 
-solution_crank, rel_crank = crank_nicholson_method(A, u₀, init, steps; return_error = true, tt_solver = "mals", normalize = false)
-
-solution_krylov, rel_krylov = expintegrator(A, last(steps), u₀)
+```@example ttbasics
+h = 1.0 / 2^4
+L = toeplitz_to_qtto(-2.0, 1.0, 1.0, 4)   # standard Laplacian stencil
 ```
-And we can evaluate the solution on the grid at the final time step for visualization
 
-```@example heat
+## Contractions and basic operations
 
-fig = Figure()
-ax = Axis(fig[1, 1], xlabel = "x", ylabel = "u(x)", title = "Comparison of Time-Stepping Methods")
-lines!(ax, xes, qtt_to_function(solution_implicit), label = "Implicit Euler", linestyle = :dot, linewidth = 3)
-lines!(ax, xes, qtt_to_function(solution_crank), label = "Crank-Nicolson", linestyle = :dash, linewidth = 3)
-lines!(ax, xes, qtt_to_function(solution_krylov), label = "Krylov", linestyle = :dot, linewidth = 3)
-axislegend(ax)
-fig
+All standard linear-algebra operations are overloaded and produce new TT objects:
+
+| Expression | Meaning |
+|---|---|
+| `u + v` | TT-vector addition (bond dim doubles) |
+| `u - v` | TT-vector subtraction |
+| `α * v` / `v * α` | Scalar multiplication |
+| `dot(u, v)` | Inner product $\langle u, v\rangle$ |
+| `norm(v)` | Euclidean norm |
+| `u ⊕ v` | Hadamard (element-wise) product (bond dim multiplies) |
+| `A * v` | Operator–vector product (bond dim multiplies) |
+| `A + B` | Operator addition |
+| `A ⊗ B` | Kronecker product of operators |
+
+```@example ttbasics
+u = rand_tt(dims, rks)
+w = u + v          # bond dims are now doubled
+s = dot(u, v)
+n = norm(v)
 ```
-For more solvers check out the [solvers](https://github.com/MartinMikkelsen/TensorTrainNumerics.jl/tree/main/src/solvers).
+
+Addition and the Hadamard product grow the TT-ranks. Use `tt_compress!` to truncate them back:
+
+```@example ttbasics
+tt_compress!(w, 4)   # truncate w to max bond dimension 4 in-place
+```
+
+## Orthogonalization
+
+A TT-vector is *left-canonical up to site k* when each core $G_1,\ldots,G_k$ has orthonormal columns (viewed as matrices of shape $n_j r_{j-1} \times r_j$). `orthogonalize` computes this decomposition:
+
+```@example ttbasics
+vL = orthogonalize(v)          # left-canonical (gauge center at site N)
+vC = orthogonalize(v; i = 2)  # gauge center at site 2
+```
+
+Orthogonalization is a prerequisite for the alternating solvers and TDVP.
+
+## Visualization
+
+`visualize` draws the tensor network diagram of a TT-vector or TT-operator:
+
+```@example ttbasics
+visualize(v)
+```
+
+## Tensor cross interpolation
+
+TT-cross algorithms build a TT approximation of a black-box function $f:\{1,\ldots,n\}^d\to\mathbb{R}$ without evaluating $f$ everywhere. The function interface expects a batch: `f(X)` where `X` is an $m\times d$ matrix of grid points and the return value is an $m$-vector. Three algorithms are available:
+
+| Algorithm | Constructor | Notes |
+|---|---|---|
+| MaxVol | `MaxVol(tol, maxiter)` | Stable pivot selection via maximal-volume submatrices |
+| DMRG-cross | `DMRG(tol, maxiter)` | Alternating left–right sweeps |
+| Greedy | `Greedy(tol, maxiter)` | Fast but less robust |
+
+```@example ttcross
+using LinearAlgebra
+using TensorTrainNumerics
+
+f(X::Matrix{Float64}) = vec(sin.(sum(X, dims = 2)))
+
+n = 8
+d = 6
+domain = [collect(range(0.0, π, length = n)) for _ in 1:d]
+
+tt_mv = tt_cross(f, domain, MaxVol(tol = 1.0e-8, maxiter = 20); ranks = 4)
+tt_dg = tt_cross(f, domain, DMRG(tol = 1.0e-8, maxiter = 25))
+```
+
+### Numerical integration
+
+`tt_integrate` estimates $\int_a^b f(x)\,dx$ over a $d$-dimensional box using TT-cross to build the integrand tensor:
+
+```@example ttcross
+result = tt_integrate(f, d, lower = 0.0, upper = Float64(π); alg = MaxVol(tol = 1.0e-8))
+println("∫sin(x₁+⋯+x₆) dx ≈ ", result)
+```
+
+### Reconstructing a dense tensor
+
+For small problems you can convert the TT back to a full array:
+
+```@example ttcross
+tensor_approx = ttv_to_tensor(tt_mv)
+
+tensor_exact = zeros(ntuple(_ -> n, d)...)
+for idx in CartesianIndices(tensor_exact)
+    coords = [domain[k][idx[k]] for k in 1:d]
+    tensor_exact[idx] = sin(sum(coords))
+end
+
+rel_err = norm(tensor_approx .- tensor_exact) / norm(tensor_exact)
+println("Relative error: ", rel_err)
+```

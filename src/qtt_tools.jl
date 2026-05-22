@@ -383,6 +383,32 @@ end
 Base.eltype(::QTTvector{T, M}) where {T, M} = T
 Base.eltype(::QTToperator{T, M}) where {T, M} = T
 
+function Base.show(io::IO, q::QTTvector{T, M}) where {T, M}
+    return print(io, "QTT-MPS{$T}($(q.N) sites, $(q.n_dims)d×$(q.bits_per_dim)bits, $(q.ordering))")
+end
+
+function Base.show(io::IO, ::MIME"text/plain", q::QTTvector{T, M}) where {T, M}
+    println(io, "QTT-MPS{$T} with $(q.N) sites")
+    println(io, "  Dimensions    : $(q.n_dims)d × $(q.bits_per_dim) bits/dim  ($(q.n_dims * 2^q.bits_per_dim) grid points per dim)")
+    println(io, "  Ordering      : $(q.ordering)")
+    println(io, "  Physical dims : $(q.ttv_dims)")
+    println(io, "  Bond dims     : $(q.ttv_rks)")
+    return print(io, "  Orthogonality : $(_ot_description(q.ttv_ot))")
+end
+
+function Base.show(io::IO, A::QTToperator{T, M}) where {T, M}
+    return print(io, "QTT-MPO{$T}($(A.N) sites, $(A.n_dims)d×$(A.bits_per_dim)bits, $(A.ordering))")
+end
+
+function Base.show(io::IO, ::MIME"text/plain", A::QTToperator{T, M}) where {T, M}
+    println(io, "QTT-MPO{$T} with $(A.N) sites")
+    println(io, "  Dimensions    : $(A.n_dims)d × $(A.bits_per_dim) bits/dim  ($(A.n_dims * 2^A.bits_per_dim) grid points per dim)")
+    println(io, "  Ordering      : $(A.ordering)")
+    println(io, "  Physical dims : $(A.tto_dims)")
+    println(io, "  Bond dims     : $(A.tto_rks)")
+    return print(io, "  Orthogonality : $(_ot_description(A.tto_ot))")
+end
+
 """
     QTTvector(ttv::TTvector{T, M}, n_dims::Int, bits_per_dim::Int, ordering::Symbol)
 
