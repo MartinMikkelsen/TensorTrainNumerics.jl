@@ -291,6 +291,52 @@ end
     @test (A - B) isa TToperator
 end
 
+@testset "Base.show" begin
+    ttv = rand_tt(fill(2, 6), 2)
+    q   = QTTvector(ttv, 2, 3, :serial)
+    tto = rand_tto(ntuple(_ -> 2, 6), 2)
+    A   = QTToperator(tto, 2, 3, :interleaved)
+
+    # Compact show
+    compact_q = sprint(show, q)
+    @test occursin("QTT-MPS{Float64}", compact_q)
+    @test occursin("6 sites", compact_q)
+    @test occursin("2d", compact_q)
+    @test occursin("3bits", compact_q)
+    @test occursin("serial", compact_q)
+
+    compact_A = sprint(show, A)
+    @test occursin("QTT-MPO{Float64}", compact_A)
+    @test occursin("6 sites", compact_A)
+    @test occursin("2d", compact_A)
+    @test occursin("3bits", compact_A)
+    @test occursin("interleaved", compact_A)
+
+    # Plain-text (verbose) show
+    verbose_q = sprint(show, MIME("text/plain"), q)
+    @test occursin("QTT-MPS{Float64}", verbose_q)
+    @test occursin("6 sites", verbose_q)
+    @test occursin("2d", verbose_q)
+    @test occursin("3 bits/dim", verbose_q)
+    @test occursin("serial", verbose_q)
+    @test occursin("Physical dims", verbose_q)
+    @test occursin("Bond dims", verbose_q)
+    @test occursin("Orthogonality", verbose_q)
+    # Grid-points field: n_dims * 2^bits_per_dim = 2 * 8 = 16
+    @test occursin("16 grid points per dim", verbose_q)
+
+    verbose_A = sprint(show, MIME("text/plain"), A)
+    @test occursin("QTT-MPO{Float64}", verbose_A)
+    @test occursin("6 sites", verbose_A)
+    @test occursin("2d", verbose_A)
+    @test occursin("3 bits/dim", verbose_A)
+    @test occursin("interleaved", verbose_A)
+    @test occursin("Physical dims", verbose_A)
+    @test occursin("Bond dims", verbose_A)
+    @test occursin("Orthogonality", verbose_A)
+    @test occursin("16 grid points per dim", verbose_A)
+end
+
 @testset "Solvers accept QTTvector" begin
     # 1D problem: 4-site QTT (bits_per_dim=4, n_dims=1)
     d = 4
