@@ -16,13 +16,11 @@ v(i_1,\dots,i_d) = \prod_{k=1}^d A_k(:,i_k,:) = \sum_{r_1,\ldots,r_{d-1}} \prod_
 
 where $A_k(:,i_k,:) \in \mathbb{K}^{r_{k-1}\times r_k}$ is the matrix slice of core $A_k$ at fixed physical index $i_k$, and the boundary conditions $r_0 = r_d = 1$ ensure the contraction is a scalar.
 
-$$\large{
-\begin{array}{ccccccc}
-A_{1} & \overset{\scriptscriptstyle r_1}{\text{———}} & A_{2} & \overset{\scriptscriptstyle r_2}{\text{———}} & A_{3} & \overset{\scriptscriptstyle \cdots}{\text{———}} & A_{d} \\[4pt]
-| & & | & & | & & | \\
-{\small i_1} & & {\small i_2} & & {\small i_3} & & {\small i_d}
-\end{array}
-}$$
+```
+A_1 --- r_1 --- A_2 --- r_2 --- A_3 --- ... --- A_d
+ |               |               |               |
+i_1             i_2             i_3             i_d
+```
 
 The maximum bond dimension $R = \max_k r_k$ controls the degree of compression. Total storage scales as
 
@@ -40,15 +38,13 @@ A(i_1,j_1,\dots,i_d,j_d) = \prod_{k=1}^d A_k(:,i_k,j_k,:) = \sum_{r_1,\ldots,r_{
 
 where $A_k(:,i_k,j_k,:) \in \mathbb{K}^{r_{k-1}\times r_k}$ is the matrix slice at fixed row index $i_k$ and column index $j_k$.
 
-$$\large{
-\begin{array}{ccccccc}
-{\small j_1} & & {\small j_2} & & {\small j_3} & & {\small j_d} \\
-| & & | & & | & & | \\
-A_{1} & \overset{\scriptscriptstyle r_1}{\text{———}} & A_{2} & \overset{\scriptscriptstyle r_2}{\text{———}} & A_{3} & \overset{\scriptscriptstyle \cdots}{\text{———}} & A_{d} \\[4pt]
-| & & | & & | & & | \\
-{\small i_1} & & {\small i_2} & & {\small i_3} & & {\small i_d}
-\end{array}
-}$$
+```
+j_1             j_2             j_3             j_d
+ |               |               |               |
+A_1 --- r_1 --- A_2 --- r_2 --- A_3 --- ... --- A_d
+ |               |               |               |
+i_1             i_2             i_3             i_d
+```
 
 The TTO format is closed under addition and matrix-vector multiplication: if $A$ and $v$ have bond dimensions $R_A$ and $R_v$, then $Av$ has bond dimension $R_A R_v$ (before compression). Storage scales as $\mathcal{O}(d R^2 n^2)$ compared to $\mathcal{O}(n^{2d})$ for the dense matrix, making it practical to represent differential operators, Hamiltonians, and other structured matrices without ever forming a dense matrix.
 
