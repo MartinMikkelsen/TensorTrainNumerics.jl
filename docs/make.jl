@@ -7,13 +7,15 @@ makedocs(
     sitename = "TensorTrainNumerics.jl",
     format = Documenter.HTML(assets = ["assets/favicon.ico", "assets/citations.css"]),
     pages = [
-        "index.md",
-        "theory.md",
-        "qtt.md",
-        "solvers.md",
-        "examples.md",
-        "resources.md",
-        "API.md",
+        "Home" => "index.md",
+        "Guide" => [
+            "Tensor Train Basics" => "theory.md",
+            "Quantics Tensor Trains" => "qtt.md",
+            "Solvers" => "solvers.md",
+        ],
+        "Examples" => "examples.md",
+        "Resources" => "resources.md",
+        "API Reference" => "API.md",
     ],
     plugins = [bib]
 )
