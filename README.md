@@ -22,7 +22,7 @@ Instead of storing all $\prod_{k=1}^d n_k$ entries of a $d$-dimensional tensor, 
 $$v(i_1,\dots,i_d) = \sum_{r_1,\ldots,r_{d-1}} \prod_{k=1}^d A_k(r_{k-1}, i_k, r_k)$$
 
 $$\begin{array}{ccccccc}
-A_{1} & \;\text{---}\; r_1 \;\text{---}\; & A_{2} & \;\text{---}\; r_2 \;\text{---}\; & A_{3} & \;\text{---}\;\cdots\;\text{---}\; & A_{d} \\
+A_{1} & \overset{\scriptscriptstyle r_1}{\text{———}} & A_{2} & \overset{\scriptscriptstyle r_2}{\text{———}} & A_{3} & \overset{\scriptscriptstyle \cdots}{\text{———}} & A_{d} \\[4pt]
 | & & | & & | & & | \\
 {\small i_1} & & {\small i_2} & & {\small i_3} & & {\small i_d}
 \end{array}$$
@@ -32,7 +32,7 @@ A **TT-operator** $A \in \mathbb{K}^{(n_1\cdots n_d)\times(n_1\cdots n_d)}$ uses
 $$\begin{array}{ccccccc}
 {\small j_1} & & {\small j_2} & & {\small j_3} & & {\small j_d} \\
 | & & | & & | & & | \\
-A_{1} & \;\text{---}\; r_1 \;\text{---}\; & A_{2} & \;\text{---}\; r_2 \;\text{---}\; & A_{3} & \;\text{---}\;\cdots\;\text{---}\; & A_{d} \\
+A_{1} & \overset{\scriptscriptstyle r_1}{\text{———}} & A_{2} & \overset{\scriptscriptstyle r_2}{\text{———}} & A_{3} & \overset{\scriptscriptstyle \cdots}{\text{———}} & A_{d} \\[4pt]
 | & & | & & | & & | \\
 {\small i_1} & & {\small i_2} & & {\small i_3} & & {\small i_d}
 \end{array}$$

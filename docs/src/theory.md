@@ -18,7 +18,7 @@ where $A_k(:,i_k,:) \in \mathbb{K}^{r_{k-1}\times r_k}$ is the matrix slice of c
 
 $$\large{
 \begin{array}{ccccccc}
-A_{1} & \;\text{—}\; r_1 \;\text{—}\; & A_{2} & \;\text{—}\; r_2 \;\text{—}\; & A_{3} & \;\text{—}\;\cdots\;\text{—}\; & A_{d} \\
+A_{1} & \overset{\scriptscriptstyle r_1}{\text{———}} & A_{2} & \overset{\scriptscriptstyle r_2}{\text{———}} & A_{3} & \overset{\scriptscriptstyle \cdots}{\text{———}} & A_{d} \\[4pt]
 | & & | & & | & & | \\
 {\small i_1} & & {\small i_2} & & {\small i_3} & & {\small i_d}
 \end{array}
@@ -44,7 +44,7 @@ $$\large{
 \begin{array}{ccccccc}
 {\small j_1} & & {\small j_2} & & {\small j_3} & & {\small j_d} \\
 | & & | & & | & & | \\
-A_{1} & \;\text{—}\; r_1 \;\text{—}\; & A_{2} & \;\text{—}\; r_2 \;\text{—}\; & A_{3} & \;\text{—}\;\cdots\;\text{—}\; & A_{d} \\
+A_{1} & \overset{\scriptscriptstyle r_1}{\text{———}} & A_{2} & \overset{\scriptscriptstyle r_2}{\text{———}} & A_{3} & \overset{\scriptscriptstyle \cdots}{\text{———}} & A_{d} \\[4pt]
 | & & | & & | & & | \\
 {\small i_1} & & {\small i_2} & & {\small i_3} & & {\small i_d}
 \end{array}
