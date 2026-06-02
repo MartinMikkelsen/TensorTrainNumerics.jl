@@ -11,7 +11,7 @@ x_als = als_linsolve(A, b, x0; sweep_count = 4)</code></pre><pre class="document
   Physical dims : (2, 2, 2, 2, 2, 2)
   Bond dims     : [1, 2, 2, 2, 2, 2, 1]
   Orthogonality : [0, 1, 1, 1, 1, 1]</code></pre><p>For eigenvalue problems use <code>als_eigsolve</code>:</p><pre><code class="language-julia hljs">E, x_eig = als_eigsolve(A, x0; sweep_schedule = [4])
-println(&quot;Lowest eigenvalue: &quot;, E[end])</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Lowest eigenvalue: -96.26723600922107</code></pre><h3 id="MALS"><a class="docs-heading-anchor" href="#MALS">MALS</a><a id="MALS-1"></a><a class="docs-heading-anchor-permalink" href="#MALS" title="Permalink"></a></h3><p>MALS updates two adjacent cores simultaneously, then SVD-truncates the merged core to control rank growth. This allows the bond dimensions to adapt automatically.</p><pre><code class="language-julia hljs">using TensorTrainNumerics
+println(&quot;Lowest eigenvalue: &quot;, E[end])</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Lowest eigenvalue: -96.26723600922098</code></pre><h3 id="MALS"><a class="docs-heading-anchor" href="#MALS">MALS</a><a id="MALS-1"></a><a class="docs-heading-anchor-permalink" href="#MALS" title="Permalink"></a></h3><p>MALS updates two adjacent cores simultaneously, then SVD-truncates the merged core to control rank growth. This allows the bond dimensions to adapt automatically.</p><pre><code class="language-julia hljs">using TensorTrainNumerics
 
 d = 6
 dims = ntuple(_ -&gt; 2, d)
@@ -20,7 +20,7 @@ b = rand_tt(dims, [1; fill(3, d - 1); 1])
 x0 = rand_tt(dims, [1; fill(2, d - 1); 1])
 
 x_mals = mals_linsolve(A, b, x0; tol = 1e-10)
-E_mals, x_eig_mals = mals_eigsolve(A, x0; sweep_schedule = [4])</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">([-13.768868862660101, -39.40163433113789, -23.79954775825666, -61.293352958706016, -50.702995075807884, -50.702995075807884, -50.615977529865646, -42.35523282980379, -66.42413627485378, -30.167605369168506  …  -19.990115503667877, -56.667248985524274, -38.83244039782641, -38.12374648360723, -51.074308891275145, -51.074308891275145, -38.10093091904499, -42.88382752881042, -49.8606606597675, -16.72123532667794], MPS{Float64}(6 sites), [2, 4, 4, 4, 4, 4, 4, 8, 8, 8  …  8, 8, 8, 8, 8, 8, 8, 8, 8, 8])</code></pre><h3 id="DMRG"><a class="docs-heading-anchor" href="#DMRG">DMRG</a><a id="DMRG-1"></a><a class="docs-heading-anchor-permalink" href="#DMRG" title="Permalink"></a></h3><p>DMRG uses the same two-site update as MALS but includes richer local subspace expansion strategies that accelerate convergence, especially for eigenvalue problems. The <code>rmax_schedule</code> controls the maximum bond dimension at each sweep stage.</p><pre><code class="language-julia hljs">using TensorTrainNumerics
+E_mals, x_eig_mals = mals_eigsolve(A, x0; sweep_schedule = [4])</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">([-13.768868862660112, -39.40163433113792, -23.799547758256676, -61.29335295870607, -50.702995075807884, -50.702995075807884, -50.61597752986569, -42.355232829803825, -66.42413627485386, -30.167605369168523  …  -19.990115503668154, -56.667248985524296, -38.83244039782644, -38.123746483607, -51.074308891275, -51.074308891275, -38.100930919044764, -42.88382752881039, -49.86066065976747, -16.721235326677697], MPS{Float64}(6 sites), [2, 4, 4, 4, 4, 4, 4, 8, 8, 8  …  8, 8, 8, 8, 8, 8, 8, 8, 8, 8])</code></pre><h3 id="DMRG"><a class="docs-heading-anchor" href="#DMRG">DMRG</a><a id="DMRG-1"></a><a class="docs-heading-anchor-permalink" href="#DMRG" title="Permalink"></a></h3><p>DMRG uses the same two-site update as MALS but includes richer local subspace expansion strategies that accelerate convergence, especially for eigenvalue problems. The <code>rmax_schedule</code> controls the maximum bond dimension at each sweep stage.</p><pre><code class="language-julia hljs">using TensorTrainNumerics
 
 d = 4
 dims = ntuple(_ -&gt; 2, d)
@@ -79,7 +79,7 @@ println(&quot;Rank history: &quot;, r_hist)</code></pre><pre class="documenter-e
 ┌ Info: Max rank
 └   r_max = 2
 ┌ Info: Discarded weight
-└   (norm(s_V) - norm(s_V[1:x_tt.ttv_rks[i + 1]])) / norm(s_V) = 0.017927806938087047
+└   (norm(s_V) - norm(s_V[1:x_tt.ttv_rks[i + 1]])) / norm(s_V) = 0.017927806938086932
 ┌ Info: Rank
 └   x_tt.ttv_rks[j] = 2
 ┌ Info: Max rank=
@@ -103,7 +103,7 @@ println(&quot;Rank history: &quot;, r_hist)</code></pre><pre class="documenter-e
 ┌ Info: Max rank
 └   r_max = 3
 ┌ Info: Discarded weight
-└   (norm(s_V) - norm(s_V[1:x_tt.ttv_rks[i + 1]])) / norm(s_V) = 0.0005016470377849915
+└   (norm(s_V) - norm(s_V[1:x_tt.ttv_rks[i + 1]])) / norm(s_V) = 0.0005016470377848803
 ┌ Info: Rank
 └   x_tt.ttv_rks[j] = 2
 ┌ Info: Max rank=
@@ -115,7 +115,7 @@ println(&quot;Rank history: &quot;, r_hist)</code></pre><pre class="documenter-e
 ┌ Info: Max rank=
 └   r_max = 3
 ┌ Info: Discarded weight
-└   (norm(s_V) - norm(s_V[1:x_tt.ttv_rks[j]])) / norm(s_V) = 0.0008462369817928691
+└   (norm(s_V) - norm(s_V[1:x_tt.ttv_rks[j]])) / norm(s_V) = 0.0008462369817927582
 ┌ Info: Rank
 └   x_tt.ttv_rks[i + 1] = 2
 ┌ Info: Max rank
@@ -127,7 +127,7 @@ println(&quot;Rank history: &quot;, r_hist)</code></pre><pre class="documenter-e
 ┌ Info: Max rank
 └   r_max = 3
 ┌ Info: Discarded weight
-└   (norm(s_V) - norm(s_V[1:x_tt.ttv_rks[i + 1]])) / norm(s_V) = 0.000846166155071715
+└   (norm(s_V) - norm(s_V[1:x_tt.ttv_rks[i + 1]])) / norm(s_V) = 0.0008461661550717148
 ┌ Info: Rank
 └   x_tt.ttv_rks[j] = 2
 ┌ Info: Max rank=
@@ -139,7 +139,7 @@ println(&quot;Rank history: &quot;, r_hist)</code></pre><pre class="documenter-e
 ┌ Info: Max rank=
 └   r_max = 3
 ┌ Info: Discarded weight
-└   (norm(s_V) - norm(s_V[1:x_tt.ttv_rks[j]])) / norm(s_V) = 0.0008603760498812063
+└   (norm(s_V) - norm(s_V[1:x_tt.ttv_rks[j]])) / norm(s_V) = 0.0008603760498812066
 ┌ Info: Rank
 └   x_tt.ttv_rks[i + 1] = 2
 ┌ Info: Max rank
@@ -242,7 +242,7 @@ println(&quot;Rank history: &quot;, r_hist)</code></pre><pre class="documenter-e
 └   r_max = 4
 ┌ Info: Discarded weight
 └   (norm(s_V) - norm(s_V[1:x_tt.ttv_rks[j]])) / norm(s_V) = 0.0
-Lowest eigenvalue: -8.697979620129113
+Lowest eigenvalue: -8.697979620129116
 Rank history: [2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4]</code></pre><hr/><h2 id="TDVP-—-time-dependent-variational-principle"><a class="docs-heading-anchor" href="#TDVP-—-time-dependent-variational-principle">TDVP — time-dependent variational principle</a><a id="TDVP-—-time-dependent-variational-principle-1"></a><a class="docs-heading-anchor-permalink" href="#TDVP-—-time-dependent-variational-principle" title="Permalink"></a></h2><p>TDVP evolves a TT-vector under the equation <span>$\dot{u} = A u$</span> while keeping the state on the TT manifold of fixed (or bounded) rank. Two variants are available:</p><ul><li><strong><code>tdvp</code></strong> — single-site TDVP, fixed rank, lower cost per step.</li><li><strong><code>tdvp2</code></strong> — two-site TDVP with SVD truncation, adaptive rank.</li></ul><p>Both support <strong>real-time</strong> evolution (default) and <strong>imaginary-time</strong> evolution (<code>imaginary_time = true</code>), which acts as a variational ground-state finder by computing <span>$e^{-A\tau} u_0 / \|e^{-A\tau} u_0\|$</span>.</p><pre><code class="language-julia hljs">using TensorTrainNumerics
 using CairoMakie
 
@@ -290,4 +290,4 @@ lines!(ax, xes, qtt_to_function(sol_impl),   label = &quot;Implicit Euler&quot;,
 lines!(ax, xes, qtt_to_function(sol_cn),     label = &quot;Crank–Nicolson&quot;, linestyle = :dash, linewidth = 3)
 lines!(ax, xes, qtt_to_function(sol_krylov), label = &quot;Krylov exp.&quot;,    linestyle = :solid, linewidth = 3)
 axislegend(ax)
-fig</code></pre><img src="707d6fd4.png" alt="Example block output"/><hr/><h2 id="Choosing-a-solver"><a class="docs-heading-anchor" href="#Choosing-a-solver">Choosing a solver</a><a id="Choosing-a-solver-1"></a><a class="docs-heading-anchor-permalink" href="#Choosing-a-solver" title="Permalink"></a></h2><p><strong>ALS</strong> is the right starting point when you already know a good rank and want low memory use.</p><p><strong>MALS or DMRG</strong> are better when the target rank is unknown: they grow bonds during sweeps and SVD-truncate them down, so they self-tune. DMRG is often the fastest to converge for eigenvalue problems.</p><p><strong>TDVP</strong> is the method of choice for time evolution: it respects the TT manifold geometry and avoids the rank blowup that naive time-stepping causes.</p><p><strong>Exponential integrators</strong> give the most accurate result for diffusion-type problems at large time steps, at the cost of Krylov subspace construction per step.</p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../qtt/">« Quantics Tensor Trains</a><a class="docs-footer-nextpage" href="../examples/">Examples »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Tuesday 2 June 2026 11:05">Tuesday 2 June 2026</span>. Using Julia version 1.12.6.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+fig</code></pre><img src="707d6fd4.png" alt="Example block output"/><hr/><h2 id="Choosing-a-solver"><a class="docs-heading-anchor" href="#Choosing-a-solver">Choosing a solver</a><a id="Choosing-a-solver-1"></a><a class="docs-heading-anchor-permalink" href="#Choosing-a-solver" title="Permalink"></a></h2><p><strong>ALS</strong> is the right starting point when you already know a good rank and want low memory use.</p><p><strong>MALS or DMRG</strong> are better when the target rank is unknown: they grow bonds during sweeps and SVD-truncate them down, so they self-tune. DMRG is often the fastest to converge for eigenvalue problems.</p><p><strong>TDVP</strong> is the method of choice for time evolution: it respects the TT manifold geometry and avoids the rank blowup that naive time-stepping causes.</p><p><strong>Exponential integrators</strong> give the most accurate result for diffusion-type problems at large time steps, at the cost of Krylov subspace construction per step.</p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../qtt/">« Quantics Tensor Trains</a><a class="docs-footer-nextpage" href="../examples/">Examples »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Tuesday 2 June 2026 18:01">Tuesday 2 June 2026</span>. Using Julia version 1.12.6.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>

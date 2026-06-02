@@ -18,26 +18,26 @@ lines!(ax, x, qtt_to_function(v_cos), label = &quot;cos(πx)&quot;, linestyle = 
 axislegend(ax)
 fig</code></pre><img src="db91c2bf.png" alt="Example block output"/><h3 id="Built-in-mathematical-functions"><a class="docs-heading-anchor" href="#Built-in-mathematical-functions">Built-in mathematical functions</a><a id="Built-in-mathematical-functions-1"></a><a class="docs-heading-anchor-permalink" href="#Built-in-mathematical-functions" title="Permalink"></a></h3><p>The following functions provide exact or near-exact QTT representations [<a href="../resources/#Khoromskij">5</a>]:</p><table><tr><th style="text-align: right">Function</th><th style="text-align: right">Description</th></tr><tr><td style="text-align: right"><code>qtt_exp(L)</code></td><td style="text-align: right"><span>$e^x$</span> on <span>$[0,1]$</span></td></tr><tr><td style="text-align: right"><code>qtt_sin(L; λ)</code></td><td style="text-align: right"><span>$\sin(\lambda x)$</span></td></tr><tr><td style="text-align: right"><code>qtt_cos(L; λ)</code></td><td style="text-align: right"><span>$\cos(\lambda x)$</span></td></tr><tr><td style="text-align: right"><code>qtt_polynom(coeffs, L; a, b)</code></td><td style="text-align: right">Polynomial with given coefficients on <span>$[a,b]$</span></td></tr><tr><td style="text-align: right"><code>qtt_chebyshev(n, L)</code></td><td style="text-align: right">Chebyshev polynomial <span>$T_n$</span></td></tr></table><h3 id="Constructing-a-QTT-from-an-arbitrary-function"><a class="docs-heading-anchor" href="#Constructing-a-QTT-from-an-arbitrary-function">Constructing a QTT from an arbitrary function</a><a id="Constructing-a-QTT-from-an-arbitrary-function-1"></a><a class="docs-heading-anchor-permalink" href="#Constructing-a-QTT-from-an-arbitrary-function" title="Permalink"></a></h3><p><code>function_to_qtt</code> builds a QTT from a black-box function via TT-cross:</p><pre><code class="language-julia hljs">g = function_to_qtt(x -&gt; cos(10π * x) * exp(-x), L)
 vals = qtt_to_function(g)   # returns a length-2^L vector</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">256-element Vector{Float64}:
- 0.9999999999999992
- 0.9885362856393795
- 0.9622204361593885
- 0.9215662465120872
- 0.8673002212085625
- 0.8003489314411051
- 0.7218234469757493
- 0.6330011009798904
- 0.535304884245355
- 0.4302807987828694
+ 0.9999999999999997
+ 0.9885362856393798
+ 0.9622204361593888
+ 0.9215662465120873
+ 0.8673002212085629
+ 0.8003489314411053
+ 0.7218234469757494
+ 0.6330011009798905
+ 0.5353048842453553
+ 0.43028079878286946
  ⋮
- 0.20967979046602137
- 0.24601047645271149
- 0.27833888977432025
- 0.30620765507371256
- 0.3292303776603672
- 0.34709692932037023
- 0.35957754006582765
- 0.3665256433055865
- 0.36787944117144206</code></pre><h3 id="Interpolation-based-construction"><a class="docs-heading-anchor" href="#Interpolation-based-construction">Interpolation-based construction</a><a id="Interpolation-based-construction-1"></a><a class="docs-heading-anchor-permalink" href="#Interpolation-based-construction" title="Permalink"></a></h3><p><code>interpolating_qtt</code> and <code>lagrange_rank_revealing</code> build a QTT using polynomial interpolation at Chebyshev nodes [<a href="../resources/#lindsey2023multiscale">11</a>]:</p><pre><code class="language-julia hljs">using TensorTrainNumerics
+ 0.20967979046602161
+ 0.24601047645271182
+ 0.2783388897743206
+ 0.30620765507371284
+ 0.32923037766036756
+ 0.3470969293203706
+ 0.35957754006582804
+ 0.36652564330558685
+ 0.36787944117144233</code></pre><h3 id="Interpolation-based-construction"><a class="docs-heading-anchor" href="#Interpolation-based-construction">Interpolation-based construction</a><a id="Interpolation-based-construction-1"></a><a class="docs-heading-anchor-permalink" href="#Interpolation-based-construction" title="Permalink"></a></h3><p><code>interpolating_qtt</code> and <code>lagrange_rank_revealing</code> build a QTT using polynomial interpolation at Chebyshev nodes [<a href="../resources/#lindsey2023multiscale">11</a>]:</p><pre><code class="language-julia hljs">using TensorTrainNumerics
 using CairoMakie
 
 f = x -&gt; cos(1 / (x^3 + 0.01)) + sin(π * x)
@@ -68,22 +68,22 @@ q_sr = function_to_qttv(f2d, 2, 4; ordering = :serial)
 # Evaluate back: returns a (2^4, 2^4) = (16, 16) matrix
 arr_il = qttv_to_array(q_il)
 arr_sr = qttv_to_array(q_sr)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">16×16 Matrix{Float64}:
- -4.19367e-16  -4.02296e-16  -3.29529e-16  …   3.8829e-16   3.56596e-16
-  0.207912      0.203368      0.189937        -0.203368    -0.207912
-  0.406737      0.397848      0.371572        -0.397848    -0.406737
-  0.587785      0.574941      0.536969        -0.574941    -0.587785
-  0.743145      0.726905      0.678897        -0.726905    -0.743145
-  0.866025      0.847101      0.791154     …  -0.847101    -0.866025
-  0.951057      0.930274      0.868833        -0.930274    -0.951057
-  0.994522      0.972789      0.908541        -0.972789    -0.994522
-  0.994522      0.972789      0.908541        -0.972789    -0.994522
-  0.951057      0.930274      0.868833        -0.930274    -0.951057
-  0.866025      0.847101      0.791154     …  -0.847101    -0.866025
-  0.743145      0.726905      0.678897        -0.726905    -0.743145
-  0.587785      0.574941      0.536969        -0.574941    -0.587785
-  0.406737      0.397848      0.371572        -0.397848    -0.406737
-  0.207912      0.203368      0.189937        -0.203368    -0.207912
- -3.18969e-16  -2.91361e-16  -2.42953e-16  …   1.4558e-16   2.56198e-16</code></pre><h3 id="Converting-between-orderings"><a class="docs-heading-anchor" href="#Converting-between-orderings">Converting between orderings</a><a id="Converting-between-orderings-1"></a><a class="docs-heading-anchor-permalink" href="#Converting-between-orderings" title="Permalink"></a></h3><p><code>reorder</code> converts a <code>QTTvector</code> or <code>QTToperator</code> between <code>:serial</code> and <code>:interleaved</code> via a sequence of adjacent-site SVD swaps:</p><pre><code class="language-julia hljs">q_back = reorder(q_il, :serial)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">QTT-MPS{Float64} with 8 sites
+ -3.71326e-16  -3.41961e-16  -3.43872e-16  …   3.41961e-16   3.43314e-16
+  0.207912      0.203368      0.189937        -0.203368     -0.207912
+  0.406737      0.397848      0.371572        -0.397848     -0.406737
+  0.587785      0.574941      0.536969        -0.574941     -0.587785
+  0.743145      0.726905      0.678897        -0.726905     -0.743145
+  0.866025      0.847101      0.791154     …  -0.847101     -0.866025
+  0.951057      0.930274      0.868833        -0.930274     -0.951057
+  0.994522      0.972789      0.908541        -0.972789     -0.994522
+  0.994522      0.972789      0.908541        -0.972789     -0.994522
+  0.951057      0.930274      0.868833        -0.930274     -0.951057
+  0.866025      0.847101      0.791154     …  -0.847101     -0.866025
+  0.743145      0.726905      0.678897        -0.726905     -0.743145
+  0.587785      0.574941      0.536969        -0.574941     -0.587785
+  0.406737      0.397848      0.371572        -0.397848     -0.406737
+  0.207912      0.203368      0.189937        -0.203368     -0.207912
+ -2.74074e-17  -7.60625e-17  -2.76548e-17  …   7.60625e-17   1.10417e-16</code></pre><h3 id="Converting-between-orderings"><a class="docs-heading-anchor" href="#Converting-between-orderings">Converting between orderings</a><a id="Converting-between-orderings-1"></a><a class="docs-heading-anchor-permalink" href="#Converting-between-orderings" title="Permalink"></a></h3><p><code>reorder</code> converts a <code>QTTvector</code> or <code>QTToperator</code> between <code>:serial</code> and <code>:interleaved</code> via a sequence of adjacent-site SVD swaps:</p><pre><code class="language-julia hljs">q_back = reorder(q_il, :serial)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">QTT-MPS{Float64} with 8 sites
   Dimensions    : 2d × 4 bits/dim  (32 grid points per dim)
   Ordering      : serial
   Physical dims : (2, 2, 2, 2, 2, 2, 2, 2)
@@ -131,4 +131,4 @@ x_qtt = function_to_qtt_uniform(f, d)
 y_qtt = F * x_qtt</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">MPS{ComplexF64} with 10 sites
   Physical dims : (2, 2, 2, 2, 2, 2, 2, 2, 2, 2)
   Bond dims     : [1, 102, 204, 357, 408, 408, 408, 408, 204, 102, 1]
-  Orthogonality : none</code></pre></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../theory/">« Tensor Train Basics</a><a class="docs-footer-nextpage" href="../solvers/">Solvers »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Tuesday 2 June 2026 11:05">Tuesday 2 June 2026</span>. Using Julia version 1.12.6.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+  Orthogonality : none</code></pre></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../theory/">« Tensor Train Basics</a><a class="docs-footer-nextpage" href="../solvers/">Solvers »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Tuesday 2 June 2026 18:01">Tuesday 2 June 2026</span>. Using Julia version 1.12.6.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
