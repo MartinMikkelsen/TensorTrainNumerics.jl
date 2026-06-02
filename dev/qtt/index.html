@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Quantics Tensor Trains · TensorTrainNumerics.jl</title><meta name="title" content="Quantics Tensor Trains · TensorTrainNumerics.jl"/><meta property="og:title" content="Quantics Tensor Trains · TensorTrainNumerics.jl"/><meta property="twitter:title" content="Quantics Tensor Trains · TensorTrainNumerics.jl"/><meta name="description" content="Documentation for TensorTrainNumerics.jl."/><meta property="og:description" content="Documentation for TensorTrainNumerics.jl."/><meta property="twitter:description" content="Documentation for TensorTrainNumerics.jl."/><script data-outdated-warner src="../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../search_index.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script><link href="../assets/favicon.ico" rel="icon" type="image/x-icon"/><link href="../assets/citations.css" rel="stylesheet" type="text/css"/></head><body><div id="documenter"><nav class="docs-sidebar"><a class="docs-logo" href="../"><img src="../assets/logo.svg" alt="TensorTrainNumerics.jl logo"/></a><div class="docs-package-name"><span class="docs-autofit"><a href="../">TensorTrainNumerics.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../">Home</a></li><li><span class="tocitem">Guide</span><ul><li><a class="tocitem" href="../theory/">Tensor Train Basics</a></li><li class="is-active"><a class="tocitem" href>Quantics Tensor Trains</a><ul class="internal"><li><a class="tocitem" href="#1D-QTT"><span>1D QTT</span></a></li><li><a class="tocitem" href="#Serial-and-interleaved-orderings"><span>Serial and interleaved orderings</span></a></li><li><a class="tocitem" href="#QTTvector-and-QTToperator"><span>QTTvector and QTToperator</span></a></li><li><a class="tocitem" href="#Multi-dimensional-Laplacian-operator"><span>Multi-dimensional Laplacian operator</span></a></li><li><a class="tocitem" href="#QTT-operator-library"><span>QTT operator library</span></a></li></ul></li><li><a class="tocitem" href="../solvers/">Solvers</a></li></ul></li><li><a class="tocitem" href="../examples/">Examples</a></li><li><a class="tocitem" href="../resources/">Resources</a></li><li><a class="tocitem" href="../API/">API Reference</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Guide</a></li><li class="is-active"><a href>Quantics Tensor Trains</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Quantics Tensor Trains</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/MartinMikkelsen/TensorTrainNumerics.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/MartinMikkelsen/TensorTrainNumerics.jl/blob/main/docs/src/qtt.md" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="Quantics-Tensor-Trains"><a class="docs-heading-anchor" href="#Quantics-Tensor-Trains">Quantics Tensor Trains</a><a id="Quantics-Tensor-Trains-1"></a><a class="docs-heading-anchor-permalink" href="#Quantics-Tensor-Trains" title="Permalink"></a></h1><p>A <strong>quantics tensor train</strong> (QTT) represents a function on a uniform grid of <span>$2^L$</span> points as a TT with <span>$L$</span> sites, each of physical dimension 2. The idea is to interpret the grid index in binary:</p><p class="math-container">\[j = j_1 \cdot 2^{L-1} + j_2 \cdot 2^{L-2} + \cdots + j_L \cdot 2^0, \qquad j_k \in \{0,1\}.\]</p><p>Site <span>$k$</span> carries the <span>$k$</span>-th most-significant bit. Smooth or oscillatory functions — exponentials, sines, polynomials — compress to very low TT-rank in this encoding [<a href="../resources/#Khoromskij">5</a>].</p><h2 id="1D-QTT"><a class="docs-heading-anchor" href="#1D-QTT">1D QTT</a><a id="1D-QTT-1"></a><a class="docs-heading-anchor-permalink" href="#1D-QTT" title="Permalink"></a></h2><p>The simplest use case represents <span>$f:[0,1]\to\mathbb{R}$</span> sampled at <span>$x_j = j/(2^L-1)$</span>, <span>$j = 0,\ldots,2^L-1$</span>.</p><pre><code class="language-julia hljs">using TensorTrainNumerics
+using CairoMakie
+
+L = 8   # 2^8 = 256 grid points
+
+v_exp = qtt_exp(L)
+v_sin = qtt_sin(L, λ = π)
+v_cos = qtt_cos(L, λ = π)
+
+x = LinRange(0, 1, 2^L)
+
+fig = Figure()
+ax = Axis(fig[1, 1], xlabel = &quot;x&quot;, ylabel = &quot;f(x)&quot;, title = &quot;Built-in QTT functions&quot;)
+lines!(ax, x, qtt_to_function(v_exp), label = &quot;exp(x)&quot;)
+lines!(ax, x, qtt_to_function(v_sin), label = &quot;sin(πx)&quot;, linestyle = :dash)
+lines!(ax, x, qtt_to_function(v_cos), label = &quot;cos(πx)&quot;, linestyle = :dot)
+axislegend(ax)
+fig</code></pre><img src="db91c2bf.png" alt="Example block output"/><h3 id="Built-in-mathematical-functions"><a class="docs-heading-anchor" href="#Built-in-mathematical-functions">Built-in mathematical functions</a><a id="Built-in-mathematical-functions-1"></a><a class="docs-heading-anchor-permalink" href="#Built-in-mathematical-functions" title="Permalink"></a></h3><p>The following functions provide exact or near-exact QTT representations [<a href="../resources/#Khoromskij">5</a>]:</p><table><tr><th style="text-align: right">Function</th><th style="text-align: right">Description</th></tr><tr><td style="text-align: right"><code>qtt_exp(L)</code></td><td style="text-align: right"><span>$e^x$</span> on <span>$[0,1]$</span></td></tr><tr><td style="text-align: right"><code>qtt_sin(L; λ)</code></td><td style="text-align: right"><span>$\sin(\lambda x)$</span></td></tr><tr><td style="text-align: right"><code>qtt_cos(L; λ)</code></td><td style="text-align: right"><span>$\cos(\lambda x)$</span></td></tr><tr><td style="text-align: right"><code>qtt_polynom(coeffs, L; a, b)</code></td><td style="text-align: right">Polynomial with given coefficients on <span>$[a,b]$</span></td></tr><tr><td style="text-align: right"><code>qtt_chebyshev(n, L)</code></td><td style="text-align: right">Chebyshev polynomial <span>$T_n$</span></td></tr></table><h3 id="Constructing-a-QTT-from-an-arbitrary-function"><a class="docs-heading-anchor" href="#Constructing-a-QTT-from-an-arbitrary-function">Constructing a QTT from an arbitrary function</a><a id="Constructing-a-QTT-from-an-arbitrary-function-1"></a><a class="docs-heading-anchor-permalink" href="#Constructing-a-QTT-from-an-arbitrary-function" title="Permalink"></a></h3><p><code>function_to_qtt</code> builds a QTT from a black-box function via TT-cross:</p><pre><code class="language-julia hljs">g = function_to_qtt(x -&gt; cos(10π * x) * exp(-x), L)
+vals = qtt_to_function(g)   # returns a length-2^L vector</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">256-element Vector{Float64}:
+ 0.9999999999999992
+ 0.9885362856393795
+ 0.9622204361593885
+ 0.9215662465120872
+ 0.8673002212085625
+ 0.8003489314411051
+ 0.7218234469757493
+ 0.6330011009798904
+ 0.535304884245355
+ 0.4302807987828694
+ ⋮
+ 0.20967979046602137
+ 0.24601047645271149
+ 0.27833888977432025
+ 0.30620765507371256
+ 0.3292303776603672
+ 0.34709692932037023
+ 0.35957754006582765
+ 0.3665256433055865
+ 0.36787944117144206</code></pre><h3 id="Interpolation-based-construction"><a class="docs-heading-anchor" href="#Interpolation-based-construction">Interpolation-based construction</a><a id="Interpolation-based-construction-1"></a><a class="docs-heading-anchor-permalink" href="#Interpolation-based-construction" title="Permalink"></a></h3><p><code>interpolating_qtt</code> and <code>lagrange_rank_revealing</code> build a QTT using polynomial interpolation at Chebyshev nodes [<a href="../resources/#lindsey2023multiscale">11</a>]:</p><pre><code class="language-julia hljs">using TensorTrainNumerics
+using CairoMakie
+
+f = x -&gt; cos(1 / (x^3 + 0.01)) + sin(π * x)
+L = 10
+N = 150   # Chebyshev nodes per level
+
+q    = interpolating_qtt(f, L, N)
+q_rr = lagrange_rank_revealing(f, L, N)
+
+x = LinRange(0, 1, 2^L)
+fig = Figure()
+ax = Axis(fig[1, 1], xlabel = &quot;x&quot;, ylabel = &quot;f(x)&quot;, title = &quot;Interpolating QTT&quot;)
+lines!(ax, x, f.(x),              label = &quot;exact&quot;)
+lines!(ax, x, matricize(q, L),    label = &quot;interpolating&quot;, linestyle = :dash, color = :red)
+lines!(ax, x, matricize(q_rr, L), label = &quot;rank-revealing&quot;, linestyle = :dot, color = :green)
+axislegend(ax)
+fig</code></pre><img src="9667b193.png" alt="Example block output"/><p>We can visualize the TT structure of the resulting decomposition:</p><pre><code class="language-julia hljs">visualize(q)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">  1-- • --151-- • --151-- • --151-- • --151-- • --151-- • --151-- • --151-- • --151-- • --151-- • --  1
+      |         |         |         |         |         |         |         |         |         |
+      2         2         2         2         2         2         2         2         2         2</code></pre><h2 id="Serial-and-interleaved-orderings"><a class="docs-heading-anchor" href="#Serial-and-interleaved-orderings">Serial and interleaved orderings</a><a id="Serial-and-interleaved-orderings-1"></a><a class="docs-heading-anchor-permalink" href="#Serial-and-interleaved-orderings" title="Permalink"></a></h2><p>For a <span>$d$</span>-dimensional function on <span>$\{0,\ldots,2^L-1\}^d$</span> there are <span>$d \cdot L$</span> bits in total, and two natural ways to sequence them into a TT:</p><p><strong>Serial ordering</strong> — all <span>$L$</span> bits of dimension 1, then all <span>$L$</span> bits of dimension 2, etc.:</p><p class="math-container">\[[\underbrace{b_1^{(1)},\ldots,b_L^{(1)}}_{L \text{ sites}},\; \underbrace{b_1^{(2)},\ldots,b_L^{(2)}}_{L \text{ sites}},\; \ldots]\]</p><p><strong>Interleaved ordering</strong> — the most-significant bit of every dimension, then the next, etc.:</p><p class="math-container">\[[\underbrace{b_1^{(1)},b_1^{(2)},\ldots,b_1^{(d)}}_{d \text{ sites}},\; \underbrace{b_2^{(1)},b_2^{(2)},\ldots,b_2^{(d)}}_{d \text{ sites}},\;\ldots]\]</p><p>Interleaved ordering often yields lower ranks for isotropic functions because it groups multi-scale information across all dimensions at each resolution level.</p><h2 id="QTTvector-and-QTToperator"><a class="docs-heading-anchor" href="#QTTvector-and-QTToperator">QTTvector and QTToperator</a><a id="QTTvector-and-QTToperator-1"></a><a class="docs-heading-anchor-permalink" href="#QTTvector-and-QTToperator" title="Permalink"></a></h2><p>Plain <code>TTvector</code>/<code>TToperator</code> objects carry no information about the QTT structure. The <code>QTTvector</code> and <code>QTToperator</code> wrappers attach the metadata needed to track consistency across operations:</p><pre><code class="language-julia hljs">QTTvector{T, N}   &lt;: AbstractTTvector{T}
+QTToperator{T, N} &lt;: AbstractTToperator{T}</code></pre><p>Both carry three extra fields on top of the standard TT data:</p><table><tr><th style="text-align: right">Field</th><th style="text-align: right">Type</th><th style="text-align: right">Meaning</th></tr><tr><td style="text-align: right"><code>n_dims</code></td><td style="text-align: right"><code>Int</code></td><td style="text-align: right">Number of physical dimensions <span>$d$</span></td></tr><tr><td style="text-align: right"><code>bits_per_dim</code></td><td style="text-align: right"><code>Int</code></td><td style="text-align: right">Bits per dimension <span>$L$</span> (so <span>$N = d \cdot L$</span>)</td></tr><tr><td style="text-align: right"><code>ordering</code></td><td style="text-align: right"><code>Symbol</code></td><td style="text-align: right"><code>:serial</code> or <code>:interleaved</code></td></tr></table><h3 id="Constructing-multi-dimensional-QTTs"><a class="docs-heading-anchor" href="#Constructing-multi-dimensional-QTTs">Constructing multi-dimensional QTTs</a><a id="Constructing-multi-dimensional-QTTs-1"></a><a class="docs-heading-anchor-permalink" href="#Constructing-multi-dimensional-QTTs" title="Permalink"></a></h3><p><code>function_to_qttv</code> builds a <code>QTTvector</code> from a multivariable function. The function receives a length-<span>$d$</span> vector <code>x</code> of coordinates in <span>$[0,1]^d$</span>:</p><pre><code class="language-julia hljs">using TensorTrainNumerics
+
+f2d = x -&gt; sin(π * x[1]) * cos(π * x[2])
+
+# 2 dimensions, 4 bits per dim (16×16 grid), interleaved ordering
+q_il = function_to_qttv(f2d, 2, 4; ordering = :interleaved)
+q_sr = function_to_qttv(f2d, 2, 4; ordering = :serial)
+
+# Evaluate back: returns a (2^4, 2^4) = (16, 16) matrix
+arr_il = qttv_to_array(q_il)
+arr_sr = qttv_to_array(q_sr)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">16×16 Matrix{Float64}:
+ -4.19367e-16  -4.02296e-16  -3.29529e-16  …   3.8829e-16   3.56596e-16
+  0.207912      0.203368      0.189937        -0.203368    -0.207912
+  0.406737      0.397848      0.371572        -0.397848    -0.406737
+  0.587785      0.574941      0.536969        -0.574941    -0.587785
+  0.743145      0.726905      0.678897        -0.726905    -0.743145
+  0.866025      0.847101      0.791154     …  -0.847101    -0.866025
+  0.951057      0.930274      0.868833        -0.930274    -0.951057
+  0.994522      0.972789      0.908541        -0.972789    -0.994522
+  0.994522      0.972789      0.908541        -0.972789    -0.994522
+  0.951057      0.930274      0.868833        -0.930274    -0.951057
+  0.866025      0.847101      0.791154     …  -0.847101    -0.866025
+  0.743145      0.726905      0.678897        -0.726905    -0.743145
+  0.587785      0.574941      0.536969        -0.574941    -0.587785
+  0.406737      0.397848      0.371572        -0.397848    -0.406737
+  0.207912      0.203368      0.189937        -0.203368    -0.207912
+ -3.18969e-16  -2.91361e-16  -2.42953e-16  …   1.4558e-16   2.56198e-16</code></pre><h3 id="Converting-between-orderings"><a class="docs-heading-anchor" href="#Converting-between-orderings">Converting between orderings</a><a id="Converting-between-orderings-1"></a><a class="docs-heading-anchor-permalink" href="#Converting-between-orderings" title="Permalink"></a></h3><p><code>reorder</code> converts a <code>QTTvector</code> or <code>QTToperator</code> between <code>:serial</code> and <code>:interleaved</code> via a sequence of adjacent-site SVD swaps:</p><pre><code class="language-julia hljs">q_back = reorder(q_il, :serial)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">QTT-MPS{Float64} with 8 sites
+  Dimensions    : 2d × 4 bits/dim  (32 grid points per dim)
+  Ordering      : serial
+  Physical dims : (2, 2, 2, 2, 2, 2, 2, 2)
+  Bond dims     : [1, 2, 4, 8, 16, 8, 4, 2, 1]
+  Orthogonality : none</code></pre><h3 id="Wrapping-and-stripping-metadata"><a class="docs-heading-anchor" href="#Wrapping-and-stripping-metadata">Wrapping and stripping metadata</a><a id="Wrapping-and-stripping-metadata-1"></a><a class="docs-heading-anchor-permalink" href="#Wrapping-and-stripping-metadata" title="Permalink"></a></h3><pre><code class="language-julia hljs">using TensorTrainNumerics
+
+ttv = rand_tt(fill(2, 8), 2)           # plain TTvector, 8 sites
+q   = QTTvector(ttv, 2, 4, :serial)   # wrap: 2 dims, 4 bits/dim, serial
+
+ttv2 = TTvector(q)   # strip back to a plain TTvector</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">MPS{Float64} with 8 sites
+  Physical dims : (2, 2, 2, 2, 2, 2, 2, 2)
+  Bond dims     : [1, 2, 2, 2, 2, 2, 2, 2, 1]
+  Orthogonality : none</code></pre><p>Arithmetic between two <code>QTTvector</code> objects with matching metadata returns a <code>QTTvector</code>. Mixed arithmetic with a plain <code>TTvector</code> falls back to <code>TTvector</code>. The <code>check_compat</code> function enforces ordering and dimension consistency at operation boundaries.</p><h2 id="Multi-dimensional-Laplacian-operator"><a class="docs-heading-anchor" href="#Multi-dimensional-Laplacian-operator">Multi-dimensional Laplacian operator</a><a id="Multi-dimensional-Laplacian-operator-1"></a><a class="docs-heading-anchor-permalink" href="#Multi-dimensional-Laplacian-operator" title="Permalink"></a></h2><p><code>qtt_laplacian</code> constructs the <span>$d$</span>-dimensional finite-difference Laplacian</p><p class="math-container">\[\Delta = \Delta_{x_1} \otimes I \otimes \cdots + I \otimes \Delta_{x_2} \otimes \cdots + \cdots\]</p><p>as a <code>QTToperator</code> in either ordering:</p><pre><code class="language-julia hljs">using TensorTrainNumerics
+
+# 2D Laplacian, 4 bits per dim, Dirichlet–Dirichlet BC, interleaved ordering
+A2d = qtt_laplacian(2, 4; ordering = :interleaved, bc = :DD)
+
+# 3D, serial ordering, Dirichlet–Neumann BC
+A3d = qtt_laplacian(3, 4; ordering = :serial, bc = :DN)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">QTT-MPO{Float64} with 12 sites
+  Dimensions    : 3d × 4 bits/dim  (48 grid points per dim)
+  Ordering      : serial
+  Physical dims : (2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2)
+  Bond dims     : [1, 6, 6, 6, 3, 6, 6, 6, 3, 6, 6, 6, 1]
+  Orthogonality : none</code></pre><p>Available boundary conditions:</p><table><tr><th style="text-align: right">Symbol</th><th style="text-align: right">Meaning</th></tr><tr><td style="text-align: right"><code>:DD</code></td><td style="text-align: right">Dirichlet–Dirichlet</td></tr><tr><td style="text-align: right"><code>:DN</code></td><td style="text-align: right">Dirichlet–Neumann</td></tr><tr><td style="text-align: right"><code>:ND</code></td><td style="text-align: right">Neumann–Dirichlet</td></tr><tr><td style="text-align: right"><code>:NN</code></td><td style="text-align: right">Neumann–Neumann (1D only)</td></tr></table><h2 id="QTT-operator-library"><a class="docs-heading-anchor" href="#QTT-operator-library">QTT operator library</a><a id="QTT-operator-library-1"></a><a class="docs-heading-anchor-permalink" href="#QTT-operator-library" title="Permalink"></a></h2><p>These 1D operators come with explicit rank-2 (or rank-1) QTT representations and can be composed via <code>⊗</code> and <code>+</code> to build multi-dimensional problems:</p><table><tr><th style="text-align: right">Function</th><th style="text-align: right">Operator</th></tr><tr><td style="text-align: right"><code>Δ(d)</code></td><td style="text-align: right">Second-difference, Dirichlet–Dirichlet (tridiag(2,−1,−1))</td></tr><tr><td style="text-align: right"><code>Δ_DN(d)</code></td><td style="text-align: right">Second-difference, Dirichlet–Neumann</td></tr><tr><td style="text-align: right"><code>Δ_ND(d)</code></td><td style="text-align: right">Second-difference, Neumann–Dirichlet</td></tr><tr><td style="text-align: right"><code>Δ_NN(d)</code></td><td style="text-align: right">Second-difference, Neumann–Neumann (1D only)</td></tr><tr><td style="text-align: right"><code>Δ_P(d)</code></td><td style="text-align: right">Second-difference, periodic</td></tr><tr><td style="text-align: right"><code>Δ⁻¹_DN(d)</code></td><td style="text-align: right">Inverse Laplacian, Dirichlet–Neumann BC</td></tr><tr><td style="text-align: right"><code>∇(d)</code></td><td style="text-align: right">First-difference (forward difference)</td></tr><tr><td style="text-align: right"><code>shift(d)</code></td><td style="text-align: right">Cyclic shift</td></tr><tr><td style="text-align: right"><code>id_tto(d)</code></td><td style="text-align: right">Identity on <span>$\{1,2\}^d$</span></td></tr><tr><td style="text-align: right"><code>toeplitz_to_qtto(α, β, γ, d)</code></td><td style="text-align: right">General tridiagonal Toeplitz matrix</td></tr><tr><td style="text-align: right"><code>fourier_qtto(d; K, sign, normalize)</code></td><td style="text-align: right">Approximate discrete Fourier transform</td></tr></table><h3 id="Example:-2D-Laplacian-from-1D-blocks"><a class="docs-heading-anchor" href="#Example:-2D-Laplacian-from-1D-blocks">Example: 2D Laplacian from 1D blocks</a><a id="Example:-2D-Laplacian-from-1D-blocks-1"></a><a class="docs-heading-anchor-permalink" href="#Example:-2D-Laplacian-from-1D-blocks" title="Permalink"></a></h3><pre><code class="language-julia hljs">using TensorTrainNumerics
+
+d = 8
+N = 2^d
+h = 1.0 / (N + 1)   # spacing for N interior points on [0,1]
+
+Δ1d = toeplitz_to_qtto(-2.0, 1.0, 1.0, d)             # 1D interior stencil
+A2d = (1/h^2) * ((Δ1d ⊗ id_tto(d)) + (id_tto(d) ⊗ Δ1d)) # 2D Laplacian</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">MPO{Float64} with 16 sites
+  Physical dims : (2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2)
+  Bond dims     : [1, 4, 4, 4, 4, 4, 4, 4, 2, 4, 4, 4, 4, 4, 4, 4, 1]
+  Orthogonality : none</code></pre><h3 id="Example:-Discrete-Fourier-transform"><a class="docs-heading-anchor" href="#Example:-Discrete-Fourier-transform">Example: Discrete Fourier transform</a><a id="Example:-Discrete-Fourier-transform-1"></a><a class="docs-heading-anchor-permalink" href="#Example:-Discrete-Fourier-transform" title="Permalink"></a></h3><pre><code class="language-julia hljs">using TensorTrainNumerics
+using Random
+
+d = 10
+Random.seed!(42)
+r = 8
+coeffs = randn(r) .+ 1im * randn(r)
+f(x) = sum(coeffs .* cispi.(2 .* (0:(r-1)) .* x))
+
+F     = fourier_qtto(d; K = 50, sign = -1.0, normalize = true)
+x_qtt = function_to_qtt_uniform(f, d)
+y_qtt = F * x_qtt</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">MPS{ComplexF64} with 10 sites
+  Physical dims : (2, 2, 2, 2, 2, 2, 2, 2, 2, 2)
+  Bond dims     : [1, 102, 204, 357, 408, 408, 408, 408, 204, 102, 1]
+  Orthogonality : none</code></pre></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../theory/">« Tensor Train Basics</a><a class="docs-footer-nextpage" href="../solvers/">Solvers »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Tuesday 2 June 2026 11:05">Tuesday 2 June 2026</span>. Using Julia version 1.12.6.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
