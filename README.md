@@ -15,29 +15,15 @@
 
 `TensorTrainNumerics.jl` is a Julia package for numerical methods in tensor train (TT) and quantics tensor train (QTT) format. It provides iterative solvers for high-dimensional linear systems and eigenvalue problems, time-stepping and TDVP methods for evolution equations, and TT-cross algorithms for black-box function approximation — all operating on compressed tensor representations that scale linearly in the number of dimensions rather than exponentially.
 
-## Overview
+## Features
 
-Instead of storing all $\prod_{k=1}^d n_k$ entries of a $d$-dimensional tensor, the TT format represents it as a chain of small cores whose contraction recovers the full tensor. A **TT-vector** $v \in \mathbb{K}^{n_1 \times \cdots \times n_d}$ is stored as third-order cores $A_k \in \mathbb{K}^{r_{k-1} \times n_k \times r_k}$:
+- **Solvers** — ALS, MALS, and DMRG for linear systems and eigenvalue problems; adaptive rank control via SVD truncation
+- **Time evolution** — single- and two-site TDVP, implicit Euler, Crank–Nicolson, and Krylov exponential integrators
+- **TT-cross** — MaxVol, DMRG-cross, and Greedy algorithms for black-box function approximation and numerical integration
+- **QTT operators** — exact low-rank representations of Laplacians, gradient operators, shift matrices, and the discrete Fourier transform
+- **Quantics tensor trains** — serial and interleaved multi-dimensional encodings with `QTTvector`/`QTToperator` wrappers
+- **Interoperability** — compatible with [KrylovKit.jl](https://github.com/Jutho/KrylovKit.jl) and [OptimKit.jl](https://github.com/Jutho/OptimKit.jl) via [VectorInterface.jl](https://github.com/Jutho/VectorInterface.jl)
 
-$$v(i_1,\dots,i_d) = \sum_{r_1,\ldots,r_{d-1}} \prod_{k=1}^d A_k(r_{k-1}, i_k, r_k)$$
-
-```
-A_1 --- r_1 --- A_2 --- r_2 --- A_3 --- ... --- A_d
- |               |               |               |
-i_1             i_2             i_3             i_d
-```
-
-A **TT-operator** $A \in \mathbb{K}^{(n_1\cdots n_d)\times(n_1\cdots n_d)}$ uses fourth-order cores $A_k \in \mathbb{K}^{r_{k-1} \times n_k \times n_k \times r_k}$ with two physical indices per site:
-
-```
-j_1             j_2             j_3             j_d
- |               |               |               |
-A_1 --- r_1 --- A_2 --- r_2 --- A_3 --- ... --- A_d
- |               |               |               |
-i_1             i_2             i_3             i_d
-```
-
-Storage scales as $\mathcal{O}(dR^2n)$ instead of $\mathcal{O}(n^d)$, where $R = \max_k r_k$ is the maximum bond dimension.
 
 ## Installation
 
@@ -115,13 +101,4 @@ println("Relative error: ", relerr)
 Relative error: 4.560872651853784e-16
 ```
 
-For more examples including 2-D PDEs, time evolution, and the QTT Fourier transform, see the [documentation](https://martinmikkelsen.github.io/TensorTrainNumerics.jl/).
-
-## Features
-
-- **Solvers** — ALS, MALS, and DMRG for linear systems and eigenvalue problems; adaptive rank control via SVD truncation
-- **Time evolution** — single- and two-site TDVP, implicit Euler, Crank–Nicolson, and Krylov exponential integrators
-- **TT-cross** — MaxVol, DMRG-cross, and Greedy algorithms for black-box function approximation and numerical integration
-- **QTT operators** — exact low-rank representations of Laplacians, gradient operators, shift matrices, and the discrete Fourier transform
-- **Quantics tensor trains** — serial and interleaved multi-dimensional encodings with `QTTvector`/`QTToperator` wrappers
-- **Interoperability** — compatible with [KrylovKit.jl](https://github.com/Jutho/KrylovKit.jl) and [OptimKit.jl](https://github.com/Jutho/OptimKit.jl) via [VectorInterface.jl](https://github.com/Jutho/VectorInterface.jl)
+For more examples including 2D PDEs, time evolution, and the QTT Fourier transform, see the [documentation](https://martinmikkelsen.github.io/TensorTrainNumerics.jl/).
