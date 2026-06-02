@@ -12,6 +12,7 @@
 [![](https://img.shields.io/badge/%F0%9F%9B%A9%EF%B8%8F_tested_with-JET.jl-233f9a)](https://github.com/aviatesk/JET.jl)
 [![Aqua QA](https://raw.githubusercontent.com/JuliaTesting/Aqua.jl/master/badge.svg)](https://github.com/JuliaTesting/Aqua.jl)
 [![codecov](https://codecov.io/gh/MartinMikkelsen/TensorTrainNumerics.jl/graph/badge.svg?token=p7OsfklHWr)](https://codecov.io/gh/MartinMikkelsen/TensorTrainNumerics.jl)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.20514254.svg)](https://doi.org/10.5281/zenodo.20514254)
 
 `TensorTrainNumerics.jl` is a Julia package for numerical methods in tensor train (TT) and quantics tensor train (QTT) format. It provides iterative solvers for high-dimensional linear systems and eigenvalue problems, time-stepping and TDVP methods for evolution equations, and TT-cross algorithms for black-box function approximation — all operating on compressed tensor representations that scale linearly in the number of dimensions rather than exponentially.
 
