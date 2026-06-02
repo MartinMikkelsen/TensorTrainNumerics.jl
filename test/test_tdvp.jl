@@ -325,3 +325,30 @@ end
     ψ_it = tdvp2(H0, ψ0, steps; normalize = false, sweeps = 2, carry_env = true, verbose = false, imaginary_time = true)
     @test absnorm(ψ_it - ψ0) / max(absnorm(ψ0), eps()) < 1.0e-12
 end
+
+@testset "tdvp heat eigenmode with QTT" begin
+    d = 4
+    N = 2^d
+    h = 1.0 / (N + 1)
+    κ = 0.1
+
+    Δ1d = toeplitz_to_qtto(-2.0, 1.0, 1.0, d)
+    A_raw = (κ / h^2) * (Δ1d ⊗ id_tto(d) + id_tto(d) ⊗ Δ1d)
+    A = QTToperator(A_raw, 2, d, :serial)
+
+    u0_raw = qtt_sin(d; a = h, b = 1 - h) ⊗ qtt_sin(d; a = h, b = 1 - h)
+    u0 = QTTvector(u0_raw, 2, d, :serial)
+    λ = real(TensorTrainNumerics.dot(u0_raw, A_raw * u0_raw) / TensorTrainNumerics.dot(u0_raw, u0_raw))
+
+    steps = fill(1.0e-3, 5)
+    target = exp(λ * sum(steps)) .* qttv_to_array(u0)
+
+    sol_tdvp = tdvp(A, u0, steps; imaginary_time = true, normalize = false, verbose = false)
+    err_tdvp = norm(vec(qttv_to_array(sol_tdvp) .- target)) / norm(vec(target))
+    @test err_tdvp < 1.0e-8
+
+    sol_tdvp2 = tdvp2(A, u0, steps; imaginary_time = true, normalize = false,
+        verbose = false, max_bond = 8, truncerr = 1.0e-12)
+    err_tdvp2 = norm(vec(qttv_to_array(sol_tdvp2) .- target)) / norm(vec(target))
+    @test err_tdvp2 < 1.0e-8
+end

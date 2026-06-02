@@ -19,5 +19,4 @@ rmax_schedule = [2, 3]
 eigenvalues, tt_eigvec, r_hist = dmrg_eigsolve(A, tt_start; N = 2, tol = 1.0e-12, sweep_schedule = sweep_schedule, rmax_schedule = rmax_schedule)
 
 println("Lowest eigenvalue: ", eigenvalues[end])
-println("Corresponding eigenvector: ", tt_eigvec)
-println("Rank history: ", r_hist)
+tt_eigvec

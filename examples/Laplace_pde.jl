@@ -1,35 +1,49 @@
 using TensorTrainNumerics
 using CairoMakie
 
-d = 8
+d = 8          # 2^d interior grid points per dimension
+N = 2^d
+h = 1.0 / (N + 1)          # uniform interior spacing on [0,1]
+xes = h .* (1:N)            # interior grid: x_i = i/(N+1)
 
-xes = collect(range(0.0, 1.0, length = 2^d))
+# Discrete 2D Laplacian on N×N interior grid (zero Dirichlet BCs at x=0,1).
+# The Toeplitz stencil is correct for interior-only points because the missing
+# ghost-point values (u=0 at boundary) drop out of the stencil equations.
+Δ1d   = toeplitz_to_qtto(-2.0, 1.0, 1.0, d)
+A_raw = (1/h^2) * (Δ1d ⊗ id_tto(d) + id_tto(d) ⊗ Δ1d)
+A     = QTToperator(A_raw, 2, d, :serial)
 
-h = 1 / (2^d)
-p = 1.0
-s = 0.0
-v = 0.0
-α = h^2 * v - 2 * p
-β = p + h * s / 2
-γ = p - h * s / 2
+# BCs: u(x, 0) = sin(πx),  all other boundaries zero.
+# The bottom BC contributes −sin(πx_i)/h² to the first y-row (y=h) of the RHS.
+# qtt_sin with a=h, b=1−h evaluates sin(πx) at interior points x_i = i·h.
+b_raw = -(1/h^2) * qtt_sin(d; a = h, b = 1 - h) ⊗ qtt_basis_vector(d, 1)
+b     = QTTvector(b_raw, 2, d, :serial)
 
-Δ = toeplitz_to_qtto(α, β, γ, d)
-A = Δ ⊗ id_tto(d) + id_tto(d) ⊗ Δ
+# Random initial guess
+x0 = QTTvector(rand_tt(b_raw.ttv_dims, b_raw.ttv_rks), 2, d, :serial)
 
-b = qtt_cos(d) ⊗ qtt_basis_vector(d, 1) + qtt_sin(d) ⊗ qtt_basis_vector(d, 2^d)
+# Solve with MALS (single sweep) and DMRG (50 sweeps)
+x_mals = mals_linsolve(A, b, x0)
+x_dmrg = dmrg_linsolve(A, b, x0; sweep_count = 50, tol = 1e-12)
 
-initial_guess = rand_tt(b.ttv_dims, b.ttv_rks)
+# Solutions on the N×N interior grid
+sol_mals = qttv_to_array(x_mals)
+sol_dmrg = qttv_to_array(x_dmrg)
 
-x_mals = mals_linsolve(A, b, initial_guess)
-x_dmrg = dmrg_linsolve(A, b, initial_guess)
-
-solution = reshape(qtt_to_function(x_mals), 2^d, 2^d)
+# Exact solution: u(x,y) = sin(πx) sinh(π(1−y)) / sinh(π)
+u_exact = [sin(π * xi) * sinh(π * (1 - yi)) / sinh(π) for xi in xes, yi in xes]
 
 let
-    fig = Figure()
+    fig  = Figure(size = (1200, 380))
     cmap = :roma
-    ax = Axis(fig[1, 1], title = "Laplace Solution", xlabel = "x", ylabel = "y")
-    hm = heatmap!(ax, xes, xes, solution; colormap = cmap)
-    Colorbar(fig[1, 2], hm, label = "u(x, y)")
-    fig
+    ax1 = Axis(fig[1, 1], title = "MALS (1 sweep)",   xlabel = "x", ylabel = "y")
+    ax2 = Axis(fig[1, 2], title = "DMRG (50 sweeps)", xlabel = "x", ylabel = "y")
+    ax3 = Axis(fig[1, 3], title = "Exact solution",   xlabel = "x", ylabel = "y")
+    ax4 = Axis(fig[1, 4], title = "|DMRG − exact|",   xlabel = "x", ylabel = "y")
+    hm1 = heatmap!(ax1, xes, xes, sol_mals;                  colormap = cmap)
+    hm2 = heatmap!(ax2, xes, xes, sol_dmrg;                  colormap = cmap)
+    hm3 = heatmap!(ax3, xes, xes, u_exact;                   colormap = cmap)
+    hm4 = heatmap!(ax4, xes, xes, abs.(sol_dmrg .- u_exact); colormap = :viridis)
+    Colorbar(fig[1, 5], hm1, label = "u(x, y)")
+    display(fig)
 end
