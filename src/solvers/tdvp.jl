@@ -5,7 +5,7 @@ using LinearAlgebra
 using TensorTrainNumerics
 import TensorTrainNumerics: _svdtrunc
 
-function _sync_ranks_from_lsr!(ψ::TTvector, A_lsr::Vector{<:AbstractArray})
+function _sync_ranks_from_lsr!(ψ::AbstractTTvector, A_lsr::Vector{<:AbstractArray})
     N = ψ.N
     new_rks = similar(ψ.ttv_rks)
     @inbounds for k in 1:N
@@ -43,10 +43,11 @@ function _update_right_env(A, M, FR)
 end
 
 function tdvp1sweep!(
-        dt, ψ::TTvector{T, N}, H::TToperator{T, N}, F::Union{Nothing, Vector{Any}} = nothing;
+        dt, ψ::AbstractTTvector, H::AbstractTToperator, F::Union{Nothing, Vector{Any}} = nothing;
         verbose::Bool = true, kwargs...
-    ) where {T <: Number, N}
+    )
 
+    T = eltype(ψ)
     Tc = (dt isa Complex || T <: Complex) ? Complex{real(T)} : T
     Nsites = ψ.N
 
@@ -151,8 +152,8 @@ function tdvp1sweep!(
 end
 
 function tdvp(
-        H::TToperator,
-        u₀::TTvector,
+        H::AbstractTToperator,
+        u₀::AbstractTTvector,
         steps::Vector{Float64};
         normalize::Bool = true,
         return_error::Bool = false,
@@ -184,6 +185,7 @@ function tdvp(
             ψ = (1 / norm(ψ)) * ψ
         end
         ψ = orthogonalize(ψ)
+        F = nothing
         ψ_prev = ψ_prev_step
     end
 
@@ -206,12 +208,14 @@ function _applyH2_lsr(AAC, FL, FR, M1, M2)
 end
 
 function tdvp2sweep!(
-        dt, ψ::TTvector{T, N}, H::TToperator{T, N}, F::Union{Nothing, Vector{Any}} = nothing;
+        dt, ψ::AbstractTTvector, H::AbstractTToperator, F::Union{Nothing, Vector{Any}} = nothing;
         verbose::Bool = true, max_bond::Int = typemax(Int), truncerr::Real = 0.0, kwargs...
-    ) where {T <: Number, N}
+    )
 
+    T = eltype(ψ)
     Tc = (dt isa Complex || T <: Complex) ? Complex{real(T)} : T
     Nsites = ψ.N
+    dt_half = dt / 2
 
     A_lsr = [permutedims(ψ.ttv_vec[k], (2, 1, 3)) for k in 1:Nsites]
     M_asbs = [permutedims(H.tto_vec[k], (3, 1, 4, 2)) for k in 1:Nsites]
@@ -234,10 +238,10 @@ function tdvp2sweep!(
     for k in 1:(Nsites - 1)
         @tensor AAC[α, s1, s2, β] := AC[α, s1, γ] * A_lsr[k + 1][γ, s2, β]
         H2 = X -> _applyH2_lsr(X, F[k], F[k + 3], M_asbs[k], M_asbs[k + 1])
-        t2 = _real_or_complex_t(-im * dt)
+        t2 = _real_or_complex_t(-im * dt_half)
         AAC, _ = exponentiate(H2, t2, AAC; ishermitian = true, kwargs...)
         if verbose
-            E = _dot3(vec(conj(AAC)), vec(H2(AAC)))
+            E = _dot3(AAC, H2(AAC))
             @info "2TDVP sweep:" sites = "$(k):$(k + 1)"   energy = real(E)
         end
 
@@ -252,15 +256,20 @@ function tdvp2sweep!(
         F[k + 1] = _update_left_env(AL, M_asbs[k], F[k])
 
         AC = reshape(S * Vt, size(S, 1), d2, Dr)
+        if k < Nsites - 1
+            H1 = x -> _applyH1_lsr(x, F[k + 1], F[k + 3], M_asbs[k + 1])
+            t1 = _real_or_complex_t(+im * dt_half)
+            AC, _ = exponentiate(H1, t1, AC; ishermitian = true, kwargs...)
+        end
     end
 
     for k in (Nsites - 1):-1:1
         @tensor AAC[α, s1, s2, β] := A_lsr[k][α, s1, γ] * AC[γ, s2, β]
         H2 = X -> _applyH2_lsr(X, F[k], F[k + 3], M_asbs[k], M_asbs[k + 1])
-        t2 = _real_or_complex_t(-im * dt)
+        t2 = _real_or_complex_t(-im * dt_half)
         AAC, _ = exponentiate(H2, t2, AAC; ishermitian = true, kwargs...)
         if verbose
-            E = _dot3(vec(conj(AAC)), vec(H2(AAC)))
+            E = _dot3(AAC, H2(AAC))
             @info "2TDVP sweep:" sites = "$(k):$(k + 1)" energy = real(E)
         end
 
@@ -275,6 +284,11 @@ function tdvp2sweep!(
         F[k + 2] = _update_right_env(AR, M_asbs[k + 1], F[k + 3])
 
         AC = reshape(U * S, Dl, d1, size(S, 2))
+        if k > 1
+            H1 = x -> _applyH1_lsr(x, F[k], F[k + 2], M_asbs[k])
+            t1 = _real_or_complex_t(+im * dt_half)
+            AC, _ = exponentiate(H1, t1, AC; ishermitian = true, kwargs...)
+        end
     end
 
     A_lsr[1] = AC
@@ -286,8 +300,8 @@ function tdvp2sweep!(
 end
 
 function tdvp2(
-        H::TToperator,
-        u₀::TTvector,
+        H::AbstractTToperator,
+        u₀::AbstractTTvector,
         steps::Vector{Float64};
         normalize::Bool = true,
         return_error::Bool = false,
@@ -324,6 +338,7 @@ function tdvp2(
             ψ = (1 / norm(ψ)) * ψ
         end
         ψ = orthogonalize(ψ)
+        F = nothing
         ψ_prev = ψ_prev_step
     end
 

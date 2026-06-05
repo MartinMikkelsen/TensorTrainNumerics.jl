@@ -36,6 +36,13 @@ function VectorInterface.add!!(y::TTvector, x::TTvector)
         orthogonalize(y + x)
     end
 end
+function VectorInterface.add!!(y::TTvector, x::TTvector, α::Number)
+    return if promote_type(eltype(y), eltype(x), typeof(α)) <: eltype(y)
+        VectorInterface.add!(y, x, α, one(eltype(y)))
+    else
+        orthogonalize(y + α * x)
+    end
+end
 function VectorInterface.add!!(y::TTvector, x::TTvector, α::Number, β::Number)
     return if promote_type(eltype(y), eltype(x), typeof(α), typeof(β)) <: eltype(y)
         VectorInterface.add!(y, x, α, β)
@@ -70,6 +77,15 @@ function VectorInterface.zerovector(a::TTvector)
 end
 function VectorInterface.zerovector(a::TToperator)
     return zeros_tt(eltype(a), a.tto_dims, a.tto_rks)
+end
+function VectorInterface.zerovector!(a::TTvector)
+    for core in a.ttv_vec
+        fill!(core, zero(eltype(core)))
+    end
+    return a
+end
+function VectorInterface.zerovector!!(a::TTvector)
+    return VectorInterface.zerovector!(a)
 end
 
 VectorInterface.length(a::TTvector) = prod(a.ttv_dims)

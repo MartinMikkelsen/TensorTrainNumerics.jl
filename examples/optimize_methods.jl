@@ -3,7 +3,8 @@ using CairoMakie
 using KrylovKit
 using OptimKit
 import TensorTrainNumerics: dot
-d = 6
+
+d = 12
 h = 1 / d^2
 A = h^2 * toeplitz_to_qtto(-2, 1.0, 1.0, d)
 xes = collect(range(0.0, 1.0, 2^d))
@@ -25,4 +26,4 @@ end
 
 solver = ConjugateGradient(flavor = PolakRibiere(), verbosity = 3, gradtol = 1.0e-12)
 
-x, fx, gx, numfg, normgradhistor = optimize(cost_with_grad, u₀, solver)
+x, fx, gx, numfg, normgradhistory = optimize(cost_with_grad, u₀, solver)

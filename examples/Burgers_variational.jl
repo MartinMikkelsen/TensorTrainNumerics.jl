@@ -56,6 +56,8 @@ solver = GradientDescent(verbosity = 2, gradtol = 1.0e-6)
 
 v = x0
 for _ in 1:150
+    global v
+    local x
     x, _, _, _, _ = optimize(burgers_cost_grad, v, solver)
     v = tt_compress!(x, max_bond)
 end

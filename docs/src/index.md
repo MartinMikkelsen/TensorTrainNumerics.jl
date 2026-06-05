@@ -15,13 +15,10 @@ There are [many packages](resources.md) for tensor decompositions and tensor net
 - Tensor cross interpolation [SAVOSTYANOV2014217, 6076873, vysotsky2021tensor](@cite).
 - Visualization: Basic visualization tools. 
 
-## Getting started 
+## Installation
 
-You can install the package using Julia's package manager:
-
-```Julia
+```julia
 using Pkg
 Pkg.add("TensorTrainNumerics")
 ```
 
-For some examples check out the [examples page](examples.md) or the [examples folder on Github](https://github.com/MartinMikkelsen/TensorTrainNumerics.jl/tree/main/examples).

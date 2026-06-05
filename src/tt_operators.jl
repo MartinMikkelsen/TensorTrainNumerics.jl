@@ -288,7 +288,9 @@ end
 function zeros_tt(::Type{T}, dims::NTuple{N, Int64}, rks; ot = zeros(Int64, length(dims))) where {T, N}
     @assert length(dims) + 1 == length(rks) "Dimensions and ranks are not compatible"
     tt_vec = [zeros(T, dims[i], rks[i], rks[i + 1]) for i in eachindex(dims)]
-    return TTvector{T, N}(N, tt_vec, dims, deepcopy(rks), deepcopy(ot))
+    rks_vec = collect(Int64, rks)
+    ot_vec = collect(Int64, ot)
+    return TTvector{T, N}(N, tt_vec, dims, rks_vec, ot_vec)
 end
 
 function zeros_tt(n::Integer, d::Integer, r; ot = zeros(Int64, d), r_and_d = true)
@@ -304,10 +306,6 @@ end
 
 function zeros_tt(::Type{T}, dims::Vector{Int}, rks::Vector{Int}; ot = zeros(Int64, length(dims))) where {T}
     return zeros_tt(T, Tuple(dims), rks; ot = ot)
-end
-
-function zeros_tt(::Type{T}, dims::NTuple{N, Int64}, rks::NTuple{M, Int64}; ot = zeros(Int64, length(dims))) where {T, N, M}
-    return zeros_tt(T, collect(Int64, dims), collect(Int64, rks); ot = ot)
 end
 
 function zeros_tt!(A::TTvector)
@@ -351,4 +349,89 @@ function zeros_tto(n, d, r)
     rks = r * ones(Int64, d + 1)
     rks = r_and_d_to_rks(rks, dims .^ 2; rmax = r)
     return zeros_tto(Float64, dims, rks)
+end
+
+"""
+    qtt_laplacian(n_dims, bits_per_dim; ordering=:interleaved, a=0.0, b=1.0, bc=:DN)
+
+Build the `n_dims`-dimensional Laplacian operator in QTT format as the Kronecker sum
+of 1D second-derivative operators:
+
+    Δ_nd = Δ₁⊗I⊗…⊗I + I⊗Δ₂⊗I⊗…⊗I + … + I⊗…⊗I⊗Δₙ
+
+Each 1D operator acts on `bits_per_dim` sites (a uniform grid of `2^bits_per_dim`
+points over `[a, b]`). The finite-difference scaling `1/h²` is included.
+
+# Arguments
+- `n_dims::Int`: Number of spatial dimensions (≥ 1).
+- `bits_per_dim::Int`: Number of QTT bits per dimension.
+
+# Keyword arguments
+- `ordering::Symbol`: `:serial` (sites grouped by dimension) or `:interleaved`
+  (sites interleaved across dimensions). Default: `:interleaved`.
+- `a::Real`, `b::Real`: Interval endpoints. Default: `[0, 1]`.
+- `bc::Symbol`: Boundary conditions — `:DD` (Dirichlet–Dirichlet), `:DN`
+  (Dirichlet–Neumann), `:ND` (Neumann–Dirichlet), `:NN` (Neumann–Neumann).
+  Default: `:DN`.
+
+# Returns
+A `QTToperator` with `N = n_dims * bits_per_dim` sites.
+"""
+function qtt_laplacian(n_dims::Int, bits_per_dim::Int;
+        ordering::Symbol = :interleaved, a::Real = 0.0, b::Real = 1.0,
+        bc::Symbol = :DN)
+    @assert ordering ∈ (:interleaved, :serial) "ordering must be :interleaved or :serial"
+    @assert n_dims ≥ 1 "n_dims must be at least 1"
+    @assert bc ∈ (:DD, :DN, :ND, :NN) "bc must be :DD, :DN, :ND, or :NN"
+    @assert !(bc == :NN && n_dims > 1) "bc=:NN is only supported for n_dims=1 (the Δ_NN MPO has non-unit boundary ranks, which are incompatible with the TToperator Kronecker sum)"
+
+    d = bits_per_dim
+    h = (b - a) / (2^d - 1)
+    scale = 1.0 / h^2
+
+    # Select 1D Laplacian with correct boundary conditions
+    lap_1d = if bc == :DD
+        Δ(d)
+    elseif bc == :DN
+        Δ_DN(d)
+    elseif bc == :ND
+        Δ_ND(d)
+    else  # :NN
+        Δ_NN(d)
+    end
+
+    id_1d = id_tto(d)
+
+    if n_dims == 1
+        # Single dimension: just scale the 1D Laplacian
+        scaled = scale * lap_1d
+        return QTToperator(scaled, 1, d, ordering)
+    end
+
+    # For n_dims ≥ 2: build Kronecker sum in serial ordering.
+    # Term k: I ⊗ … ⊗ Δ_k ⊗ … ⊗ I
+    # kron(A, B) concatenates TT cores (= Kronecker product of operators on disjoint sites)
+    function build_term(k::Int)
+        # Sites for dim 1..k-1: identity; sites for dim k: Δ; sites for dim k+1..n: identity
+        ops = [dim == k ? lap_1d : id_1d for dim in 1:n_dims]
+        term = ops[1]
+        for dim in 2:n_dims
+            term = kron(term, ops[dim])
+        end
+        return term
+    end
+
+    # Sum all n_dims terms (with h² scaling on the first term to avoid repeated scaling)
+    result = scale * build_term(1)
+    for k in 2:n_dims
+        result = result + (scale * build_term(k))
+    end
+
+    serial_qtto = QTToperator(result, n_dims, d, :serial)
+
+    if ordering == :serial
+        return serial_qtto
+    else  # :interleaved — reorder from serial to interleaved
+        return reorder(serial_qtto, :interleaved)
+    end
 end

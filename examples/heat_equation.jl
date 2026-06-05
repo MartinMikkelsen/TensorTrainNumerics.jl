@@ -1,40 +1,63 @@
 using TensorTrainNumerics
 using CairoMakie
 
-d = 10
-h = 1 / (2^d)
-p = 1.0
-s = 0.0
-v = 0.0
-α = h^2 * v - 2 * p
-β = p + h * s / 2
-γ = p - h * s / 2
+d     = 6          # 2^6 = 64 interior points per dimension
+N     = 2^d
+h     = 1.0 / (N + 1)
+xes   = h .* (1:N)
+κ     = 0.1        # diffusion coefficient
 
-Δ = toeplitz_to_qtto(α, β, γ, d)
-kappa = 0.1
-A = kappa * Δ
+# 2D heat equation: u_t = κ∇²u on (0,1)², zero Dirichlet BCs.
+# Initial condition: u0(x,y) = sin(πx)sin(πy) — lowest Dirichlet eigenfunction.
+# Exact solution:    u(x,y,T) = sin(πx)sin(πy) exp(−2κπ²T).
 
-u0 = qtt_sin(d, λ = π)
+# Discrete −∇² scaled correctly: (1/h²) toeplitz(−2,1,1) ≈ d²/dx²
+Δ1d    = toeplitz_to_qtto(-2.0, 1.0, 1.0, d)
+A_raw  = (κ / h^2) * (Δ1d ⊗ id_tto(d) + id_tto(d) ⊗ Δ1d)
+A      = QTToperator(A_raw, 2, d, :serial)
 
-dt = 1.0e-2
-nsteps = 1000
-steps = fill(dt, nsteps)
+u0_raw = qtt_sin(d; a = h, b = 1 - h) ⊗ qtt_sin(d; a = h, b = 1 - h)
+u0     = QTTvector(u0_raw, 2, d, :serial)
 
-Lx = Δ
-Ly = Δ
-I = id_tto(d)
-A2 = kappa * ((I ⊗ Ly) + (Lx ⊗ I))
-u0 = qtt_sin(d, λ = 1 / π) ⊗ qtt_cos(d, λ = 1 / π)
-sol = tdvp2(A2, u0, steps, imaginary_time = true, truncerr = 1.0e-3)
+T      = 1.0
+dt     = 0.001      # (κ/h²)*dt ≈ 422*0.001 = 0.42, small enough for the local Krylov steps.
+steps  = fill(dt, round(Int, T / dt))
 
-solution = reshape(qtt_to_function(sol), 2^d, 2^d)
+sol_tdvp  = tdvp(A, u0, steps; imaginary_time = true, normalize = false)
+sol_tdvp2 = tdvp2(A, u0, steps; imaginary_time = true, normalize = false,
+    max_bond = 12, truncerr = 1.0e-12)
+
+u_tdvp  = qttv_to_array(sol_tdvp)
+u_tdvp2 = qttv_to_array(sol_tdvp2)
+u_exact = [sin(π * xi) * sin(π * yi) * exp(-2κ * π^2 * T) for xi in xes, yi in xes]
+err_tdvp  = abs.(u_tdvp .- u_exact)
+err_tdvp2 = abs.(u_tdvp2 .- u_exact)
+
+relerr_tdvp  = norm(vec(u_tdvp .- u_exact)) / norm(vec(u_exact))
+relerr_tdvp2 = norm(vec(u_tdvp2 .- u_exact)) / norm(vec(u_exact))
+
+println("TDVP  relative error: ", relerr_tdvp)
+println("TDVP2 relative error: ", relerr_tdvp2)
 
 let
-    x = range(0, 1, length = 2^d)
-    y = range(0, 1, length = 2^d)
-    fig = Figure()
-    ax = Axis(fig[1, 1], xlabel = "x", ylabel = "y", title = "TDVP Heatmap")
-    hm = heatmap!(ax, x, y, solution)
-    Colorbar(fig[1, 2], hm, label = "u(x, y)")
+    fig  = Figure(size = (1200, 720))
+    cmap = :viridis
+    urange = extrema(u_exact)
+    erange = (0.0, max(maximum(err_tdvp), maximum(err_tdvp2)))
+
+    ax1 = Axis(fig[1, 1], title = "TDVP one-site (T=$T)", xlabel = "x", ylabel = "y")
+    ax2 = Axis(fig[1, 2], title = "TDVP two-site (T=$T)", xlabel = "x", ylabel = "y")
+    ax3 = Axis(fig[1, 3], title = "Exact",                xlabel = "x", ylabel = "y")
+    ax4 = Axis(fig[2, 1], title = "|TDVP - exact|",       xlabel = "x", ylabel = "y")
+    ax5 = Axis(fig[2, 2], title = "|TDVP2 - exact|",      xlabel = "x", ylabel = "y")
+
+    hm1 = heatmap!(ax1, xes, xes, u_tdvp;  colormap = cmap, colorrange = urange)
+    hm2 = heatmap!(ax2, xes, xes, u_tdvp2; colormap = cmap, colorrange = urange)
+    hm3 = heatmap!(ax3, xes, xes, u_exact; colormap = cmap, colorrange = urange)
+    hm4 = heatmap!(ax4, xes, xes, err_tdvp;  colormap = :magma, colorrange = erange)
+    hm5 = heatmap!(ax5, xes, xes, err_tdvp2; colormap = :magma, colorrange = erange)
+
+    Colorbar(fig[1, 4], hm1, label = "u(x, y)")
+    Colorbar(fig[2, 4], hm4, label = "|error|")
     display(fig)
 end

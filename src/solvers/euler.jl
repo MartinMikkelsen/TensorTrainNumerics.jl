@@ -1,7 +1,7 @@
 using TensorTrainNumerics
 using ProgressMeter
 
-function euler_method(A::TToperator, u₀::TTvector, steps::Vector{Float64}; normalize::Bool = true, return_error::Bool = false)
+function euler_method(A::AbstractTToperator, u₀::AbstractTTvector, steps::Vector{Float64}; normalize::Bool = true, return_error::Bool = false)
     solution = (u₀)
     I = id_tto(A.N)
 
@@ -25,9 +25,9 @@ function euler_method(A::TToperator, u₀::TTvector, steps::Vector{Float64}; nor
 end
 
 function implicit_euler_method(
-        A::TToperator,
-        u₀::TTvector,
-        guess::TTvector,
+        A::AbstractTToperator,
+        u₀::AbstractTTvector,
+        guess::AbstractTTvector,
         steps::Vector{Float64};
         normalize::Bool = true,
         return_error::Bool = false,
@@ -44,7 +44,7 @@ function implicit_euler_method(
         next = (tt_solver == "mals" ? mals_linsolve(M, solution, guess; kwargs...) :
             tt_solver == "als" ? als_linsolve(M, solution, guess; kwargs...) :
             tt_solver == "dmrg" ? dmrg_linsolve(M, solution, guess; kwargs...) :
-            error("Unknown TT solver: $tt_solver"))::TTvector
+            error("Unknown TT solver: $tt_solver"))::AbstractTTvector
 
         if normalize
             next = next / norm(next)
@@ -67,9 +67,9 @@ function implicit_euler_method(
 end
 
 function crank_nicholson_method(
-        A::TToperator,
-        u₀::TTvector,
-        guess::TTvector,
+        A::AbstractTToperator,
+        u₀::AbstractTTvector,
+        guess::AbstractTTvector,
         steps::Vector{Float64};
         normalize::Bool = true,
         return_error::Bool = false,
@@ -87,7 +87,7 @@ function crank_nicholson_method(
         next = (tt_solver == "mals" ? mals_linsolve(LHS, RHS, guess; kwargs...) :
             tt_solver == "als" ? als_linsolve(LHS, RHS, guess; kwargs...) :
             tt_solver == "dmrg" ? dmrg_linsolve(LHS, RHS, guess; kwargs...) :
-            error("Unknown TT solver: $tt_solver"))::TTvector
+            error("Unknown TT solver: $tt_solver"))::AbstractTTvector
 
         if normalize
             next = next / norm(next)
@@ -111,7 +111,7 @@ function crank_nicholson_method(
 end
 
 function rk4_method(
-        A::TToperator, u₀::TTvector, steps::Vector{Float64}, max_bond::Int;
+        A::AbstractTToperator, u₀::AbstractTTvector, steps::Vector{Float64}, max_bond::Int;
         normalize::Bool = true, return_error::Bool = false
     )
     u = u₀

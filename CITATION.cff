@@ -6,6 +6,6 @@ authors:
   orcid: "0009-0005-3932-6563"
 title: "TensorTrainNumerics.jl"
 version: 1.1.0
-doi: 10.5281/zenodo.1234
+doi: 10.5281/zenodo.20514254
 date-released: 2026-3-19
 url: "https://github.com/MartinMikkelsen/TensorTrainNumerics.jl"

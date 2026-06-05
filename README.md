@@ -4,7 +4,6 @@
     </picture>
 </div>
 
-
 # TensorTrainNumerics.jl
 
 [![Stable](https://img.shields.io/badge/docs-stable-blue.svg)](https://martinmikkelsen.github.io/TensorTrainNumerics.jl/)
@@ -13,19 +12,28 @@
 [![](https://img.shields.io/badge/%F0%9F%9B%A9%EF%B8%8F_tested_with-JET.jl-233f9a)](https://github.com/aviatesk/JET.jl)
 [![Aqua QA](https://raw.githubusercontent.com/JuliaTesting/Aqua.jl/master/badge.svg)](https://github.com/JuliaTesting/Aqua.jl)
 [![codecov](https://codecov.io/gh/MartinMikkelsen/TensorTrainNumerics.jl/graph/badge.svg?token=p7OsfklHWr)](https://codecov.io/gh/MartinMikkelsen/TensorTrainNumerics.jl)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.20514254.svg)](https://doi.org/10.5281/zenodo.20514254)
 
-Tensor Train Numerics is a Julia package designed to provide efficient numerical methods for working with tensor trains (TT) and quantized tensor trains (QTT). 
+`TensorTrainNumerics.jl` is a Julia package for numerical methods in tensor train (TT) and quantics tensor train (QTT) format. It provides iterative solvers for high-dimensional linear systems and eigenvalue problems, time-stepping and TDVP methods for evolution equations, and TT-cross algorithms for black-box function approximation — all operating on compressed tensor representations that scale linearly in the number of dimensions rather than exponentially.
 
-## Getting started 
+## Features
 
-To get started with Tensor Train Numerics, you can install the package using Julia's package manager:
+- **Solvers** — ALS, MALS, and DMRG for linear systems and eigenvalue problems; adaptive rank control via SVD truncation
+- **Time evolution** — single- and two-site TDVP, implicit Euler, Crank–Nicolson, and Krylov exponential integrators
+- **TT-cross** — MaxVol, DMRG-cross, and Greedy algorithms for black-box function approximation and numerical integration
+- **QTT operators** — exact low-rank representations of Laplacians, gradient operators, shift matrices, and the discrete Fourier transform
+- **Quantics tensor trains** — serial and interleaved multi-dimensional encodings with `QTTvector`/`QTToperator` wrappers
+- **Interoperability** — compatible with [KrylovKit.jl](https://github.com/Jutho/KrylovKit.jl) and [OptimKit.jl](https://github.com/Jutho/OptimKit.jl) via [VectorInterface.jl](https://github.com/Jutho/VectorInterface.jl)
 
-```Julia
+
+## Installation
+
+```julia
 using Pkg
 Pkg.add("TensorTrainNumerics")
 ```
 
-## Quickstart
+## Quick start
 
 ### 1. Decompose a dense tensor into TT format
 
@@ -41,7 +49,6 @@ relerr = norm(tensor - tensor_reconstructed) / norm(tensor)
 
 println("Relative error: ", relerr)
 ```
-which returns
 ```julia
 Relative error: 4.447195710046155e-16
 ```
@@ -68,11 +75,11 @@ relerr = norm(approx - exact) / norm(exact)
 println(tt)
 println("Relative error: ", relerr)
 ```
-which returns
 ```julia
 Relative error: 2.661496213238571e-16
 ```
-### 3. Solve a small linear system in QTT format
+
+### 3. Solve a linear system in QTT format
 
 ```julia
 using LinearAlgebra
@@ -91,21 +98,8 @@ relerr = norm(sol - rhs) / norm(rhs)
 
 println("Relative error: ", relerr)
 ```
-which returns 
 ```julia
 Relative error: 4.560872651853784e-16
 ```
-## Key features
 
-- Tensor Train Decomposition: Algorithms for decomposing high-dimensional tensors into tensor train format 
-- Tensor Operations: Support for basic tensor operations such as addition, multiplication, the hadamard product in tensor train format 
-- Discrete Operators: Implementation of discrete Laplacians, gradient operators, and shift matrices in tensor train format for solving partial differential equations 
-- TT-cross algorithm for approximating tensors from function calls
-- Quantized Tensor Trains: Tools for constructing and manipulating quantized tensor trains, which provide further compression and efficiency for large-scale problems.
-- Iterative Solvers: Integration with iterative solvers for solving linear systems and eigenvalue problems in tensor train format
-- The Fourier transform in QTT format and interpolation in QTT format 
-- Visualization: Basic visualization tools. 
-
-### Acknowledgements 
-
-Many of the features are inspired by the work of [Mi-Song Dupuy](https://github.com/msdupuy)
+For more examples including 2D PDEs, time evolution, and the QTT Fourier transform, see the [documentation](https://martinmikkelsen.github.io/TensorTrainNumerics.jl/).
