@@ -54,36 +54,43 @@ g = function_to_qtt(x -> cos(10π * x) * exp(-x), L)
 vals = qtt_to_function(g)   # returns a length-2^L vector
 ```
 
-### Interpolation-based construction
+### Interpolation via InterpolativeQTT.jl
 
-`interpolating_qtt` and `lagrange_rank_revealing` build a QTT using polynomial interpolation at Chebyshev nodes [lindsey2023multiscale](@cite):
+For high-accuracy function approximation — including multidimensional and singular functions — TensorTrainNumerics integrates with [InterpolativeQTT.jl](https://github.com/tensor4all/InterpolativeQTT.jl) via a package extension that activates when both `InterpolativeQTT` and `TensorCrossInterpolation` are loaded.
 
-```@example qttinterp
+The bridge function `to_ttvector` converts a `TCI.TensorTrain` into a `TTvector`. For multidimensional functions the TCI result has *fused* physical indices (one site per bit level, encoding all spatial dimensions simultaneously); `to_qtt` then splits each fused core into single-bit sites and `QTTvector` attaches the ordering metadata.
+
+**Single-scale 3D interpolation:**
+
+```julia
 using TensorTrainNumerics
-using CairoMakie
+using InterpolativeQTT
+import TensorCrossInterpolation as TCI
 
-f = x -> cos(1 / (x^3 + 0.01)) + sin(π * x)
-L = 10
-N = 150   # Chebyshev nodes per level
+f(x, y, z) = 1 / sqrt((x - 0.5)^2 + (y - 0.5)^2 + (z - 0.5)^2 + 0.01)
+f(c::AbstractVector) = f(c...)   # vector form required by function_to_qttv
 
-q    = interpolating_qtt(f, L, N)
-q_rr = lagrange_rank_revealing(f, L, N)
+numbits = 6   # 2^6 = 64 grid points per dimension
+degree  = 4   # local Chebyshev degree
 
-x = LinRange(0, 1, 2^L)
-fig = Figure()
-ax = Axis(fig[1, 1], xlabel = "x", ylabel = "f(x)", title = "Interpolating QTT")
-lines!(ax, x, f.(x),              label = "exact")
-lines!(ax, x, matricize(q, L),    label = "interpolating", linestyle = :dash, color = :red)
-lines!(ax, x, matricize(q_rr, L), label = "rank-revealing", linestyle = :dot, color = :green)
-axislegend(ax)
-fig
+tt_tci    = interpolatesinglescale(f, (0.0, 0.0, 0.0), (1.0, 1.0, 1.0), numbits, degree)
+tt_fused  = to_ttvector(tt_tci)                           # TTvector, phys_dim = 2³ per site
+
+# Split each fused core into three single-bit cores, then attach QTT metadata
+ttv_split     = to_qtt(tt_fused, [[2, 2, 2] for _ in 1:numbits])
+q_interleaved = QTTvector(ttv_split, 3, numbits, :interleaved)
+q_serial      = reorder(q_interleaved, :serial)
 ```
 
-We can visualize the TT structure of the resulting decomposition:
+**Multi-scale 1D interpolation for singular functions:**
 
-```@example qttinterp
-visualize(q)
+```julia
+inv_x(x) = x == 0.0 ? 0.0 : 1 / x
+tt_tci_ms = interpolatemultiscale(inv_x, 0.0, 1.0, 10, 8, [0.0])
+tt_ms     = to_ttvector(tt_tci_ms)   # TTvector, binary phys_dim per level
 ```
+
+The multiscale representation places one binary physical site per refinement level; its rank is controlled by the local polynomial degree rather than the function's global smoothness, making it efficient for functions with isolated singularities.
 
 ## Serial and interleaved orderings
 

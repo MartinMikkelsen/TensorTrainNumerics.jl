@@ -357,3 +357,313 @@ end
     @test E isa Vector{Float64}
     @test tt_opt isa AbstractTTvector
 end
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Multidimensional — extensive tests for serial and interleaved orderings
+# ─────────────────────────────────────────────────────────────────────────────
+
+@testset "function_to_qttv — 3D value accuracy, both orderings" begin
+    f = x -> sin(π * x[1]) * sin(π * x[2]) * sin(π * x[3])
+    bits = 3
+    n = 2^bits
+    h = 1.0 / (n - 1)
+    grid = [h * i for i in 0:(n - 1)]
+    ref = [sin(π * x) * sin(π * y) * sin(π * z) for x in grid, y in grid, z in grid]
+
+    for ordering in (:serial, :interleaved)
+        q = function_to_qttv(f, 3, bits; ordering = ordering)
+        @test q.N == 3 * bits
+        @test q.n_dims == 3
+        @test q.bits_per_dim == bits
+        @test q.ordering == ordering
+        arr = qttv_to_array(q)
+        @test size(arr) == (n, n, n)
+        @test maximum(abs, arr .- ref) < 1e-12
+    end
+
+    # Both orderings produce the same array values
+    q_il = function_to_qttv(f, 3, bits; ordering = :interleaved)
+    q_sr = function_to_qttv(f, 3, bits; ordering = :serial)
+    @test maximum(abs, qttv_to_array(q_il) .- qttv_to_array(q_sr)) < 1e-12
+end
+
+@testset "function_to_qttv — non-separable 2D Gaussian" begin
+    f = x -> exp(-10 * ((x[1] - 0.3)^2 + (x[2] - 0.7)^2))
+    bits = 5
+    n = 2^bits
+    h = 1.0 / (n - 1)
+    grid = [h * i for i in 0:(n - 1)]
+    ref = [exp(-10 * ((x - 0.3)^2 + (y - 0.7)^2)) for x in grid, y in grid]
+
+    q_il = function_to_qttv(f, 2, bits; ordering = :interleaved)
+    q_sr = function_to_qttv(f, 2, bits; ordering = :serial)
+    @test maximum(abs, qttv_to_array(q_il) .- ref) < 1e-12
+    @test maximum(abs, qttv_to_array(q_sr) .- ref) < 1e-12
+    @test maximum(abs, qttv_to_array(q_il) .- qttv_to_array(q_sr)) < 1e-12
+end
+
+@testset "function_to_qttv — custom interval [a, b]" begin
+    a, b = -1.0, 2.0
+    f = x -> sin(x[1]) * cos(x[2])
+    bits = 4
+    n = 2^bits
+    h = (b - a) / (n - 1)
+    grid = [a + h * i for i in 0:(n - 1)]
+    ref = [sin(x) * cos(y) for x in grid, y in grid]
+
+    for ordering in (:serial, :interleaved)
+        q = function_to_qttv(f, 2, bits; ordering = ordering, a = a, b = b)
+        @test maximum(abs, qttv_to_array(q) .- ref) < 1e-12
+    end
+end
+
+@testset "serial/interleaved equivalence — dot, norm, arithmetic" begin
+    f1 = x -> exp(-x[1]) * (1.0 + x[2])
+    f2 = x -> cos(π * x[1]) * (1.0 + 2.0 * x[2])
+    bits = 4
+
+    q1_il = function_to_qttv(f1, 2, bits; ordering = :interleaved)
+    q2_il = function_to_qttv(f2, 2, bits; ordering = :interleaved)
+    q1_sr = function_to_qttv(f1, 2, bits; ordering = :serial)
+    q2_sr = function_to_qttv(f2, 2, bits; ordering = :serial)
+
+    arr1 = qttv_to_array(q1_il)
+    arr2 = qttv_to_array(q2_il)
+    dot_ref  = sum(arr1 .* arr2)
+    norm_ref = sqrt(sum(abs2, arr1))
+
+    # dot matches direct array inner product, independent of ordering
+    @test isapprox(TensorTrainNumerics.dot(q1_il, q2_il), dot_ref; rtol = 1e-10)
+    @test isapprox(TensorTrainNumerics.dot(q1_sr, q2_sr), dot_ref; rtol = 1e-10)
+
+    # norm matches, independent of ordering
+    @test isapprox(norm(q1_il), norm_ref; rtol = 1e-10)
+    @test isapprox(norm(q1_sr), norm_ref; rtol = 1e-10)
+
+    # norm² = dot(q, q)
+    @test isapprox(norm(q1_il)^2, TensorTrainNumerics.dot(q1_il, q1_il); rtol = 1e-10)
+    @test isapprox(norm(q1_sr)^2, TensorTrainNumerics.dot(q1_sr, q1_sr); rtol = 1e-10)
+
+    # addition: (q1 + q2) matches arr1 + arr2
+    @test maximum(abs, qttv_to_array(q1_il + q2_il) .- (arr1 .+ arr2)) < 1e-12
+    @test maximum(abs, qttv_to_array(q1_sr + q2_sr) .- (arr1 .+ arr2)) < 1e-12
+
+    # subtraction
+    @test maximum(abs, qttv_to_array(q1_il - q2_il) .- (arr1 .- arr2)) < 1e-12
+
+    # scalar multiplication
+    @test maximum(abs, qttv_to_array(3.5 * q1_il) .- 3.5 .* arr1) < 1e-12
+    @test maximum(abs, qttv_to_array(q1_sr * 3.5) .- 3.5 .* arr1) < 1e-12
+    @test maximum(abs, qttv_to_array(q1_il / 2.0) .- arr1 ./ 2.0) < 1e-12
+end
+
+@testset "reorder — 3D round-trip and cross-validation" begin
+    f = x -> cos(π * x[1]) * sin(2π * x[2]) * exp(-x[3])
+    bits = 3
+
+    q_sr = function_to_qttv(f, 3, bits; ordering = :serial)
+    q_il = function_to_qttv(f, 3, bits; ordering = :interleaved)
+    arr_sr = qttv_to_array(q_sr)
+    arr_il = qttv_to_array(q_il)
+
+    # serial → interleaved via reorder matches direct interleaved construction
+    q_il_r = reorder(q_sr, :interleaved)
+    @test q_il_r.ordering == :interleaved
+    @test q_il_r.n_dims == 3
+    @test q_il_r.bits_per_dim == bits
+    @test maximum(abs, qttv_to_array(q_il_r) .- arr_il) < 1e-10
+
+    # interleaved → serial via reorder matches direct serial construction
+    q_sr_r = reorder(q_il, :serial)
+    @test q_sr_r.ordering == :serial
+    @test maximum(abs, qttv_to_array(q_sr_r) .- arr_sr) < 1e-10
+
+    # serial → interleaved → serial round-trip
+    q_rt = reorder(reorder(q_sr, :interleaved), :serial)
+    @test maximum(abs, qttv_to_array(q_rt) .- arr_sr) < 1e-10
+
+    # norms preserved across reorder
+    @test isapprox(norm(q_il_r), norm(q_sr); rtol = 1e-10)
+end
+
+@testset "hadamard — 2D correctness, both orderings" begin
+    f1 = x -> sin(π * x[1]) * sin(π * x[2])
+    f2 = x -> cos(π * x[1]) * cos(π * x[2])
+    bits = 4
+
+    for ordering in (:serial, :interleaved)
+        q1 = function_to_qttv(f1, 2, bits; ordering = ordering)
+        q2 = function_to_qttv(f2, 2, bits; ordering = ordering)
+        h12 = hadamard(q1, q2)
+
+        @test h12 isa QTTvector
+        @test h12.ordering == ordering
+        @test h12.n_dims == 2
+        @test h12.bits_per_dim == bits
+
+        arr1 = qttv_to_array(q1)
+        arr2 = qttv_to_array(q2)
+        @test maximum(abs, qttv_to_array(h12) .- arr1 .* arr2) < 1e-12
+    end
+
+    # Use identity sin²+cos²=1: hadamard(sin, sin) + hadamard(cos, cos) ≈ ones
+    for ordering in (:serial, :interleaved)
+        qs  = function_to_qttv(x -> sin(π * x[1]) * sin(π * x[2]), 2, bits; ordering = ordering)
+        qc  = function_to_qttv(x -> cos(π * x[1]) * cos(π * x[2]), 2, bits; ordering = ordering)
+        qss = hadamard(qs, qs)
+        qcc = hadamard(qc, qc)
+        arr_sum = qttv_to_array(qss + qcc)
+        ref = [sin(π*x)^2 * sin(π*y)^2 + cos(π*x)^2 * cos(π*y)^2
+               for x in range(0, 1; length = 2^bits),
+                   y in range(0, 1; length = 2^bits)]
+        @test maximum(abs, arr_sum .- ref) < 1e-12
+    end
+end
+
+@testset "hadamard — 3D correctness, both orderings" begin
+    f1 = x -> sin(π * x[1]) * sin(π * x[2]) * sin(π * x[3])
+    f2 = x -> exp(-x[1] - x[2] - x[3])
+    bits = 3
+
+    for ordering in (:serial, :interleaved)
+        q1 = function_to_qttv(f1, 3, bits; ordering = ordering)
+        q2 = function_to_qttv(f2, 3, bits; ordering = ordering)
+        h12 = hadamard(q1, q2)
+
+        @test h12 isa QTTvector
+        @test h12.ordering == ordering
+        @test h12.n_dims == 3
+
+        arr1 = qttv_to_array(q1)
+        arr2 = qttv_to_array(q2)
+        @test maximum(abs, qttv_to_array(h12) .- arr1 .* arr2) < 1e-12
+    end
+end
+
+@testset "separable function has rank 1 in serial ordering" begin
+    # exp(-x)*exp(-y) is a rank-1 outer product. In serial ordering (sites grouped
+    # by dimension), the bond across the dimension boundary is exactly rank 1.
+    f_sep = x -> exp(-x[1]) * exp(-x[2])
+    bits = 6
+    q = function_to_qttv(f_sep, 2, bits; ordering = :serial)
+    q_c = copy(q)
+    tt_compress!(q_c, 10; truncerr = 1e-12)
+
+    # The cross-dimension bond (site `bits` → `bits+1`) should be rank 1
+    @test q_c.ttv_rks[bits + 1] == 1
+    # All bonds should stay ≤ 1 (exponential is rank-1 in QTT)
+    @test maximum(q_c.ttv_rks) == 1
+
+    # Values still correct after compression
+    n = 2^bits
+    h = 1.0 / (n - 1)
+    grid = [h * i for i in 0:(n - 1)]
+    ref = [exp(-x) * exp(-y) for x in grid, y in grid]
+    @test maximum(abs, qttv_to_array(q_c) .- ref) < 1e-10
+end
+
+@testset "tt_compress! on QTTvector preserves metadata and accuracy" begin
+    f = x -> sin(2π * x[1]) * sin(2π * x[2])
+    bits = 5
+    q = function_to_qttv(f, 2, bits; ordering = :interleaved)
+    arr_ref = qttv_to_array(q)
+
+    q_c = copy(q)
+    tt_compress!(q_c, 8; truncerr = 1e-12)
+
+    @test q_c isa QTTvector
+    @test q_c.ordering == :interleaved
+    @test q_c.n_dims == 2
+    @test q_c.bits_per_dim == bits
+    @test maximum(q_c.ttv_rks) ≤ 8
+    @test maximum(abs, qttv_to_array(q_c) .- arr_ref) < 1e-8
+end
+
+@testset "qtt_laplacian — 3D Kronecker-sum matrix correctness" begin
+    d = 3
+    n = 2^d
+    h = 1.0 / (n - 1)
+    I_n = Matrix(I, n, n)
+    M1d = qtto_to_matrix(Δ(d)) ./ h^2
+
+    A3s = qtt_laplacian(3, d; ordering = :serial, bc = :DD)
+    @test A3s.n_dims == 3
+    @test A3s.bits_per_dim == d
+    @test A3s.N == 3 * d
+
+    M_qtt = qtto_to_matrix(TToperator(A3s))
+    M_ref = kron(M1d, kron(I_n, I_n)) +
+            kron(I_n, kron(M1d, I_n)) +
+            kron(I_n, kron(I_n, M1d))
+    @test norm(M_qtt - M_ref) < 1e-6
+
+    # serial and interleaved share the same eigenspectrum
+    A3i = qtt_laplacian(3, d; ordering = :interleaved, bc = :DD)
+    ev_s = sort(real(eigvals(M_qtt)))
+    ev_i = sort(real(eigvals(qtto_to_matrix(TToperator(A3i)))))
+    @test maximum(abs, ev_s .- ev_i) < 1e-8
+end
+
+@testset "qtt_laplacian — operator action on 2D vector, both orderings" begin
+    d = 3
+    n = 2^d
+    h = 1.0 / (n - 1)
+    I_n = Matrix(I, n, n)
+    M1d = qtto_to_matrix(Δ(d)) ./ h^2
+    M2d = kron(M1d, I_n) + kron(I_n, M1d)
+
+    f = x -> sin(π * x[1]) * sin(π * x[2])
+
+    for ordering in (:serial, :interleaved)
+        A = qtt_laplacian(2, d; ordering = ordering, bc = :DD)
+        v = function_to_qttv(f, 2, d; ordering = ordering)
+
+        Av = A * v
+        @test Av isa QTTvector
+        @test Av.ordering == ordering
+        @test Av.n_dims == 2
+        @test Av.bits_per_dim == d
+
+        # Compare against dense matrix-vector product
+        arr_v = qttv_to_array(v)
+        ref_Av = reshape(M2d * vec(arr_v), n, n)
+        @test maximum(abs, qttv_to_array(Av) .- ref_Av) < 1e-8
+    end
+
+    # serial and interleaved produce the same Av values
+    A_sr = qtt_laplacian(2, d; ordering = :serial,      bc = :DD)
+    A_il = qtt_laplacian(2, d; ordering = :interleaved, bc = :DD)
+    v_sr = function_to_qttv(f, 2, d; ordering = :serial)
+    v_il = function_to_qttv(f, 2, d; ordering = :interleaved)
+    arr_Av_sr = qttv_to_array(A_sr * v_sr)
+    arr_Av_il = qttv_to_array(A_il * v_il)
+    @test maximum(abs, arr_Av_sr .- arr_Av_il) < 1e-8
+end
+
+@testset "QTToperator reorder — serial ↔ interleaved" begin
+    d = 3
+    A_sr = qtt_laplacian(2, d; ordering = :serial,      bc = :DD)
+    A_il = qtt_laplacian(2, d; ordering = :interleaved, bc = :DD)
+
+    # reorder(serial → interleaved) should reproduce the directly-built interleaved operator
+    A_il_r = reorder(A_sr, :interleaved)
+    @test A_il_r isa QTToperator
+    @test A_il_r.ordering == :interleaved
+    @test A_il_r.n_dims == A_sr.n_dims
+    @test A_il_r.bits_per_dim == A_sr.bits_per_dim
+
+    # Apply both to the same vector and check they give the same result
+    f = x -> sin(π * x[1]) * cos(2π * x[2])
+    v_il = function_to_qttv(f, 2, d; ordering = :interleaved)
+    Av_direct  = qttv_to_array(A_il   * v_il)
+    Av_reorder = qttv_to_array(A_il_r * v_il)
+    @test maximum(abs, Av_direct .- Av_reorder) < 1e-8
+
+    # Round-trip: serial → interleaved → serial
+    A_sr_rt = reorder(A_il_r, :serial)
+    @test A_sr_rt.ordering == :serial
+    v_sr = function_to_qttv(f, 2, d; ordering = :serial)
+    Av_orig  = qttv_to_array(A_sr    * v_sr)
+    Av_rt    = qttv_to_array(A_sr_rt * v_sr)
+    @test maximum(abs, Av_orig .- Av_rt) < 1e-8
+end
