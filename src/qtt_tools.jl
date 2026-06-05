@@ -1,5 +1,17 @@
 using LinearAlgebra
 
+function gauss_chebyshev_lobatto(n; shifted = true)
+    x = [cos(π * j / (n - 1)) for j in 0:(n - 1)]
+    w = π / (n - 1) * ones(n)
+    w[1] /= 2
+    w[end] /= 2
+    if shifted
+        x .= (x .+ 1) ./ 2
+        w .= w ./ 2
+    end
+    return x, w
+end
+
 function index_to_point(t; L = 1.0)
     d = length(t)
     return sum(2.0^(d - i) * (t[i] - 1) / (2^d - 1) for i in 1:d)

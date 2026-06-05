@@ -4,6 +4,7 @@ version = "1.1.1"
 authors = ["Martin Mikkelsen"]
 
 [deps]
+InterpolativeQTT = "87f1ea11-1d4d-47cb-b1d1-07788fc25290"
 IterativeSolvers = "42fd0dbc-a981-5370-80f2-aaf504508153"
 KrylovKit = "0b1a1467-8014-51b9-945f-bf0ae24f4b77"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
@@ -14,11 +15,16 @@ Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 TensorOperations = "6aa20fa7-93e2-5fca-9bc0-fbd0db3c71a2"
 VectorInterface = "409d34a3-91d5-4945-b6ec-7529ddf182d8"
 
+[weakdeps]
+TensorCrossInterpolation = "b261b2ec-6378-4871-b32e-9173bb050604"
+
 [extensions]
+TensorTrainNumericsInterpolativeQTTExt = ["InterpolativeQTT", "TensorCrossInterpolation"]
 TensorTrainNumericsVectorInterfaceExt = "VectorInterface"
 
 [compat]
 Aqua = "0.8.13"
+InterpolativeQTT = "0.1"
 IterativeSolvers = "0.9.4"
 JET = "0.9, 0.10, 0.11"
 KrylovKit = "0.6.1, 0.9, 0.10"
@@ -27,6 +33,7 @@ LinearMaps = "3.11.3"
 Maxvol = "1.0.0"
 ProgressMeter = "1.10.4"
 Random = "1.11.0"
+TensorCrossInterpolation = "0.9"
 TensorOperations = "5.1.3"
 Test = "1.11.0"
 VectorInterface = "0.5, 0.6"
@@ -34,9 +41,11 @@ julia = "1.10"
 
 [extras]
 Aqua = "4c88cf16-eb10-579e-8560-4a9242c79595"
+InterpolativeQTT = "87f1ea11-1d4d-47cb-b1d1-07788fc25290"
 JET = "c3a54625-cd67-489e-a8e7-0a5a0ff4e31b"
+TensorCrossInterpolation = "b261b2ec-6378-4871-b32e-9173bb050604"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 VectorInterface = "409d34a3-91d5-4945-b6ec-7529ddf182d8"
 
 [targets]
-test = ["Test", "Aqua", "JET"]
+test = ["Test", "Aqua", "JET", "InterpolativeQTT", "TensorCrossInterpolation"]
