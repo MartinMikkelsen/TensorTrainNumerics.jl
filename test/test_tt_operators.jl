@@ -326,3 +326,92 @@ end
     @test qtto_to_matrix(P_qtt)[1, 4] == prolongation_matrix(d)[1, 4]
     @test qtto_to_matrix(P_qtt)[2, 1] == prolongation_matrix(d)[2, 1]
 end
+
+@testset "qtto_constant_prolongation" begin
+    function constant_prolongation_matrix(d::Int)
+        n = 2^d
+        Pmat = zeros(Float64, 2n, n)
+        @inbounds for α in 0:(n - 1)
+            Pmat[2α + 1, α + 1] = 1.0
+            Pmat[2α + 2, α + 1] = 1.0
+        end
+        return Pmat
+    end
+
+    d = 3
+    P = qtto_constant_prolongation(d)
+    @test P isa TToperator{Float64, 4}
+    @test P.N == d + 1
+    @test P.tto_dims == ntuple(_ -> 2, d + 1)
+    @test size(P.tto_vec[end], 2) == 1
+
+    P_dense = constant_prolongation_matrix(d)
+    for col in 1:2^d
+        y = P * qtt_basis_vector(d, col)
+        @test y isa TTvector{Float64, 4}
+        @test y.ttv_dims == ntuple(_ -> 2, d + 1)
+        @test qtt_to_function(y) ≈ P_dense[:, col]
+    end
+
+    u = function_to_qtt(x -> cos(π * x), d)
+    @test qtt_to_function(P * u) ≈ P_dense * qtt_to_function(u)
+
+    d2 = 2
+    P2 = constant_prolongation_matrix(d2)
+    u2 = function_to_qtt(x -> 1 + x, d2) ⊗ function_to_qtt(x -> 2 - x, d2)
+    Py = id_tto(d2) ⊗ qtto_constant_prolongation(d2)
+    uy = Py * u2
+    @test qtt_to_function(uy) ≈ kron(Matrix(I, 2^d2, 2^d2), P2) * qtt_to_function(u2)
+
+    Px = qtto_constant_prolongation(d2) ⊗ id_tto(d2 + 1)
+    uxy = Px * uy
+    @test qtt_to_function(uxy) ≈ kron(P2, Matrix(I, 2^(d2 + 1), 2^(d2 + 1))) * qtt_to_function(uy)
+end
+
+@testset "qtto_linear_prolongation" begin
+    function linear_prolongation_matrix(d::Int)
+        n = 2^d
+        Pmat = zeros(Float64, 2n, n)
+        @inbounds for α in 0:(n - 1)
+            Pmat[2α + 1, α + 1] = 1.0
+            Pmat[2α + 2, α + 1] += 0.5
+            if α + 1 < n
+                Pmat[2α + 2, α + 2] += 0.5
+            end
+        end
+        return Pmat
+    end
+
+    d = 3
+    P = qtto_linear_prolongation(d)
+    @test P isa TToperator{Float64, 4}
+    @test P.N == d + 1
+    @test P.tto_dims == ntuple(_ -> 2, d + 1)
+    @test size(P.tto_vec[end], 2) == 1
+
+    P_dense = linear_prolongation_matrix(d)
+    for col in 1:2^d
+        e = qtt_basis_vector(d, col)
+        y = P * e
+        @test y isa TTvector{Float64, 4}
+        @test y.ttv_dims == ntuple(_ -> 2, d + 1)
+        @test qtt_to_function(y) ≈ P_dense[:, col]
+    end
+
+    u = function_to_qtt(x -> sin(π * x), d)
+    @test qtt_to_function(P * u) ≈ P_dense * qtt_to_function(u)
+
+    P₁ = qtto_linear_prolongation(1)
+    @test qtt_to_function(P₁ * qtt_basis_vector(1, 2)) ≈ [0.0, 0.5, 1.0, 0.5]
+
+    d2 = 2
+    P2 = linear_prolongation_matrix(d2)
+    u2 = function_to_qtt(x -> 1 + x, d2) ⊗ function_to_qtt(x -> 2 - x, d2)
+    Py = id_tto(d2) ⊗ qtto_linear_prolongation(d2)
+    uy = Py * u2
+    @test qtt_to_function(uy) ≈ kron(Matrix(I, 2^d2, 2^d2), P2) * qtt_to_function(u2)
+
+    Px = qtto_linear_prolongation(d2) ⊗ id_tto(d2 + 1)
+    uxy = Px * uy
+    @test qtt_to_function(uxy) ≈ kron(P2, Matrix(I, 2^(d2 + 1), 2^(d2 + 1))) * qtt_to_function(uy)
+end

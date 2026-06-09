@@ -21,7 +21,7 @@ include("solvers/tdvp.jl")
 export to_ttvector
 function to_ttvector end
 
-export toeplitz_to_qtto, qtto_prolongation, ∇, Δ_DN, Δ_ND, Δ_NN, Δ_P, Δ, Δ⁻¹_DN, shift, zeros_tt, zeros_tto, rand_tt, id_tto, rand_tto, qtt_laplacian
+export toeplitz_to_qtto, qtto_prolongation, qtto_constant_prolongation, qtto_linear_prolongation, ∇, Δ_DN, Δ_ND, Δ_NN, Δ_P, Δ, Δ⁻¹_DN, shift, zeros_tt, zeros_tto, rand_tt, id_tto, rand_tto, qtt_laplacian
 include("tt_operators.jl")
 
 export gauss_chebyshev_lobatto

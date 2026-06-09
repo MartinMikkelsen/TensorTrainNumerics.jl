@@ -190,6 +190,74 @@ function qtto_prolongation(d::Int)
     return out
 end
 
+"""
+Constructs a constant QTT prolongation operator from `d` to `d + 1` binary sites.
+"""
+function qtto_constant_prolongation(d::Int)
+    @assert d ≥ 1 "Dimension must be at least 1"
+
+    identity_branch = id_tto(d)
+    out = Vector{Array{Float64, 4}}(undef, d + 1)
+    @inbounds for k in 1:d
+        out[k] = copy(identity_branch.tto_vec[k])
+    end
+    out[d + 1] = ones(Float64, 2, 1, 1, 1)
+
+    return TToperator{Float64, d + 1}(
+        d + 1,
+        out,
+        ntuple(_ -> 2, d + 1),
+        ones(Int64, d + 2),
+        zeros(Int64, d + 1)
+    )
+end
+
+"""
+Constructs a linear QTT prolongation operator from `d` to `d + 1` binary sites.
+"""
+function qtto_linear_prolongation(d::Int)
+    @assert d ≥ 1 "Dimension must be at least 1"
+
+    identity_branch = id_tto(d)
+    if d == 1
+        average_core = zeros(Float64, 2, 2, 1, 1)
+        average_core[:, :, 1, 1] .= 0.5 .* [1.0 1.0; 0.0 1.0]
+        average_branch = TToperator{Float64, 1}(1, [average_core], (2,), [1, 1], [0])
+    else
+        average_branch = 0.5 * (id_tto(d) + shift(d))
+    end
+    out_rks = Vector{Int64}(undef, d + 2)
+    out_rks[1] = 1
+    @inbounds for k in 2:(d + 1)
+        out_rks[k] = identity_branch.tto_rks[k] + average_branch.tto_rks[k]
+    end
+    out_rks[d + 2] = 1
+
+    out = Vector{Array{Float64, 4}}(undef, d + 1)
+    out[1] = zeros(Float64, 2, 2, 1, out_rks[2])
+    r₀ = identity_branch.tto_rks[2]
+    out[1][:, :, 1:1, 1:r₀] .= identity_branch.tto_vec[1]
+    out[1][:, :, 1:1, (r₀ + 1):out_rks[2]] .= average_branch.tto_vec[1]
+
+    @inbounds for k in 2:d
+        l₀ = identity_branch.tto_rks[k]
+        r₀ = identity_branch.tto_rks[k + 1]
+        l₁ = average_branch.tto_rks[k]
+        r₁ = average_branch.tto_rks[k + 1]
+        out[k] = zeros(Float64, 2, 2, out_rks[k], out_rks[k + 1])
+        out[k][:, :, 1:l₀, 1:r₀] .= identity_branch.tto_vec[k]
+        out[k][:, :, (l₀ + 1):(l₀ + l₁), (r₀ + 1):(r₀ + r₁)] .= average_branch.tto_vec[k]
+    end
+
+    l₀ = identity_branch.tto_rks[d + 1]
+    l₁ = average_branch.tto_rks[d + 1]
+    out[d + 1] = zeros(Float64, 2, 1, out_rks[d + 1], 1)
+    out[d + 1][1, 1, 1:l₀, 1] .= 1.0
+    out[d + 1][2, 1, (l₀ + 1):(l₀ + l₁), 1] .= 1.0
+
+    return TToperator{Float64, d + 1}(d + 1, out, ntuple(_ -> 2, d + 1), out_rks, zeros(Int64, d + 1))
+end
+
 
 """
     id_tto(d; n_dim=2)
