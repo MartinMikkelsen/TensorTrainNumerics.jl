@@ -20,10 +20,10 @@ function prolong_serial_2d(u::QTTvector; max_bond::Int = 16, truncerr::Float64 =
     @assert u.ordering == :serial "Only serial QTT ordering is supported"
 
     d = u.bits_per_dim
-    Py = id_tto(d) ⊗ qtto_linear_prolongation(d)
+    Py = id_tto(d) ⊗ qtto_constant_prolongation(d)
     uy = Py * TTvector(u)
 
-    Px = qtto_linear_prolongation(d) ⊗ id_tto(d + 1)
+    Px = qtto_constant_prolongation(d) ⊗ id_tto(d + 1)
     uf = QTTvector(Px * uy, 2, d + 1, :serial)
     return tt_compress!(uf, max_bond; truncerr = truncerr, sweeps = 2)
 end

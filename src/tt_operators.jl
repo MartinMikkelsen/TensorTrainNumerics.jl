@@ -191,6 +191,28 @@ function qtto_prolongation(d::Int)
 end
 
 """
+Constructs a constant QTT prolongation operator from `d` to `d + 1` binary sites.
+"""
+function qtto_constant_prolongation(d::Int)
+    @assert d ≥ 1 "Dimension must be at least 1"
+
+    identity_branch = id_tto(d)
+    out = Vector{Array{Float64, 4}}(undef, d + 1)
+    @inbounds for k in 1:d
+        out[k] = copy(identity_branch.tto_vec[k])
+    end
+    out[d + 1] = ones(Float64, 2, 1, 1, 1)
+
+    return TToperator{Float64, d + 1}(
+        d + 1,
+        out,
+        ntuple(_ -> 2, d + 1),
+        ones(Int64, d + 2),
+        zeros(Int64, d + 1)
+    )
+end
+
+"""
 Constructs a linear QTT prolongation operator from `d` to `d + 1` binary sites.
 """
 function qtto_linear_prolongation(d::Int)
