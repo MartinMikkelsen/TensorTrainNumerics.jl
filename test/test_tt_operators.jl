@@ -362,4 +362,15 @@ end
 
     P₁ = qtto_linear_prolongation(1)
     @test qtt_to_function(P₁ * qtt_basis_vector(1, 2)) ≈ [0.0, 0.5, 1.0, 0.5]
+
+    d2 = 2
+    P2 = linear_prolongation_matrix(d2)
+    u2 = function_to_qtt(x -> 1 + x, d2) ⊗ function_to_qtt(x -> 2 - x, d2)
+    Py = id_tto(d2) ⊗ qtto_linear_prolongation(d2)
+    uy = Py * u2
+    @test qtt_to_function(uy) ≈ kron(Matrix(I, 2^d2, 2^d2), P2) * qtt_to_function(u2)
+
+    Px = qtto_linear_prolongation(d2) ⊗ id_tto(d2 + 1)
+    uxy = Px * uy
+    @test qtt_to_function(uxy) ≈ kron(P2, Matrix(I, 2^(d2 + 1), 2^(d2 + 1))) * qtt_to_function(uy)
 end

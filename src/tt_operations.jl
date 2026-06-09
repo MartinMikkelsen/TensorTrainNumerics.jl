@@ -115,23 +115,34 @@ Contracts a rectangular TToperator with one additional output site against a TTv
 """
 function *(A::TToperator{T, M}, v::TTvector{T, N}) where {T <: Number, M, N}
     @assert M == N + 1 "Rectangular TToperator must have one additional output site"
-    @assert ntuple(k -> size(A.tto_vec[k], 2), N) == v.ttv_dims "Incompatible input dimensions"
-    @assert size(A.tto_vec[M], 2) == 1 "The additional output site must have a singleton input dimension"
+    singleton_sites = findall(k -> size(A.tto_vec[k], 2) == 1, 1:M)
+    @assert length(singleton_sites) == 1 "Rectangular TToperator must have exactly one singleton input site"
+    singleton_site = only(singleton_sites)
+    input_dims = ntuple(k -> size(A.tto_vec[k < singleton_site ? k : k + 1], 2), N)
+    @assert input_dims == v.ttv_dims "Incompatible input dimensions"
     @assert v.ttv_rks[end] == 1 "Input TTvector must have a closed right boundary rank"
 
     out_dims = ntuple(k -> size(A.tto_vec[k], 1), M)
     out_rks = Vector{Int64}(undef, M + 1)
-    out_rks[1:M] .= A.tto_rks[1:M] .* v.ttv_rks
-    out_rks[M + 1] = A.tto_rks[M + 1]
+    @inbounds for boundary in 0:M
+        consumed_inputs = boundary - (boundary >= singleton_site ? 1 : 0)
+        out_rks[boundary + 1] = A.tto_rks[boundary + 1] * v.ttv_rks[consumed_inputs + 1]
+    end
     y = zeros_tt(T, out_dims, out_rks)
 
-    @inbounds for k in 1:N
-        yvec_temp = reshape(y.ttv_vec[k], (out_dims[k], A.tto_rks[k], v.ttv_rks[k], A.tto_rks[k + 1], v.ttv_rks[k + 1]))
-        @tensoropt((νₖ₋₁, νₖ), yvec_temp[iₖ, αₖ₋₁, νₖ₋₁, αₖ, νₖ] = A.tto_vec[k][iₖ, jₖ, αₖ₋₁, αₖ] * v.ttv_vec[k][jₖ, νₖ₋₁, νₖ])
-    end
-
-    @inbounds for i in 1:out_dims[M], α in 1:A.tto_rks[M], β in 1:A.tto_rks[M + 1]
-        y.ttv_vec[M][i, α, β] = A.tto_vec[M][i, 1, α, β]
+    @inbounds for k in 1:M
+        if k == singleton_site
+            consumed_inputs = k - 1
+            νdim = v.ttv_rks[consumed_inputs + 1]
+            yvec_temp = reshape(y.ttv_vec[k], (out_dims[k], A.tto_rks[k], νdim, A.tto_rks[k + 1], νdim))
+            for i in 1:out_dims[k], αₖ₋₁ in 1:A.tto_rks[k], αₖ in 1:A.tto_rks[k + 1], ν in 1:νdim
+                yvec_temp[i, αₖ₋₁, ν, αₖ, ν] = A.tto_vec[k][i, 1, αₖ₋₁, αₖ]
+            end
+        else
+            input_site = k < singleton_site ? k : k - 1
+            yvec_temp = reshape(y.ttv_vec[k], (out_dims[k], A.tto_rks[k], v.ttv_rks[input_site], A.tto_rks[k + 1], v.ttv_rks[input_site + 1]))
+            @tensoropt((νₖ₋₁, νₖ), yvec_temp[iₖ, αₖ₋₁, νₖ₋₁, αₖ, νₖ] = A.tto_vec[k][iₖ, jₖ, αₖ₋₁, αₖ] * v.ttv_vec[input_site][jₖ, νₖ₋₁, νₖ])
+        end
     end
     return y
 end
