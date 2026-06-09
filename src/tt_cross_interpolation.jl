@@ -117,7 +117,7 @@ end
 function _evaluate_on_domain(f, domain::Vector{<:AbstractVector}, indices::Matrix{Int})
     N = length(domain)
     n_points = size(indices, 1)
-    T = promote_type(map(eltype, domain)...)
+    T = eltype(domain[1])
     coords = Matrix{T}(undef, n_points, N)
     for p in 1:n_points, d in 1:N
         coords[p, d] = domain[d][indices[p, d]]
@@ -128,15 +128,24 @@ end
 function _evaluate_tt(cores, indices, N)
     T = eltype(cores[1])
     n_points = size(indices, 1)
+    # state shape: (n_points, r_left) — starts as (n_points, 1)
     state = ones(T, n_points, 1)
     for d in 1:N
         r_r = size(cores[d], 3)
+        # slices: (n_points, r_left, r_right) — gather physical-index slice per point
         slices = cores[d][indices[:, d], :, :]
+        # reshape state to (n_points, r_left, 1), broadcast-multiply with slices
+        # (n_points, r_left, r_right), sum over r_left (axis 2) → (n_points, r_right)
         state = reshape(sum(reshape(state, n_points, :, 1) .* slices, dims = 2), n_points, r_r)
     end
     return vec(state)
 end
 
+# Local _svdtrunc for cross interpolation: uses relative-norm truncation
+# (keeps singular values until the cumulative tail norm exceeds truncerr * ‖s‖).
+# tt_tools.jl has a separate _svdtrunc with absolute-threshold truncation
+# (count(s .>= truncerr)). The two strategies are intentionally different and
+# should not be consolidated.
 function _svdtrunc(A::AbstractMatrix{T}; max_bond::Int = typemax(Int), truncerr::Real = 0.0) where {T}
     F = svd(A)
     s = F.S
@@ -159,8 +168,8 @@ end
 function _build_fiber_indices(lsets, rsets, j, Is, Rs, N)
     n_fibers = Rs[j] * Is[j] * Rs[j + 1]
     indices = Matrix{Int}(undef, n_fibers, N)
-    n_left  = j - 1
-    n_right = N - j
+    n_left  = j - 1       # lsets[j] has j-1 columns
+    n_right = N - j       # rsets[j] has N-j columns
     idx = 1
     for r_right in 1:Rs[j + 1], r_left in 1:Rs[j], i in 1:Is[j]
         j > 1 && (indices[idx, 1:n_left]              = lsets[j][r_left, :])
@@ -248,8 +257,6 @@ function tt_cross(
             V = reshape(_evaluate_on_domain(f, domain, indices), Rs[j] * Is[j], Rs[j + 1])
             V_3d = reshape(V, Is[j], Rs[j], Rs[j + 1])
             V_right = reshape(permutedims(V_3d, (2, 1, 3)), Rs[j], Is[j] * Rs[j + 1])
-            # Use a plain transpose here: TT cross uses bilinear products, so an
-            # adjoint would introduce a spurious conjugation for complex targets.
             Q_mat = Matrix(first(qr(transpose(V_right))))
             local_indices, _ = maxvol!(copy(Q_mat), alg.pivot.tol, alg.pivot.maxiter)
 
@@ -409,7 +416,7 @@ function tt_cross(
         y[i] = reshape(cry, Rs[i], Is[i], Rs[i + 1])
     end
 
-    Xs_val = hcat([rand(1:Is[d], val_size) for d in 1:N]...)
+    Xs_val = hcat([rand(1:Is[d], val_size) for d in 1:N]...)::Matrix{Int}
     ys_val = _evaluate_on_domain(f, domain, Xs_val)
     norm_ys_val = max(norm(ys_val), alg.tol)
 
@@ -587,7 +594,7 @@ function tt_cross(
 
     cores = [randn(Tv, Is[n], Rs[n], Rs[n + 1]) for n in 1:N]
 
-    Xs_val = hcat([rand(1:Is[d], val_size) for d in 1:N]...)
+    Xs_val = hcat([rand(1:Is[d], val_size) for d in 1:N]...)::Matrix{Int}
     ys_val = _evaluate_on_domain(f, domain, Xs_val)
     norm_ys_val = max(norm(ys_val), alg.tol)
 
@@ -604,14 +611,7 @@ function tt_cross(
             r = size(S, 1)
 
             if k < N - 1
-                if alg.kickrank !== nothing
-                    r_kick = min(r + alg.kickrank, alg.rmax, r_l * s1)
-                    Q_mat = r_kick > r ?
-                        Matrix(first(qr(hcat(U, randn(Tv, r_l * s1, r_kick - r)))))[:, 1:r_kick] :
-                        Matrix(first(qr(U)))
-                else
-                    Q_mat = Matrix(first(qr(U)))
-                end
+                Q_mat = Matrix(first(qr(U)))
                 I_idx, _ = maxvol!(copy(Q_mat), alg.pivot.tol, alg.pivot.maxiter)
                 I_l[k + 1] = _combine_indices_left(I_l[k], s1)[I_idx, :]
                 Rs[k + 1] = length(I_idx)
@@ -634,14 +634,7 @@ function tt_cross(
             r = size(S, 1)
 
             if k > 1
-                if alg.kickrank !== nothing
-                    r_kick = min(r + alg.kickrank, alg.rmax, s2 * r_g)
-                    Q_mat = r_kick > r ?
-                        Matrix(first(qr(hcat(Vt', randn(Tv, s2 * r_g, r_kick - r)))))[:, 1:r_kick] :
-                        Matrix(first(qr(Vt')))
-                else
-                    Q_mat = Matrix(first(qr(Vt')))
-                end
+                Q_mat = Matrix(first(qr(Vt')))
                 I_idx, _ = maxvol!(copy(Q_mat), alg.pivot.tol, alg.pivot.maxiter)
                 I_g[k] = _combine_indices_right(s2, I_g[k + 1])[I_idx, :]
                 Rs[k + 1] = length(I_idx)
