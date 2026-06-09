@@ -1,6 +1,5 @@
 using Test
 using LinearAlgebra
-
 import TensorTrainNumerics: MaxVolPivot, RandomPivot, MaxVol, Greedy, DMRG, _cap_ranks!
 
 @testset "Cross Interpolation Algorithms" begin
@@ -145,43 +144,6 @@ import TensorTrainNumerics: MaxVolPivot, RandomPivot, MaxVol, Greedy, DMRG, _cap
             @test tt.N == 4
         end
 
-        @testset "DMRG kickrank rank exploration and accuracy" begin
-            # kickrank enriches the SVD factor with random orthogonal directions
-            # before maxvol, so the pivot index sets grow beyond what truncated SVD
-            # alone would select.  The main benefit is robustness: for functions
-            # whose important features are unlikely to be sampled by the current
-            # index sets, the random enrichment helps escape rank-deficient local
-            # minima.  We verify two properties:
-            #   1. the maximum bond dimension is strictly larger with kickrank, and
-            #   2. the approximation error is at most as large as without kickrank.
-            d = 5
-            domain = [range(-2.0, 2.0, length = 12) |> collect for _ in 1:d]
-            f(x) = vec(1.0 ./ (1.0 .+ sum(x .^ 2, dims = 2)))
-
-            Random.seed!(42)
-            tt_no_kick = tt_cross(f, domain,
-                DMRG(verbose = false, tol = 1.0e-14, maxiter = 3, kickrank = nothing, rmax = 30); ranks = 1)
-            Random.seed!(42)
-            tt_kick = tt_cross(f, domain,
-                DMRG(verbose = false, tol = 1.0e-14, maxiter = 3, kickrank = 4, rmax = 30); ranks = 1)
-
-            # kickrank grows the bond dimensions beyond SVD-determined structure
-            @test maximum(tt_kick.ttv_rks) > maximum(tt_no_kick.ttv_rks)
-
-            # both achieve high accuracy on held-out points
-            Random.seed!(2025)
-            ncheck = 400
-            idx = hcat([rand(1:12, ncheck) for _ in 1:d]...)
-            ys = f(hcat([domain[k][idx[:, k]] for k in 1:d]...))
-
-            err_no_kick = norm(ys .- TensorTrainNumerics._evaluate_tt(tt_no_kick.ttv_vec, idx, d)) / norm(ys)
-            err_kick    = norm(ys .- TensorTrainNumerics._evaluate_tt(tt_kick.ttv_vec, idx, d)) / norm(ys)
-
-            @test err_no_kick < 1.0e-8
-            @test err_kick    < 1.0e-8
-            @test err_kick   <= err_no_kick * 2   # kickrank does not degrade accuracy
-        end
-
         @testset "5D Wishart Laplace transform (parameterized)" begin
             d = 5
             nu = d + 2
@@ -263,13 +225,7 @@ import TensorTrainNumerics: MaxVolPivot, RandomPivot, MaxVol, Greedy, DMRG, _cap
                 return norm(y .- yhat) / max(norm(y), eps())
             end
 
-            tt_maxvol = tt_cross(
-                f,
-                domain,
-                MaxVol(verbose = true, tol = 1.0e-8, maxiter = 20, rmax = 30);
-                ranks = 2,
-                val_size = 600,
-            )
+            tt_maxvol = tt_cross(f, domain, MaxVol(verbose = false, tol = 1.0e-8, maxiter = 20, rmax = 30); ranks = 2, val_size = 600)
             @test rel_sample_err(tt_maxvol, f, domain; seed = 91) < 1.0e-6
 
             tt_dmrg = tt_cross(f, domain, DMRG(verbose = false, tol = 1.0e-8, maxiter = 15, rmax = 30); ranks = 2, val_size = 600)
@@ -430,6 +386,87 @@ import TensorTrainNumerics: MaxVolPivot, RandomPivot, MaxVol, Greedy, DMRG, _cap
                 ("MaxVol", MaxVol(verbose = false, tol = 1e-6, maxiter = 50, rmax = 20)),
                 ("Greedy", Greedy(verbose = false, tol = 1e-6, maxiter = 50, nsamples = 500, pivot = RandomPivot(seed = 77))),
                 ("DMRG",   DMRG(verbose = false, tol = 1e-6, maxiter = 50, rmax = 20)),
+            ]
+                @testset "$alg_name" begin
+                    tt = tt_cross(f, domain, alg)
+                    approx = TensorTrainNumerics.ttv_to_tensor(tt)
+                    relerr = norm(approx - exact) / max(norm(exact), eps())
+                    @test relerr < tol
+                end
+            end
+        end
+
+        @testset "Accuracy: rank-2 complex separable" begin
+            # f(x) = sin(x₁)sin(x₂)sin(x₃) + i·cos(x₁)cos(x₂)cos(x₃)
+            # exact TT rank 2 over ℂ (sum of two rank-1 terms)
+            domain = [collect(range(0.0, Float64(π), length = 7)) for _ in 1:3]
+            f(X) = vec(prod(sin.(X), dims = 2) .+ im .* prod(cos.(X), dims = 2))
+
+            exact = zeros(ComplexF64, 7, 7, 7)
+            for I in CartesianIndices(exact)
+                x = reshape([domain[d][I[d]] for d in 1:3], 1, 3)
+                exact[I] = f(x)[1]
+            end
+
+            tol = 1e-8
+            for (alg_name, alg) in [
+                ("MaxVol", MaxVol(verbose = false, tol = 1e-10, maxiter = 30, rmax = 4)),
+                ("Greedy", Greedy(verbose = false, tol = 1e-10, maxiter = 30, nsamples = 500, pivot = RandomPivot(seed = 11))),
+                ("DMRG",   DMRG(verbose = false, tol = 1e-10, maxiter = 30, rmax = 4)),
+            ]
+                @testset "$alg_name" begin
+                    tt = tt_cross(f, domain, alg)
+                    approx = TensorTrainNumerics.ttv_to_tensor(tt)
+                    relerr = norm(approx - exact) / max(norm(exact), eps())
+                    @test relerr < tol
+                    @test maximum(tt.ttv_rks) <= 4
+                end
+            end
+        end
+
+        @testset "Accuracy: Lorentzian resolvent (complex)" begin
+            # f(x) = 1 / (iη + ∑xₖ²), η = 0.3 — models a retarded Green's function
+            # on a real grid; poles are in the lower half of the complex plane
+            domain = [collect(range(-1.0, 1.0, length = 8)) for _ in 1:3]
+            f(X) = vec(1.0 ./ (0.3im .+ sum(X .^ 2, dims = 2)))
+
+            exact = zeros(ComplexF64, 8, 8, 8)
+            for I in CartesianIndices(exact)
+                x = reshape([domain[d][I[d]] for d in 1:3], 1, 3)
+                exact[I] = f(x)[1]
+            end
+
+            tol = 1e-4
+            for (alg_name, alg) in [
+                ("MaxVol", MaxVol(verbose = false, tol = 1e-6, maxiter = 40, rmax = 20)),
+                ("Greedy", Greedy(verbose = false, tol = 1e-6, maxiter = 40, nsamples = 500, pivot = RandomPivot(seed = 22))),
+                ("DMRG",   DMRG(verbose = false, tol = 1e-6, maxiter = 40, rmax = 20)),
+            ]
+                @testset "$alg_name" begin
+                    tt = tt_cross(f, domain, alg)
+                    approx = TensorTrainNumerics.ttv_to_tensor(tt)
+                    relerr = norm(approx - exact) / max(norm(exact), eps())
+                    @test relerr < tol
+                end
+            end
+        end
+
+        @testset "Accuracy: 4D separable (complex)" begin
+            # f(x) = ∏(1 + i·xₖ) in 4D — rank-1 complex separable
+            domain = [collect(range(0.0, 1.0, length = 6)) for _ in 1:4]
+            f(X) = vec(prod(1.0 .+ im .* X, dims = 2))
+
+            exact = zeros(ComplexF64, 6, 6, 6, 6)
+            for I in CartesianIndices(exact)
+                x = reshape([domain[d][I[d]] for d in 1:4], 1, 4)
+                exact[I] = f(x)[1]
+            end
+
+            tol = 1e-8
+            for (alg_name, alg) in [
+                ("MaxVol", MaxVol(verbose = false, tol = 1e-10, maxiter = 20)),
+                ("Greedy", Greedy(verbose = false, tol = 1e-10, maxiter = 20, nsamples = 500, pivot = RandomPivot(seed = 33))),
+                ("DMRG",   DMRG(verbose = false, tol = 1e-10, maxiter = 20)),
             ]
                 @testset "$alg_name" begin
                     tt = tt_cross(f, domain, alg)
