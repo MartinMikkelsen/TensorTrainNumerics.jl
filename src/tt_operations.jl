@@ -110,6 +110,32 @@ function *(A::TToperator{T, N}, v::TTvector{T, N}) where {T <: Number, N}
     return y
 end
 
+"""
+Contracts a rectangular TToperator with one additional output site against a TTvector.
+"""
+function *(A::TToperator{T, M}, v::TTvector{T, N}) where {T <: Number, M, N}
+    @assert M == N + 1 "Rectangular TToperator must have one additional output site"
+    @assert ntuple(k -> size(A.tto_vec[k], 2), N) == v.ttv_dims "Incompatible input dimensions"
+    @assert size(A.tto_vec[M], 2) == 1 "The additional output site must have a singleton input dimension"
+    @assert v.ttv_rks[end] == 1 "Input TTvector must have a closed right boundary rank"
+
+    out_dims = ntuple(k -> size(A.tto_vec[k], 1), M)
+    out_rks = Vector{Int64}(undef, M + 1)
+    out_rks[1:M] .= A.tto_rks[1:M] .* v.ttv_rks
+    out_rks[M + 1] = A.tto_rks[M + 1]
+    y = zeros_tt(T, out_dims, out_rks)
+
+    @inbounds for k in 1:N
+        yvec_temp = reshape(y.ttv_vec[k], (out_dims[k], A.tto_rks[k], v.ttv_rks[k], A.tto_rks[k + 1], v.ttv_rks[k + 1]))
+        @tensoropt((νₖ₋₁, νₖ), yvec_temp[iₖ, αₖ₋₁, νₖ₋₁, αₖ, νₖ] = A.tto_vec[k][iₖ, jₖ, αₖ₋₁, αₖ] * v.ttv_vec[k][jₖ, νₖ₋₁, νₖ])
+    end
+
+    @inbounds for i in 1:out_dims[M], α in 1:A.tto_rks[M], β in 1:A.tto_rks[M + 1]
+        y.ttv_vec[M][i, α, β] = A.tto_vec[M][i, 1, α, β]
+    end
+    return y
+end
+
 
 function (A::TToperator{T, N})(x::TTvector{T, N}) where {T, N}
     return A * x
