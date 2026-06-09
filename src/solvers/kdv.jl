@@ -61,7 +61,17 @@ function kdv_als_step(
         scf_tol   :: Real = 1e-8,
         max_bond  :: Int  = 20,
         als_sweeps:: Int  = 5,
-        verbose   :: Bool = false
+        verbose   :: Bool = false,
+        it_solver::Bool = false,
+        r_itsolver::Int = 5000,
+        linsolv_maxiter::Int = 200,
+        linsolv_tol::Float64 = 1.0e-8,
+        projection_degree::Int = 8,
+        projection_tolerance::Real = 1.0e-10,
+        projection_maxbonddim::Int = max_bond,
+        projection_q::Int = 1,
+        projection_a::Real = 0.0,
+        projection_b::Real = 1.0
     ) where {T <: Number}
 
     d     = u_prev.N
@@ -72,9 +82,23 @@ function kdv_als_step(
     u = u_prev
     for iter in 1:max_scf
         u_old = u
-        A_adv = ttv_to_diag_tto(u) * D_x
+        u_adv = _project_unary_coefficient(u, identity;
+            projection_degree = projection_degree,
+            projection_tolerance = projection_tolerance,
+            projection_maxbonddim = projection_maxbonddim,
+            projection_q = projection_q,
+            projection_a = projection_a,
+            projection_b = projection_b,
+        )
+        A_adv = ttv_to_diag_tto(u_adv) * D_x
         A_eff = invdt * I_tto + convert(T, 6) * A_adv + D_xxx
-        u     = als_linsolve(A_eff, rhs, u_old; sweep_count = als_sweeps)
+        u     = als_linsolve(A_eff, rhs, u_old;
+            sweep_count = als_sweeps,
+            it_solver = it_solver,
+            r_itsolver = r_itsolver,
+            linsolv_maxiter = linsolv_maxiter,
+            linsolv_tol = linsolv_tol,
+        )
         u     = tt_compress!(u, max_bond)
         rel_diff = norm(u - u_old) / (norm(u) + eps(real(T)))
         verbose && println("    Picard $iter  rel_diff = $(round(rel_diff, sigdigits=4))")
@@ -104,7 +128,17 @@ function kdv_als(
         max_bond     :: Int  = 20,
         als_sweeps   :: Int  = 5,
         verbose      :: Bool = false,
-        verbose_steps:: Bool = false
+        verbose_steps:: Bool = false,
+        it_solver::Bool = false,
+        r_itsolver::Int = 5000,
+        linsolv_maxiter::Int = 200,
+        linsolv_tol::Float64 = 1.0e-8,
+        projection_degree::Int = 8,
+        projection_tolerance::Real = 1.0e-10,
+        projection_maxbonddim::Int = max_bond,
+        projection_q::Int = 1,
+        projection_a::Real = 0.0,
+        projection_b::Real = 1.0
     ) where {T <: Number}
 
     u         = u₀
@@ -113,7 +147,17 @@ function kdv_als(
         u = kdv_als_step(u, D_x, D_xxx, dt;
                 max_scf = max_scf, scf_tol = scf_tol,
                 max_bond = max_bond, als_sweeps = als_sweeps,
-                verbose = verbose)
+                verbose = verbose,
+                it_solver = it_solver,
+                r_itsolver = r_itsolver,
+                linsolv_maxiter = linsolv_maxiter,
+                linsolv_tol = linsolv_tol,
+                projection_degree = projection_degree,
+                projection_tolerance = projection_tolerance,
+                projection_maxbonddim = projection_maxbonddim,
+                projection_q = projection_q,
+                projection_a = projection_a,
+                projection_b = projection_b)
         push!(snapshots, u)
         verbose_steps &&
             println("  step $step / $n_steps  max_rank = $(maximum(u.ttv_rks))")
@@ -140,7 +184,13 @@ function kdv_mals_step(
         max_scf  :: Int  = 10,
         scf_tol  :: Real = 1e-8,
         max_bond :: Int  = 20,
-        verbose  :: Bool = false
+        verbose  :: Bool = false,
+        projection_degree::Int = 8,
+        projection_tolerance::Real = 1.0e-10,
+        projection_maxbonddim::Int = max_bond,
+        projection_q::Int = 1,
+        projection_a::Real = 0.0,
+        projection_b::Real = 1.0
     ) where {T <: Number}
 
     d     = u_prev.N
@@ -154,7 +204,15 @@ function kdv_mals_step(
     for iter in 1:max_scf
         u_old = u
 
-        A_adv = ttv_to_diag_tto(u) * D_x
+        u_adv = _project_unary_coefficient(u, identity;
+            projection_degree = projection_degree,
+            projection_tolerance = projection_tolerance,
+            projection_maxbonddim = projection_maxbonddim,
+            projection_q = projection_q,
+            projection_a = projection_a,
+            projection_b = projection_b,
+        )
+        A_adv = ttv_to_diag_tto(u_adv) * D_x
         A_eff = invdt * I_tto + convert(T, 6) * A_adv + D_xxx
         A_rks = A_eff.tto_rks
         b_rks = rhs.ttv_rks
@@ -249,7 +307,13 @@ function kdv_mals(
         scf_tol      :: Real = 1e-8,
         max_bond     :: Int  = 20,
         verbose      :: Bool = false,
-        verbose_steps:: Bool = false
+        verbose_steps:: Bool = false,
+        projection_degree::Int = 8,
+        projection_tolerance::Real = 1.0e-10,
+        projection_maxbonddim::Int = max_bond,
+        projection_q::Int = 1,
+        projection_a::Real = 0.0,
+        projection_b::Real = 1.0
     ) where {T <: Number}
 
     u         = u₀
@@ -257,7 +321,13 @@ function kdv_mals(
     for step in 1:n_steps
         u = kdv_mals_step(u, D_x, D_xxx, dt;
                 max_scf = max_scf, scf_tol = scf_tol,
-                max_bond = max_bond, verbose = verbose)
+                max_bond = max_bond, verbose = verbose,
+                projection_degree = projection_degree,
+                projection_tolerance = projection_tolerance,
+                projection_maxbonddim = projection_maxbonddim,
+                projection_q = projection_q,
+                projection_a = projection_a,
+                projection_b = projection_b)
         push!(snapshots, u)
         verbose_steps &&
             println("  step $step / $n_steps  max_rank = $(maximum(u.ttv_rks))")
@@ -286,7 +356,13 @@ function kdv_cn_mals_step(
         max_scf  :: Int  = 10,
         scf_tol  :: Real = 1e-8,
         max_bond :: Int  = 20,
-        verbose  :: Bool = false
+        verbose  :: Bool = false,
+        projection_degree::Int = 8,
+        projection_tolerance::Real = 1.0e-10,
+        projection_maxbonddim::Int = max_bond,
+        projection_q::Int = 1,
+        projection_a::Real = 0.0,
+        projection_b::Real = 1.0
     ) where {T <: Number}
 
     d     = u_prev.N
@@ -308,10 +384,26 @@ function kdv_cn_mals_step(
         # u^{n+1/2} ≈ (u^k + u^n)/2 gives the symmetric (midpoint) treatment
         # that makes the nonlinear term 2nd-order accurate in time
         u_mid = tt_compress!(half * (u + u_prev), max_bond)
-        A_adv = ttv_to_diag_tto(u_mid) * D_x
+        u_adv = _project_unary_coefficient(u_mid, identity;
+            projection_degree = projection_degree,
+            projection_tolerance = projection_tolerance,
+            projection_maxbonddim = projection_maxbonddim,
+            projection_q = projection_q,
+            projection_a = projection_a,
+            projection_b = projection_b,
+        )
+        A_adv = ttv_to_diag_tto(u_adv) * D_x
         A_eff = invdt * I_tto + three * A_adv + half * D_xxx
 
-        rhs = tt_compress!(invdt * u_prev - three * hadamard(u_mid, Du_prev) - half * D3u_prev, max_bond)
+        transport_rhs = _project_binary_coefficient(u_mid, Du_prev, (z, dz) -> z * dz;
+            projection_degree = projection_degree,
+            projection_tolerance = projection_tolerance,
+            projection_maxbonddim = projection_maxbonddim,
+            projection_q = projection_q,
+            projection_a = projection_a,
+            projection_b = projection_b,
+        )
+        rhs = tt_compress!(invdt * u_prev - three * transport_rhs - half * D3u_prev, max_bond)
 
         A_rks = A_eff.tto_rks
         b_rks = rhs.ttv_rks
@@ -406,7 +498,13 @@ function kdv_cn_mals(
         scf_tol      :: Real = 1e-8,
         max_bond     :: Int  = 20,
         verbose      :: Bool = false,
-        verbose_steps:: Bool = false
+        verbose_steps:: Bool = false,
+        projection_degree::Int = 8,
+        projection_tolerance::Real = 1.0e-10,
+        projection_maxbonddim::Int = max_bond,
+        projection_q::Int = 1,
+        projection_a::Real = 0.0,
+        projection_b::Real = 1.0
     ) where {T <: Number}
 
     u         = u₀
@@ -414,7 +512,13 @@ function kdv_cn_mals(
     for step in 1:n_steps
         u = kdv_cn_mals_step(u, D_x, D_xxx, dt;
                 max_scf = max_scf, scf_tol = scf_tol,
-                max_bond = max_bond, verbose = verbose)
+                max_bond = max_bond, verbose = verbose,
+                projection_degree = projection_degree,
+                projection_tolerance = projection_tolerance,
+                projection_maxbonddim = projection_maxbonddim,
+                projection_q = projection_q,
+                projection_a = projection_a,
+                projection_b = projection_b)
         push!(snapshots, u)
         verbose_steps &&
             println("  step $step / $n_steps  max_rank = $(maximum(u.ttv_rks))")

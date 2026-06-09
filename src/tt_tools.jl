@@ -353,7 +353,7 @@ function tto_decomp(tensor::Array{T, N}; index = 1) where {T <: Number, N}
     # The tensor is reorder  into tensor[x_1,y_1,...,x_d,y_d],
     # reshaped into tensor[(x_1,y_1),...,(x_d,y_d)]
     # and decomposed into its tensor train with core matrices at i= index
-    index_sorted = reshape(Transpose(reshape(1:(2 * d), :, 2)), 1, :)
+    index_sorted = vec(reshape(Transpose(reshape(1:(2 * d), :, 2)), 1, :))
     ttv = ttv_decomp(reshape(permutedims(tensor, index_sorted), (dims_sq[1:(end - 1)]...), :); index = index)
     # Define the array of ranks [r_0=1,r_1,...,r_d]
     rks = ttv.ttv_rks

@@ -17,7 +17,6 @@
 
 using TensorTrainNumerics
 using CairoMakie
-using Printf
 import TensorTrainNumerics: dot
 import Random
 
@@ -156,12 +155,8 @@ for (k, g) in enumerate(g_vals)
 end
 axislegend(ax3; position = :lt, labelsize = 12, framevisible = false)
 
-println("g        μ_ALS     μ_MALS    |Δ|        rmax_ALS  rmax_MALS  (ε=$compress_tol)")
-println("-"^78)
 for (k, g) in enumerate(g_vals)
     rmax_als = maximum(ψ_comp_als[k].ttv_rks)
     rmax_mals = maximum(ψ_comp_mals[k].ttv_rks)
-    @printf("%-6.0f  %10.4f  %10.4f  %8.2e   %4d      %4d\n",
-            g, μ_list_als[k], μ_list_mals[k], abs(μ_list_als[k] - μ_list_mals[k]),
-            rmax_als, rmax_mals)
+    @info "NLS visualization point" g=g mu_als=round(μ_list_als[k], digits = 4) mu_mals=round(μ_list_mals[k], digits = 4) mu_gap=round(abs(μ_list_als[k] - μ_list_mals[k]), sigdigits = 3) rmax_als=rmax_als rmax_mals=rmax_mals compress_tol=compress_tol
 end

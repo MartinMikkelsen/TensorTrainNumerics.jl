@@ -18,7 +18,132 @@
 using LinearAlgebra
 
 _density_tt(ψ::TTvector) = hadamard(conj(ψ), ψ)
-_nls_diag_operator(ψ::TTvector{T}, g::Number) where {T <: Number} = convert(T, g) * ttv_to_diag_tto(_density_tt(ψ))
+
+function _interpolative_projection_kwargs(
+        projection_degree::Int,
+        projection_tolerance::Real,
+        projection_maxbonddim::Int,
+        projection_q::Int,
+        projection_a::Real,
+        projection_b::Real
+    )
+    return (
+        degree = projection_degree,
+        tolerance = Float64(projection_tolerance),
+        maxbonddim = projection_maxbonddim,
+        q = projection_q,
+        a = Float64(projection_a),
+        b = Float64(projection_b),
+    )
+end
+
+function _project_unary_coefficient(
+        u::TTvector,
+        Φ::Function;
+        projection_degree::Int = 8,
+        projection_tolerance::Real = 1.0e-10,
+        projection_maxbonddim::Int = typemax(Int),
+        projection_q::Int = 1,
+        projection_a::Real = 0.0,
+        projection_b::Real = 1.0
+    )::TTvector
+    eltype(u) <: Real ||
+        throw(ArgumentError("interpolative coefficient projection currently supports real TTvectors"))
+    return project_nonlinearity(u, Φ;
+        _interpolative_projection_kwargs(
+            projection_degree,
+            projection_tolerance,
+            projection_maxbonddim,
+            projection_q,
+            projection_a,
+            projection_b,
+        )...
+    )::TTvector
+end
+
+function _project_binary_coefficient(
+        u::TTvector,
+        v::TTvector,
+        Φ::Function;
+        projection_degree::Int = 8,
+        projection_tolerance::Real = 1.0e-10,
+        projection_maxbonddim::Int = typemax(Int),
+        projection_q::Int = 1,
+        projection_a::Real = 0.0,
+        projection_b::Real = 1.0
+    )::TTvector
+    eltype(u) <: Real && eltype(v) <: Real ||
+        throw(ArgumentError("interpolative coefficient projection currently supports real TTvectors"))
+    return project_nonlinearity((u, v), Φ;
+        _interpolative_projection_kwargs(
+            projection_degree,
+            projection_tolerance,
+            projection_maxbonddim,
+            projection_q,
+            projection_a,
+            projection_b,
+        )...
+    )::TTvector
+end
+
+function _nls_density_tt(
+        ψ::TTvector;
+        projection_degree::Int = 8,
+        projection_tolerance::Real = 1.0e-10,
+        projection_maxbonddim::Int = typemax(Int),
+        projection_q::Int = 1,
+        projection_a::Real = 0.0,
+        projection_b::Real = 1.0
+    )
+    return _project_unary_coefficient(ψ, abs2;
+        projection_degree = projection_degree,
+        projection_tolerance = projection_tolerance,
+        projection_maxbonddim = projection_maxbonddim,
+        projection_q = projection_q,
+        projection_a = projection_a,
+        projection_b = projection_b,
+    )
+end
+
+function _nls_diag_operator(
+        ψ::TTvector{T},
+        g::Number;
+        projection_degree::Int = 8,
+        projection_tolerance::Real = 1.0e-10,
+        projection_maxbonddim::Int = typemax(Int),
+        projection_q::Int = 1,
+        projection_a::Real = 0.0,
+        projection_b::Real = 1.0
+    ) where {T <: Number}
+    ρ = _nls_density_tt(ψ;
+        projection_degree = projection_degree,
+        projection_tolerance = projection_tolerance,
+        projection_maxbonddim = projection_maxbonddim,
+        projection_q = projection_q,
+        projection_a = projection_a,
+        projection_b = projection_b,
+    )
+    return convert(T, g) * ttv_to_diag_tto(ρ)
+end
+
+function _local_eigmin(
+        K_eff::AbstractMatrix{T},
+        V0::AbstractArray{T},
+        K_dims::Tuple;
+        it_solver::Bool = false,
+        itslv_thresh::Int = 256,
+        maxiter::Int = 200,
+        tol::Float64 = 1.0e-8
+    ) where {T <: Number}
+    if it_solver && length(V0) > itslv_thresh
+        A = LinearMap{T}(x -> K_eff * x, size(K_eff, 1); ishermitian = true)
+        result = lobpcg(A, false, copy(vec(V0)), 1; maxiter = maxiter, tol = tol)
+        return real(result.λ[1]), reshape(result.X[:, 1], K_dims)
+    else
+        F = eigen(Hermitian(K_eff), 1:1)
+        return real(F.values[1]), reshape(F.vectors[:, 1], K_dims)
+    end
+end
 
 function _nls_chemical_potential(ψ::TTvector{T}, H_lin::TToperator{T}, g::Real) where {T <: Number}
     ρ = _density_tt(ψ)
@@ -61,7 +186,17 @@ function nonlinear_als_eigsolve(
         g       :: Real,
         tt_start:: TTvector{T};
         sweep_count :: Int  = 8,
-        verbose     :: Bool = true
+        verbose     :: Bool = true,
+        it_solver::Bool = false,
+        itslv_thresh::Int = 256,
+        linsolv_maxiter::Int = 200,
+        linsolv_tol::Float64 = 1.0e-8,
+        projection_degree::Int = 8,
+        projection_tolerance::Real = 1.0e-10,
+        projection_maxbonddim::Int = typemax(Int),
+        projection_q::Int = 1,
+        projection_a::Real = 0.0,
+        projection_b::Real = 1.0
     ) where {T <: Number}
 
     d    = H_lin.N
@@ -79,7 +214,14 @@ function nonlinear_als_eigsolve(
 
         # ── SCF step: rebuild frozen-density operator ─────────────────────
         # Frozen-density operator g · diag(|ψ|²)
-        D_nl = _nls_diag_operator(tt_opt, gT)
+        D_nl = _nls_diag_operator(tt_opt, gT;
+            projection_degree = projection_degree,
+            projection_tolerance = projection_tolerance,
+            projection_maxbonddim = projection_maxbonddim,
+            projection_q = projection_q,
+            projection_a = projection_a,
+            projection_b = projection_b,
+        )
 
         # ── Initialize left environments (G) ─────────────────────────────
         G_lin = Array{Array{T}}(undef, d)
@@ -101,8 +243,12 @@ function nonlinear_als_eigsolve(
             K_dims = (dims[i], rks[i], rks[i+1])
             K_eff  = K_full(G_lin[i], H_lin_env[i], K_dims) .+
                      K_full(G_nl[i],  H_nl_env[i],  K_dims)
-            F  = eigen(Hermitian(K_eff), 1:1)
-            V  = reshape(F.vectors[:, 1], K_dims)
+            _, V = _local_eigmin(K_eff, tt_opt.ttv_vec[i], K_dims;
+                it_solver = it_solver,
+                itslv_thresh = itslv_thresh,
+                maxiter = linsolv_maxiter,
+                tol = linsolv_tol,
+            )
 
             tt_opt = right_core_move(tt_opt, V, i, rks)
             update_G!(tt_opt.ttv_vec[i], H_lin.tto_vec[i+1], G_lin[i], G_lin[i+1])
@@ -114,8 +260,12 @@ function nonlinear_als_eigsolve(
             K_dims = (dims[i], rks[i], rks[i+1])
             K_eff  = K_full(G_lin[i], H_lin_env[i], K_dims) .+
                      K_full(G_nl[i],  H_nl_env[i],  K_dims)
-            F  = eigen(Hermitian(K_eff), 1:1)
-            V  = reshape(F.vectors[:, 1], K_dims)
+            _, V = _local_eigmin(K_eff, tt_opt.ttv_vec[i], K_dims;
+                it_solver = it_solver,
+                itslv_thresh = itslv_thresh,
+                maxiter = linsolv_maxiter,
+                tol = linsolv_tol,
+            )
 
             tt_opt = left_core_move(tt_opt, V, i, rks)
             update_H!(tt_opt.ttv_vec[i], H_lin.tto_vec[i],  H_lin_env[i], H_lin_env[i-1])
@@ -186,7 +336,13 @@ function nonlinear_mals_eigsolve(
         linsolv_maxiter::Int = 200,
         linsolv_tol::Float64 = max(sqrt(tol), 1.0e-8),
         itslv_thresh::Int = 256,
-        verbose::Bool = true
+        verbose::Bool = true,
+        projection_degree::Int = 8,
+        projection_tolerance::Real = 1.0e-10,
+        projection_maxbonddim::Int = maximum(rmax_schedule),
+        projection_q::Int = 1,
+        projection_a::Real = 0.0,
+        projection_b::Real = 1.0
     ) where {T <: Number}
 
     @assert(length(rmax_schedule) == length(sweep_schedule), "Sweep schedule error")
@@ -209,7 +365,14 @@ function nonlinear_mals_eigsolve(
             end
         end
 
-        D_nl = _nls_diag_operator(tt_opt, g)
+        D_nl = _nls_diag_operator(tt_opt, g;
+            projection_degree = projection_degree,
+            projection_tolerance = projection_tolerance,
+            projection_maxbonddim = projection_maxbonddim,
+            projection_q = projection_q,
+            projection_a = projection_a,
+            projection_b = projection_b,
+        )
         H_eff = H_lin + D_nl
 
         _, tt_opt, r_hist_sweep = mals_eigsolve(
@@ -706,7 +869,13 @@ function allen_cahn_als_step(
         scf_tol   :: Real = 1e-8,
         max_bond  :: Int  = 20,
         als_sweeps:: Int  = 5,
-        verbose   :: Bool = false
+        verbose   :: Bool = false,
+        projection_degree::Int = 8,
+        projection_tolerance::Real = 1.0e-10,
+        projection_maxbonddim::Int = max_bond,
+        projection_q::Int = 1,
+        projection_a::Real = 0.0,
+        projection_b::Real = 1.0
     ) where {T <: Number}
 
     d     = u_prev.N
@@ -718,7 +887,15 @@ function allen_cahn_als_step(
     u = u_prev
     for iter in 1:max_scf
         u_old    = u
-        A_react  = ttv_to_diag_tto(hadamard(u, u))         # diag(u²)
+        u_sq     = _project_unary_coefficient(u, z -> z^2;
+            projection_degree = projection_degree,
+            projection_tolerance = projection_tolerance,
+            projection_maxbonddim = projection_maxbonddim,
+            projection_q = projection_q,
+            projection_a = projection_a,
+            projection_b = projection_b,
+        )
+        A_react  = ttv_to_diag_tto(u_sq)         # diag(u²)
         A_eff    = (invdt - one(T)) * I_tto + εT^2 * D_xx + A_react
         u        = als_linsolve(A_eff, rhs, u_old; sweep_count = als_sweeps)
         u        = tt_compress!(u, max_bond)
@@ -761,7 +938,13 @@ function allen_cahn_als(
         max_bond     :: Int  = 20,
         als_sweeps   :: Int  = 5,
         verbose      :: Bool = false,
-        verbose_steps:: Bool = false
+        verbose_steps:: Bool = false,
+        projection_degree::Int = 8,
+        projection_tolerance::Real = 1.0e-10,
+        projection_maxbonddim::Int = max_bond,
+        projection_q::Int = 1,
+        projection_a::Real = 0.0,
+        projection_b::Real = 1.0
     ) where {T <: Number}
 
     u         = u₀
@@ -770,7 +953,13 @@ function allen_cahn_als(
         u = allen_cahn_als_step(u, D_xx, ε, dt;
                 max_scf = max_scf, scf_tol = scf_tol,
                 max_bond = max_bond, als_sweeps = als_sweeps,
-                verbose = verbose)
+                verbose = verbose,
+                projection_degree = projection_degree,
+                projection_tolerance = projection_tolerance,
+                projection_maxbonddim = projection_maxbonddim,
+                projection_q = projection_q,
+                projection_a = projection_a,
+                projection_b = projection_b)
         push!(snapshots, u)
         verbose_steps &&
             println("  step $step / $n_steps  max_rank = $(maximum(u.ttv_rks))")
@@ -803,7 +992,13 @@ function allen_cahn_mals_step(
         max_scf  :: Int  = 10,
         scf_tol  :: Real = 1e-8,
         max_bond :: Int  = 20,
-        verbose  :: Bool = false
+        verbose  :: Bool = false,
+        projection_degree::Int = 8,
+        projection_tolerance::Real = 1.0e-10,
+        projection_maxbonddim::Int = max_bond,
+        projection_q::Int = 1,
+        projection_a::Real = 0.0,
+        projection_b::Real = 1.0
     ) where {T <: Number}
 
     d     = u_prev.N
@@ -815,7 +1010,15 @@ function allen_cahn_mals_step(
     u = orthogonalize(u_prev)
     for iter in 1:max_scf
         u_old    = u
-        A_react  = ttv_to_diag_tto(hadamard(u, u))
+        u_sq     = _project_unary_coefficient(u, z -> z^2;
+            projection_degree = projection_degree,
+            projection_tolerance = projection_tolerance,
+            projection_maxbonddim = projection_maxbonddim,
+            projection_q = projection_q,
+            projection_a = projection_a,
+            projection_b = projection_b,
+        )
+        A_react  = ttv_to_diag_tto(u_sq)
         A_eff    = (invdt - one(T)) * I_tto + εT^2 * D_xx + A_react
         u        = mals_linsolve(A_eff, rhs, u_old; rmax = max_bond)
         rel_diff = norm(u - u_old) / (norm(u) + eps(real(T)))
@@ -856,7 +1059,13 @@ function allen_cahn_mals(
         scf_tol      :: Real = 1e-8,
         max_bond     :: Int  = 20,
         verbose      :: Bool = false,
-        verbose_steps:: Bool = false
+        verbose_steps:: Bool = false,
+        projection_degree::Int = 8,
+        projection_tolerance::Real = 1.0e-10,
+        projection_maxbonddim::Int = max_bond,
+        projection_q::Int = 1,
+        projection_a::Real = 0.0,
+        projection_b::Real = 1.0
     ) where {T <: Number}
 
     u         = u₀
@@ -864,7 +1073,125 @@ function allen_cahn_mals(
     for step in 1:n_steps
         u = allen_cahn_mals_step(u, D_xx, ε, dt;
                 max_scf = max_scf, scf_tol = scf_tol,
-                max_bond = max_bond, verbose = verbose)
+                max_bond = max_bond, verbose = verbose,
+                projection_degree = projection_degree,
+                projection_tolerance = projection_tolerance,
+                projection_maxbonddim = projection_maxbonddim,
+                projection_q = projection_q,
+                projection_a = projection_a,
+                projection_b = projection_b)
+        push!(snapshots, u)
+        verbose_steps &&
+            println("  step $step / $n_steps  max_rank = $(maximum(u.ttv_rks))")
+    end
+    return snapshots
+end
+
+# ─── 2D Allen-Cahn ───────────────────────────────────────────────────────────
+#
+# PDE: ∂_t u = ε²·Δu + u - u³   on [0,1]²
+#
+# Implicit Euler + Picard (SCF) linearisation (freeze u² in the cubic term):
+#
+#   [(1/dt - 1)·I + ε²·Lap2D + diag((u^k)²)] · u^{k+1} = u^{prev}/dt
+#
+# The nonlinear coefficient u² is reconstructed with InterpolativeQTT.
+
+"""
+    allen_cahn_2d_mals_step(u_prev, D_xx, d, ε, dt; ...)
+
+One implicit-Euler time step for the 2D Allen-Cahn equation on [0,1]²:
+
+    ∂_t u = ε²·Δu + u - u³
+
+`u_prev` is a `TTvector` with `2d` binary sites (serial QTT: first `d` sites
+encode x, last `d` encode y).  `D_xx` is the 2D discrete Laplacian
+`TToperator(qtt_laplacian(2, d))`.  `d` is the number of bits per dimension.
+
+"""
+function allen_cahn_2d_mals_step(
+        u_prev   :: TTvector{T},
+        D_xx     :: TToperator{T},
+        d        :: Int,
+        ε        :: Real,
+        dt       :: Real;
+        max_scf  :: Int  = 10,
+        scf_tol  :: Real = 1e-8,
+        max_bond :: Int  = 20,
+        verbose  :: Bool = false,
+        projection_degree      :: Int    = 8,
+        projection_tolerance   :: Real   = 1.0e-10,
+        projection_q           :: Int    = 1,
+        projection_maxbonddim  :: Int    = max_bond
+    ) where {T <: Number}
+
+    u_prev.N == 2d ||
+        throw(ArgumentError("allen_cahn_2d_mals_step: expected TTvector with $(2d) sites, got $(u_prev.N)"))
+
+    I_tto = id_tto(T, 2d; n_dim = 2)
+    invdt = convert(T, inv(dt))
+    εT    = convert(T, ε)
+    rhs   = invdt * u_prev
+
+    u = tt_compress!(orthogonalize(u_prev), max_bond)
+    for iter in 1:max_scf
+        u_old = u
+
+        u_sq = _project_unary_coefficient(u, z -> z^2;
+            projection_degree = projection_degree,
+            projection_tolerance = projection_tolerance,
+            projection_maxbonddim = projection_maxbonddim,
+            projection_q = projection_q,
+        )
+
+        A_react = ttv_to_diag_tto(u_sq)
+        A_eff   = (invdt - one(T)) * I_tto + εT^2 * D_xx + A_react
+        u       = mals_linsolve(A_eff, rhs, u_old; rmax = max_bond)
+        rel_diff = norm(u - u_old) / (norm(u) + eps(real(T)))
+        verbose && println("    Picard $iter  rel_diff = $(round(rel_diff, sigdigits=4))")
+        rel_diff < scf_tol && break
+    end
+    return u
+end
+
+"""
+    allen_cahn_2d_mals(u₀, D_xx, d, ε, dt, n_steps; ...)
+
+Time-integrate the 2D Allen-Cahn equation for `n_steps` implicit-Euler steps
+using `allen_cahn_2d_mals_step` (rank-adaptive two-site ALS).
+
+`u₀` must be a `TTvector` with `2d` binary sites (serial 2D QTT on [0,1]²).
+
+Returns `Vector{TTvector{T}}` of length `n_steps + 1`.
+"""
+function allen_cahn_2d_mals(
+        u₀           :: TTvector{T},
+        D_xx         :: TToperator{T},
+        d            :: Int,
+        ε            :: Real,
+        dt           :: Real,
+        n_steps      :: Int;
+        max_scf      :: Int  = 10,
+        scf_tol      :: Real = 1e-8,
+        max_bond     :: Int  = 20,
+        verbose      :: Bool = false,
+        verbose_steps:: Bool = false,
+        projection_degree      :: Int    = 8,
+        projection_tolerance   :: Real   = 1.0e-10,
+        projection_q           :: Int    = 1,
+        projection_maxbonddim  :: Int    = max_bond
+    ) where {T <: Number}
+
+    u         = u₀
+    snapshots = TTvector{T}[u₀]
+    for step in 1:n_steps
+        u = allen_cahn_2d_mals_step(u, D_xx, d, ε, dt;
+                max_scf = max_scf, scf_tol = scf_tol,
+                max_bond = max_bond, verbose = verbose,
+                projection_degree = projection_degree,
+                projection_tolerance = projection_tolerance,
+                projection_q = projection_q,
+                projection_maxbonddim = projection_maxbonddim)
         push!(snapshots, u)
         verbose_steps &&
             println("  step $step / $n_steps  max_rank = $(maximum(u.ttv_rks))")

@@ -12,7 +12,6 @@
 # eigenvalue problem solved by ALS or MALS micro-steps.
 
 using TensorTrainNumerics
-using Printf
 
 # ── Grid ──────────────────────────────────────────────────────────────────
 L = 8             # 2^L = 256 grid points
@@ -93,7 +92,6 @@ end
 
 # ── Coupling scan: μ vs g ─────────────────────────────────────────────────
 println("\n=== μ vs g (using linear ground state as warm start) ===")
-@printf("  %6s  %12s  %12s  %10s\n", "g", "μ_ALS", "μ_MALS", "|Δ|")
 for gi in [0.0, 10.0, 50.0, 100.0, 200.0]
     if gi == 0.0
         μ_als_i = μ_lin
@@ -105,6 +103,5 @@ for gi in [0.0, 10.0, 50.0, 100.0, 200.0]
         μh_mals, _, _ = run_nls_mals(H_lin, gi, ψ_lin; n_sweeps = 10, rmax = 8, verbose = false)
         μ_mals_i = μh_mals[end]
     end
-    @printf("  %6.1f  %12.6f  %12.6f  %10.2e\n",
-            gi, μ_als_i, μ_mals_i, abs(μ_als_i - μ_mals_i))
+    @info "NLS coupling scan" g=gi mu_als=round(μ_als_i, digits = 6) mu_mals=round(μ_mals_i, digits = 6) mu_gap=round(abs(μ_als_i - μ_mals_i), sigdigits = 3)
 end

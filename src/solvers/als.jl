@@ -1,5 +1,6 @@
 using LinearMaps
 using TensorOperations
+import KrylovKit: linsolve
 
 """
 Implementation based on the presentation in 
@@ -62,11 +63,45 @@ function K_full(Gi::Array{T, 5}, Hi::Array{T, 3}, K_dims::NTuple{3, Int}) where 
     return K
 end
 
-function Ksolve(Gi::Array{T, 5}, G_bi::Array{T, 3}, Hi::Array{T, 3}, H_bi::Array{T, 2}) where {T <: Number}
+function Ksolve(
+        Gi::Array{T, 5},
+        G_bi::Array{T, 3},
+        Hi::Array{T, 3},
+        H_bi::Array{T, 2};
+        it_solver::Bool = false,
+        r_itsolver::Int = 5000,
+        maxiter::Int = 200,
+        tol::Float64 = 1.0e-8
+    ) where {T <: Number}
     K_dims = (size(Gi, 1), size(Gi, 2), size(Hi, 2))
-    K = K_full(Gi, Hi, K_dims)
     @tensor Pb[i, α1, α2] := G_bi[i, α1, β] * H_bi[α2, β] #size (ni,rim,ri)
-    return reshape(K \ Pb[:], K_dims)
+    if it_solver && prod(K_dims) > r_itsolver
+        function K_matfree!(
+                y::AbstractVector{T},
+                x::AbstractVector{T};
+                Gi::Array{T, 5} = Gi,
+                Hi::Array{T, 3} = Hi,
+                K_dims::NTuple{3, Int} = K_dims
+            )
+            Yr = reshape(y, K_dims)
+            @tensor Yr[a, b, c] = Gi[a, b, d, e, z] * reshape(x, K_dims)[d, e, f] * Hi[z, c, f]
+            return y
+        end
+        x0 = zeros(T, prod(K_dims))
+        sol, _ = linsolve(
+            LinearMap{T}(K_matfree!, prod(K_dims); issymmetric = true, ismutating = true),
+            Pb[:],
+            x0;
+            issymmetric = true,
+            isposdef = true,
+            tol = tol,
+            maxiter = maxiter,
+        )
+        return reshape(sol, K_dims)
+    else
+        K = K_full(Gi, Hi, K_dims)
+        return reshape(K \ Pb[:], K_dims)
+    end
 end
 
 function K_eigmin(Gi::Array{T, 5}, Hi::Array{T, 3}, ttv_vec::Array{T, 3}; it_solver = false, itslv_thresh = 256::Int64, maxiter = 200::Int64, tol = 1.0e-6::Float64) where {T <: Number}
@@ -158,7 +193,17 @@ fixed to those of `tt_start`.
 # Returns
 - `TTvector{T}`, or `(TTvector{T}, NamedTuple)` when `return_info=true`.
 """
-function als_linsolve(A::AbstractTToperator, b::AbstractTTvector, tt_start::AbstractTTvector; sweep_count = 2, it_solver = false, r_itsolver = 5000, return_info = false)
+function als_linsolve(
+        A::AbstractTToperator,
+        b::AbstractTTvector,
+        tt_start::AbstractTTvector;
+        sweep_count = 2,
+        it_solver = false,
+        r_itsolver = 5000,
+        linsolv_maxiter::Int = 200,
+        linsolv_tol::Float64 = 1.0e-8,
+        return_info = false
+    )
     # als finds the minimum of the operator J:1/2*<Ax,Ax> - <x,b>
     # input:
     # 	A: the tensor operator in its tensor train format
@@ -200,7 +245,12 @@ function als_linsolve(A::AbstractTToperator, b::AbstractTTvector, tt_start::Abst
         # First half sweep
         for i in 1:(d - 1)
             # Define V as solution of K*x=Pb in x
-            V = Ksolve(G[i], G_b[i], H[i], H_b[i])
+            V = Ksolve(G[i], G_b[i], H[i], H_b[i];
+                it_solver = it_solver,
+                r_itsolver = r_itsolver,
+                maxiter = linsolv_maxiter,
+                tol = linsolv_tol,
+            )
             tt_opt = right_core_move(tt_opt, V, i, rks)
             #update G,G_b
             update_G!(tt_opt.ttv_vec[i], A.tto_vec[i + 1], G[i], G[i + 1])
@@ -214,7 +264,12 @@ function als_linsolve(A::AbstractTToperator, b::AbstractTTvector, tt_start::Abst
             # Second half sweep
             for i in d:(-1):2
                 # Define V as solution of K*x=Pb in x
-                V = Ksolve(G[i], G_b[i], H[i], H_b[i])
+                V = Ksolve(G[i], G_b[i], H[i], H_b[i];
+                    it_solver = it_solver,
+                    r_itsolver = r_itsolver,
+                    maxiter = linsolv_maxiter,
+                    tol = linsolv_tol,
+                )
                 tt_opt = left_core_move(tt_opt, V, i, rks)
                 update_H!(tt_opt.ttv_vec[i], A.tto_vec[i], H[i], H[i - 1])
                 update_Hb!(tt_opt.ttv_vec[i], b.ttv_vec[i], H_b[i], H_b[i - 1])

@@ -15,7 +15,6 @@
 # SCF-ALS is run one sweep at a time so the same formula can be applied.
 
 using TensorTrainNumerics
-using Printf
 import TensorTrainNumerics: dot
 
 # ── Problem setup ─────────────────────────────────────────────────────────
@@ -97,16 +96,11 @@ end
 # ── Convergence table ─────────────────────────────────────────────────────
 println("\n=== Convergence: |μ(k) - μ_ref|  (μ_ref = $(round(μ_ref, digits=6))) ===")
 
-it_hdrs = join([@sprintf(" | %-14s", "IT(dτ=$(dτ))") for dτ in dτ_vals])
-hdr = @sprintf("  %4s | %-14s", "sweep", "SCF-ALS") * it_hdrs
-println(hdr)
-println("  " * "-"^(length(hdr) - 2))
-
 iters = [1, 2, 3, 5, 10, 20, 30, 50, 100, 200]
 for k in iters
-    als_col = k <= n_als ? @sprintf("  %.2e      ", abs(μ_als[k] - μ_ref)) : "  ---           "
-    it_cols = join([k <= n_it ? @sprintf(" |  %.2e      ", abs(μ_it[dτ][k] - μ_ref)) : " |  ---           " for dτ in dτ_vals])
-    println(@sprintf("  %4d |", k) * als_col * it_cols)
+    als_error = k <= n_als ? abs(μ_als[k] - μ_ref) : missing
+    it_errors = Dict(dτ => (k <= n_it ? abs(μ_it[dτ][k] - μ_ref) : missing) for dτ in dτ_vals)
+    @info "Convergence error" sweep=k scf_als_error=als_error it_als_errors=it_errors
 end
 
 # ── Steps to tolerance ────────────────────────────────────────────────────

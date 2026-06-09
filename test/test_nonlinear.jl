@@ -1,5 +1,6 @@
 using Test
 using TensorTrainNumerics
+using InterpolativeQTT
 using LinearAlgebra
 using Random
 
@@ -50,7 +51,7 @@ end
     @test isapprox(μ_hist, μ_expected; rtol = 1.0e-10, atol = 1.0e-10)
 end
 
-@testset "nonlinear_als_eigsolve handles complex TT states" begin
+@testset "nonlinear_als_eigsolve rejects complex states in interpolative mode" begin
     d = 4
     g = 0.6
     H_lin = complex(nonlinear_spd_op(d, 3.5))
@@ -59,11 +60,7 @@ end
         ψ0.ttv_vec[k] .= cis(0.15 * k) .* core
     end
 
-    μ_hist, ψ = nonlinear_als_eigsolve(H_lin, g, ψ0; sweep_count = 2, verbose = false)
-
-    @test length(μ_hist) == 2
-    @test all(isfinite, μ_hist)
-    @test isapprox(μ_hist[end], nonlinear_chemical_potential(ψ, H_lin, g); rtol = 1.0e-10, atol = 1.0e-10)
+    @test_throws ArgumentError nonlinear_als_eigsolve(H_lin, g, ψ0; sweep_count = 2, verbose = false)
 end
 
 @testset "nonlinear_mals_eigsolve returns global sweep-wise μ history" begin
@@ -101,7 +98,7 @@ end
     @test isapprox(μ_hist, μ_expected; rtol = 1.0e-10, atol = 1.0e-10)
 end
 
-@testset "nonlinear_mals_eigsolve handles complex TT states" begin
+@testset "nonlinear_mals_eigsolve rejects complex states in interpolative mode" begin
     d = 4
     g = 0.6
     H_lin = complex(nonlinear_spd_op(d, 3.5))
@@ -110,16 +107,11 @@ end
         ψ0.ttv_vec[k] .= cis(0.15 * k) .* core
     end
 
-    μ_hist, ψ, r_hist = nonlinear_mals_eigsolve(
+    @test_throws ArgumentError nonlinear_mals_eigsolve(
         H_lin, g, ψ0;
         tol = 1.0e-10,
         sweep_schedule = [3],
         rmax_schedule = [4],
         verbose = false
     )
-
-    @test length(μ_hist) == 2
-    @test !isempty(r_hist)
-    @test all(isfinite, μ_hist)
-    @test isapprox(μ_hist[end], nonlinear_chemical_potential(ψ, H_lin, g); rtol = 1.0e-10, atol = 1.0e-10)
 end

@@ -9,7 +9,7 @@ include("tt_operations.jl")
 export als_linsolve, als_eigsolve, als_gen_eigsolv
 include("solvers/als.jl")
 
-export nonlinear_als_eigsolve, nonlinear_mals_eigsolve, nonlinear_tdvp_imagtime, nls_energy, burgers_scf_als_step, burgers_scf_als, burgers_scf_mals_step, burgers_scf_mals, allen_cahn_als_step, allen_cahn_als, allen_cahn_mals_step, allen_cahn_mals
+export nonlinear_als_eigsolve, nonlinear_mals_eigsolve, nonlinear_tdvp_imagtime, nls_energy, burgers_scf_als_step, burgers_scf_als, burgers_scf_mals_step, burgers_scf_mals, allen_cahn_als_step, allen_cahn_als, allen_cahn_mals_step, allen_cahn_mals, allen_cahn_2d_mals_step, allen_cahn_2d_mals
 include("solvers/nonlinear.jl")
 
 export mals_eigsolve, mals_linsolve
@@ -26,6 +26,17 @@ include("solvers/kdv.jl")
 
 export to_ttvector
 function to_ttvector end
+
+_missing_interpolativeqtt_extension(name::Symbol) =
+    throw(ArgumentError("`$name` requires loading InterpolativeQTT first; run `using InterpolativeQTT` before calling it."))
+
+export interpolative_qtt, invert_interpolative_qtt, project_nonlinearity
+function interpolative_qtt end
+function invert_interpolative_qtt end
+function project_nonlinearity end
+interpolative_qtt(args...; kwargs...) = _missing_interpolativeqtt_extension(:interpolative_qtt)
+invert_interpolative_qtt(args...; kwargs...) = _missing_interpolativeqtt_extension(:invert_interpolative_qtt)
+project_nonlinearity(args...; kwargs...) = _missing_interpolativeqtt_extension(:project_nonlinearity)
 
 export toeplitz_to_qtto, qtto_prolongation, ∇, ∇_c, ∇_c_P, ∇3, ∇3_P, Δ_DN, Δ_ND, Δ_NN, Δ_P, Δ, Δ⁻¹_DN, shift, zeros_tt, zeros_tto, ones_tt, rand_tt, id_tto, rand_tto, qtt_laplacian
 include("tt_operators.jl")
