@@ -22,5 +22,3 @@ solution = gradient_descent(
 
 relative_error = norm(solution - target) / norm(target)
 final_cost = cost(M, solution)
-
-@info "ManOpt TTvector gradient descent" relative_error final_cost ranks = solution.ttv_rks
