@@ -16,10 +16,13 @@ TensorOperations = "6aa20fa7-93e2-5fca-9bc0-fbd0db3c71a2"
 VectorInterface = "409d34a3-91d5-4945-b6ec-7529ddf182d8"
 
 [weakdeps]
+ManifoldsBase = "3362f125-f0bb-47a3-aa74-596ffd7ef2fb"
+Manopt = "0fc0a36d-df90-57f3-8f93-d78a9fc72bb5"
 TensorCrossInterpolation = "b261b2ec-6378-4871-b32e-9173bb050604"
 
 [extensions]
 TensorTrainNumericsInterpolativeQTTExt = ["InterpolativeQTT", "TensorCrossInterpolation"]
+TensorTrainNumericsManoptExt = ["ManifoldsBase", "Manopt"]
 TensorTrainNumericsVectorInterfaceExt = "VectorInterface"
 
 [compat]
@@ -30,6 +33,8 @@ JET = "0.9, 0.10, 0.11"
 KrylovKit = "0.6.1, 0.9, 0.10"
 LinearAlgebra = "1.6.7"
 LinearMaps = "3.11.3"
+ManifoldsBase = "2"
+Manopt = "0.5"
 Maxvol = "1.0.0"
 ProgressMeter = "1.10.4"
 Random = "1.11.0"
@@ -43,9 +48,11 @@ julia = "1.10"
 Aqua = "4c88cf16-eb10-579e-8560-4a9242c79595"
 InterpolativeQTT = "87f1ea11-1d4d-47cb-b1d1-07788fc25290"
 JET = "c3a54625-cd67-489e-a8e7-0a5a0ff4e31b"
+ManifoldsBase = "3362f125-f0bb-47a3-aa74-596ffd7ef2fb"
+Manopt = "0fc0a36d-df90-57f3-8f93-d78a9fc72bb5"
 TensorCrossInterpolation = "b261b2ec-6378-4871-b32e-9173bb050604"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 VectorInterface = "409d34a3-91d5-4945-b6ec-7529ddf182d8"
 
 [targets]
-test = ["Test", "Aqua", "JET", "InterpolativeQTT", "TensorCrossInterpolation"]
+test = ["Test", "Aqua", "JET", "InterpolativeQTT", "ManifoldsBase", "Manopt", "TensorCrossInterpolation"]
