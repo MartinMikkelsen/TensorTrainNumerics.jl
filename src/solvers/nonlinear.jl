@@ -25,7 +25,9 @@ function _interpolative_projection_kwargs(
         projection_maxbonddim::Int,
         projection_q::Int,
         projection_a::Real,
-        projection_b::Real
+        projection_b::Real,
+        projection_mode::Symbol = :singlescale,
+        projection_adaptive_tolerance::Real = 1.0e-8
     )
     return (
         degree = projection_degree,
@@ -34,6 +36,8 @@ function _interpolative_projection_kwargs(
         q = projection_q,
         a = Float64(projection_a),
         b = Float64(projection_b),
+        mode = projection_mode,
+        adaptive_tolerance = Float64(projection_adaptive_tolerance),
     )
 end
 
@@ -45,20 +49,29 @@ function _project_unary_coefficient(
         projection_maxbonddim::Int = typemax(Int),
         projection_q::Int = 1,
         projection_a::Real = 0.0,
-        projection_b::Real = 1.0
+        projection_b::Real = 1.0,
+        projection_ndims::Int = 1,
+        projection_ordering::Symbol = :serial,
+        projection_mode::Symbol = :singlescale,
+        projection_adaptive_tolerance::Real = 1.0e-8
     )::TTvector
     eltype(u) <: Real ||
         throw(ArgumentError("interpolative coefficient projection currently supports real TTvectors"))
-    return project_nonlinearity(u, Φ;
-        _interpolative_projection_kwargs(
-            projection_degree,
-            projection_tolerance,
-            projection_maxbonddim,
-            projection_q,
-            projection_a,
-            projection_b,
-        )...
-    )::TTvector
+    kwargs = _interpolative_projection_kwargs(
+        projection_degree,
+        projection_tolerance,
+        projection_maxbonddim,
+        projection_q,
+        projection_a,
+        projection_b,
+        projection_mode,
+        projection_adaptive_tolerance,
+    )
+    projection_ndims == 1 && return project_nonlinearity(u, Φ; kwargs...)::TTvector
+    u.N % projection_ndims == 0 ||
+        throw(ArgumentError("TTvector with $(u.N) sites cannot represent $(projection_ndims) dimensions"))
+    q = QTTvector(u, projection_ndims, div(u.N, projection_ndims), projection_ordering)
+    return TTvector(project_nonlinearity(q, Φ; kwargs...))::TTvector
 end
 
 function _project_binary_coefficient(
@@ -70,7 +83,9 @@ function _project_binary_coefficient(
         projection_maxbonddim::Int = typemax(Int),
         projection_q::Int = 1,
         projection_a::Real = 0.0,
-        projection_b::Real = 1.0
+        projection_b::Real = 1.0,
+        projection_mode::Symbol = :singlescale,
+        projection_adaptive_tolerance::Real = 1.0e-8
     )::TTvector
     eltype(u) <: Real && eltype(v) <: Real ||
         throw(ArgumentError("interpolative coefficient projection currently supports real TTvectors"))
@@ -82,6 +97,8 @@ function _project_binary_coefficient(
             projection_q,
             projection_a,
             projection_b,
+            projection_mode,
+            projection_adaptive_tolerance,
         )...
     )::TTvector
 end
@@ -93,7 +110,9 @@ function _nls_density_tt(
         projection_maxbonddim::Int = typemax(Int),
         projection_q::Int = 1,
         projection_a::Real = 0.0,
-        projection_b::Real = 1.0
+        projection_b::Real = 1.0,
+        projection_ndims::Int = 1,
+        projection_ordering::Symbol = :serial
     )
     return _project_unary_coefficient(ψ, abs2;
         projection_degree = projection_degree,
@@ -102,6 +121,8 @@ function _nls_density_tt(
         projection_q = projection_q,
         projection_a = projection_a,
         projection_b = projection_b,
+        projection_ndims = projection_ndims,
+        projection_ordering = projection_ordering,
     )
 end
 
@@ -113,7 +134,9 @@ function _nls_diag_operator(
         projection_maxbonddim::Int = typemax(Int),
         projection_q::Int = 1,
         projection_a::Real = 0.0,
-        projection_b::Real = 1.0
+        projection_b::Real = 1.0,
+        projection_ndims::Int = 1,
+        projection_ordering::Symbol = :serial
     ) where {T <: Number}
     ρ = _nls_density_tt(ψ;
         projection_degree = projection_degree,
@@ -122,6 +145,8 @@ function _nls_diag_operator(
         projection_q = projection_q,
         projection_a = projection_a,
         projection_b = projection_b,
+        projection_ndims = projection_ndims,
+        projection_ordering = projection_ordering,
     )
     return convert(T, g) * ttv_to_diag_tto(ρ)
 end
@@ -196,7 +221,9 @@ function nonlinear_als_eigsolve(
         projection_maxbonddim::Int = typemax(Int),
         projection_q::Int = 1,
         projection_a::Real = 0.0,
-        projection_b::Real = 1.0
+        projection_b::Real = 1.0,
+        projection_ndims::Int = 1,
+        projection_ordering::Symbol = :serial
     ) where {T <: Number}
 
     d    = H_lin.N
@@ -221,6 +248,8 @@ function nonlinear_als_eigsolve(
             projection_q = projection_q,
             projection_a = projection_a,
             projection_b = projection_b,
+            projection_ndims = projection_ndims,
+            projection_ordering = projection_ordering,
         )
 
         # ── Initialize left environments (G) ─────────────────────────────
@@ -342,7 +371,9 @@ function nonlinear_mals_eigsolve(
         projection_maxbonddim::Int = maximum(rmax_schedule),
         projection_q::Int = 1,
         projection_a::Real = 0.0,
-        projection_b::Real = 1.0
+        projection_b::Real = 1.0,
+        projection_ndims::Int = 1,
+        projection_ordering::Symbol = :serial
     ) where {T <: Number}
 
     @assert(length(rmax_schedule) == length(sweep_schedule), "Sweep schedule error")
@@ -372,6 +403,8 @@ function nonlinear_mals_eigsolve(
             projection_q = projection_q,
             projection_a = projection_a,
             projection_b = projection_b,
+            projection_ndims = projection_ndims,
+            projection_ordering = projection_ordering,
         )
         H_eff = H_lin + D_nl
 
@@ -1142,6 +1175,8 @@ function allen_cahn_2d_mals_step(
             projection_tolerance = projection_tolerance,
             projection_maxbonddim = projection_maxbonddim,
             projection_q = projection_q,
+            projection_ndims = 2,
+            projection_ordering = :serial,
         )
 
         A_react = ttv_to_diag_tto(u_sq)

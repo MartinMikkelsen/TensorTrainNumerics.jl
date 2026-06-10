@@ -127,6 +127,93 @@ include(joinpath(@__DIR__, "..", "examples", "nonlinear_benchmark_utils.jl"))
         end
     end
 
+    @testset "2D Allen-Cahn dense comparison benchmark" begin
+        bench = allen_cahn_2d_dense_benchmark(;
+            d = 5,
+            ε = 0.15,
+            T_end = 0.2,
+            Nt = 2,
+            u0_fun = c -> 0.9 * cos(pi * c[1]) * cos(pi * c[2]),
+            max_scf = 12,
+            scf_tol = 1.0e-11,
+            max_bond = 32,
+            projection_degree = 10,
+            projection_tolerance = 1.0e-10,
+        )
+
+        @test bench.equation == "Allen-Cahn 2D"
+        @test occursin("InterpolativeQTT", bench.method_label)
+        @test length(bench.metrics.stepwise_relative_error) == 2
+        @test all(isfinite, bench.metrics.stepwise_relative_error)
+        @test bench.metrics.final_relative_error < 5.0e-3
+        @test bench.metrics.max_rank <= 32
+        @test isfinite(bench.metrics.qtt_runtime_seconds)
+        @test isfinite(bench.metrics.dense_runtime_seconds)
+    end
+
+    @testset "2D GPE dense comparison benchmark" begin
+        bench = gpe_2d_dense_benchmark(;
+            L = 4,
+            κ = 50.0,
+            g_vals = [0.0, 25.0],
+            random_rank = 4,
+            linear_sweeps = 10,
+            nonlinear_sweeps = 12,
+            mals_rmax = 12,
+            projection_degree = 8,
+            projection_tolerance = 1.0e-9,
+            seed = 7,
+        )
+
+        @test bench.equation == "2D Gross-Pitaevskii"
+        @test occursin("InterpolativeQTT", bench.method_label)
+        @test length(bench.μ_dense) == 2
+        @test bench.metrics.max_mu_relative_error_als < 2.0e-2
+        @test bench.metrics.max_mu_relative_error_mals < 2.0e-2
+        @test bench.metrics.max_density_relative_error_mals < 5.0e-2
+        @test isfinite(bench.metrics.dense_runtime_seconds)
+    end
+
+    @testset "1D KdV dense comparison benchmark" begin
+        bench = kdv_1d_dense_benchmark(;
+            d = 5,
+            T_end = 0.05,
+            Nt = 3,
+            method = :als,
+            max_scf = 5,
+            scf_tol = 1.0e-8,
+            max_bond = 20,
+            projection_degree = 8,
+            projection_tolerance = 1.0e-9,
+        )
+
+        @test bench.equation == "KdV"
+        @test occursin("InterpolativeQTT", bench.method_label)
+        @test length(bench.metrics.stepwise_relative_error) == 3
+        @test all(isfinite, bench.metrics.stepwise_relative_error)
+        @test bench.metrics.final_dense_relative_error < 2.0e-2
+        @test isfinite(bench.metrics.qtt_vs_analytical_error)
+        @test isfinite(bench.metrics.dense_vs_analytical_error)
+
+        bench_adaptive = kdv_1d_dense_benchmark(;
+            d = 5,
+            T_end = 0.05,
+            Nt = 3,
+            method = :als,
+            max_scf = 5,
+            scf_tol = 1.0e-8,
+            max_bond = 20,
+            projection_degree = 8,
+            projection_tolerance = 1.0e-9,
+            projection_mode = :adaptive,
+            projection_adaptive_tolerance = 1.0e-9,
+        )
+
+        @test bench_adaptive.metrics.final_dense_relative_error < 5.0e-3
+        @test bench_adaptive.metrics.final_dense_relative_error <
+            bench.metrics.final_dense_relative_error
+    end
+
     @testset "paper benchmarks are InterpolativeQTT-only" begin
         ac = allen_cahn_benchmark(;
             d = 5,

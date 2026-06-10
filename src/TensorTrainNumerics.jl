@@ -30,11 +30,13 @@ function to_ttvector end
 _missing_interpolativeqtt_extension(name::Symbol) =
     throw(ArgumentError("`$name` requires loading InterpolativeQTT first; run `using InterpolativeQTT` before calling it."))
 
-export interpolative_qtt, invert_interpolative_qtt, project_nonlinearity
+export interpolative_qtt, interpolative_qttv, invert_interpolative_qtt, project_nonlinearity
 function interpolative_qtt end
+function interpolative_qttv end
 function invert_interpolative_qtt end
 function project_nonlinearity end
 interpolative_qtt(args...; kwargs...) = _missing_interpolativeqtt_extension(:interpolative_qtt)
+interpolative_qttv(args...; kwargs...) = _missing_interpolativeqtt_extension(:interpolative_qttv)
 invert_interpolative_qtt(args...; kwargs...) = _missing_interpolativeqtt_extension(:invert_interpolative_qtt)
 project_nonlinearity(args...; kwargs...) = _missing_interpolativeqtt_extension(:project_nonlinearity)
 

@@ -71,7 +71,9 @@ function kdv_als_step(
         projection_maxbonddim::Int = max_bond,
         projection_q::Int = 1,
         projection_a::Real = 0.0,
-        projection_b::Real = 1.0
+        projection_b::Real = 1.0,
+        projection_mode::Symbol = :singlescale,
+        projection_adaptive_tolerance::Real = 1.0e-8
     ) where {T <: Number}
 
     d     = u_prev.N
@@ -89,6 +91,8 @@ function kdv_als_step(
             projection_q = projection_q,
             projection_a = projection_a,
             projection_b = projection_b,
+            projection_mode = projection_mode,
+            projection_adaptive_tolerance = projection_adaptive_tolerance,
         )
         A_adv = ttv_to_diag_tto(u_adv) * D_x
         A_eff = invdt * I_tto + convert(T, 6) * A_adv + D_xxx
@@ -138,7 +142,9 @@ function kdv_als(
         projection_maxbonddim::Int = max_bond,
         projection_q::Int = 1,
         projection_a::Real = 0.0,
-        projection_b::Real = 1.0
+        projection_b::Real = 1.0,
+        projection_mode::Symbol = :singlescale,
+        projection_adaptive_tolerance::Real = 1.0e-8
     ) where {T <: Number}
 
     u         = u₀
@@ -157,7 +163,9 @@ function kdv_als(
                 projection_maxbonddim = projection_maxbonddim,
                 projection_q = projection_q,
                 projection_a = projection_a,
-                projection_b = projection_b)
+                projection_b = projection_b,
+                projection_mode = projection_mode,
+                projection_adaptive_tolerance = projection_adaptive_tolerance)
         push!(snapshots, u)
         verbose_steps &&
             println("  step $step / $n_steps  max_rank = $(maximum(u.ttv_rks))")
@@ -190,7 +198,9 @@ function kdv_mals_step(
         projection_maxbonddim::Int = max_bond,
         projection_q::Int = 1,
         projection_a::Real = 0.0,
-        projection_b::Real = 1.0
+        projection_b::Real = 1.0,
+        projection_mode::Symbol = :singlescale,
+        projection_adaptive_tolerance::Real = 1.0e-8
     ) where {T <: Number}
 
     d     = u_prev.N
@@ -211,6 +221,8 @@ function kdv_mals_step(
             projection_q = projection_q,
             projection_a = projection_a,
             projection_b = projection_b,
+            projection_mode = projection_mode,
+            projection_adaptive_tolerance = projection_adaptive_tolerance,
         )
         A_adv = ttv_to_diag_tto(u_adv) * D_x
         A_eff = invdt * I_tto + convert(T, 6) * A_adv + D_xxx
@@ -313,7 +325,9 @@ function kdv_mals(
         projection_maxbonddim::Int = max_bond,
         projection_q::Int = 1,
         projection_a::Real = 0.0,
-        projection_b::Real = 1.0
+        projection_b::Real = 1.0,
+        projection_mode::Symbol = :singlescale,
+        projection_adaptive_tolerance::Real = 1.0e-8
     ) where {T <: Number}
 
     u         = u₀
@@ -327,7 +341,9 @@ function kdv_mals(
                 projection_maxbonddim = projection_maxbonddim,
                 projection_q = projection_q,
                 projection_a = projection_a,
-                projection_b = projection_b)
+                projection_b = projection_b,
+                projection_mode = projection_mode,
+                projection_adaptive_tolerance = projection_adaptive_tolerance)
         push!(snapshots, u)
         verbose_steps &&
             println("  step $step / $n_steps  max_rank = $(maximum(u.ttv_rks))")
@@ -362,7 +378,9 @@ function kdv_cn_mals_step(
         projection_maxbonddim::Int = max_bond,
         projection_q::Int = 1,
         projection_a::Real = 0.0,
-        projection_b::Real = 1.0
+        projection_b::Real = 1.0,
+        projection_mode::Symbol = :singlescale,
+        projection_adaptive_tolerance::Real = 1.0e-8
     ) where {T <: Number}
 
     d     = u_prev.N
@@ -391,6 +409,8 @@ function kdv_cn_mals_step(
             projection_q = projection_q,
             projection_a = projection_a,
             projection_b = projection_b,
+            projection_mode = projection_mode,
+            projection_adaptive_tolerance = projection_adaptive_tolerance,
         )
         A_adv = ttv_to_diag_tto(u_adv) * D_x
         A_eff = invdt * I_tto + three * A_adv + half * D_xxx
@@ -402,6 +422,8 @@ function kdv_cn_mals_step(
             projection_q = projection_q,
             projection_a = projection_a,
             projection_b = projection_b,
+            projection_mode = projection_mode,
+            projection_adaptive_tolerance = projection_adaptive_tolerance,
         )
         rhs = tt_compress!(invdt * u_prev - three * transport_rhs - half * D3u_prev, max_bond)
 
@@ -504,7 +526,9 @@ function kdv_cn_mals(
         projection_maxbonddim::Int = max_bond,
         projection_q::Int = 1,
         projection_a::Real = 0.0,
-        projection_b::Real = 1.0
+        projection_b::Real = 1.0,
+        projection_mode::Symbol = :singlescale,
+        projection_adaptive_tolerance::Real = 1.0e-8
     ) where {T <: Number}
 
     u         = u₀
@@ -518,7 +542,9 @@ function kdv_cn_mals(
                 projection_maxbonddim = projection_maxbonddim,
                 projection_q = projection_q,
                 projection_a = projection_a,
-                projection_b = projection_b)
+                projection_b = projection_b,
+                projection_mode = projection_mode,
+                projection_adaptive_tolerance = projection_adaptive_tolerance)
         push!(snapshots, u)
         verbose_steps &&
             println("  step $step / $n_steps  max_rank = $(maximum(u.ttv_rks))")
