@@ -15,7 +15,7 @@ using CairoMakie
 
 include("nonlinear_benchmark_utils.jl")
 
-d     = 7        # N = 128 grid points
+d     = 8        # N = 128 grid points
 Ldom  = 25.0
 T     = 1.0
 Nt    = 200
