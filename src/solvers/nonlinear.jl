@@ -112,7 +112,9 @@ function _nls_density_tt(
         projection_a::Real = 0.0,
         projection_b::Real = 1.0,
         projection_ndims::Int = 1,
-        projection_ordering::Symbol = :serial
+        projection_ordering::Symbol = :serial,
+        projection_mode::Symbol = :singlescale,
+        projection_adaptive_tolerance::Real = 1.0e-8
     )
     return _project_unary_coefficient(ψ, abs2;
         projection_degree = projection_degree,
@@ -123,6 +125,8 @@ function _nls_density_tt(
         projection_b = projection_b,
         projection_ndims = projection_ndims,
         projection_ordering = projection_ordering,
+        projection_mode = projection_mode,
+        projection_adaptive_tolerance = projection_adaptive_tolerance,
     )
 end
 
@@ -136,7 +140,9 @@ function _nls_diag_operator(
         projection_a::Real = 0.0,
         projection_b::Real = 1.0,
         projection_ndims::Int = 1,
-        projection_ordering::Symbol = :serial
+        projection_ordering::Symbol = :serial,
+        projection_mode::Symbol = :singlescale,
+        projection_adaptive_tolerance::Real = 1.0e-8
     ) where {T <: Number}
     ρ = _nls_density_tt(ψ;
         projection_degree = projection_degree,
@@ -147,6 +153,8 @@ function _nls_diag_operator(
         projection_b = projection_b,
         projection_ndims = projection_ndims,
         projection_ordering = projection_ordering,
+        projection_mode = projection_mode,
+        projection_adaptive_tolerance = projection_adaptive_tolerance,
     )
     return convert(T, g) * ttv_to_diag_tto(ρ)
 end
@@ -223,7 +231,9 @@ function nonlinear_als_eigsolve(
         projection_a::Real = 0.0,
         projection_b::Real = 1.0,
         projection_ndims::Int = 1,
-        projection_ordering::Symbol = :serial
+        projection_ordering::Symbol = :serial,
+        projection_mode::Symbol = :singlescale,
+        projection_adaptive_tolerance::Real = 1.0e-8
     ) where {T <: Number}
 
     d    = H_lin.N
@@ -250,6 +260,8 @@ function nonlinear_als_eigsolve(
             projection_b = projection_b,
             projection_ndims = projection_ndims,
             projection_ordering = projection_ordering,
+            projection_mode = projection_mode,
+            projection_adaptive_tolerance = projection_adaptive_tolerance,
         )
 
         # ── Initialize left environments (G) ─────────────────────────────
@@ -373,7 +385,9 @@ function nonlinear_mals_eigsolve(
         projection_a::Real = 0.0,
         projection_b::Real = 1.0,
         projection_ndims::Int = 1,
-        projection_ordering::Symbol = :serial
+        projection_ordering::Symbol = :serial,
+        projection_mode::Symbol = :singlescale,
+        projection_adaptive_tolerance::Real = 1.0e-8
     ) where {T <: Number}
 
     @assert(length(rmax_schedule) == length(sweep_schedule), "Sweep schedule error")
@@ -405,6 +419,8 @@ function nonlinear_mals_eigsolve(
             projection_b = projection_b,
             projection_ndims = projection_ndims,
             projection_ordering = projection_ordering,
+            projection_mode = projection_mode,
+            projection_adaptive_tolerance = projection_adaptive_tolerance,
         )
         H_eff = H_lin + D_nl
 
@@ -908,7 +924,9 @@ function allen_cahn_als_step(
         projection_maxbonddim::Int = max_bond,
         projection_q::Int = 1,
         projection_a::Real = 0.0,
-        projection_b::Real = 1.0
+        projection_b::Real = 1.0,
+        projection_mode::Symbol = :singlescale,
+        projection_adaptive_tolerance::Real = 1.0e-8
     ) where {T <: Number}
 
     d     = u_prev.N
@@ -927,6 +945,8 @@ function allen_cahn_als_step(
             projection_q = projection_q,
             projection_a = projection_a,
             projection_b = projection_b,
+            projection_mode = projection_mode,
+            projection_adaptive_tolerance = projection_adaptive_tolerance,
         )
         A_react  = ttv_to_diag_tto(u_sq)         # diag(u²)
         A_eff    = (invdt - one(T)) * I_tto + εT^2 * D_xx + A_react
@@ -977,7 +997,9 @@ function allen_cahn_als(
         projection_maxbonddim::Int = max_bond,
         projection_q::Int = 1,
         projection_a::Real = 0.0,
-        projection_b::Real = 1.0
+        projection_b::Real = 1.0,
+        projection_mode::Symbol = :singlescale,
+        projection_adaptive_tolerance::Real = 1.0e-8
     ) where {T <: Number}
 
     u         = u₀
@@ -992,7 +1014,9 @@ function allen_cahn_als(
                 projection_maxbonddim = projection_maxbonddim,
                 projection_q = projection_q,
                 projection_a = projection_a,
-                projection_b = projection_b)
+                projection_b = projection_b,
+                projection_mode = projection_mode,
+                projection_adaptive_tolerance = projection_adaptive_tolerance)
         push!(snapshots, u)
         verbose_steps &&
             println("  step $step / $n_steps  max_rank = $(maximum(u.ttv_rks))")
@@ -1031,7 +1055,9 @@ function allen_cahn_mals_step(
         projection_maxbonddim::Int = max_bond,
         projection_q::Int = 1,
         projection_a::Real = 0.0,
-        projection_b::Real = 1.0
+        projection_b::Real = 1.0,
+        projection_mode::Symbol = :singlescale,
+        projection_adaptive_tolerance::Real = 1.0e-8
     ) where {T <: Number}
 
     d     = u_prev.N
@@ -1050,6 +1076,8 @@ function allen_cahn_mals_step(
             projection_q = projection_q,
             projection_a = projection_a,
             projection_b = projection_b,
+            projection_mode = projection_mode,
+            projection_adaptive_tolerance = projection_adaptive_tolerance,
         )
         A_react  = ttv_to_diag_tto(u_sq)
         A_eff    = (invdt - one(T)) * I_tto + εT^2 * D_xx + A_react
@@ -1098,7 +1126,9 @@ function allen_cahn_mals(
         projection_maxbonddim::Int = max_bond,
         projection_q::Int = 1,
         projection_a::Real = 0.0,
-        projection_b::Real = 1.0
+        projection_b::Real = 1.0,
+        projection_mode::Symbol = :singlescale,
+        projection_adaptive_tolerance::Real = 1.0e-8
     ) where {T <: Number}
 
     u         = u₀
@@ -1112,7 +1142,9 @@ function allen_cahn_mals(
                 projection_maxbonddim = projection_maxbonddim,
                 projection_q = projection_q,
                 projection_a = projection_a,
-                projection_b = projection_b)
+                projection_b = projection_b,
+                projection_mode = projection_mode,
+                projection_adaptive_tolerance = projection_adaptive_tolerance)
         push!(snapshots, u)
         verbose_steps &&
             println("  step $step / $n_steps  max_rank = $(maximum(u.ttv_rks))")
@@ -1155,7 +1187,9 @@ function allen_cahn_2d_mals_step(
         projection_degree      :: Int    = 8,
         projection_tolerance   :: Real   = 1.0e-10,
         projection_q           :: Int    = 1,
-        projection_maxbonddim  :: Int    = max_bond
+        projection_maxbonddim  :: Int    = max_bond,
+        projection_mode        :: Symbol = :singlescale,
+        projection_adaptive_tolerance :: Real = 1.0e-8
     ) where {T <: Number}
 
     u_prev.N == 2d ||
@@ -1177,6 +1211,8 @@ function allen_cahn_2d_mals_step(
             projection_q = projection_q,
             projection_ndims = 2,
             projection_ordering = :serial,
+            projection_mode = projection_mode,
+            projection_adaptive_tolerance = projection_adaptive_tolerance,
         )
 
         A_react = ttv_to_diag_tto(u_sq)
@@ -1214,7 +1250,9 @@ function allen_cahn_2d_mals(
         projection_degree      :: Int    = 8,
         projection_tolerance   :: Real   = 1.0e-10,
         projection_q           :: Int    = 1,
-        projection_maxbonddim  :: Int    = max_bond
+        projection_maxbonddim  :: Int    = max_bond,
+        projection_mode        :: Symbol = :singlescale,
+        projection_adaptive_tolerance :: Real = 1.0e-8
     ) where {T <: Number}
 
     u         = u₀
@@ -1226,7 +1264,9 @@ function allen_cahn_2d_mals(
                 projection_degree = projection_degree,
                 projection_tolerance = projection_tolerance,
                 projection_q = projection_q,
-                projection_maxbonddim = projection_maxbonddim)
+                projection_maxbonddim = projection_maxbonddim,
+                projection_mode = projection_mode,
+                projection_adaptive_tolerance = projection_adaptive_tolerance)
         push!(snapshots, u)
         verbose_steps &&
             println("  step $step / $n_steps  max_rank = $(maximum(u.ttv_rks))")

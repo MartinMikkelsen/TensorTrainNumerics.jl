@@ -299,6 +299,8 @@ function allen_cahn_benchmark(;
         projection_q = projection_q,
         projection_a = 0.0,
         projection_b = Float64(L),
+        projection_mode = projection_mode,
+        projection_adaptive_tolerance = projection_adaptive_tolerance,
         verbose = verbose,
         verbose_steps = verbose_steps
     )
@@ -367,6 +369,8 @@ function gpe_1d_solver_comparison_benchmark(;
         projection_tolerance::Real = 1.0e-10,
         projection_q::Int = 1,
         projection_maxbonddim::Int = mals_rmax,
+        projection_mode::Symbol = :singlescale,
+        projection_adaptive_tolerance::Real = 1.0e-8,
         seed::Int = 42
     )
     N = 2^L
@@ -405,6 +409,8 @@ function gpe_1d_solver_comparison_benchmark(;
                         projection_tolerance = projection_tolerance,
                         projection_maxbonddim = projection_maxbonddim,
                         projection_q = projection_q,
+                        projection_mode = projection_mode,
+                        projection_adaptive_tolerance = projection_adaptive_tolerance,
                         verbose = false,
                     )
                     μ_values[k] = last(μ_hist)
@@ -424,6 +430,8 @@ function gpe_1d_solver_comparison_benchmark(;
                         projection_tolerance = projection_tolerance,
                         projection_maxbonddim = projection_maxbonddim,
                         projection_q = projection_q,
+                        projection_mode = projection_mode,
+                        projection_adaptive_tolerance = projection_adaptive_tolerance,
                         verbose = false,
                     )
                     μ_values[k] = last(μ_hist)
@@ -504,6 +512,8 @@ function gpe_2d_benchmark(;
         projection_tolerance::Real = 1.0e-10,
         projection_q::Int = 1,
         projection_maxbonddim::Int = mals_rmax,
+        projection_mode::Symbol = :singlescale,
+        projection_adaptive_tolerance::Real = 1.0e-8,
         seed::Int = 42
     )
     N = 2^L
@@ -545,6 +555,8 @@ function gpe_2d_benchmark(;
                 projection_q = projection_q,
                 projection_ndims = 2,
                 projection_ordering = :serial,
+                projection_mode = projection_mode,
+                projection_adaptive_tolerance = projection_adaptive_tolerance,
                 verbose = false
             )
         end
@@ -559,6 +571,8 @@ function gpe_2d_benchmark(;
                 projection_q = projection_q,
                 projection_ndims = 2,
                 projection_ordering = :serial,
+                projection_mode = projection_mode,
+                projection_adaptive_tolerance = projection_adaptive_tolerance,
                 verbose = false
             )
         end
@@ -655,6 +669,8 @@ function allen_cahn_2d_benchmark(;
         projection_degree::Int         = 8,
         projection_tolerance::Real     = 1.0e-10,
         projection_q::Int              = 1,
+        projection_mode::Symbol        = :singlescale,
+        projection_adaptive_tolerance::Real = 1.0e-8,
         verbose::Bool                  = false,
         verbose_steps::Bool            = false
     )
@@ -685,6 +701,8 @@ function allen_cahn_2d_benchmark(;
         projection_tolerance   = Float64(projection_tolerance),
         projection_q           = projection_q,
         projection_maxbonddim  = max_bond,
+        projection_mode        = projection_mode,
+        projection_adaptive_tolerance = projection_adaptive_tolerance,
     )
 
     vals_final = real.(qtt_to_function(sol[end]))
@@ -774,6 +792,8 @@ function allen_cahn_2d_dense_benchmark(;
         projection_degree::Int       = 10,
         projection_tolerance::Real   = 1.0e-10,
         projection_q::Int            = 1,
+        projection_mode::Symbol      = :singlescale,
+        projection_adaptive_tolerance::Real = 1.0e-8,
         dense_picard_iters::Int      = 30,
         dense_picard_tol::Real       = 1.0e-13,
         verbose::Bool                = false,
@@ -805,6 +825,8 @@ function allen_cahn_2d_dense_benchmark(;
         projection_tolerance  = Float64(projection_tolerance),
         projection_q          = projection_q,
         projection_maxbonddim = max_bond,
+        projection_mode       = projection_mode,
+        projection_adaptive_tolerance = projection_adaptive_tolerance,
     )
 
     A_lin = (1.0 / dt - 1.0) * I + εf^2 * qtto_to_matrix(D_xx)
@@ -890,6 +912,8 @@ function gpe_2d_dense_benchmark(;
         projection_tolerance::Real   = 1.0e-9,
         projection_q::Int            = 1,
         projection_maxbonddim::Int   = mals_rmax,
+        projection_mode::Symbol      = :singlescale,
+        projection_adaptive_tolerance::Real = 1.0e-8,
         dense_scf_iters::Int         = 400,
         dense_scf_tol::Real          = 1.0e-12,
         seed::Int                    = 42
@@ -939,6 +963,8 @@ function gpe_2d_dense_benchmark(;
             projection_q          = projection_q,
             projection_ndims      = 2,
             projection_ordering   = :serial,
+            projection_mode       = projection_mode,
+            projection_adaptive_tolerance = projection_adaptive_tolerance,
             verbose               = false,
         )
         μ_hist_mals, ψg_mals, _ = nonlinear_mals_eigsolve(H_lin, g, ψ_list_mals[k - 1];
@@ -951,6 +977,8 @@ function gpe_2d_dense_benchmark(;
             projection_q          = projection_q,
             projection_ndims      = 2,
             projection_ordering   = :serial,
+            projection_mode       = projection_mode,
+            projection_adaptive_tolerance = projection_adaptive_tolerance,
             verbose               = false,
         )
         ψ_list_als[k]  = ψg_als
@@ -1122,6 +1150,206 @@ function kdv_1d_dense_benchmark(;
             dense_runtime_seconds      = dense_runtime,
             dx                         = Float64(dx),
             dt                         = Float64(dt),
+        ),
+    )
+end
+
+# ─── Viscous Eikonal benchmark ───────────────────────────────────────────────
+
+function _godunov_local_update(a::Float64, b::Float64, sh::Float64)
+    lo, hi = minmax(a, b)
+    hi - lo >= sh && return lo + sh
+    return (lo + hi + sqrt(max(2.0 * sh^2 - (hi - lo)^2, 0.0))) / 2
+end
+
+"""
+    eikonal_fast_sweeping_2d(s_grid; h, tol, max_sweeps)
+
+Dense Godunov fast-sweeping solution of `|∇T| = s` on the interior grid with
+`T = 0` outside the square. `s_grid[i, j] = s(x_i, y_j)` (x-major).
+"""
+function eikonal_fast_sweeping_2d(s_grid::AbstractMatrix; h::Real, tol::Real = 1.0e-12, max_sweeps::Int = 200)
+    N = size(s_grid, 1)
+    T = fill(Inf, N, N)
+    at(i, j) = (1 <= i <= N && 1 <= j <= N) ? T[i, j] : 0.0
+    for _ in 1:max_sweeps
+        change = 0.0
+        for (irange, jrange) in (
+                (1:N, 1:N), (N:-1:1, 1:N), (N:-1:1, N:-1:1), (1:N, N:-1:1),
+            )
+            for i in irange, j in jrange
+                a = min(at(i - 1, j), at(i + 1, j))
+                b = min(at(i, j - 1), at(i, j + 1))
+                t_new = _godunov_local_update(a, b, Float64(s_grid[i, j]) * h)
+                if t_new < T[i, j]
+                    change = max(change, isfinite(T[i, j]) ? T[i, j] - t_new : Inf)
+                    T[i, j] = t_new
+                end
+            end
+        end
+        change < tol && break
+    end
+    return T
+end
+
+"""
+    eikonal_2d_benchmark(; d, lens_strength, ε_schedule, ...)
+
+Solve the viscous Eikonal equation with a slow-lens slowness field in QTT
+format and compare against (a) a dense same-scheme Picard reference (isolates
+the QTT error) and (b) a dense Godunov fast-sweeping solution of the true
+ε = 0 Eikonal equation (shows the viscosity bias).
+
+The slowness field is built with the adaptive InterpolativeQTT construction;
+`residual_field = true` additionally computes the pointwise Eikonal residual
+`|∇T| − s` as a QTT field through one multivariate adaptive
+`project_nonlinearity` call over the three fields `(∂x T, ∂y T, s)`.
+"""
+function eikonal_2d_benchmark(;
+        d::Int = 6,
+        lens_center = (0.62, 0.62),
+        lens_width::Real = 0.012,
+        lens_strength::Real = 3.0,
+        ε_schedule = [0.2, 0.1, 0.05, 0.025],
+        max_scf::Int = 30,
+        scf_tol::Real = 1.0e-10,
+        max_bond::Int = 32,
+        als_sweeps::Int = 5,
+        projection_degree::Int = 10,
+        projection_tolerance::Real = 1.0e-10,
+        adaptive_tolerance::Real = 1.0e-9,
+        residual_field::Bool = true,
+        dense_reference::Bool = true,
+        seed::Int = 11,
+        verbose::Bool = false
+    )
+    N = 2^d
+    h = 1.0 / (N + 1)
+    x = [i * h for i in 1:N]
+    cx, cy = Float64.(lens_center)
+    sfun = (xx, yy) -> 1.0 + Float64(lens_strength) * exp(-((xx - cx)^2 + (yy - cy)^2) / Float64(lens_width))
+
+    # Slowness squared on the interior grid, built with adaptive InterpolativeQTT:
+    # dyadic grid of [a, b] = [h, 1] is exactly the interior lattice (i+1)·h.
+    s2_q = interpolative_qttv((xx, yy) -> sfun(xx, yy)^2, 2, d;
+        ordering = :serial,
+        degree = projection_degree,
+        tolerance = Float64(projection_tolerance),
+        maxbonddim = max_bond,
+        a = h,
+        b = 1.0,
+        mode = :adaptive,
+        adaptive_tolerance = Float64(adaptive_tolerance),
+    )
+    s2_tt = TTvector(s2_q)
+    s2_exact = [sfun(xi, yj)^2 for xi in x for yj in x]
+    slowness_build_err = norm(real.(qtt_to_function(s2_tt)) - s2_exact) /
+        max(norm(s2_exact), eps(Float64))
+
+    Random.seed!(seed)
+    qtt_runtime = @elapsed T, info = eikonal_viscous_solve(d;
+        slowness = s2_tt,
+        ε_schedule = collect(Float64, ε_schedule),
+        max_scf = max_scf,
+        scf_tol = scf_tol,
+        max_bond = max_bond,
+        als_sweeps = als_sweeps,
+        verbose = verbose,
+    )
+
+    T_vals = real.(qtt_to_function(T))
+
+    # Dense same-scheme Picard reference (skipped for d > 7: matrix is N²×N²).
+    _do_dense = dense_reference && N ≤ 128
+    T_d = nothing
+    qtt_vs_dense = NaN
+    dense_runtime = 0.0
+    if _do_dense
+        L_d = qtto_to_matrix(info.Lap)
+        Dx_d = qtto_to_matrix(info.Dx)
+        Dy_d = qtto_to_matrix(info.Dy)
+        s2_d = real.(qtt_to_function(s2_tt))
+        T_d_v = zeros(length(s2_d))
+        dense_runtime = @elapsed for ε in collect(Float64, ε_schedule)
+            for _ in 1:200
+                T_old = T_d_v
+                A = ε * L_d + Diagonal(Dx_d * T_d_v) * Dx_d + Diagonal(Dy_d * T_d_v) * Dy_d
+                T_d_v = A \ s2_d
+                norm(T_d_v - T_old) / max(norm(T_d_v), eps(Float64)) < 1.0e-12 && break
+            end
+        end
+        T_d = T_d_v
+        qtt_vs_dense = norm(T_vals - T_d) / max(norm(T_d), eps(Float64))
+    end
+
+    # True ε = 0 Eikonal via Godunov fast sweeping (skipped for d > 7: O(N²) dense).
+    s_grid = [sfun(xi, yj) for xi in x, yj in x]
+    T_grid = reshape(T_vals, N, N)'   # T_vals is x-major: reshape gives [j, i]
+    T_grid = collect(T_grid')         # back to [i, j] = (x_i, y_j)
+    T_sweep = nothing
+    sweeping_gap = NaN
+    if N ≤ 128
+        T_sweep = eikonal_fast_sweeping_2d(s_grid; h = h)
+        sweeping_gap = norm(vec(T_grid) - vec(T_sweep)) / max(norm(vec(T_sweep)), eps(Float64))
+    end
+
+    residual_q = nothing
+    residual_runtime = 0.0
+    if residual_field
+        px = tt_compress!(orthogonalize(info.Dx * T), max_bond)
+        py = tt_compress!(orthogonalize(info.Dy * T), max_bond)
+        s_q = interpolative_qttv(sfun, 2, d;
+            ordering = :serial,
+            degree = projection_degree,
+            tolerance = Float64(projection_tolerance),
+            maxbonddim = max_bond,
+            a = h, b = 1.0,
+            mode = :adaptive,
+            adaptive_tolerance = Float64(adaptive_tolerance),
+        )
+        fields = (
+            QTTvector(px, 2, d, :serial),
+            QTTvector(py, 2, d, :serial),
+            s_q,
+        )
+        residual_runtime = @elapsed residual_q = project_nonlinearity(
+            fields, (gx, gy, s) -> sqrt(gx^2 + gy^2) - s;
+            degree = projection_degree,
+            tolerance = Float64(projection_tolerance),
+            maxbonddim = max_bond,
+            q = 1,
+            a = h, b = 1.0,
+            mode = :adaptive,
+            adaptive_tolerance = Float64(adaptive_tolerance),
+        )
+    end
+
+    return (
+        equation = "Viscous Eikonal 2D",
+        method = :viscous_scf_als,
+        method_label = _interpolative_label("viscous-SCF-ALS"),
+        d = d,
+        N = N,
+        h = h,
+        x = x,
+        ε_schedule = collect(Float64, ε_schedule),
+        slowness = s_grid,
+        solution = T,
+        T_grid = T_grid,
+        T_dense = T_d,
+        T_fast_sweeping = T_sweep,
+        residual_field = residual_q,
+        info = info,
+        metrics = (
+            slowness_build_relative_error = slowness_build_err,
+            qtt_vs_dense_relative_error = qtt_vs_dense,
+            fast_sweeping_gap = sweeping_gap,
+            eikonal_residuals = info.eikonal_residual,
+            max_rank = maximum(T.ttv_rks),
+            rank_history = info.rank_history,
+            qtt_runtime_seconds = qtt_runtime,
+            dense_runtime_seconds = dense_runtime,
+            residual_field_runtime_seconds = residual_runtime,
         ),
     )
 end

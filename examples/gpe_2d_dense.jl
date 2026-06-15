@@ -6,6 +6,12 @@
 # diagonalizes the exact frozen-density Hamiltonian, so μ and density gaps
 # measure the QTT-specific error directly.
 
+# Note on projection_mode: these 2D solves keep the default :singlescale
+# projection. The fields here are globally smooth, so single-scale Chebyshev
+# rebuild is already accurate; :adaptive would refine to the inversion-table
+# cells wherever the field has curvature (4^level interval counts in 2D),
+# measured at ~50x slower per projection at d = 6 for no accuracy gain.
+
 using CairoMakie
 
 include("nonlinear_benchmark_utils.jl")

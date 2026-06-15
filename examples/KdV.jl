@@ -12,8 +12,10 @@ bench = kdv_soliton_benchmark(;
     max_scf = 25,
     scf_tol = 1.0e-8,
     max_bond = 50,
-    projection_degree = 15,
+    projection_degree = 8,
     projection_tolerance = 1.0e-10,
+    projection_mode = :adaptive,
+    projection_adaptive_tolerance = 1.0e-9,
     verbose_steps = true
 )
 

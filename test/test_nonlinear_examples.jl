@@ -127,6 +127,47 @@ include(joinpath(@__DIR__, "..", "examples", "nonlinear_benchmark_utils.jl"))
         end
     end
 
+    @testset "Allen-Cahn benchmark supports adaptive projection" begin
+        bench = allen_cahn_benchmark(;
+            d = 5,
+            T_end = 0.1,
+            Nt = 3,
+            max_scf = 3,
+            scf_tol = 1.0e-6,
+            max_bond = 16,
+            projection_degree = 8,
+            projection_tolerance = 1.0e-9,
+            projection_mode = :adaptive,
+            projection_adaptive_tolerance = 1.0e-9,
+            verbose_steps = false
+        )
+
+        @test bench.metrics.max_abs_u <= 1.1
+        @test bench.metrics.max_rank <= 16
+    end
+
+    @testset "1D GPE comparison supports adaptive projection" begin
+        bench = gpe_1d_solver_comparison_benchmark(;
+            L = 5,
+            κ = 50.0,
+            g_vals = [0.0, 25.0],
+            methods = (:als_direct,),
+            random_rank = 4,
+            linear_sweeps = 6,
+            nonlinear_sweeps = 3,
+            mals_rmax = 8,
+            projection_degree = 8,
+            projection_tolerance = 1.0e-9,
+            projection_mode = :adaptive,
+            projection_adaptive_tolerance = 1.0e-9,
+            seed = 42,
+        )
+
+        @test length(bench.results) == 1
+        @test isfinite(bench.results[1].metrics.linear_mu_relative_error)
+        @test bench.results[1].metrics.linear_mu_relative_error < 0.25
+    end
+
     @testset "2D Allen-Cahn dense comparison benchmark" begin
         bench = allen_cahn_2d_dense_benchmark(;
             d = 5,
@@ -212,6 +253,29 @@ include(joinpath(@__DIR__, "..", "examples", "nonlinear_benchmark_utils.jl"))
         @test bench_adaptive.metrics.final_dense_relative_error < 5.0e-3
         @test bench_adaptive.metrics.final_dense_relative_error <
             bench.metrics.final_dense_relative_error
+    end
+
+    @testset "viscous Eikonal benchmark with adaptive slowness field" begin
+        bench = eikonal_2d_benchmark(;
+            d = 5,
+            lens_strength = 2.0,
+            ε_schedule = [0.2, 0.1, 0.05],
+            max_scf = 30,
+            scf_tol = 1.0e-11,
+            max_bond = 32,
+            als_sweeps = 6,
+            projection_degree = 8,
+            residual_field = false,
+            seed = 11,
+        )
+
+        @test bench.equation == "Viscous Eikonal 2D"
+        @test occursin("InterpolativeQTT", bench.method_label)
+        @test bench.metrics.slowness_build_relative_error < 1.0e-6
+        @test bench.metrics.qtt_vs_dense_relative_error < 5.0e-3
+        @test bench.metrics.eikonal_residuals[end] < bench.metrics.eikonal_residuals[1]
+        @test isfinite(bench.metrics.fast_sweeping_gap)
+        @test bench.metrics.max_rank <= 32
     end
 
     @testset "paper benchmarks are InterpolativeQTT-only" begin

@@ -24,6 +24,9 @@ include("solvers/tdvp.jl")
 export kdv_als_step, kdv_als, kdv_mals_step, kdv_mals, kdv_cn_mals_step, kdv_cn_mals
 include("solvers/kdv.jl")
 
+export eikonal_viscous_solve
+include("solvers/eikonal_viscous.jl")
+
 export to_ttvector
 function to_ttvector end
 
