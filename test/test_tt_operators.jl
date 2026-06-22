@@ -277,6 +277,72 @@ end
     @test all(tto_lap.tto_vec[3] .== tto_ref.tto_vec[3])
 end
 
+function _qtt_from_vector(v::AbstractVector)
+    d = Int(log2(length(v)))
+    @assert 2^d == length(v)
+    tensor = zeros(eltype(v), ntuple(_ -> 2, d))
+    @inbounds for I in CartesianIndices(tensor)
+        tensor[I] = v[TensorTrainNumerics.tuple_to_index(Tuple(I))]
+    end
+    return ttv_decomp(tensor)
+end
+
+function _dense_circulant(kernel::AbstractVector)
+    n = length(kernel)
+    return [kernel[mod(i - j, n) + 1] for i in 0:(n - 1), j in 0:(n - 1)]
+end
+
+function _dense_cconv(kernel::AbstractVector, x::AbstractVector)
+    n = length(kernel)
+    return [sum(kernel[mod(i - j, n) + 1] * x[j + 1] for j in 0:(n - 1)) for i in 0:(n - 1)]
+end
+
+function _dense_conv(kernel::AbstractVector, x::AbstractVector)
+    n = length(kernel)
+    y = zeros(promote_type(eltype(kernel), eltype(x)), 2n)
+    @inbounds for i in 0:(n - 1), j in 0:(n - 1)
+        y[i + j + 1] += kernel[i + 1] * x[j + 1]
+    end
+    return y
+end
+
+@testset "circulant_qtto and qtt_cconv" begin
+    kernel = [1.0, -2.0, 0.5, 3.0, -1.0, 2.0, 0.0, 4.0]
+    x = [0.25, -1.0, 2.0, 0.5, -0.75, 1.5, 3.0, -2.0]
+
+    kernel_qtt = _qtt_from_vector(kernel)
+    x_qtt = _qtt_from_vector(x)
+
+    C = circulant_qtto(kernel_qtt)
+
+    @test C isa TToperator{Float64, 3}
+    @test C.tto_dims == (2, 2, 2)
+    @test qtto_to_matrix(C) ≈ _dense_circulant(kernel)
+    @test qtt_to_vector(qtt_cconv(kernel_qtt, x_qtt)) ≈ _dense_cconv(kernel, x)
+
+    kernel_q = QTTvector(kernel_qtt, 1, 3, :serial)
+    x_q = QTTvector(x_qtt, 1, 3, :serial)
+    @test circulant_qtto(kernel_q) isa QTToperator{Float64, 3}
+    @test qtt_to_vector(qtt_cconv(kernel_q, x_q)) ≈ _dense_cconv(kernel, x)
+end
+
+@testset "qtt_conv" begin
+    kernel = [1.0, 2.0, -1.0, 0.5]
+    x = [3.0, -2.0, 0.25, 4.0]
+
+    y_qtt = qtt_conv(_qtt_from_vector(kernel), _qtt_from_vector(x))
+
+    @test y_qtt.N == 3
+    @test y_qtt.ttv_dims == (2, 2, 2)
+    @test qtt_to_vector(y_qtt) ≈ _dense_conv(kernel, x)
+
+    y_q = qtt_conv(QTTvector(_qtt_from_vector(kernel), 1, 2, :serial),
+                   QTTvector(_qtt_from_vector(x), 1, 2, :serial))
+    @test y_q isa QTTvector{Float64, 3}
+    @test y_q.bits_per_dim == 3
+    @test qtt_to_vector(y_q) ≈ _dense_conv(kernel, x)
+end
+
 @testset "Inverse" begin
 
     d = 6
