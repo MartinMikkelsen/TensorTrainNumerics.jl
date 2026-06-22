@@ -277,6 +277,83 @@ end
     @test all(tto_lap.tto_vec[3] .== tto_ref.tto_vec[3])
 end
 
+function _dense_pauli(μ)
+    if μ == :x
+        return [0.0 1.0; 1.0 0.0]
+    elseif μ == :y
+        return ComplexF64[0.0 -im; im 0.0]
+    elseif μ == :z
+        return [1.0 0.0; 0.0 -1.0]
+    end
+    error("unknown Pauli axis")
+end
+
+function _dense_kron_product(mats)
+    return reduce(kron, mats)
+end
+
+function _dense_pauli_sum(μ, d)
+    P = _dense_pauli(μ)
+    T = eltype(P)
+    id = Matrix{T}(I, 2, 2)
+    out = zeros(T, 2^d, 2^d)
+    for site in 1:d
+        mats = [site == k ? P : id for k in 1:d]
+        out += _dense_kron_product(mats)
+    end
+    return out
+end
+
+function _dense_pauli_pair_sum(μ, ν, d)
+    Pμ = _dense_pauli(μ)
+    Pν = _dense_pauli(ν)
+    T = promote_type(eltype(Pμ), eltype(Pν))
+    id = Matrix{T}(I, 2, 2)
+    out = zeros(T, 2^d, 2^d)
+    for site in 1:(d - 1)
+        mats = [k == site ? Pμ : k == site + 1 ? Pν : id for k in 1:d]
+        out += _dense_kron_product(mats)
+    end
+    return out
+end
+
+@testset "Pauli spin-chain operators" begin
+    @test pauli_matrix(:x) == [0.0 1.0; 1.0 0.0]
+    @test pauli_matrix(:y) == ComplexF64[0.0 -im; im 0.0]
+    @test pauli_matrix(:z) == [1.0 0.0; 0.0 -1.0]
+
+    d = 4
+    Hx = pauli_sum_tto(:x, d)
+    Hy = pauli_sum_tto(:y, d)
+    Hxz = pauli_pair_sum_tto(:x, :z, d)
+    Hyy = pauli_pair_sum_tto(:y, :y, d)
+
+    @test Hx isa TToperator{Float64, 4}
+    @test Hy isa TToperator{ComplexF64, 4}
+    @test maximum(Hx.tto_rks) == 2
+    @test maximum(Hxz.tto_rks) == 3
+    @test qtto_to_matrix(Hx) ≈ _dense_pauli_sum(:x, d)
+    @test qtto_to_matrix(Hy) ≈ _dense_pauli_sum(:y, d)
+    @test qtto_to_matrix(Hxz) ≈ _dense_pauli_pair_sum(:x, :z, d)
+    @test qtto_to_matrix(Hyy) ≈ _dense_pauli_pair_sum(:y, :y, d)
+    @test qtto_to_matrix(H_μ(:z, d)) ≈ _dense_pauli_sum(:z, d)
+    @test qtto_to_matrix(H_μν(:z, :z, d)) ≈ _dense_pauli_pair_sum(:z, :z, d)
+end
+
+@testset "Heisenberg XYZ Hamiltonian" begin
+    d = 4
+    jx, jy, jz, λ = 1.2, 0.7, -0.4, 0.25
+    H = heisenberg_xyz_tto(d; jx = jx, jy = jy, jz = jz, λ = λ, field = :x)
+    H_ref = jx * _dense_pauli_pair_sum(:x, :x, d) +
+            jy * _dense_pauli_pair_sum(:y, :y, d) +
+            jz * _dense_pauli_pair_sum(:z, :z, d) +
+            λ * _dense_pauli_sum(:x, d)
+
+    @test H isa TToperator{Float64, 4}
+    @test maximum(H.tto_rks) <= 7
+    @test qtto_to_matrix(H) ≈ H_ref
+end
+
 @testset "Inverse" begin
 
     d = 6

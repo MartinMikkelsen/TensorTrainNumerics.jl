@@ -25,6 +25,198 @@ function shift(d::Int)
     return toeplitz_to_qtto(0, 1, 0, d)
 end
 
+function _pauli_axis(μ)
+    axis = lowercase(string(μ))
+    if axis == "x"
+        return :x
+    elseif axis == "y"
+        return :y
+    elseif axis == "z"
+        return :z
+    end
+    throw(ArgumentError("Pauli axis must be :x, :y, or :z"))
+end
+
+"""
+    pauli_matrix(μ)
+
+Return the Pauli matrix for axis `μ`, where `μ` is `:x`, `:y`, or `:z`.
+"""
+function pauli_matrix(μ)
+    axis = _pauli_axis(μ)
+    if axis == :x
+        return [0.0 1.0; 1.0 0.0]
+    elseif axis == :y
+        return ComplexF64[0.0 -im; im 0.0]
+    else
+        return [1.0 0.0; 0.0 -1.0]
+    end
+end
+
+function _pauli_pair_factors(μ, ν)
+    axisμ = _pauli_axis(μ)
+    axisν = _pauli_axis(ν)
+    if axisμ == :y && axisν == :y
+        y_real = [0.0 -1.0; 1.0 0.0]
+        return -y_real, y_real
+    end
+    return pauli_matrix(axisμ), pauli_matrix(axisν)
+end
+
+"""
+    pauli_sum_tto(μ, d)
+
+Construct the rank-2 TT operator
+
+    H_μ = sum_i I ⊗ ... ⊗ P_μ ⊗ ... ⊗ I
+
+on `d` spin-1/2 sites with open boundaries.
+"""
+function pauli_sum_tto(μ, d::Int)
+    @assert d ≥ 1 "number of spin sites must be at least 1"
+
+    P = pauli_matrix(μ)
+    T = eltype(P)
+    id = Matrix{T}(I, 2, 2)
+    dims = ntuple(_ -> 2, d)
+
+    if d == 1
+        return TToperator{T, 1}(1, [reshape(P, 2, 2, 1, 1)], dims, [1, 1], zeros(Int64, 1))
+    end
+
+    rks = vcat(1, fill(2, d - 1), 1)
+    cores = Array{Array{T, 4}, 1}(undef, d)
+
+    cores[1] = zeros(T, 2, 2, 1, 2)
+    cores[1][:, :, 1, 1] = P
+    cores[1][:, :, 1, 2] = id
+
+    @inbounds for k in 2:(d - 1)
+        core = zeros(T, 2, 2, 2, 2)
+        core[:, :, 1, 1] = id
+        core[:, :, 2, 1] = P
+        core[:, :, 2, 2] = id
+        cores[k] = core
+    end
+
+    cores[d] = zeros(T, 2, 2, 2, 1)
+    cores[d][:, :, 1, 1] = id
+    cores[d][:, :, 2, 1] = P
+
+    return TToperator{T, d}(d, cores, dims, rks, zeros(Int64, d))
+end
+
+"""
+    pauli_pair_sum_tto(μ, ν, d)
+
+Construct the rank-3 nearest-neighbor TT operator
+
+    H_{μ,ν} = sum_i I ⊗ ... ⊗ P_μ ⊗ P_ν ⊗ ... ⊗ I
+
+on `d` spin-1/2 sites with open boundaries.
+"""
+function pauli_pair_sum_tto(μ, ν, d::Int)
+    @assert d ≥ 2 "nearest-neighbor Pauli pair sum needs at least 2 spin sites"
+
+    Pμ_raw, Pν_raw = _pauli_pair_factors(μ, ν)
+    T = promote_type(eltype(Pμ_raw), eltype(Pν_raw))
+    Pμ = convert.(T, Pμ_raw)
+    Pν = convert.(T, Pν_raw)
+    id = Matrix{T}(I, 2, 2)
+    dims = ntuple(_ -> 2, d)
+    rks = vcat(1, fill(3, d - 1), 1)
+    cores = Array{Array{T, 4}, 1}(undef, d)
+
+    cores[1] = zeros(T, 2, 2, 1, 3)
+    cores[1][:, :, 1, 2] = Pμ
+    cores[1][:, :, 1, 3] = id
+
+    @inbounds for k in 2:(d - 1)
+        core = zeros(T, 2, 2, 3, 3)
+        core[:, :, 1, 1] = id
+        core[:, :, 2, 1] = Pν
+        core[:, :, 3, 2] = Pμ
+        core[:, :, 3, 3] = id
+        cores[k] = core
+    end
+
+    cores[d] = zeros(T, 2, 2, 3, 1)
+    cores[d][:, :, 1, 1] = id
+    cores[d][:, :, 2, 1] = Pν
+
+    return TToperator{T, d}(d, cores, dims, rks, zeros(Int64, d))
+end
+
+H_μ(μ, d::Int) = pauli_sum_tto(μ, d)
+H_μν(μ, ν, d::Int) = pauli_pair_sum_tto(μ, ν, d)
+
+"""
+    heisenberg_xyz_tto(d; jx=1.0, jy=1.0, jz=1.0, λ=0.0, field=:x)
+
+Construct the open-boundary Heisenberg XYZ Hamiltonian
+
+    H = jx H_{x,x} + jy H_{y,y} + jz H_{z,z} + λ H_field
+
+as a direct low-rank TT operator on `d` spin-1/2 sites.
+"""
+function heisenberg_xyz_tto(d::Int; jx = 1.0, jy = 1.0, jz = 1.0, λ = 0.0, field = :x)
+    @assert d ≥ 2 "Heisenberg XYZ chain needs at least 2 spin sites"
+
+    Px1_raw, Px2_raw = _pauli_pair_factors(:x, :x)
+    Py1_raw, Py2_raw = _pauli_pair_factors(:y, :y)
+    Pz1_raw, Pz2_raw = _pauli_pair_factors(:z, :z)
+    Pf_raw = pauli_matrix(field)
+
+    T = promote_type(
+        typeof(jx), typeof(jy), typeof(jz), typeof(λ),
+        eltype(Px1_raw), eltype(Px2_raw),
+        eltype(Py1_raw), eltype(Py2_raw),
+        eltype(Pz1_raw), eltype(Pz2_raw),
+        iszero(λ) ? Float64 : eltype(Pf_raw),
+    )
+
+    jxT, jyT, jzT, λT = convert(T, jx), convert(T, jy), convert(T, jz), convert(T, λ)
+    Px1, Px2 = convert.(T, Px1_raw), convert.(T, Px2_raw)
+    Py1, Py2 = convert.(T, Py1_raw), convert.(T, Py2_raw)
+    Pz1, Pz2 = convert.(T, Pz1_raw), convert.(T, Pz2_raw)
+    Pf = convert.(T, Pf_raw)
+    id = Matrix{T}(I, 2, 2)
+
+    dims = ntuple(_ -> 2, d)
+    rks = vcat(1, fill(5, d - 1), 1)
+    cores = Array{Array{T, 4}, 1}(undef, d)
+
+    cores[1] = zeros(T, 2, 2, 1, 5)
+    cores[1][:, :, 1, 1] = λT * Pf
+    cores[1][:, :, 1, 2] = jxT * Px1
+    cores[1][:, :, 1, 3] = jyT * Py1
+    cores[1][:, :, 1, 4] = jzT * Pz1
+    cores[1][:, :, 1, 5] = id
+
+    @inbounds for k in 2:(d - 1)
+        core = zeros(T, 2, 2, 5, 5)
+        core[:, :, 1, 1] = id
+        core[:, :, 2, 1] = Px2
+        core[:, :, 3, 1] = Py2
+        core[:, :, 4, 1] = Pz2
+        core[:, :, 5, 1] = λT * Pf
+        core[:, :, 5, 2] = jxT * Px1
+        core[:, :, 5, 3] = jyT * Py1
+        core[:, :, 5, 4] = jzT * Pz1
+        core[:, :, 5, 5] = id
+        cores[k] = core
+    end
+
+    cores[d] = zeros(T, 2, 2, 5, 1)
+    cores[d][:, :, 1, 1] = id
+    cores[d][:, :, 2, 1] = Px2
+    cores[d][:, :, 3, 1] = Py2
+    cores[d][:, :, 4, 1] = Pz2
+    cores[d][:, :, 5, 1] = λT * Pf
+
+    return TToperator{T, d}(d, cores, dims, rks, zeros(Int64, d))
+end
+
 """
 Constructs a tensor train operator (TTO) representation of the gradient matrix
 """

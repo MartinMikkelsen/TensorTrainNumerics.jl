@@ -179,7 +179,7 @@ end
 Converts a quantics tensor train operator (`TToperator`) into its full matrix representation.
 """
 function qtto_to_matrix(Aqtto::TToperator{T, d}) where {T, d}
-    A = zeros(2^d, 2^d)
+    A = zeros(T, 2^d, 2^d)
     A_tensor = tto_to_tensor(Aqtto)
     @inbounds for t in CartesianIndices(A_tensor)
         A[tuple_to_index(Tuple(t)[1:d]), tuple_to_index(Tuple(t)[(d + 1):end])] = A_tensor[t]
@@ -468,6 +468,10 @@ Strip QTT metadata to recover the underlying `TTvector`.
 """
 TTvector(q::QTTvector{T, M}) where {T, M} =
     TTvector{T, M}(q.N, q.ttv_vec, q.ttv_dims, q.ttv_rks, q.ttv_ot)
+
+function entanglemententropy(q::QTTvector; base::Real = exp(1.0))
+    return entanglemententropy(TTvector(q); base = base)
+end
 
 """
     TToperator(q::QTToperator{T, M})

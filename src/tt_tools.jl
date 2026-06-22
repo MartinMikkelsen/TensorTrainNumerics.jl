@@ -532,6 +532,50 @@ function orthogonalize(x_tt::TTvector{T, N}; i = 1::Int) where {T <: Number, N}
     return y_tt
 end
 
+"""
+    entanglemententropy(ψ::TTvector; base=exp(1.0))
+
+Compute the von Neumann entanglement entropy across every bond of an MPS.
+
+The returned vector has length `ψ.N - 1`; entry `k` is the entropy of the
+bipartition `1:k | k+1:N`. The input state is not mutated. Use `base = 2`
+to return entropy in bits.
+"""
+function entanglemententropy(ψ::TTvector; base::Real = exp(1.0))
+    @assert base > 0 && base != 1 "base must be positive and not equal to 1"
+
+    N = ψ.N
+    entropy = zeros(Float64, max(N - 1, 0))
+    N <= 1 && return entropy
+    logscale = log(base)
+
+    canonical = orthogonalize(ψ; i = 1)
+    cores = [permutedims(copy(core), (2, 1, 3)) for core in canonical.ttv_vec]
+
+    for k in 1:(N - 1)
+        A = cores[k]
+        r_left, n, r_right = size(A)
+        F = svd(reshape(A, r_left * n, r_right))
+
+        probabilities = abs2.(F.S)
+        total = sum(probabilities)
+        if total > 0
+            probabilities ./= total
+            entropy[k] = -sum(p -> p > 0 ? p * log(p) : 0.0, probabilities) / logscale
+        end
+
+        if k < N - 1
+            transfer = Diagonal(F.S) * F.Vt
+            B = cores[k + 1]
+            cores[k + 1] = reshape(
+                transfer * reshape(B, size(B, 1), :),
+                length(F.S), size(B, 2), size(B, 3)
+            )
+        end
+    end
+    return entropy
+end
+
 function _ot_description(ot::Vector{Int})
     all(iszero, ot)   && return "none"
     all(==(1), ot)    && return "left-canonical"

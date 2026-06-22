@@ -1,6 +1,6 @@
 module TensorTrainNumerics
 
-export AbstractTTvector, AbstractTToperator, TTvector, TToperator, eltype, complex, ttv_decomp, tto_decomp, ttv_to_tensor, tto_to_tensor, tto_to_ttv, visualize, matricize, concatenate, orthogonalize, copy, r_and_d_to_rks, tt_compress!, _svdtrunc, ttvector_manifold
+export AbstractTTvector, AbstractTToperator, TTvector, TToperator, eltype, complex, ttv_decomp, tto_decomp, ttv_to_tensor, tto_to_tensor, tto_to_ttv, visualize, matricize, concatenate, orthogonalize, entanglemententropy, copy, r_and_d_to_rks, tt_compress!, _svdtrunc, ttvector_manifold
 function ttvector_manifold end
 include("tt_tools.jl")
 
@@ -22,7 +22,7 @@ include("solvers/tdvp.jl")
 export to_ttvector
 function to_ttvector end
 
-export toeplitz_to_qtto, qtto_prolongation, qtto_constant_prolongation, qtto_linear_prolongation, ∇, Δ_DN, Δ_ND, Δ_NN, Δ_P, Δ, Δ⁻¹_DN, shift, zeros_tt, zeros_tto, rand_tt, id_tto, rand_tto, qtt_laplacian
+export toeplitz_to_qtto, qtto_prolongation, qtto_constant_prolongation, qtto_linear_prolongation, ∇, Δ_DN, Δ_ND, Δ_NN, Δ_P, Δ, Δ⁻¹_DN, shift, pauli_matrix, pauli_sum_tto, pauli_pair_sum_tto, H_μ, H_μν, heisenberg_xyz_tto, zeros_tt, zeros_tto, rand_tt, id_tto, rand_tto, qtt_laplacian
 include("tt_operators.jl")
 
 export gauss_chebyshev_lobatto
