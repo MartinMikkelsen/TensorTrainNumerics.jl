@@ -319,6 +319,55 @@ end
 
 end
 
+@testset "tto_decomp" begin
+
+    @testset "tto_to_tensor" begin
+        N = 3
+        dims = (2, 2, 2)
+        rks = [1, 2, 2, 1]
+        ot = zeros(Int, N)
+        tto_vec = [randn(2, 2, 1, 2), randn(2, 2, 2, 2), randn(2, 2, 2, 1)]
+        tto = TToperator{Float64, N}(N, tto_vec, dims, rks, ot)
+
+        M = tto_to_tensor(tto)
+        tto2 = tto_decomp(M)
+
+        @test tto2.N == N
+        @test tto2.tto_dims == dims
+        @test isapprox(tto_to_tensor(tto2), M; rtol = 1.0e-10)
+    end
+
+    @testset "reproduces dense non-symmetric matvec" begin
+        # Guards the (x_1,y_1,...,x_d,y_d) interleave on a non-symmetric operator.
+        dims = (2, 2)
+        n = prod(dims)
+        A_mat = randn(n, n)
+        A_tt = tto_decomp(reshape(A_mat, dims..., dims...))
+
+        @test isapprox(reshape(tto_to_tensor(A_tt), n, n), A_mat; rtol = 1.0e-10)
+
+        v = randn(n)
+        v_tt = ttv_decomp(reshape(v, dims...))
+        Av = ttv_to_tensor(A_tt * v_tt)
+        @test isapprox(vec(Av), A_mat * v; rtol = 1.0e-10)
+    end
+
+    @testset "non-uniform dimensions" begin
+        dims = (2, 3)
+        n = prod(dims)
+        A_mat = randn(n, n)
+        A_tt = tto_decomp(reshape(A_mat, dims..., dims...))
+
+        @test A_tt.tto_dims == dims
+        @test isapprox(reshape(tto_to_tensor(A_tt), n, n), A_mat; rtol = 1.0e-10)
+    end
+
+    @testset "preserves eltype" begin
+        @test eltype(tto_to_tensor(tto_decomp(randn(Float32, 2, 2, 2, 2)))) == Float32
+    end
+
+end
+
 @testset "random TT" begin
 
     dims = (1, 2, 2, 1)
