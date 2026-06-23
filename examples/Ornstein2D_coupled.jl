@@ -1,0 +1,160 @@
+using TensorTrainNumerics
+using CairoMakie
+using LinearAlgebra
+
+# Coupled 2D Ornstein–Uhlenbeck / Fokker–Planck in QTT format.
+#
+# Multivariate OU:  dX = -Θ(X-μ) dt + σ dW,   X ∈ ℝ²,  Θ = [θ -k; -k θ] symmetric.
+# A symmetric off-diagonal coupling k makes the stationary distribution a
+# *correlated* (tilted) Gaussian; the diffusion is kept isotropic so the
+# correlation comes purely from the drift.
+#
+#   ∂P/∂t = Σᵢ ∂/∂xᵢ[(Θ(x-μ))ᵢ P] + D Σᵢ ∂²P/∂xᵢ²,   D = σ²/2.
+#
+# Expanding (Θ(x-μ))ᵢ = Σⱼ Θᵢⱼ(xⱼ-μⱼ) gives, in serial QTT layout (sites 1:d = x,
+# d+1:2d = y) with 1D operators ∂, ∂², Mx=diag(x-μx), My=diag(y-μy):
+#
+#   A = θ[(∂Mx)⊗I + I⊗(∂My)]            # diagonal drift
+#     - k[∂⊗My + Mx⊗∂]                  # off-diagonal coupling (rank-1 across x|y)
+#     + D[∂²⊗I + I⊗∂²]                   # isotropic diffusion
+#
+# Stationary distribution: N(μ, Σ∞) with the Lyapunov solution Σ∞ = D·Θ⁻¹.
+#
+# The correlated stationary is NOT a product, so it needs x|y bond rank > 1.
+# ALS optimises at the rank of its initial guess, so we start from a product
+# Gaussian whose rank is *enriched* (tt_up_rks, with a little noise) to give ALS
+# room to develop the correlation; we then march with Crank–Nicholson + ALS.
+
+# --- model parameters --------------------------------------------------------
+θ = 1.0                 # mean-reversion rate
+k = 0.6                 # drift coupling  (ρ = k/θ = 0.6)
+μx, μy = 2.0, -2.0      # long-term mean
+σ = 1.0
+D = σ^2 / 2
+Θ = [θ -k; -k θ]
+Σ∞ = D * inv(Θ)         # analytic stationary covariance (Lyapunov: ΘΣ + ΣΘᵀ = 2D·I)
+
+# --- grid: 2^d points per axis on [a, b]² ------------------------------------
+d = 8
+N = 2^d
+a, b = -6.0, 6.0
+h = (b - a) / (N - 1)
+xes = collect(range(a, b, N))
+
+# --- 1D building blocks on d bits --------------------------------------------
+∂   = (1 / (2h)) * (shift(d) - (id_tto(d) - ∇(d)))   # central first derivative
+∂²  = -(1 / h^2) * Δ(d)                              # second derivative
+idd = id_tto(d)
+Mx  = ttv_to_diag_tto(qtt_polynom([-μx, 1.0], d; a = a, b = b))
+My  = ttv_to_diag_tto(qtt_polynom([-μy, 1.0], d; a = a, b = b))
+
+# --- coupled 2D generator ----------------------------------------------------
+A = θ * ((∂ * Mx) ⊗ idd + idd ⊗ (∂ * My)) -
+    k * (∂ ⊗ My + Mx ⊗ ∂) +
+    D * (∂² ⊗ idd + idd ⊗ ∂²)
+
+# --- reconstruction / mass helpers -------------------------------------------
+toarr(v) = qttv_to_array(QTTvector(v, 2, d, :serial))   # raw 2d-site TT -> N×N grid
+mass(P) = sum(P) * h^2
+
+# --- product-Gaussian IC at the origin, rank-enriched so ALS can correlate ----
+gx = function_to_qtt(t -> exp(-(a + (b - a) * t)^2 / 2), d)
+gy = function_to_qtt(t -> exp(-(a + (b - a) * t)^2 / 2), d)
+u₀_clean = (1 / mass(toarr(gx ⊗ gy))) * (gx ⊗ gy)                  # clean product IC (t=0 panel)
+u₀ = TensorTrainNumerics.tt_up_rks(gx ⊗ gy, 16; ϵ_wn = 1e-2)      # rank-16, small noise
+u₀ = (1 / mass(toarr(u₀))) * u₀
+
+# --- analytic stationary distribution  N(μ, Σ∞) ------------------------------
+Σi = inv(Σ∞)
+nrm = 1 / (2π * sqrt(det(Σ∞)))
+P∞ = [nrm * exp(-0.5 * ([xi - μx, yj - μy]' * Σi * [xi - μx, yj - μy])) for xi in xes, yj in xes]
+
+# --- Crank–Nicholson march, recording snapshots, error, and ρ(t) -------------
+τ         = 0.02
+record_dt = 0.4
+T         = 8.0
+block     = round(Int, record_dt / τ)
+n_blocks  = round(Int, T / record_dt)
+
+times   = collect(0.0:record_dt:T)
+density = Vector{Matrix{Float64}}()
+errL1   = Float64[]
+errL2   = Float64[]
+ρhist   = Float64[]
+
+function record!(v)
+    P = toarr(v)
+    P ./= mass(P)
+    push!(density, P)
+    mx = sum(xes .* vec(sum(P, dims = 2))) * h^2
+    my = sum(xes .* vec(sum(P, dims = 1))) * h^2
+    vx = sum((xes .- mx) .^ 2 .* vec(sum(P, dims = 2))) * h^2
+    vy = sum((xes .- my) .^ 2 .* vec(sum(P, dims = 1))) * h^2
+    cov = sum((xes .- mx) .* P .* (xes .- my)') * h^2
+    push!(ρhist, cov / sqrt(vx * vy))
+    push!(errL1, sum(abs.(P .- P∞)) * h^2)
+    push!(errL2, sqrt(sum(abs2, P .- P∞) * h^2))
+end
+
+record!(u₀_clean)                       # t = 0: clean product Gaussian
+ψ = u₀
+for _ in 1:n_blocks
+    global ψ = crank_nicholson_method(A, ψ, ψ, fill(τ, block);
+        normalize = false, tt_solver = "als")
+    record!(ψ)
+end
+
+# final covariance vs the analytic Lyapunov solution
+let P = density[end]
+    mx  = sum(xes .* vec(sum(P, dims = 2))) * h^2
+    my  = sum(xes .* vec(sum(P, dims = 1))) * h^2
+    vx  = sum((xes .- mx) .^ 2 .* vec(sum(P, dims = 2))) * h^2
+    vy  = sum((xes .- my) .^ 2 .* vec(sum(P, dims = 1))) * h^2
+    cov = sum((xes .- mx) .* P .* (xes .- my)') * h^2
+    @info "final state" mean = (mx, my) cov_numeric = [vx cov; cov vy] cov_analytic = Σ∞ ρ = ρhist[end] L1 = errL1[end]
+end
+
+# 1σ covariance ellipse of N(μ, Σ) for overlaying on the heatmaps
+function cov_ellipse(μ, Σ; nσ = 1.0, n = 120)
+    vals, vecs = eigen(Symmetric(Σ))
+    pts = [μ .+ nσ .* (vecs * (sqrt.(vals) .* [cos(t), sin(t)])) for t in range(0, 2π, n)]
+    return getindex.(pts, 1), getindex.(pts, 2)
+end
+
+# --- Figure 1: density snapshots developing the diagonal correlation ----------
+let
+    snap = [0.0, 0.4, 1.2, 8.0]
+    cmax = maximum(P∞)
+    ex, ey = cov_ellipse([μx, μy], Σ∞)
+    fig = Figure(size = (1100, 320))
+    for (k, t) in enumerate(snap)
+        ax = Axis(fig[1, k], aspect = 1, xlabel = "x", ylabel = k == 1 ? "y" : "",
+            title = "t = $t")
+        heatmap!(ax, xes, xes, density[round(Int, t / record_dt) + 1],
+            colormap = :viridis, colorrange = (0, cmax))
+        lines!(ax, ex, ey, color = :red, linewidth = 1.5)          # analytic 1σ ellipse
+        scatter!(ax, [μx], [μy], color = :red, marker = :xcross, markersize = 12)
+        xlims!(ax, -4, 5)
+        ylims!(ax, -5, 4)
+    end
+    Colorbar(fig[1, length(snap) + 1], limits = (0, cmax), colormap = :viridis,
+        label = "P(x, y, t)")
+    display(fig)
+end
+
+# --- Figure 2: convergence (left) and correlation developing (right) ----------
+let
+    fig = Figure(size = (1000, 420))
+    ax1 = Axis(fig[1, 1], xlabel = "t", ylabel = "‖P(·, t) − P∞‖", yscale = log10,
+        title = "Convergence to the stationary distribution")
+    lines!(ax1, times, errL1, linewidth = 2.5, label = "L¹ error")
+    lines!(ax1, times, errL2, linewidth = 2.5, label = "L² error")
+    axislegend(ax1; position = :rt)
+
+    ax2 = Axis(fig[1, 2], xlabel = "t", ylabel = "correlation ρ(t)",
+        title = "Correlation developing from the coupling")
+    lines!(ax2, times, ρhist, linewidth = 2.5)
+    hlines!(ax2, [k / θ], color = :black, linestyle = :dash, label = "ρ∞ = k/θ")
+    axislegend(ax2; position = :rb)
+    display(fig)
+end

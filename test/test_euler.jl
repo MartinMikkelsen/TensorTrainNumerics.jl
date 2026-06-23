@@ -1,5 +1,6 @@
 using Test
 using TensorTrainNumerics
+using LinearAlgebra
 
 @testset "euler_method basic tests" begin
     d = 4
@@ -57,6 +58,31 @@ end
     println("Implicit test passed with relative error: ", rel_error)
 end
 
+@testset "implicit_euler_method Krylov solver" begin
+    d = 4
+    h = 1 / d^2
+    A = -h^2 * toeplitz_to_qtto(-2.0, 1.0, 1.0, d)
+    tt_dims = ntuple(_ -> 2, d)
+    tt_rks = [1; fill(2, d - 1); 1]
+
+    u₀ = rand_tt(tt_dims, tt_rks)
+    guess = u₀
+    steps = [0.05]
+
+    sol_tt = implicit_euler_method(A, u₀, guess, steps;
+        normalize = false, tt_solver = "krylov", tol = 1.0e-12)
+
+    A_dense = qtto_to_matrix(A)
+    u_dense = qtt_to_function(u₀)
+    I = qtto_to_matrix(id_tto(A.N))
+    sol_dense = (I - steps[1] * A_dense) \ u_dense
+
+    sol_tt_vec = qtt_to_function(sol_tt)
+    rel_error = norm(sol_tt_vec - sol_dense) / norm(sol_dense)
+
+    @test rel_error < 1.0e-8
+end
+
 @testset "Crank-Nicholson method basic test" begin
     d = 4
     h = 1 / d^2
@@ -79,6 +105,57 @@ end
     rel_error = norm(sol_tt_vec - sol_dense) / norm(sol_dense)
 
     @test rel_error < 1.0e-5
+end
+
+@testset "Crank-Nicholson method Krylov solver" begin
+    d = 4
+    h = 1 / d^2
+    A = -h^2 * toeplitz_to_qtto(-2.0, 1.0, 1.0, d)
+    tt_dims = ntuple(_ -> 2, d)
+    tt_rks = [1; fill(2, d - 1); 1]
+
+    u₀ = rand_tt(tt_dims, tt_rks)
+    guess = u₀
+    steps = [0.05]
+
+    sol_tt = crank_nicholson_method(A, u₀, guess, steps;
+        normalize = false, tt_solver = "krylov", tol = 1.0e-12)
+
+    A_dense = qtto_to_matrix(A)
+    u_dense = qtt_to_function(u₀)
+    I = qtto_to_matrix(id_tto(A.N))
+    sol_dense = (I - 0.5 * steps[1] * A_dense) \ ((I + 0.5 * steps[1] * A_dense) * u_dense)
+
+    sol_tt_vec = qtt_to_function(sol_tt)
+    rel_error = norm(sol_tt_vec - sol_dense) / norm(sol_dense)
+
+    @test rel_error < 1.0e-8
+end
+
+@testset "Crank-Nicholson Krylov solver handles non-symmetric operators" begin
+    d = 4
+    A = 0.1 * ∇(d)
+    tt_dims = ntuple(_ -> 2, d)
+    tt_rks = [1; fill(2, d - 1); 1]
+
+    u₀ = rand_tt(tt_dims, tt_rks)
+    guess = u₀
+    steps = [0.05]
+
+    sol_tt = crank_nicholson_method(A, u₀, guess, steps;
+        normalize = false, tt_solver = "krylov", tol = 1.0e-12)
+
+    A_dense = qtto_to_matrix(A)
+    @test !issymmetric(A_dense)
+
+    u_dense = qtt_to_function(u₀)
+    I = qtto_to_matrix(id_tto(A.N))
+    sol_dense = (I - 0.5 * steps[1] * A_dense) \ ((I + 0.5 * steps[1] * A_dense) * u_dense)
+
+    sol_tt_vec = qtt_to_function(sol_tt)
+    rel_error = norm(sol_tt_vec - sol_dense) / norm(sol_dense)
+
+    @test rel_error < 1.0e-8
 end
 
 @testset "rk4_method basic test" begin

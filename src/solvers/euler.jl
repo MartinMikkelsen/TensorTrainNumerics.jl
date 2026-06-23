@@ -1,5 +1,16 @@
 using TensorTrainNumerics
 using ProgressMeter
+using KrylovKit
+
+function krylov_linsolve(A::AbstractTToperator, b::AbstractTTvector, guess::AbstractTTvector;
+        max_bond::Int = 0, kwargs...)
+    # Compress the matvec so the Krylov iterates don't accumulate rank:
+    # rank(A·x) = rank(A)·rank(x), and the VectorInterface ops only orthogonalize
+    # (no truncation), so without this GMRES blows up the bond dimension.
+    op = max_bond > 0 ? (x -> tt_compress!(A * x, max_bond)) : (x -> A * x)
+    x, _ = linsolve(op, b, guess; kwargs...)
+    return x
+end
 
 function euler_method(A::AbstractTToperator, u₀::AbstractTTvector, steps::Vector{Float64}; normalize::Bool = true, return_error::Bool = false)
     solution = (u₀)
@@ -32,6 +43,7 @@ function implicit_euler_method(
         normalize::Bool = true,
         return_error::Bool = false,
         tt_solver::String = "mals",
+        max_bond::Int = 0,
         kwargs...
     )
     solution = (u₀)
@@ -44,6 +56,7 @@ function implicit_euler_method(
         next = (tt_solver == "mals" ? mals_linsolve(M, solution, guess; kwargs...) :
             tt_solver == "als" ? als_linsolve(M, solution, guess; kwargs...) :
             tt_solver == "dmrg" ? dmrg_linsolve(M, solution, guess; kwargs...) :
+            tt_solver == "krylov" ? krylov_linsolve(M, solution, guess; max_bond = max_bond, kwargs...) :
             error("Unknown TT solver: $tt_solver"))::AbstractTTvector
 
         if normalize
@@ -51,7 +64,7 @@ function implicit_euler_method(
         end
 
         u_prev = solution
-        solution = orthogonalize(next)
+        solution = max_bond > 0 ? tt_compress!(next, max_bond) : orthogonalize(next)
         guess = solution
     end
 
@@ -74,6 +87,7 @@ function crank_nicholson_method(
         normalize::Bool = true,
         return_error::Bool = false,
         tt_solver::String = "mals",
+        max_bond::Int = 0,
         kwargs...
     )
     solution = (u₀)
@@ -87,6 +101,7 @@ function crank_nicholson_method(
         next = (tt_solver == "mals" ? mals_linsolve(LHS, RHS, guess; kwargs...) :
             tt_solver == "als" ? als_linsolve(LHS, RHS, guess; kwargs...) :
             tt_solver == "dmrg" ? dmrg_linsolve(LHS, RHS, guess; kwargs...) :
+            tt_solver == "krylov" ? krylov_linsolve(LHS, RHS, guess; max_bond = max_bond, kwargs...) :
             error("Unknown TT solver: $tt_solver"))::AbstractTTvector
 
         if normalize
@@ -94,7 +109,7 @@ function crank_nicholson_method(
         end
 
         u_prev = solution
-        solution = orthogonalize(next)
+        solution = max_bond > 0 ? tt_compress!(next, max_bond) : orthogonalize(next)
         guess = solution
     end
 
