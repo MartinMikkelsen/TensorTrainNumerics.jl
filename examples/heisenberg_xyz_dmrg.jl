@@ -1,5 +1,4 @@
 using LinearAlgebra
-using Logging
 using Random
 using TensorTrainNumerics
 using CairoMakie 
@@ -7,14 +6,12 @@ using CairoMakie
 Random.seed!(1234)
 
 d = 10
-H = heisenberg_xyz_tto(d; jx = 2.0, jy = 0.8, jz = 1.2, λ = 0.5, field = :z)
+H = heisenberg_xyz_tto(d; jx = 1.1, jy = 0.8, jz = 1.2, λ = 1.1, field = :x)
 
 x0_ranks = vcat(1, fill(2, d - 1), 1)
 x0 = rand_tt(eltype(H), H.tto_dims, x0_ranks; normalise = true)
 
-energies, ground_state, rank_history = with_logger(NullLogger()) do
-    dmrg_eigsolve(H, x0; sweep_schedule = [4, 8], rmax_schedule = [4, 8])
-end
+energies, ground_state, rank_history = dmrg_eigsolve(H, x0; sweep_schedule = [4, 8], rmax_schedule = [4, 8])
 
 H_dense = qtto_to_matrix(H)
 exact_ground_energy = first(eigvals(Hermitian(H_dense)))
@@ -34,8 +31,8 @@ neel_bits = [isodd(k) ? 0 : 1 for k in 1:d]
 neel_position = 1 + sum(bit * 2^(d - k) for (k, bit) in enumerate(neel_bits))
 initial_state = qtt_basis_vector(d, neel_position)
 
-dt = 0.01
-nsteps = 50
+dt = 0.005
+nsteps = 100
 times = collect(0:dt:(nsteps * dt))
 
 function entropy_trajectory(H, initial_state, dt, nsteps; max_bond = 8, truncerr = 1.0e-10)
@@ -61,7 +58,7 @@ entropy_history, time_rank_history = entropy_trajectory(H, initial_state, dt, ns
 fig = Figure(size = (1100, 760))
 
 ax_prob = Axis(fig[1, 1], xlabel = "basis index", ylabel = "|ψ|²", title = "Ground-state")
-barplot!(ax_prob, basis_indices, probabilities)
+barplot!(ax_prob, basis_indices, probabilities, width=5.0)
 
 ax_entropy = Axis(fig[1, 2], xlabel = "bond index", ylabel = "S (bits)", title = "Ground-state entanglement")
 scatterlines!(ax_entropy, bond_indices, ground_entropy; marker = :circle, linewidth = 3)

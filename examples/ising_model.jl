@@ -1,73 +1,95 @@
 using LinearAlgebra
 using Logging
-using Random
+using ProgressMeter
 using TensorTrainNumerics
-using CairoMakie 
+using CairoMakie
 
-Random.seed!(1234)
+d = 20
+max_bond = 5
+g_values = collect(0.0:0.1:2.0)
 
-d = 10
-H = ising_tto(d; J=1.2, h=1.2)
+function pauli_product_tto(factors, d)
+    T = promote_type((eltype(pauli_matrix(axis)) for (_, axis) in factors)...)
+    id = Matrix{T}(I, 2, 2)
+    factor_map = Dict(factors)
+    dims = ntuple(_ -> 2, d)
+    cores = Vector{Array{T, 4}}(undef, d)
 
-x0_ranks = vcat(1, fill(2, d - 1), 1)
-x0 = rand_tt(eltype(H), H.tto_dims, x0_ranks; normalise = true)
-
-energies, ground_state, rank_history = with_logger(NullLogger()) do
-    dmrg_eigsolve(H, x0; sweep_schedule = [4, 8], rmax_schedule = [4, 8])
-end
-
-H_dense = qtto_to_matrix(H)
-exact_ground_energy = first(eigvals(Hermitian(H_dense)))
-dmrg_ground_energy = energies[end]
-energy_error = abs(dmrg_ground_energy - exact_ground_energy)
-ground_entropy = entanglemententropy(ground_state; base = 2)
-
-@info "Heisenberg XYZ ground state" sites=d hamiltonian_rank=maximum(H.tto_rks) state_rank=maximum(ground_state.ttv_rks) dmrg_ground_energy exact_ground_energy energy_error final_sweep_rank=rank_history[end]
-
-ψ = qtt_to_function(ground_state)
-probabilities = abs2.(ψ)
-probabilities ./= sum(probabilities)
-basis_indices = 0:(length(probabilities) - 1)
-bond_indices = 1:(d - 1)
-
-neel_bits = [isodd(k) ? 0 : 1 for k in 1:d]
-neel_position = 1 + sum(bit * 2^(d - k) for (k, bit) in enumerate(neel_bits))
-initial_state = qtt_basis_vector(d, neel_position)
-
-dt = 0.01
-nsteps = 50
-times = collect(0:dt:(nsteps * dt))
-
-function entropy_trajectory(H, initial_state, dt, nsteps; max_bond = 8, truncerr = 1.0e-10)
-    d = initial_state.N
-    state = initial_state
-    entropy_history = zeros(Float64, nsteps + 1, d - 1)
-    rank_history = zeros(Int, nsteps + 1)
-    entropy_history[1, :] .= entanglemententropy(state; base = 2)
-    rank_history[1] = maximum(state.ttv_rks)
-
-    for step in 1:nsteps
-        state = tdvp2(H, state, [dt]; normalize = true, sweeps = 1, max_bond = max_bond, truncerr = truncerr, verbose = false)
-        entropy_history[step + 1, :] .= entanglemententropy(state; base = 2)
-        rank_history[step + 1] = maximum(state.ttv_rks)
+    for site in 1:d
+        local_matrix = haskey(factor_map, site) ? convert.(T, pauli_matrix(factor_map[site])) : id
+        cores[site] = reshape(local_matrix, 2, 2, 1, 1)
     end
-    return entropy_history, rank_history
+    return TToperator{T, d}(d, cores, dims, ones(Int, d + 1), zeros(Int, d))
 end
 
-entropy_history, time_rank_history = entropy_trajectory(H, initial_state, dt, nsteps; max_bond = 8)
+function periodic_transverse_field_ising_tto(d, g)
+    # H = -sum_i sigma_z(i) sigma_z(i+1) - g sum_i sigma_x(i),
+    # with the closing bond sigma_z(d) sigma_z(1).
+    zz_open = pauli_pair_sum_tto(:z, :z, d)
+    zz_boundary = pauli_product_tto([1 => :z, d => :z], d)
+    return (-1.0) * (zz_open + zz_boundary) + (-g) * pauli_sum_tto(:x, d)
+end
 
-@info "Real-time Heisenberg entropy growth" dt nsteps max_time=times[end] max_entropy=maximum(entropy_history) final_rank=time_rank_history[end]
+function z_magnetization(state)
+    d = state.N
+    probabilities = abs2.(qtt_to_function(state))
+    probabilities ./= sum(probabilities)
 
-fig = Figure(size = (1100, 760))
+    magnetization = 0.0
+    for (basis_index, probability) in enumerate(probabilities)
+        bits = basis_index - 1
+        spin_sum = 0.0
+        for site in 1:d
+            bit = (bits >> (d - site)) & 1
+            spin_sum += iszero(bit) ? 1.0 : -1.0
+        end
+        magnetization += probability * spin_sum / d
+    end
+    return abs(magnetization)
+end
 
-ax_prob = Axis(fig[1, 1], xlabel = "basis index", ylabel = "|ψ|²", title = "Ground-state")
-barplot!(ax_prob, basis_indices, probabilities)
+function ground_state(H, initial_state; max_bond)
+    energies, state, rank_history = with_logger(NullLogger()) do
+        dmrg_eigsolve(
+            H,
+            initial_state;
+            sweep_schedule = [2, 4],
+            rmax_schedule = [max_bond, max_bond],
+            tol = 1.0e-10,
+        )
+    end
+    return energies[end], state, rank_history[end]
+end
 
-ax_entropy = Axis(fig[1, 2], xlabel = "bond index", ylabel = "S (bits)", title = "Ground-state entanglement")
-scatterlines!(ax_entropy, bond_indices, ground_entropy; marker = :circle, linewidth = 3)
+function magnetization_sweep(d, g_values; max_bond)
+    state = qtt_basis_vector(d, 1)
 
-ax_time = Axis(fig[2, 1:2], xlabel = "time", ylabel = "bond index", title = "TDVP real-time entanglement growth")
-hm = heatmap!(ax_time, times, bond_indices, entropy_history)
-Colorbar(fig[2, 3], hm, label = "S (bits)")
+    magnetization = zeros(Float64, length(g_values))
+    energies = zeros(Float64, length(g_values))
+    ranks = zeros(Int, length(g_values))
+
+    @showprogress for (i, g) in collect(enumerate(g_values))
+        H = periodic_transverse_field_ising_tto(d, g)
+        energies[i], state, ranks[i] = ground_state(H, state; max_bond = max_bond)
+        magnetization[i] = z_magnetization(state)
+    end
+    return magnetization, energies, ranks
+end
+
+magnetization, energies, ranks = magnetization_sweep(d, g_values; max_bond = max_bond)
+
+@info "Transverse-field Ising magnetization sweep" sites=d max_bond=max_bond min_energy=minimum(energies) max_rank=maximum(ranks)
+
+fig = Figure(size = (800, 560))
+ax = Axis(
+    fig[1, 1];
+    xlabel = "g",
+    ylabel = "M",
+    title = "Magnetization",
+)
+scatter!(ax, g_values, magnetization; markersize = 12, label = "χ=$max_bond")
+axislegend(ax; position = :rt)
+xlims!(ax, minimum(g_values) - 0.05, maximum(g_values) + 0.05)
+ylims!(ax, -0.03, 1.05)
 
 display(fig)
