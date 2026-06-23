@@ -218,6 +218,59 @@ function heisenberg_xyz_tto(d::Int; jx = 1.0, jy = 1.0, jz = 1.0, λ = 0.0, fiel
 end
 
 """
+    ising_tto(d; J=1.0, h=0.0, interaction=:z, field=:x)
+
+Construct the open-boundary Ising Hamiltonian
+
+    H = J H_{interaction,interaction} + h H_field
+
+on `d` spin-1/2 sites. Coefficients are used with their given sign.
+"""
+function ising_tto(d::Int; J = 1.0, h = 0.0, interaction = :z, field = :x)
+    axis = _pauli_axis(interaction)
+    if axis == :x
+        return heisenberg_xyz_tto(d; jx = J, jy = zero(J), jz = zero(J), λ = h, field = field)
+    elseif axis == :y
+        return heisenberg_xyz_tto(d; jx = zero(J), jy = J, jz = zero(J), λ = h, field = field)
+    else
+        return heisenberg_xyz_tto(d; jx = zero(J), jy = zero(J), jz = J, λ = h, field = field)
+    end
+end
+
+"""
+    xxz_tto(d; J=1.0, Δ=1.0, h=0.0, field=:z)
+
+Construct the open-boundary XXZ Hamiltonian
+
+    H = J(H_{x,x} + H_{y,y}) + JΔ H_{z,z} + h H_field.
+"""
+function xxz_tto(d::Int; J = 1.0, Δ = 1.0, h = 0.0, field = :z)
+    return heisenberg_xyz_tto(d; jx = J, jy = J, jz = J * Δ, λ = h, field = field)
+end
+
+"""
+    xxx_tto(d; J=1.0, h=0.0, field=:z)
+
+Construct the open-boundary isotropic Heisenberg XXX Hamiltonian
+
+    H = J(H_{x,x} + H_{y,y} + H_{z,z}) + h H_field.
+"""
+function xxx_tto(d::Int; J = 1.0, h = 0.0, field = :z)
+    return heisenberg_xyz_tto(d; jx = J, jy = J, jz = J, λ = h, field = field)
+end
+
+"""
+    xy_tto(d; jx=1.0, jy=1.0, h=0.0, field=:z)
+
+Construct the open-boundary XY Hamiltonian
+
+    H = jx H_{x,x} + jy H_{y,y} + h H_field.
+"""
+function xy_tto(d::Int; jx = 1.0, jy = 1.0, h = 0.0, field = :z)
+    return heisenberg_xyz_tto(d; jx = jx, jy = jy, jz = zero(jx + jy), λ = h, field = field)
+end
+
+"""
 Constructs a tensor train operator (TTO) representation of the gradient matrix
 """
 function ∇(d::Int)

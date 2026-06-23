@@ -22,7 +22,7 @@ include("solvers/tdvp.jl")
 export to_ttvector
 function to_ttvector end
 
-export toeplitz_to_qtto, qtto_prolongation, qtto_constant_prolongation, qtto_linear_prolongation, ∇, Δ_DN, Δ_ND, Δ_NN, Δ_P, Δ, Δ⁻¹_DN, shift, pauli_matrix, pauli_sum_tto, pauli_pair_sum_tto, H_μ, H_μν, heisenberg_xyz_tto, zeros_tt, zeros_tto, rand_tt, id_tto, rand_tto, qtt_laplacian
+export toeplitz_to_qtto, qtto_prolongation, qtto_constant_prolongation, qtto_linear_prolongation, ∇, Δ_DN, Δ_ND, Δ_NN, Δ_P, Δ, Δ⁻¹_DN, shift, pauli_matrix, pauli_sum_tto, pauli_pair_sum_tto, H_μ, H_μν, heisenberg_xyz_tto, ising_tto, xxz_tto, xxx_tto, xy_tto, zeros_tt, zeros_tto, rand_tt, id_tto, rand_tto, qtt_laplacian
 include("tt_operators.jl")
 
 export gauss_chebyshev_lobatto

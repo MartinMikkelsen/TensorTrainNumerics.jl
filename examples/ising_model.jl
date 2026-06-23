@@ -7,7 +7,7 @@ using CairoMakie
 Random.seed!(1234)
 
 d = 10
-H = heisenberg_xyz_tto(d; jx = 2.0, jy = 0.8, jz = 1.2, λ = 0.5, field = :z)
+H = ising_tto(d; J=1.2, h=1.2)
 
 x0_ranks = vcat(1, fill(2, d - 1), 1)
 x0 = rand_tt(eltype(H), H.tto_dims, x0_ranks; normalise = true)

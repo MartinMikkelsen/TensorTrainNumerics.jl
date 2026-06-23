@@ -354,6 +354,35 @@ end
     @test qtto_to_matrix(H) ≈ H_ref
 end
 
+@testset "Spin-chain model constructors" begin
+    d = 4
+
+    J, h = 1.7, -0.3
+    Hising = ising_tto(d; J = J, h = h, interaction = :z, field = :x)
+    Hising_ref = J * _dense_pauli_pair_sum(:z, :z, d) + h * _dense_pauli_sum(:x, d)
+    @test qtto_to_matrix(Hising) ≈ Hising_ref
+    @test qtto_to_matrix(Hising) ≈ qtto_to_matrix(heisenberg_xyz_tto(d; jx = 0.0, jy = 0.0, jz = J, λ = h, field = :x))
+
+    Hising_x = ising_tto(d; J = J, h = h, interaction = :x, field = :z)
+    @test qtto_to_matrix(Hising_x) ≈ J * _dense_pauli_pair_sum(:x, :x, d) + h * _dense_pauli_sum(:z, d)
+
+    Jxxz, Δ, hxxz = 1.2, 0.4, 0.15
+    Hxxz = xxz_tto(d; J = Jxxz, Δ = Δ, h = hxxz, field = :z)
+    @test qtto_to_matrix(Hxxz) ≈ qtto_to_matrix(heisenberg_xyz_tto(d; jx = Jxxz, jy = Jxxz, jz = Jxxz * Δ, λ = hxxz, field = :z))
+
+    Jxxx, hxxx = -0.8, 0.25
+    Hxxx = xxx_tto(d; J = Jxxx, h = hxxx, field = :x)
+    @test qtto_to_matrix(Hxxx) ≈ qtto_to_matrix(heisenberg_xyz_tto(d; jx = Jxxx, jy = Jxxx, jz = Jxxx, λ = hxxx, field = :x))
+
+    jx, jy, hxy = 0.9, -0.6, 0.2
+    Hxy = xy_tto(d; jx = jx, jy = jy, h = hxy, field = :y)
+    Hxy_ref = jx * _dense_pauli_pair_sum(:x, :x, d) +
+              jy * _dense_pauli_pair_sum(:y, :y, d) +
+              hxy * _dense_pauli_sum(:y, d)
+    @test qtto_to_matrix(Hxy) ≈ Hxy_ref
+    @test eltype(Hxy) <: Complex
+end
+
 @testset "Inverse" begin
 
     d = 6
