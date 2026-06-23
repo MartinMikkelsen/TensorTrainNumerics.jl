@@ -277,6 +277,112 @@ end
     @test all(tto_lap.tto_vec[3] .== tto_ref.tto_vec[3])
 end
 
+function _dense_pauli(μ)
+    if μ == :x
+        return [0.0 1.0; 1.0 0.0]
+    elseif μ == :y
+        return ComplexF64[0.0 -im; im 0.0]
+    elseif μ == :z
+        return [1.0 0.0; 0.0 -1.0]
+    end
+    error("unknown Pauli axis")
+end
+
+function _dense_kron_product(mats)
+    return reduce(kron, mats)
+end
+
+function _dense_pauli_sum(μ, d)
+    P = _dense_pauli(μ)
+    T = eltype(P)
+    id = Matrix{T}(I, 2, 2)
+    out = zeros(T, 2^d, 2^d)
+    for site in 1:d
+        mats = [site == k ? P : id for k in 1:d]
+        out += _dense_kron_product(mats)
+    end
+    return out
+end
+
+function _dense_pauli_pair_sum(μ, ν, d)
+    Pμ = _dense_pauli(μ)
+    Pν = _dense_pauli(ν)
+    T = promote_type(eltype(Pμ), eltype(Pν))
+    id = Matrix{T}(I, 2, 2)
+    out = zeros(T, 2^d, 2^d)
+    for site in 1:(d - 1)
+        mats = [k == site ? Pμ : k == site + 1 ? Pν : id for k in 1:d]
+        out += _dense_kron_product(mats)
+    end
+    return out
+end
+
+@testset "Pauli spin-chain operators" begin
+    @test pauli_matrix(:x) == [0.0 1.0; 1.0 0.0]
+    @test pauli_matrix(:y) == ComplexF64[0.0 -im; im 0.0]
+    @test pauli_matrix(:z) == [1.0 0.0; 0.0 -1.0]
+
+    d = 4
+    Hx = pauli_sum_tto(:x, d)
+    Hy = pauli_sum_tto(:y, d)
+    Hxz = pauli_pair_sum_tto(:x, :z, d)
+    Hyy = pauli_pair_sum_tto(:y, :y, d)
+
+    @test Hx isa TToperator{Float64, 4}
+    @test Hy isa TToperator{ComplexF64, 4}
+    @test maximum(Hx.tto_rks) == 2
+    @test maximum(Hxz.tto_rks) == 3
+    @test qtto_to_matrix(Hx) ≈ _dense_pauli_sum(:x, d)
+    @test qtto_to_matrix(Hy) ≈ _dense_pauli_sum(:y, d)
+    @test qtto_to_matrix(Hxz) ≈ _dense_pauli_pair_sum(:x, :z, d)
+    @test qtto_to_matrix(Hyy) ≈ _dense_pauli_pair_sum(:y, :y, d)
+    @test qtto_to_matrix(H_μ(:z, d)) ≈ _dense_pauli_sum(:z, d)
+    @test qtto_to_matrix(H_μν(:z, :z, d)) ≈ _dense_pauli_pair_sum(:z, :z, d)
+end
+
+@testset "Heisenberg XYZ Hamiltonian" begin
+    d = 4
+    jx, jy, jz, λ = 1.2, 0.7, -0.4, 0.25
+    H = heisenberg_xyz_tto(d; jx = jx, jy = jy, jz = jz, λ = λ, field = :x)
+    H_ref = jx * _dense_pauli_pair_sum(:x, :x, d) +
+            jy * _dense_pauli_pair_sum(:y, :y, d) +
+            jz * _dense_pauli_pair_sum(:z, :z, d) +
+            λ * _dense_pauli_sum(:x, d)
+
+    @test H isa TToperator{Float64, 4}
+    @test maximum(H.tto_rks) <= 7
+    @test qtto_to_matrix(H) ≈ H_ref
+end
+
+@testset "Spin-chain model constructors" begin
+    d = 4
+
+    J, h = 1.7, -0.3
+    Hising = ising_tto(d; J = J, h = h, interaction = :z, field = :x)
+    Hising_ref = J * _dense_pauli_pair_sum(:z, :z, d) + h * _dense_pauli_sum(:x, d)
+    @test qtto_to_matrix(Hising) ≈ Hising_ref
+    @test qtto_to_matrix(Hising) ≈ qtto_to_matrix(heisenberg_xyz_tto(d; jx = 0.0, jy = 0.0, jz = J, λ = h, field = :x))
+
+    Hising_x = ising_tto(d; J = J, h = h, interaction = :x, field = :z)
+    @test qtto_to_matrix(Hising_x) ≈ J * _dense_pauli_pair_sum(:x, :x, d) + h * _dense_pauli_sum(:z, d)
+
+    Jxxz, Δ, hxxz = 1.2, 0.4, 0.15
+    Hxxz = xxz_tto(d; J = Jxxz, Δ = Δ, h = hxxz, field = :z)
+    @test qtto_to_matrix(Hxxz) ≈ qtto_to_matrix(heisenberg_xyz_tto(d; jx = Jxxz, jy = Jxxz, jz = Jxxz * Δ, λ = hxxz, field = :z))
+
+    Jxxx, hxxx = -0.8, 0.25
+    Hxxx = xxx_tto(d; J = Jxxx, h = hxxx, field = :x)
+    @test qtto_to_matrix(Hxxx) ≈ qtto_to_matrix(heisenberg_xyz_tto(d; jx = Jxxx, jy = Jxxx, jz = Jxxx, λ = hxxx, field = :x))
+
+    jx, jy, hxy = 0.9, -0.6, 0.2
+    Hxy = xy_tto(d; jx = jx, jy = jy, h = hxy, field = :y)
+    Hxy_ref = jx * _dense_pauli_pair_sum(:x, :x, d) +
+              jy * _dense_pauli_pair_sum(:y, :y, d) +
+              hxy * _dense_pauli_sum(:y, d)
+    @test qtto_to_matrix(Hxy) ≈ Hxy_ref
+    @test eltype(Hxy) <: Complex
+end
+
 @testset "Inverse" begin
 
     d = 6

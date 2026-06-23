@@ -965,6 +965,24 @@ end
     end
 end
 
+@testset "entanglemententropy" begin
+    product_state = qtt_basis_vector(4, 1)
+    @test entanglemententropy(product_state) ≈ zeros(3)
+
+    bell_tensor = zeros(Float64, 2, 2)
+    bell_tensor[1, 1] = inv(sqrt(2))
+    bell_tensor[2, 2] = inv(sqrt(2))
+    bell_state = ttv_decomp(bell_tensor)
+    @test entanglemententropy(bell_state) ≈ [log(2)]
+    @test entanglemententropy(bell_state; base = 2) ≈ [1.0]
+
+    ghz_tensor = zeros(ComplexF64, 2, 2, 2)
+    ghz_tensor[1, 1, 1] = inv(sqrt(2))
+    ghz_tensor[2, 2, 2] = im / sqrt(2)
+    ghz_state = ttv_decomp(ghz_tensor)
+    @test entanglemententropy(ghz_state) ≈ fill(log(2), 2)
+end
+
 
 @testset "matricize" begin
     d = 3

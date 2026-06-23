@@ -78,6 +78,16 @@ end
     @test check_compat(ttv, ttv) === nothing
 end
 
+@testset "QTTvector entanglemententropy" begin
+    bell_tensor = zeros(Float64, 2, 2)
+    bell_tensor[1, 1] = inv(sqrt(2))
+    bell_tensor[2, 2] = inv(sqrt(2))
+    q = QTTvector(ttv_decomp(bell_tensor), 1, 2, :serial)
+
+    @test entanglemententropy(q) ≈ [log(2)]
+    @test entanglemententropy(q; base = 2) ≈ [1.0]
+end
+
 @testset "QTTvector dispatch methods" begin
     ttv = rand_tt(fill(2, 6), 2)
     q1 = QTTvector(ttv, 2, 3, :interleaved)
