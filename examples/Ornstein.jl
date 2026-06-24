@@ -14,6 +14,12 @@ using CairoMakie
 # TT format with ALS.  ALS performs a direct (non-symmetric) local solve, which
 # is required here because the advection operator ∇M is non-symmetric — the
 # MALS/DMRG local solves symmetrise the system and diverge for this problem.
+# CN+ALS is the right tool here because it is *implicit* — unconditionally stable
+# for any stiffness. TDVP steps via a local matrix exponential, which is NOT
+# unconditionally stable: at this fine grid (D/h² ≈ 4e4) tdvp2 needs dt ≈ 2e-4 vs
+# CN's 0.02 to stay bounded (~100× more steps, hence impractical), and single-site
+# tdvp is unstable at any dt on this non-normal advection operator. Not a bug —
+# the inherent limit of explicit-exponential vs implicit time-stepping.
 
 # --- model parameters --------------------------------------------------------
 θ = 1.0           # mean-reversion rate
@@ -49,7 +55,7 @@ var∞ = D / θ
 P∞ = @. exp(-(xes - μ)^2 / (2var∞)) / sqrt(2π * var∞)
 
 # --- Crank–Nicholson march, recording snapshots and the error to P∞ ----------
-τ         = 0.02
+τ         = 0.001
 record_dt = 0.4
 T         = 8.0
 block     = round(Int, record_dt / τ)

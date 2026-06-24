@@ -158,6 +158,40 @@ end
     @test rel_error < 1.0e-8
 end
 
+@testset "Crank-Nicholson Krylov solver supports bounded BiCGStab" begin
+    d = 5
+    A = 0.1 * ∇(d)
+    tt_dims = ntuple(_ -> 2, d)
+    tt_rks = [1; fill(2, d - 1); 1]
+    max_bond = 8
+
+    u₀ = rand_tt(tt_dims, tt_rks)
+    guess = u₀
+    steps = [0.05]
+
+    sol_tt = crank_nicholson_method(A, u₀, guess, steps;
+        normalize = false,
+        tt_solver = "krylov",
+        max_bond = max_bond,
+        krylov_solver = :bicgstab,
+        maxiter = 30,
+        rtol = 1.0e-10,
+        atol = 1.0e-12,
+        verbosity = 0)
+
+    A_dense = qtto_to_matrix(A)
+    u_dense = qtt_to_function(u₀)
+    I = qtto_to_matrix(id_tto(A.N))
+    sol_dense = (I - 0.5 * steps[1] * A_dense) \ ((I + 0.5 * steps[1] * A_dense) * u_dense)
+
+    sol_tt_vec = qtt_to_function(sol_tt)
+    rel_error = norm(sol_tt_vec - sol_dense) / norm(sol_dense)
+
+    @test rel_error < 1.0e-7
+    @test maximum(sol_tt.ttv_rks) <= max_bond
+    @test TensorTrainNumerics.KRYLOV_ROUND_RANK[] == 0
+end
+
 @testset "rk4_method basic test" begin
     d = 4
     h = 1 / d^2

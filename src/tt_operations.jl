@@ -207,13 +207,8 @@ function *(a::S, A::TTvector{R, N}) where {S <: Number, R <: Number, N}
         return zeros_tt(T, A.ttv_dims, A.ttv_rks)
     end
     i = findfirst(==(0), A.ttv_ot); i === nothing && (i = 1)
-    X = copy(A.ttv_vec)
+    X = [convert(Array{T, 3}, c) for c in A.ttv_vec]   # promote cores to T before scaling
     X[i] = aT * X[i]
-    if T != R
-        @inbounds for k in eachindex(X)
-            X[k] = convert.(T, X[k])
-        end
-    end
     return TTvector{T, N}(A.N, X, A.ttv_dims, A.ttv_rks, A.ttv_ot)
 end
 
@@ -227,13 +222,8 @@ function *(a::S, A::TToperator{R, N}) where {S <: Number, R <: Number, N}
         return zeros_tto(T, A.tto_dims, A.tto_rks)
     end
     i = findfirst(==(0), A.tto_ot); i === nothing && (i = 1)
-    X = copy(A.tto_vec)
+    X = [convert(Array{T, 4}, c) for c in A.tto_vec]   # promote cores to T before scaling
     X[i] = aT * X[i]
-    if T != R
-        @inbounds for k in eachindex(X)
-            X[k] = convert.(T, X[k])
-        end
-    end
     return TToperator{T, N}(A.N, X, A.tto_dims, A.tto_rks, A.tto_ot)
 end
 
