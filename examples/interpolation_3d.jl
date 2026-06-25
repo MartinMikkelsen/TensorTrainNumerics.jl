@@ -17,7 +17,7 @@ f3d(x, y, z) = _f3d(x, y, z)
 f3d(c::AbstractVector) = _f3d(c...)
 
 numbits = 6
-degree  = 4
+degree = 4
 
 tt_tci = interpolatesinglescale(f3d, (0.0, 0.0, 0.0), (1.0, 1.0, 1.0), numbits, degree)
 println("TCI bond dims:   ", TCI.linkdims(tt_tci))
@@ -47,9 +47,9 @@ h = 1.0 / (2^numbits - 1)
 arr_native = qttv_to_array(q_native_sr)
 err_native = 0.0
 for _ in 1:500
-    ix, iy, iz = rand(0:2^numbits-1), rand(0:2^numbits-1), rand(0:2^numbits-1)
+    ix, iy, iz = rand(0:(2^numbits - 1)), rand(0:(2^numbits - 1)), rand(0:(2^numbits - 1))
     x, y, z = ix * h, iy * h, iz * h
-    global err_native = max(err_native, abs(arr_native[ix+1, iy+1, iz+1] - f3d(x, y, z)))
+    global err_native = max(err_native, abs(arr_native[ix + 1, iy + 1, iz + 1] - f3d(x, y, z)))
 end
 println("max |native − f3d| at equispaced grid pts: ", err_native)
 
@@ -85,7 +85,7 @@ println("max |TCI − TTN| (100 samples): ", max_err_ms)
 
 # Compress the multiscale TTvector
 tt_ms_c = copy(tt_ms)
-tt_compress!(tt_ms_c, 20; truncerr = 1e-8, sweeps = 5)
+tt_compress!(tt_ms_c, 20; truncerr = 1.0e-8, sweeps = 5)
 println("\nAfter tt_compress! (max_bond=20, tol=1e-8):")
 println("  Bond dims: ", tt_ms_c.ttv_rks)
 

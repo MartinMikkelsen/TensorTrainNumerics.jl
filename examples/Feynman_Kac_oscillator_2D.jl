@@ -27,8 +27,8 @@ h = (hi - lo) / (N - 1); xes = collect(range(lo, hi, N))
 # --- operator  A = ½∇² − V  (= −H), serial 2D layout (sites 1:d = x, d+1:2d = y)
 ∂xx = -(1 / h^2) * Δ(d)                                       # = d²/dx²
 idd = id_tto(d)
-X2  = ttv_to_diag_tto(qtt_polynom([0.0, 0.0, 1.0], d; a = lo, b = hi))   # diag(x²)
-X1  = ttv_to_diag_tto(qtt_polynom([0.0, 1.0], d; a = lo, b = hi))        # diag(x)
+X2 = ttv_to_diag_tto(qtt_polynom([0.0, 0.0, 1.0], d; a = lo, b = hi))   # diag(x²)
+X1 = ttv_to_diag_tto(qtt_polynom([0.0, 1.0], d; a = lo, b = hi))        # diag(x)
 A = 0.5 * (∂xx ⊗ idd + idd ⊗ ∂xx) -
     (0.5a_ * (X2 ⊗ idd) + 0.5b_ * (idd ⊗ X2) + c_ * (X1 ⊗ X1))
 H = (-1.0) * A                                               # H_HO, for the energy
@@ -53,7 +53,7 @@ energy(u) = real(dot(u, H * u)) / real(dot(u, u))
 # --- isotropic Gaussian payoff, rank-enriched so ALS can develop correlation -
 gx = function_to_qtt(t -> exp(-0.5 * α * (lo + (hi - lo) * t)^2), d)
 Random.seed!(42)                                              # reproducible enrichment noise
-u₀ = TensorTrainNumerics.increase_ranks(gx ⊗ gx, 16; noise = 1e-2)
+u₀ = TensorTrainNumerics.increase_ranks(gx ⊗ gx, 16; noise = 1.0e-2)
 
 # --- Crank–Nicholson march in τ, recording density, energy, correlation ------
 τstep = 0.02; record_dt = 0.2; T = 6.0      # record_dt must be a multiple of τstep
@@ -70,7 +70,7 @@ function record!(u)
     vx = sum((xes .- mx) .^ 2 .* vec(sum(P, dims = 2))) * h^2
     vy = sum((xes .- my) .^ 2 .* vec(sum(P, dims = 1))) * h^2
     cov = sum((xes .- mx) .* P .* (xes .- my)') * h^2
-    push!(ρ_num, cov / sqrt(vx * vy))
+    return push!(ρ_num, cov / sqrt(vx * vy))
 end
 
 u = u₀; record!(u)
@@ -107,15 +107,19 @@ end
 # --- Figure 2: energy → E₀ and correlation developing -----------------------
 let
     fig = Figure(size = (1000, 420))
-    ax1 = Axis(fig[1, 1], xlabel = "τ", ylabel = "energy ⟨u|H|u⟩/⟨u|u⟩",
-        title = "Relaxation to the coupled ground state")
+    ax1 = Axis(
+        fig[1, 1], xlabel = "τ", ylabel = "energy ⟨u|H|u⟩/⟨u|u⟩",
+        title = "Relaxation to the coupled ground state"
+    )
     lines!(ax1, times, E_num, linewidth = 2.5, label = "numerical")
     lines!(ax1, times, E_riccati.(times), color = :black, linestyle = :dash, label = "normal-mode Riccati")
     hlines!(ax1, [E0], color = :gray, linestyle = :dot, label = "E₀ = ½(Ω₁+Ω₂)")
     axislegend(ax1; position = :rt)
 
-    ax2 = Axis(fig[1, 2], xlabel = "τ", ylabel = "correlation ρ(τ)",
-        title = "Correlation developing from the coupling")
+    ax2 = Axis(
+        fig[1, 2], xlabel = "τ", ylabel = "correlation ρ(τ)",
+        title = "Correlation developing from the coupling"
+    )
     lines!(ax2, times, ρ_num, linewidth = 2.5, label = "numerical")
     lines!(ax2, times, ρ_riccati.(times), color = :black, linestyle = :dash, label = "normal-mode Riccati")
     hlines!(ax2, [ρ∞], color = :gray, linestyle = :dot, label = "ρ∞ = ρ of ½(√K)⁻¹")

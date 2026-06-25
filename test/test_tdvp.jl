@@ -347,8 +347,10 @@ end
     err_tdvp = norm(vec(qttv_to_array(sol_tdvp) .- target)) / norm(vec(target))
     @test err_tdvp < 1.0e-8
 
-    sol_tdvp2 = tdvp2(A, u0, steps; imaginary_time = true, normalize = false,
-        verbose = false, max_bond = 8, truncerr = 1.0e-12)
+    sol_tdvp2 = tdvp2(
+        A, u0, steps; imaginary_time = true, normalize = false,
+        verbose = false, max_bond = 8, truncerr = 1.0e-12
+    )
     err_tdvp2 = norm(vec(qttv_to_array(sol_tdvp2) .- target)) / norm(vec(target))
     @test err_tdvp2 < 1.0e-8
 end
@@ -364,8 +366,10 @@ end
     for it in (false, true)
         _, e1 = tdvp(A, u0, steps; imaginary_time = it, return_error = true, normalize = false, verbose = false)
         @test e1 < 1.0e-3
-        _, e2 = tdvp2(A, u0, steps; imaginary_time = it, return_error = true, normalize = false,
-            verbose = false, max_bond = 8, truncerr = 1.0e-12)
+        _, e2 = tdvp2(
+            A, u0, steps; imaginary_time = it, return_error = true, normalize = false,
+            verbose = false, max_bond = 8, truncerr = 1.0e-12
+        )
         @test e2 < 1.0e-3
     end
 end

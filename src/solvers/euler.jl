@@ -6,7 +6,8 @@ using KrylovKit
 # solves. 0 = no truncation, the default used everywhere else (Manopt, etc.).
 const KRYLOV_ROUND_RANK = Ref{Int}(0)
 
-function _krylov_algorithm(krylov_solver::Symbol, max_bond::Int;
+function _krylov_algorithm(
+        krylov_solver::Symbol, max_bond::Int;
         krylovdim::Int,
         maxiter::Int,
         tol::Real,
@@ -22,14 +23,16 @@ function _krylov_algorithm(krylov_solver::Symbol, max_bond::Int;
             maxiter = maxiter,
             tol = tol,
             orth = orth,
-            verbosity = verbosity)
+            verbosity = verbosity
+        )
     elseif solver == :cg
         return KrylovKit.CG(; maxiter = krylovdim * maxiter, tol = tol, verbosity = verbosity)
     end
     throw(ArgumentError("Unknown Krylov solver: $krylov_solver. Use :auto, :bicgstab, :cg, or :gmres."))
 end
 
-function krylov_linsolve(A::AbstractTToperator, b::AbstractTTvector, guess::AbstractTTvector;
+function krylov_linsolve(
+        A::AbstractTToperator, b::AbstractTTvector, guess::AbstractTTvector;
         max_bond::Int = 0,
         krylov_solver::Symbol = :auto,
         krylovdim::Int = 8,
@@ -42,7 +45,8 @@ function krylov_linsolve(A::AbstractTToperator, b::AbstractTTvector, guess::Abst
         ishermitian::Bool = issymmetric,
         isposdef::Bool = false,
         verbosity::Int = 0,
-        kwargs...)
+        kwargs...
+    )
     # Keep the Krylov iterates from accumulating rank: rank(A*x) = rank(A)*rank(x),
     # and the VectorInterface ops otherwise only orthogonalize (no truncation), so
     # Krylov solves can blow up the bond dimension. We cap the matvec output here
@@ -51,12 +55,14 @@ function krylov_linsolve(A::AbstractTToperator, b::AbstractTTvector, guess::Abst
     op = max_bond > 0 ? (x -> tt_compress!(A * x, max_bond)) : (x -> A * x)
     solver = krylov_solver == :auto && isposdef && (issymmetric || ishermitian) ? :cg : krylov_solver
     tol_value = isnothing(tol) ? max(atol, rtol * norm(b)) : tol
-    alg = _krylov_algorithm(solver, max_bond;
+    alg = _krylov_algorithm(
+        solver, max_bond;
         krylovdim = krylovdim,
         maxiter = maxiter,
         tol = tol_value,
         orth = orth,
-        verbosity = verbosity)
+        verbosity = verbosity
+    )
     old = KRYLOV_ROUND_RANK[]
     KRYLOV_ROUND_RANK[] = max_bond
     try
@@ -108,11 +114,13 @@ function implicit_euler_method(
     @showprogress for h in steps
         M = I - h * A
 
-        next = (tt_solver == "mals" ? mals_linsolve(M, solution, guess; kwargs...) :
-            tt_solver == "als" ? als_linsolve(M, solution, guess; kwargs...) :
-            tt_solver == "dmrg" ? dmrg_linsolve(M, solution, guess; kwargs...) :
-            tt_solver == "krylov" ? krylov_linsolve(M, solution, guess; max_bond = max_bond, kwargs...) :
-            error("Unknown TT solver: $tt_solver"))::AbstractTTvector
+        next = (
+            tt_solver == "mals" ? mals_linsolve(M, solution, guess; kwargs...) :
+                tt_solver == "als" ? als_linsolve(M, solution, guess; kwargs...) :
+                tt_solver == "dmrg" ? dmrg_linsolve(M, solution, guess; kwargs...) :
+                tt_solver == "krylov" ? krylov_linsolve(M, solution, guess; max_bond = max_bond, kwargs...) :
+                error("Unknown TT solver: $tt_solver")
+        )::AbstractTTvector
 
         if normalize
             next = next / norm(next)
@@ -153,11 +161,13 @@ function crank_nicholson_method(
         LHS = I - (h / 2) * A
         RHS = (I + (h / 2) * A) * solution
 
-        next = (tt_solver == "mals" ? mals_linsolve(LHS, RHS, guess; kwargs...) :
-            tt_solver == "als" ? als_linsolve(LHS, RHS, guess; kwargs...) :
-            tt_solver == "dmrg" ? dmrg_linsolve(LHS, RHS, guess; kwargs...) :
-            tt_solver == "krylov" ? krylov_linsolve(LHS, RHS, guess; max_bond = max_bond, kwargs...) :
-            error("Unknown TT solver: $tt_solver"))::AbstractTTvector
+        next = (
+            tt_solver == "mals" ? mals_linsolve(LHS, RHS, guess; kwargs...) :
+                tt_solver == "als" ? als_linsolve(LHS, RHS, guess; kwargs...) :
+                tt_solver == "dmrg" ? dmrg_linsolve(LHS, RHS, guess; kwargs...) :
+                tt_solver == "krylov" ? krylov_linsolve(LHS, RHS, guess; max_bond = max_bond, kwargs...) :
+                error("Unknown TT solver: $tt_solver")
+        )::AbstractTTvector
 
         if normalize
             next = next / norm(next)

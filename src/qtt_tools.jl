@@ -435,10 +435,10 @@ Wrap a `TTvector` as a `QTTvector` by specifying multi-dimensional QTT metadata.
 All physical dimensions in `ttv` must be 2.
 """
 function QTTvector(ttv::TTvector{T, M}, n_dims::Int, bits_per_dim::Int, ordering::Symbol) where {T, M}
-    @assert n_dims * bits_per_dim == ttv.N "n_dims * bits_per_dim must equal ttv.N (got $(n_dims)*$(bits_per_dim)=$(n_dims*bits_per_dim) ≠ $(ttv.N))"
+    @assert n_dims * bits_per_dim == ttv.N "n_dims * bits_per_dim must equal ttv.N (got $(n_dims)*$(bits_per_dim)=$(n_dims * bits_per_dim) ≠ $(ttv.N))"
     @assert all(==(2), ttv.ttv_dims) "All physical dimensions must be 2 for QTT (got $(ttv.ttv_dims))"
     @assert ordering ∈ (:interleaved, :serial) "ordering must be :interleaved or :serial (got $ordering)"
-    QTTvector{T, M}(ttv.N, ttv.ttv_vec, ttv.ttv_dims, ttv.ttv_rks, ttv.ttv_ot, n_dims, bits_per_dim, ordering)
+    return QTTvector{T, M}(ttv.N, ttv.ttv_vec, ttv.ttv_dims, ttv.ttv_rks, ttv.ttv_ot, n_dims, bits_per_dim, ordering)
 end
 
 """
@@ -455,10 +455,10 @@ Wrap a `TToperator` as a `QTToperator` by specifying multi-dimensional QTT metad
 All physical dimensions in `tto` must be 2.
 """
 function QTToperator(tto::TToperator{T, M}, n_dims::Int, bits_per_dim::Int, ordering::Symbol) where {T, M}
-    @assert n_dims * bits_per_dim == tto.N "n_dims * bits_per_dim must equal tto.N (got $(n_dims)*$(bits_per_dim)=$(n_dims*bits_per_dim) ≠ $(tto.N))"
+    @assert n_dims * bits_per_dim == tto.N "n_dims * bits_per_dim must equal tto.N (got $(n_dims)*$(bits_per_dim)=$(n_dims * bits_per_dim) ≠ $(tto.N))"
     @assert all(==(2), tto.tto_dims) "All physical dimensions must be 2 for QTT (got $(tto.tto_dims))"
     @assert ordering ∈ (:interleaved, :serial) "ordering must be :interleaved or :serial (got $ordering)"
-    QTToperator{T, M}(tto.N, tto.tto_vec, tto.tto_dims, tto.tto_rks, tto.tto_ot, n_dims, bits_per_dim, ordering)
+    return QTToperator{T, M}(tto.N, tto.tto_vec, tto.tto_dims, tto.tto_rks, tto.tto_ot, n_dims, bits_per_dim, ordering)
 end
 
 """
@@ -487,7 +487,7 @@ Throws AssertionError if incompatible.
 function check_compat(a::QTTvector, b::QTTvector)
     @assert a.n_dims == b.n_dims "QTTvector n_dims mismatch: $(a.n_dims) ≠ $(b.n_dims)"
     @assert a.bits_per_dim == b.bits_per_dim "QTTvector bits_per_dim mismatch: $(a.bits_per_dim) ≠ $(b.bits_per_dim)"
-    @assert a.ordering == b.ordering "QTTvector ordering mismatch: $(a.ordering) ≠ $(b.ordering)"
+    return @assert a.ordering == b.ordering "QTTvector ordering mismatch: $(a.ordering) ≠ $(b.ordering)"
 end
 
 """
@@ -500,7 +500,7 @@ Throws AssertionError if incompatible.
 function check_compat(A::QTToperator, ψ::QTTvector)
     @assert A.n_dims == ψ.n_dims "QTToperator/QTTvector n_dims mismatch: $(A.n_dims) ≠ $(ψ.n_dims)"
     @assert A.bits_per_dim == ψ.bits_per_dim "QTToperator/QTTvector bits_per_dim mismatch: $(A.bits_per_dim) ≠ $(ψ.bits_per_dim)"
-    @assert A.ordering == ψ.ordering "QTToperator/QTTvector ordering mismatch: $(A.ordering) ≠ $(ψ.ordering)"
+    return @assert A.ordering == ψ.ordering "QTToperator/QTTvector ordering mismatch: $(A.ordering) ≠ $(ψ.ordering)"
 end
 
 """
@@ -520,104 +520,104 @@ check_compat(::TToperator, ::TTvector) = nothing
 function check_compat(A::QTToperator, B::QTToperator)
     @assert A.n_dims == B.n_dims "QTToperator n_dims mismatch: $(A.n_dims) ≠ $(B.n_dims)"
     @assert A.bits_per_dim == B.bits_per_dim "QTToperator bits_per_dim mismatch: $(A.bits_per_dim) ≠ $(B.bits_per_dim)"
-    @assert A.ordering == B.ordering "QTToperator ordering mismatch: $(A.ordering) ≠ $(B.ordering)"
+    return @assert A.ordering == B.ordering "QTToperator ordering mismatch: $(A.ordering) ≠ $(B.ordering)"
 end
 
 function orthogonalize(q::QTTvector; i::Int = 1)
-    QTTvector(orthogonalize(TTvector(q); i = i), q.n_dims, q.bits_per_dim, q.ordering)
+    return QTTvector(orthogonalize(TTvector(q); i = i), q.n_dims, q.bits_per_dim, q.ordering)
 end
 
 function Base.copy(q::QTTvector)
-    QTTvector(copy(TTvector(q)), q.n_dims, q.bits_per_dim, q.ordering)
+    return QTTvector(copy(TTvector(q)), q.n_dims, q.bits_per_dim, q.ordering)
 end
 
 function Base.complex(q::QTTvector)
-    QTTvector(complex(TTvector(q)), q.n_dims, q.bits_per_dim, q.ordering)
+    return QTTvector(complex(TTvector(q)), q.n_dims, q.bits_per_dim, q.ordering)
 end
 
 function Base.:+(a::QTTvector, b::QTTvector)
     check_compat(a, b)
-    QTTvector(TTvector(a) + TTvector(b), a.n_dims, a.bits_per_dim, a.ordering)
+    return QTTvector(TTvector(a) + TTvector(b), a.n_dims, a.bits_per_dim, a.ordering)
 end
 
 function Base.:-(a::QTTvector, b::QTTvector)
     check_compat(a, b)
-    QTTvector(TTvector(a) - TTvector(b), a.n_dims, a.bits_per_dim, a.ordering)
+    return QTTvector(TTvector(a) - TTvector(b), a.n_dims, a.bits_per_dim, a.ordering)
 end
 
 function Base.:*(α::Number, q::QTTvector)
-    QTTvector(α * TTvector(q), q.n_dims, q.bits_per_dim, q.ordering)
+    return QTTvector(α * TTvector(q), q.n_dims, q.bits_per_dim, q.ordering)
 end
 
 function Base.:*(q::QTTvector, α::Number)
-    QTTvector(TTvector(q) * α, q.n_dims, q.bits_per_dim, q.ordering)
+    return QTTvector(TTvector(q) * α, q.n_dims, q.bits_per_dim, q.ordering)
 end
 
 function hadamard(a::QTTvector, b::QTTvector)
     check_compat(a, b)
-    QTTvector(hadamard(TTvector(a), TTvector(b)), a.n_dims, a.bits_per_dim, a.ordering)
+    return QTTvector(hadamard(TTvector(a), TTvector(b)), a.n_dims, a.bits_per_dim, a.ordering)
 end
 
 function LinearAlgebra.dot(a::QTTvector, b::QTTvector)
     check_compat(a, b)
-    dot(TTvector(a), TTvector(b))
+    return dot(TTvector(a), TTvector(b))
 end
 
 function dot(a::QTTvector, b::QTTvector)
     check_compat(a, b)
-    dot(TTvector(a), TTvector(b))
+    return dot(TTvector(a), TTvector(b))
 end
 
 function LinearAlgebra.norm(q::QTTvector)
-    norm(TTvector(q))
+    return norm(TTvector(q))
 end
 
 function Base.copy(A::QTToperator{T, M}) where {T, M}
     tto = TToperator(A)
     tto_copy = TToperator{T, M}(tto.N, copy.(tto.tto_vec), tto.tto_dims, copy(tto.tto_rks), copy(tto.tto_ot))
-    QTToperator(tto_copy, A.n_dims, A.bits_per_dim, A.ordering)
+    return QTToperator(tto_copy, A.n_dims, A.bits_per_dim, A.ordering)
 end
 
 function Base.:+(A::QTToperator, B::QTToperator)
     check_compat(A, B)
-    QTToperator(TToperator(A) + TToperator(B), A.n_dims, A.bits_per_dim, A.ordering)
+    return QTToperator(TToperator(A) + TToperator(B), A.n_dims, A.bits_per_dim, A.ordering)
 end
 
 function Base.:*(α::Number, A::QTToperator)
-    QTToperator(α * TToperator(A), A.n_dims, A.bits_per_dim, A.ordering)
+    return QTToperator(α * TToperator(A), A.n_dims, A.bits_per_dim, A.ordering)
 end
 
 function Base.:*(A::QTToperator, ψ::QTTvector)
     check_compat(A, ψ)
-    QTTvector(TToperator(A) * TTvector(ψ), ψ.n_dims, ψ.bits_per_dim, ψ.ordering)
+    return QTTvector(TToperator(A) * TTvector(ψ), ψ.n_dims, ψ.bits_per_dim, ψ.ordering)
 end
 
 function Base.:*(A::TToperator, q::QTTvector)
-    A * TTvector(q)
+    return A * TTvector(q)
 end
 
 function Base.:*(A::QTToperator, v::TTvector)
-    TToperator(A) * v
+    return TToperator(A) * v
 end
 
 function Base.:-(a::QTTvector, b::TTvector)
-    TTvector(a) - b
+    return TTvector(a) - b
 end
 
 function Base.:-(a::TTvector, b::QTTvector)
-    a - TTvector(b)
+    return a - TTvector(b)
 end
 
 function Base.:+(a::QTTvector, b::TTvector)
-    TTvector(a) + b
+    return TTvector(a) + b
 end
 
 function Base.:+(a::TTvector, b::QTTvector)
-    a + TTvector(b)
+    return a + TTvector(b)
 end
 
 function Base.:/(q::QTTvector, α::Number)
-    QTTvector(TTvector(q) / α, q.n_dims, q.bits_per_dim, q.ordering)
+    return QTTvector(TTvector(q) / α, q.n_dims, q.bits_per_dim, q.ordering)
 end
 
 dot(a::TTvector, b::QTTvector) = dot(a, TTvector(b))
@@ -627,19 +627,19 @@ LinearAlgebra.dot(a::TTvector, b::QTTvector) = dot(a, TTvector(b))
 LinearAlgebra.dot(a::QTTvector, b::TTvector) = dot(TTvector(a), b)
 
 function Base.:-(A::TToperator, B::QTToperator)
-    A - TToperator(B)
+    return A - TToperator(B)
 end
 
 function Base.:-(A::QTToperator, B::TToperator)
-    TToperator(A) - B  # TToperator(q::QTToperator) strips metadata
+    return TToperator(A) - B  # TToperator(q::QTToperator) strips metadata
 end
 
 function Base.:+(A::TToperator, B::QTToperator)
-    A + TToperator(B)
+    return A + TToperator(B)
 end
 
 function Base.:+(A::QTToperator, B::TToperator)
-    TToperator(A) + B  # TToperator(q::QTToperator) strips metadata
+    return TToperator(A) + B  # TToperator(q::QTToperator) strips metadata
 end
 
 """
@@ -653,8 +653,10 @@ re-factorized via a (possibly truncated) SVD.
 
 Returns `(new_A, new_B)` with the swapped cores.
 """
-function _swap_adjacent_sites(A::AbstractArray{T, 3}, B::AbstractArray{T, 3};
-        threshold::Real = 0.0) where {T}
+function _swap_adjacent_sites(
+        A::AbstractArray{T, 3}, B::AbstractArray{T, 3};
+        threshold::Real = 0.0
+    ) where {T}
     d1, rl, rm = size(A)   # (phys_dim=2, left_rank, mid_rank)
     d2, _rm, rr = size(B)  # (phys_dim=2, mid_rank, right_rank)
 
@@ -785,7 +787,7 @@ end
 Increase the bond dimension of a `QTTvector`, preserving QTT metadata.
 """
 function increase_ranks(q::QTTvector, max_bond::Int; kwargs...)
-    QTTvector(increase_ranks(TTvector(q), max_bond; kwargs...), q.n_dims, q.bits_per_dim, q.ordering)
+    return QTTvector(increase_ranks(TTvector(q), max_bond; kwargs...), q.n_dims, q.bits_per_dim, q.ordering)
 end
 
 """
@@ -796,8 +798,10 @@ per dimension and return a `QTTvector`. `f` receives an `n_dims`-length coordina
 
 Grid points: `a + i * (b - a) / (2^bits_per_dim - 1)` for `i = 0, ..., 2^bits_per_dim - 1`.
 """
-function function_to_qttv(f, n_dims::Int, bits_per_dim::Int;
-        ordering::Symbol = :interleaved, a::Real = 0.0, b::Real = 1.0)
+function function_to_qttv(
+        f, n_dims::Int, bits_per_dim::Int;
+        ordering::Symbol = :interleaved, a::Real = 0.0, b::Real = 1.0
+    )
     N = n_dims * bits_per_dim
     n_pts = 2^bits_per_dim
     h = (b - a) / (n_pts - 1)
@@ -841,8 +845,10 @@ result is re-factorized via a (possibly truncated) SVD.
 
 Returns `(new_A, new_B)` with the swapped cores.
 """
-function _swap_adjacent_sites_op(A::AbstractArray{T, 4}, B::AbstractArray{T, 4};
-        threshold::Real = 0.0) where {T}
+function _swap_adjacent_sites_op(
+        A::AbstractArray{T, 4}, B::AbstractArray{T, 4};
+        threshold::Real = 0.0
+    ) where {T}
     d1, _, rl, rm = size(A)   # (phys, phys, left_rank, mid_rank)
     d2, _, _rm, rr = size(B)  # (phys, phys, mid_rank, right_rank)
 
@@ -853,7 +859,7 @@ function _swap_adjacent_sites_op(A::AbstractArray{T, 4}, B::AbstractArray{T, 4};
         end
     end
 
-    C_for_svd = permutedims(C, (3, 4, 5, 1, 2, 6)) 
+    C_for_svd = permutedims(C, (3, 4, 5, 1, 2, 6))
     M = reshape(C_for_svd, d2 * d2 * rl, d1 * d1 * rr)
     F = svd(M)
 

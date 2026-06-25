@@ -55,23 +55,23 @@ var∞ = D / θ
 P∞ = @. exp(-(xes - μ)^2 / (2var∞)) / sqrt(2π * var∞)
 
 # --- Crank–Nicholson march, recording snapshots and the error to P∞ ----------
-τ         = 0.001
+τ = 0.001
 record_dt = 0.4
-T         = 8.0
-block     = round(Int, record_dt / τ)
-n_blocks  = round(Int, T / record_dt)
+T = 8.0
+block = round(Int, record_dt / τ)
+n_blocks = round(Int, T / record_dt)
 
-times   = collect(0.0:record_dt:T)
+times = collect(0.0:record_dt:T)
 density = Vector{Vector{Float64}}()
-errL1   = Float64[]
-errL2   = Float64[]
+errL1 = Float64[]
+errL2 = Float64[]
 
 function record!(P)
     v = qtt_to_function(P)
     v ./= mass(v)
     push!(density, v)
     push!(errL1, sum(abs.(v .- P∞)) * h)
-    push!(errL2, sqrt(sum(abs2, v .- P∞) * h))
+    return push!(errL2, sqrt(sum(abs2, v .- P∞) * h))
 end
 
 P = u₀
@@ -91,15 +91,21 @@ end
 # --- Figure 1: relaxation of the density toward the stationary distribution ---
 let
     snap = [0.0, 0.4, 0.8, 1.6, 3.2, 8.0]
-    fig  = Figure(size = (760, 480))
-    ax   = Axis(fig[1, 1], xlabel = "x", ylabel = "P(x, t)",
-        title = "Ornstein–Uhlenbeck relaxation  (θ=$θ, μ=$μ, σ=$σ)")
+    fig = Figure(size = (760, 480))
+    ax = Axis(
+        fig[1, 1], xlabel = "x", ylabel = "P(x, t)",
+        title = "Ornstein–Uhlenbeck relaxation  (θ=$θ, μ=$μ, σ=$σ)"
+    )
     for t in snap
-        lines!(ax, xes, density[round(Int, t / record_dt) + 1],
-            linewidth = 2, label = "t = $t")
+        lines!(
+            ax, xes, density[round(Int, t / record_dt) + 1],
+            linewidth = 2, label = "t = $t"
+        )
     end
-    lines!(ax, xes, P∞, color = :black, linestyle = :dash, linewidth = 2.5,
-        label = "stationary  N(μ, σ²/2θ)")
+    lines!(
+        ax, xes, P∞, color = :black, linestyle = :dash, linewidth = 2.5,
+        label = "stationary  N(μ, σ²/2θ)"
+    )
     xlims!(ax, -4, 6)
     axislegend(ax; position = :rt)
     display(fig)
@@ -108,8 +114,10 @@ end
 # --- Figure 2: convergence to the stationary distribution --------------------
 let
     fig = Figure(size = (760, 480))
-    ax  = Axis(fig[1, 1], xlabel = "t", ylabel = "‖P(·, t) − P∞‖", yscale = log10,
-        title = "Convergence to the stationary distribution")
+    ax = Axis(
+        fig[1, 1], xlabel = "t", ylabel = "‖P(·, t) − P∞‖", yscale = log10,
+        title = "Convergence to the stationary distribution"
+    )
     lines!(ax, times, errL1, linewidth = 2.5, label = "L¹ error")
     lines!(ax, times, errL2, linewidth = 2.5, label = "L² error")
     axislegend(ax; position = :rt)

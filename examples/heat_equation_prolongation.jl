@@ -92,6 +92,6 @@ relerr_multilevel = norm(vec(u_multilevel .- u_exact)) / norm(vec(u_exact))
 relerr_direct = norm(vec(u_direct .- u_exact)) / norm(vec(u_exact))
 relerr_vs_direct = norm(vec(u_multilevel .- u_direct)) / norm(vec(u_direct))
 
-@info "2D heat equation with QTT prolongation" d_coarse=d_coarse d_fine=d_fine T_total=T_total
-@info "Relative errors" initial_transfer=relerr_initial_transfer multilevel_vs_exact=relerr_multilevel direct_vs_exact=relerr_direct multilevel_vs_direct=relerr_vs_direct
-@info "Ranks" coarse_rank=maximum(coarse_solution.ttv_rks) prolonged_rank=maximum(prolonged.ttv_rks) multilevel_rank=maximum(multilevel_solution.ttv_rks) direct_rank=maximum(direct_solution.ttv_rks)
+@info "2D heat equation with QTT prolongation" d_coarse = d_coarse d_fine = d_fine T_total = T_total
+@info "Relative errors" initial_transfer = relerr_initial_transfer multilevel_vs_exact = relerr_multilevel direct_vs_exact = relerr_direct multilevel_vs_direct = relerr_vs_direct
+@info "Ranks" coarse_rank = maximum(coarse_solution.ttv_rks) prolonged_rank = maximum(prolonged.ttv_rks) multilevel_rank = maximum(multilevel_solution.ttv_rks) direct_rank = maximum(direct_solution.ttv_rks)

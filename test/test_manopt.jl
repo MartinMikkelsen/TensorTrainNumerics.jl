@@ -51,15 +51,15 @@ end
 
     p_copy = ManifoldsBase.copy(M, target)
     @test p_copy isa TTvector
-    @test norm(p_copy - target) < 1e-14
+    @test norm(p_copy - target) < 1.0e-14
 
     q = zeros_tt(eltype(target), target.ttv_dims, target.ttv_rks)
     ManifoldsBase.copyto!(M, q, target)
-    @test norm(q - target) < 1e-14
+    @test norm(q - target) < 1.0e-14
 
     Y = zeros_tt(eltype(target), target.ttv_dims, target.ttv_rks)
     ManifoldsBase.copyto!(M, Y, target, target)
-    @test norm(Y - target) < 1e-14
+    @test norm(Y - target) < 1.0e-14
 end
 
 @testset "inner, norm, distance" begin
@@ -79,7 +79,7 @@ end
     @test dist ≥ 0
 
     # distance to self is zero
-    @test ManifoldsBase.distance(M, p, p) < 1e-14
+    @test ManifoldsBase.distance(M, p, p) < 1.0e-14
 end
 
 @testset "retract_project! and retract_project_fused!" begin
@@ -90,18 +90,18 @@ end
     q1 = zeros_tt(eltype(p), p.ttv_dims, p.ttv_rks)
     ManifoldsBase.retract_project!(M, q1, p, X)
     expected = orthogonalize(p + X)
-    @test norm(q1 - expected) < 1e-12
+    @test norm(q1 - expected) < 1.0e-12
 
     q2 = zeros_tt(eltype(p), p.ttv_dims, p.ttv_rks)
     t = 0.5
     ManifoldsBase.retract_project_fused!(M, q2, p, X, t)
     expected2 = orthogonalize(p + t * X)
-    @test norm(q2 - expected2) < 1e-12
+    @test norm(q2 - expected2) < 1.0e-12
 
     # t=0 should give orthogonalize(p)
     q3 = zeros_tt(eltype(p), p.ttv_dims, p.ttv_rks)
     ManifoldsBase.retract_project_fused!(M, q3, p, X, 0.0)
-    @test norm(q3 - orthogonalize(p)) < 1e-12
+    @test norm(q3 - orthogonalize(p)) < 1.0e-12
 end
 
 @testset "ManOpt gradient descent" begin

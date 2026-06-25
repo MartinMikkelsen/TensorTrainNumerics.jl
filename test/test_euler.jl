@@ -69,8 +69,10 @@ end
     guess = u₀
     steps = [0.05]
 
-    sol_tt = implicit_euler_method(A, u₀, guess, steps;
-        normalize = false, tt_solver = "krylov", tol = 1.0e-12)
+    sol_tt = implicit_euler_method(
+        A, u₀, guess, steps;
+        normalize = false, tt_solver = "krylov", tol = 1.0e-12
+    )
 
     A_dense = qtto_to_matrix(A)
     u_dense = qtt_to_function(u₀)
@@ -118,8 +120,10 @@ end
     guess = u₀
     steps = [0.05]
 
-    sol_tt = crank_nicholson_method(A, u₀, guess, steps;
-        normalize = false, tt_solver = "krylov", tol = 1.0e-12)
+    sol_tt = crank_nicholson_method(
+        A, u₀, guess, steps;
+        normalize = false, tt_solver = "krylov", tol = 1.0e-12
+    )
 
     A_dense = qtto_to_matrix(A)
     u_dense = qtt_to_function(u₀)
@@ -142,8 +146,10 @@ end
     guess = u₀
     steps = [0.05]
 
-    sol_tt = crank_nicholson_method(A, u₀, guess, steps;
-        normalize = false, tt_solver = "krylov", tol = 1.0e-12)
+    sol_tt = crank_nicholson_method(
+        A, u₀, guess, steps;
+        normalize = false, tt_solver = "krylov", tol = 1.0e-12
+    )
 
     A_dense = qtto_to_matrix(A)
     @test !issymmetric(A_dense)
@@ -169,7 +175,8 @@ end
     guess = u₀
     steps = [0.05]
 
-    sol_tt = crank_nicholson_method(A, u₀, guess, steps;
+    sol_tt = crank_nicholson_method(
+        A, u₀, guess, steps;
         normalize = false,
         tt_solver = "krylov",
         max_bond = max_bond,
@@ -177,7 +184,8 @@ end
         maxiter = 30,
         rtol = 1.0e-10,
         atol = 1.0e-12,
-        verbosity = 0)
+        verbosity = 0
+    )
 
     A_dense = qtto_to_matrix(A)
     u_dense = qtt_to_function(u₀)
@@ -201,12 +209,14 @@ end
     guess = u₀
     steps = [0.05]
 
-    sol_tt = implicit_euler_method(A, u₀, guess, steps;
+    sol_tt = implicit_euler_method(
+        A, u₀, guess, steps;
         normalize = false,
         tt_solver = "krylov",
         isposdef = true,
         issymmetric = true,
-        tol = 1.0e-12)
+        tol = 1.0e-12
+    )
 
     A_dense = qtto_to_matrix(A)
     u_dense = qtt_to_function(u₀)
@@ -216,10 +226,12 @@ end
     rel_error = norm(qtt_to_function(sol_tt) - sol_dense) / norm(sol_dense)
     @test rel_error < 1.0e-8
 
-    @test_throws ArgumentError implicit_euler_method(A, u₀, guess, steps;
+    @test_throws ArgumentError implicit_euler_method(
+        A, u₀, guess, steps;
         normalize = false,
         tt_solver = "krylov",
-        krylov_solver = :unknown)
+        krylov_solver = :unknown
+    )
 end
 
 @testset "Euler-family methods cover normalize and return_error options" begin
@@ -236,13 +248,17 @@ end
     @test isapprox(norm(sol_euler), 1.0; atol = 1.0e-10)
     @test isfinite(err_euler)
 
-    sol_impl, err_impl = implicit_euler_method(A, u₀, guess, steps;
-        normalize = true, return_error = true, tt_solver = "krylov", tol = 1.0e-10)
+    sol_impl, err_impl = implicit_euler_method(
+        A, u₀, guess, steps;
+        normalize = true, return_error = true, tt_solver = "krylov", tol = 1.0e-10
+    )
     @test isapprox(norm(sol_impl), 1.0; atol = 1.0e-10)
     @test isfinite(err_impl)
 
-    sol_cn, err_cn = crank_nicholson_method(A, u₀, guess, steps;
-        normalize = true, return_error = true, tt_solver = "krylov", tol = 1.0e-10)
+    sol_cn, err_cn = crank_nicholson_method(
+        A, u₀, guess, steps;
+        normalize = true, return_error = true, tt_solver = "krylov", tol = 1.0e-10
+    )
     @test isapprox(norm(sol_cn), 1.0; atol = 1.0e-10)
     @test isfinite(err_cn)
 

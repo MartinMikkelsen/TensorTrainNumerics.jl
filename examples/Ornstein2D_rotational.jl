@@ -35,11 +35,11 @@ a, b = -6.0, 6.0
 function generator(d, ω)
     N = 2^d
     h = (b - a) / (N - 1)
-    ∂   = (1 / (2h)) * (shift(d) - (id_tto(d) - ∇(d)))   # central first derivative (∂ᵀ = -∂)
-    ∂²  = -(1 / h^2) * Δ(d)
+    ∂ = (1 / (2h)) * (shift(d) - (id_tto(d) - ∇(d)))   # central first derivative (∂ᵀ = -∂)
+    ∂² = -(1 / h^2) * Δ(d)
     idd = id_tto(d)
-    Mx  = ttv_to_diag_tto(qtt_polynom([-μx, 1.0], d; a = a, b = b))
-    My  = ttv_to_diag_tto(qtt_polynom([-μy, 1.0], d; a = a, b = b))
+    Mx = ttv_to_diag_tto(qtt_polynom([-μx, 1.0], d; a = a, b = b))
+    My = ttv_to_diag_tto(qtt_polynom([-μy, 1.0], d; a = a, b = b))
     A = θ * ((∂ * Mx) ⊗ idd + idd ⊗ (∂ * My)) +    # diagonal drift
         ω * (∂ ⊗ My - Mx ⊗ ∂) +                    # antisymmetric rotational coupling
         D * (∂² ⊗ idd + idd ⊗ ∂²)                  # isotropic diffusion
@@ -51,8 +51,8 @@ end
 # ============================================================================
 d_spec = 5
 ωs = collect(0.0:0.2:2.0)
-abscissa  = Float64[]   # max Re λ(A)        (spectral abscissa)
-numabsc   = Float64[]   # λmax((A+Aᵀ)/2)     (numerical abscissa / log-norm)
+abscissa = Float64[]   # max Re λ(A)        (spectral abscissa)
+numabsc = Float64[]   # λmax((A+Aᵀ)/2)     (numerical abscissa / log-norm)
 nonnormal = Float64[]   # ‖A - Aᵀ‖           (departure from normality)
 for ω in ωs
     A, _ = generator(d_spec, ω)
@@ -77,14 +77,14 @@ P∞ = [exp(-((xi - μx)^2 + (yj - μy)^2) / (2var∞)) / (2π * var∞) for xi 
 # (transiently correlated) transient even though the endpoints are low-rank
 gx = function_to_qtt(t -> exp(-(a + (b - a) * t)^2 / 2), d)
 gy = function_to_qtt(t -> exp(-(a + (b - a) * t)^2 / 2), d)
-ic() = (u = TensorTrainNumerics.increase_ranks(gx ⊗ gy, 14; noise = 1e-2); (1 / mass(toarr(u))) * u)
+ic() = (u = TensorTrainNumerics.increase_ranks(gx ⊗ gy, 14; noise = 1.0e-2); (1 / mass(toarr(u))) * u)
 
-τ         = 0.02
+τ = 0.02
 record_dt = 0.8
-T         = 8.0
-blk       = round(Int, record_dt / τ)
-nblk      = round(Int, T / record_dt)
-times     = collect(0.0:record_dt:T)
+T = 8.0
+blk = round(Int, record_dt / τ)
+nblk = round(Int, T / record_dt)
+times = collect(0.0:record_dt:T)
 
 ωs_evo = [0.0, 1.0, 2.0]
 curves = Dict{Float64, Vector{Float64}}()   # L¹(t) per ω
@@ -131,14 +131,18 @@ end
 # ============================================================================
 let
     fig = Figure(size = (1000, 420))
-    ax1 = Axis(fig[1, 1], xlabel = "ω", ylabel = "abscissa",
-        title = "Spectral & numerical abscissa  (dense, d=$d_spec)")
+    ax1 = Axis(
+        fig[1, 1], xlabel = "ω", ylabel = "abscissa",
+        title = "Spectral & numerical abscissa  (dense, d=$d_spec)"
+    )
     hlines!(ax1, [0.0], color = :gray, linestyle = :dash)
     scatterlines!(ax1, ωs, abscissa, label = "max Re λ(A)  (spectral)")
     scatterlines!(ax1, ωs, numabsc, label = "λmax((A+Aᵀ)/2)  (numerical)")
     axislegend(ax1; position = :rc)
-    ax2 = Axis(fig[1, 2], xlabel = "ω", ylabel = "‖A − Aᵀ‖",
-        title = "Non-normality grows with ω")
+    ax2 = Axis(
+        fig[1, 2], xlabel = "ω", ylabel = "‖A − Aᵀ‖",
+        title = "Non-normality grows with ω"
+    )
     scatterlines!(ax2, ωs, nonnormal)
     display(fig)
 end
@@ -148,15 +152,19 @@ end
 # ============================================================================
 let
     fig = Figure(size = (1050, 430))
-    ax1 = Axis(fig[1, 1], xlabel = "t", ylabel = "L¹ error", yscale = log10,
-        title = "CN+ALS convergence is ω-robust")
+    ax1 = Axis(
+        fig[1, 1], xlabel = "t", ylabel = "L¹ error", yscale = log10,
+        title = "CN+ALS convergence is ω-robust"
+    )
     for ω in ωs_evo
         lines!(ax1, times, curves[ω], linewidth = 2.5, label = "ω = $ω")
     end
     axislegend(ax1; position = :rt)
 
-    ax2 = Axis(fig[1, 2], aspect = 1, xlabel = "x", ylabel = "y",
-        title = "Steady probability current  (ω = 2)")
+    ax2 = Axis(
+        fig[1, 2], aspect = 1, xlabel = "x", ylabel = "y",
+        title = "Steady probability current  (ω = 2)"
+    )
     heatmap!(ax2, xes, xes, Pfinal[2.0], colormap = :viridis)
     qx, qy, ju, jv = current
     arrows!(ax2, qx, qy, ju, jv; lengthscale = 3.0, arrowsize = 7, color = :white)

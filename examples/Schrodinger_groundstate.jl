@@ -47,7 +47,7 @@ times = collect(0.0:record_dt:T)
 
 # --- method 1: Crank–Nicolson + ALS (fixed rank → rank-enrich the IC) --------
 Random.seed!(42)                                              # reproducible enrichment noise
-ψ_cn = TensorTrainNumerics.increase_ranks(gauss(), 12; noise = 1e-3); ψ_cn = (1 / nrm(ψ_cn)) * ψ_cn
+ψ_cn = TensorTrainNumerics.increase_ranks(gauss(), 12; noise = 1.0e-3); ψ_cn = (1 / nrm(ψ_cn)) * ψ_cn
 E_cn = Float64[Energy(ψ_cn)]
 for _ in 1:nblk
     global ψ_cn = crank_nicholson_method(A, ψ_cn, ψ_cn, fill(τstep, blk); normalize = true, tt_solver = "als")
@@ -58,8 +58,10 @@ end
 ψ_td = gauss()
 E_td = Float64[Energy(ψ_td)]
 for _ in 1:nblk
-    global ψ_td = tdvp2(A, ψ_td, fill(τstep, blk); imaginary_time = true, normalize = true,
-        max_bond = 24, truncerr = 1e-12)
+    global ψ_td = tdvp2(
+        A, ψ_td, fill(τstep, blk); imaginary_time = true, normalize = true,
+        max_bond = 24, truncerr = 1.0e-12
+    )
     push!(E_td, Energy(ψ_td))
 end
 
@@ -70,8 +72,10 @@ end
 let
     sc = 3.0
     fig = Figure(size = (760, 480))
-    ax  = Axis(fig[1, 1], xlabel = "x", ylabel = "energy  /  V(x)",
-        title = "Double-well Schrödinger ground state  (λ=$λ, a=$xa)")
+    ax = Axis(
+        fig[1, 1], xlabel = "x", ylabel = "energy  /  V(x)",
+        title = "Double-well Schrödinger ground state  (λ=$λ, a=$xa)"
+    )
     lines!(ax, xes, Vfun.(xes), color = :black, linewidth = 2, label = "V(x)")
     hlines!(ax, [E_cn[end]], color = :red, linestyle = :dash, label = "E₀ = $(round(E_cn[end]; digits = 4))")
     band!(ax, xes, fill(E_cn[end], N), E_cn[end] .+ sc .* ψ0 .^ 2, color = (:dodgerblue, 0.35))
@@ -84,10 +88,12 @@ end
 # --- Figure 2: convergence of both methods to the dense ground state --------
 let
     fig = Figure(size = (760, 480))
-    ax  = Axis(fig[1, 1], xlabel = "imaginary time τ", ylabel = "E(τ) − E₀(dense)",
-        yscale = log10, title = "Imaginary-time relaxation: CN+ALS vs TDVP2")
-    lines!(ax, times, abs.(E_cn .- E0_dense) .+ 1e-16, linewidth = 2.5, label = "Crank–Nicolson + ALS")
-    lines!(ax, times, abs.(E_td .- E0_dense) .+ 1e-16, linewidth = 2.5, label = "TDVP2 (rank-adaptive)", linestyle=:dash)
+    ax = Axis(
+        fig[1, 1], xlabel = "imaginary time τ", ylabel = "E(τ) − E₀(dense)",
+        yscale = log10, title = "Imaginary-time relaxation: CN+ALS vs TDVP2"
+    )
+    lines!(ax, times, abs.(E_cn .- E0_dense) .+ 1.0e-16, linewidth = 2.5, label = "Crank–Nicolson + ALS")
+    lines!(ax, times, abs.(E_td .- E0_dense) .+ 1.0e-16, linewidth = 2.5, label = "TDVP2 (rank-adaptive)", linestyle = :dash)
     axislegend(ax; position = :rt)
     display(fig)
 end

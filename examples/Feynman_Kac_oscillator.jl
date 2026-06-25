@@ -23,9 +23,9 @@ h = (b - a) / (N - 1); xes = collect(range(a, b, N))
 
 # --- operators:  A = ½∂ₓₓ − ½ω²x²  (= −H_HO) --------------------------------
 ∂xx = -(1 / h^2) * Δ(d)                                                # = d²/dx²
-V   = ttv_to_diag_tto(qtt_polynom([0.0, 0.0, 0.5 * ω^2], d; a = a, b = b))   # ½ω²x²
-A   = 0.5 * ∂xx - V                                                   # ∂u/∂τ = A u
-H   = -0.5 * ∂xx + V                                                  # H_HO (= −A), for the energy
+V = ttv_to_diag_tto(qtt_polynom([0.0, 0.0, 0.5 * ω^2], d; a = a, b = b))   # ½ω²x²
+A = 0.5 * ∂xx - V                                                   # ∂u/∂τ = A u
+H = -0.5 * ∂xx + V                                                  # H_HO (= −A), for the energy
 
 # --- Gaussian initial payoff  g(x) = exp(−½αx²) -----------------------------
 u₀ = function_to_qtt(t -> exp(-0.5 * α * (a + (b - a) * t)^2), d)
@@ -50,7 +50,7 @@ function record!(u)
     v = qtt_to_function(u); push!(sols, v)
     τ = (length(sols) - 1) * record_dt
     push!(E_num, energy(u))
-    push!(errL2, τ == 0 ? 0.0 : sqrt(sum(abs2, v .- [uA(x, τ) for x in xes]) * h))
+    return push!(errL2, τ == 0 ? 0.0 : sqrt(sum(abs2, v .- [uA(x, τ) for x in xes]) * h))
 end
 
 u = u₀; record!(u)
@@ -65,8 +65,10 @@ end
 let
     snap = [0.0, 0.2, 0.4, 1.0, 3.0]
     fig = Figure(size = (760, 480))
-    ax  = Axis(fig[1, 1], xlabel = "x", ylabel = "u(x, τ)",
-        title = "Feynman–Kac, quantum harmonic oscillator  (ω=$ω)")
+    ax = Axis(
+        fig[1, 1], xlabel = "x", ylabel = "u(x, τ)",
+        title = "Feynman–Kac, quantum harmonic oscillator  (ω=$ω)"
+    )
     for τ in snap
         lines!(ax, xes, sols[round(Int, τ / record_dt) + 1], linewidth = 2, label = "τ = $τ")
     end
@@ -82,14 +84,18 @@ end
 # --- Figure 2: energy → E₀ = ½ω, and accuracy vs the closed form ------------
 let
     fig = Figure(size = (1000, 420))
-    ax1 = Axis(fig[1, 1], xlabel = "τ", ylabel = "energy  ⟨u|H|u⟩/⟨u|u⟩",
-        title = "Variational relaxation to the ground state")
+    ax1 = Axis(
+        fig[1, 1], xlabel = "τ", ylabel = "energy  ⟨u|H|u⟩/⟨u|u⟩",
+        title = "Variational relaxation to the ground state"
+    )
     lines!(ax1, times, E_num, linewidth = 2.5, label = "numerical")
     lines!(ax1, times, E_riccati.(times), color = :black, linestyle = :dash, label = "Riccati β(τ)")
     hlines!(ax1, [0.5ω], color = :gray, linestyle = :dot, label = "E₀ = ½ω")
     axislegend(ax1; position = :rt)
-    ax2 = Axis(fig[1, 2], xlabel = "τ", ylabel = "L² error vs analytic", yscale = log10,
-        title = "Accuracy vs closed-form Mehler–Gaussian")
+    ax2 = Axis(
+        fig[1, 2], xlabel = "τ", ylabel = "L² error vs analytic", yscale = log10,
+        title = "Accuracy vs closed-form Mehler–Gaussian"
+    )
     lines!(ax2, times[2:end], errL2[2:end], linewidth = 2.5)
     display(fig)
 end

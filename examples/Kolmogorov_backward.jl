@@ -30,9 +30,9 @@ d = 10; N = 2^d; a, b = -8.0, 10.0
 h = (b - a) / (N - 1); xes = collect(range(a, b, N))
 
 # --- backward generator  L = -θ M ∂ₓ + D ∂ₓₓ   (= (A_FP)ᵀ) -------------------
-∂x  = (1 / (2h)) * (shift(d) - (id_tto(d) - ∇(d)))   # central first derivative
+∂x = (1 / (2h)) * (shift(d) - (id_tto(d) - ∇(d)))   # central first derivative
 ∂xx = -(1 / h^2) * Δ(d)                              # second derivative
-M   = ttv_to_diag_tto(qtt_polynom([-μ, 1.0], d; a = a, b = b))   # diag(x-μ)
+M = ttv_to_diag_tto(qtt_polynom([-μ, 1.0], d; a = a, b = b))   # diag(x-μ)
 L = -θ * (M * ∂x) + D * ∂xx
 
 # --- terminal payoff g and its QTT ------------------------------------------
@@ -40,10 +40,10 @@ g(x) = exp(-(x - x₀)^2 / (2w^2))
 u₀ = function_to_qtt(t -> g(a + (b - a) * t), d)     # function_to_qtt samples on [0,1]
 
 # --- analytic conditional expectation  u(x,τ) = E[g(X_τ) | X₀=x] -------------
-m(x, τ)  = μ + (x - μ) * exp(-θ * τ)
-s2(τ)    = (D / θ) * (1 - exp(-2θ * τ))
+m(x, τ) = μ + (x - μ) * exp(-θ * τ)
+s2(τ) = (D / θ) * (1 - exp(-2θ * τ))
 uA(x, τ) = (w / sqrt(w^2 + s2(τ))) * exp(-(m(x, τ) - x₀)^2 / (2 * (w^2 + s2(τ))))
-E_stat   = w / sqrt(w^2 + D / θ)                     # τ→∞ limit (constant)
+E_stat = w / sqrt(w^2 + D / θ)                     # τ→∞ limit (constant)
 
 # --- Crank–Nicholson march in τ, recording snapshots + interior diagnostics --
 τstep = 0.02; record_dt = 0.25; T = 3.0
@@ -59,7 +59,7 @@ function record!(ψ)
     τ = (length(sols) - 1) * record_dt
     push!(errL∞, maximum(abs.(v[interior] .- [uA(x, τ) for x in xes[interior]])))
     push!(umin, minimum(v[interior]))
-    push!(umax, maximum(v[interior]))
+    return push!(umax, maximum(v[interior]))
 end
 
 ψ = u₀; record!(ψ)
@@ -74,8 +74,10 @@ end
 let
     snap = [0.0, 0.5, 1.0, 2.0, 3.0]
     fig = Figure(size = (760, 480))
-    ax  = Axis(fig[1, 1], xlabel = "x", ylabel = "u(x, τ) = E[g(X_τ) | X₀ = x]",
-        title = "OU Kolmogorov backward equation  (θ=$θ, μ=$μ, σ=$σ)")
+    ax = Axis(
+        fig[1, 1], xlabel = "x", ylabel = "u(x, τ) = E[g(X_τ) | X₀ = x]",
+        title = "OU Kolmogorov backward equation  (θ=$θ, μ=$μ, σ=$σ)"
+    )
     for τ in snap
         lines!(ax, xes, sols[round(Int, τ / record_dt) + 1], linewidth = 2, label = "τ = $τ")
     end
@@ -91,12 +93,16 @@ end
 # --- Figure 2: interior accuracy and the maximum principle ------------------
 let
     fig = Figure(size = (1000, 420))
-    ax1 = Axis(fig[1, 1], xlabel = "τ", ylabel = "interior L∞ error", yscale = log10,
-        title = "Accuracy vs closed-form  E[g(X_τ) | x]")
+    ax1 = Axis(
+        fig[1, 1], xlabel = "τ", ylabel = "interior L∞ error", yscale = log10,
+        title = "Accuracy vs closed-form  E[g(X_τ) | x]"
+    )
     lines!(ax1, times[2:end], errL∞[2:end], linewidth = 2.5)
 
-    ax2 = Axis(fig[1, 2], xlabel = "τ", ylabel = "u (interior range)",
-        title = "Maximum principle: u relaxes to E_stat[g]")
+    ax2 = Axis(
+        fig[1, 2], xlabel = "τ", ylabel = "u (interior range)",
+        title = "Maximum principle: u relaxes to E_stat[g]"
+    )
     band!(ax2, times, umin, umax, color = (:dodgerblue, 0.25))
     lines!(ax2, times, umin, linewidth = 2, label = "min u")
     lines!(ax2, times, umax, linewidth = 2, label = "max u")

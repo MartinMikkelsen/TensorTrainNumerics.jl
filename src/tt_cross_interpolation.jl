@@ -168,12 +168,12 @@ end
 function _build_fiber_indices(lsets, rsets, j, Is, Rs, N)
     n_fibers = Rs[j] * Is[j] * Rs[j + 1]
     indices = Matrix{Int}(undef, n_fibers, N)
-    n_left  = j - 1       # lsets[j] has j-1 columns
+    n_left = j - 1       # lsets[j] has j-1 columns
     n_right = N - j       # rsets[j] has N-j columns
     idx = 1
     for r_right in 1:Rs[j + 1], r_left in 1:Rs[j], i in 1:Is[j]
-        j > 1 && (indices[idx, 1:n_left]              = lsets[j][r_left, :])
-        indices[idx, j]                               = i
+        j > 1 && (indices[idx, 1:n_left] = lsets[j][r_left, :])
+        indices[idx, j] = i
         j < N && (indices[idx, (j + 1):(j + n_right)] = rsets[j][r_right, :])
         idx += 1
     end

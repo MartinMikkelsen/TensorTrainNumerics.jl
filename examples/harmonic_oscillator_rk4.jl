@@ -59,4 +59,3 @@ scatter!(ax, t, x_tt, label = "TT RK4", markersize = 5, color = :tomato)
 axislegend(ax)
 
 display(fig)
-
