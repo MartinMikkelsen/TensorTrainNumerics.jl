@@ -425,64 +425,74 @@ function r_and_d_to_rks(rks, dims; rmax = 1024)
 end
 
 """
-    tt_up_rks_noise(tt_vec, tt_ot_i, rkm, rk, ϵ_wn)
+    increase_ranks_noise(tt_vec, tt_ot_i, rkm, rk, noise)
 
-Update a tensor train (TT) vector with random noise.
+Pad a single TT core to larger bond dimensions `(rkm, rk)`, filling the new
+entries with `noise`-scaled random orthogonal values (private helper).
 
 # Arguments
-- `tt_vec::Array`: The input TT vector.
+- `tt_vec::Array`: The input TT core.
 - `tt_ot_i::Int`: An integer parameter that is modified within the function.
 - `rkm::Int`: The new rank for the second dimension.
 - `rk::Int`: The new rank for the third dimension.
-- `ϵ_wn::Float64`: The noise level.
+- `noise::Float64`: The noise level.
 
 # Returns
-- `vec_out::Array`: The updated TT vector with added noise.
+- `vec_out::Array`: The padded TT core.
 """
-function tt_up_rks_noise(tt_vec, tt_ot_i, rkm, rk, ϵ_wn)
+function increase_ranks_noise(tt_vec, tt_ot_i, rkm, rk, noise)
     vec_out = zeros(eltype(tt_vec), size(tt_vec, 1), rkm, rk)
     vec_out[:, 1:size(tt_vec, 2), 1:size(tt_vec, 3)] = tt_vec
-    if !iszero(ϵ_wn)
+    if !iszero(noise)
         if rkm == size(tt_vec, 2) && rk > size(tt_vec, 3)
             Q = rand_orthogonal(size(tt_vec, 1) * rkm, rk - size(tt_vec, 3))
-            vec_out[:, :, (size(tt_vec, 3) + 1):rk] = ϵ_wn * reshape(Q, size(tt_vec, 1), rkm, rk - size(tt_vec, 3))
+            vec_out[:, :, (size(tt_vec, 3) + 1):rk] = noise * reshape(Q, size(tt_vec, 1), rkm, rk - size(tt_vec, 3))
             tt_ot_i = 0
         elseif rk == size(tt_vec, 3) && rkm > size(tt_vec, 2)
             Q = rand_orthogonal(rkm - size(tt_vec, 2), size(tt_vec, 1) * rk)
-            vec_out[:, (size(tt_vec, 2) + 1):rkm, :] = ϵ_wn * reshape(Q, size(tt_vec, 1), rkm - size(tt_vec, 2), rk)
+            vec_out[:, (size(tt_vec, 2) + 1):rkm, :] = noise * reshape(Q, size(tt_vec, 1), rkm - size(tt_vec, 2), rk)
             tt_ot_i = 0
         elseif rk > size(tt_vec, 3) && rkm > size(tt_vec, 2)
             Q = rand_orthogonal((rkm - size(tt_vec, 2)) * size(tt_vec, 1), (rk - size(tt_vec, 3)))
-            vec_out[:, (size(tt_vec, 2) + 1):rkm, (size(tt_vec, 3) + 1):rk] = ϵ_wn * reshape(Q, size(tt_vec, 1), rkm - size(tt_vec, 2), rk - size(tt_vec, 3))
+            vec_out[:, (size(tt_vec, 2) + 1):rkm, (size(tt_vec, 3) + 1):rk] = noise * reshape(Q, size(tt_vec, 1), rkm - size(tt_vec, 2), rk - size(tt_vec, 3))
         end
     end
     return vec_out
 end
 
 """
-    tt_up_rks(x_tt::TTvector{T,N}, rk_max::Int; rks=vcat(1, rk_max*ones(Int, length(x_tt.ttv_dims)-1), 1), ϵ_wn=0.0) where {T<:Number, N}
+    increase_ranks(x_tt::TTvector{T,N}, max_bond::Int; rks=vcat(1, max_bond*ones(Int, length(x_tt.ttv_dims)-1), 1), noise=0.0) where {T<:Number, N}
 
-Increase the rank of a Tensor Train (TT) vector `x_tt` to a specified maximum rank `rk_max`.
+Increase the bond ranks of a Tensor Train (TT) vector `x_tt` up to `max_bond`,
+padding the new rank dimensions with `noise`-scaled random orthogonal values.
+With `noise=0` this is exact (zero-padding); with `noise>0` it enriches the TT
+so a fixed-rank solver (e.g. ALS) has room to develop higher-rank structure.
 
 # Arguments
 - `x_tt::TTvector{T,N}`: The input TT vector.
-- `rk_max::Int`: The maximum rank to which the TT vector should be increased.
-- `rks`: Optional. A vector specifying the ranks at each step. Defaults to a vector with `1` at the boundaries and `rk_max` in between.
-- `ϵ_wn::Float64`: Optional. The noise level to be added during the rank increase. Defaults to `0.0`.
+- `max_bond::Int`: The maximum bond dimension to increase the ranks to.
+- `rks`: Optional. A vector specifying the target ranks. Defaults to `1` at the boundaries and `max_bond` in between.
+- `noise::Float64`: Optional. The noise level added to the new rank dimensions. Defaults to `0.0` (exact zero-padding).
 
 # Returns
 - `TTvector{T,N}`: A new TT vector with increased ranks.
 """
-function tt_up_rks(x_tt::TTvector{T, N}, rk_max::Int; rks = vcat(1, rk_max * ones(Int, length(x_tt.ttv_dims) - 1), 1), ϵ_wn = 0.0) where {T <: Number, N}
+function increase_ranks(x_tt::TTvector{T, N}, max_bond::Int; rks = vcat(1, max_bond * ones(Int, length(x_tt.ttv_dims) - 1), 1), noise = 0.0) where {T <: Number, N}
     d = x_tt.N
     vec_out = Array{Array{T}}(undef, d)
     out_ot = zeros(Int64, d)
-    @assert(rk_max > maximum(x_tt.ttv_rks), "New bond dimension too low")
-    rks = r_and_d_to_rks(rks, x_tt.ttv_dims; rmax = rk_max)
+    @assert(max_bond > maximum(x_tt.ttv_rks), "New bond dimension too low")
+    rks = r_and_d_to_rks(rks, x_tt.ttv_dims; rmax = max_bond)
     for i in 1:d
-        vec_out[i] = tt_up_rks_noise(x_tt.ttv_vec[i], x_tt.ttv_ot[i], rks[i], rks[i + 1], ϵ_wn)
+        vec_out[i] = increase_ranks_noise(x_tt.ttv_vec[i], x_tt.ttv_ot[i], rks[i], rks[i + 1], noise)
     end
     return TTvector{T, N}(d, vec_out, x_tt.ttv_dims, rks, out_ot)
+end
+
+# Deprecated: renamed to `increase_ranks` (the `ϵ_wn` keyword is now `noise`).
+function tt_up_rks(x, max_bond::Int; ϵ_wn = 0.0, kwargs...)
+    Base.depwarn("`tt_up_rks` is deprecated, use `increase_ranks` (the `ϵ_wn` keyword is now `noise`).", :tt_up_rks)
+    return increase_ranks(x, max_bond; noise = ϵ_wn, kwargs...)
 end
 
 """

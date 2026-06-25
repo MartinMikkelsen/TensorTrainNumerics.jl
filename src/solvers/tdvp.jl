@@ -44,7 +44,7 @@ end
 
 function tdvp1sweep!(
         dt, ψ::AbstractTTvector, H::AbstractTToperator, F::Union{Nothing, Vector{Any}} = nothing;
-        verbose::Bool = true, kwargs...
+        verbose::Bool = true, ishermitian::Bool = true, kwargs...
     )
 
     T = eltype(ψ)
@@ -72,7 +72,7 @@ function tdvp1sweep!(
     for k in 1:(Nsites - 1)
         H1 = x -> _applyH1_lsr(x, F[k], F[k + 2], M_asbs[k])
         t1 = _real_or_complex_t(-im * dt)
-        AC, _ = exponentiate(H1, t1, AC; ishermitian = true, kwargs...)
+        AC, _ = exponentiate(H1, t1, AC; ishermitian = ishermitian, kwargs...)
         if verbose
             E = _dot3(AC, H1(AC))
             @info "TDVP sweep:" site = k energy = real(E)
@@ -92,7 +92,7 @@ function tdvp1sweep!(
         C = Rthin
         H0 = X -> _applyH0(X, F[k + 1], F[k + 2])
         t0 = _real_or_complex_t(+im * dt)
-        C, _ = exponentiate(H0, t0, C; ishermitian = true, kwargs...)
+        C, _ = exponentiate(H0, t0, C; ishermitian = ishermitian, kwargs...)
         if verbose
             E0 = _dot3(C, H0(C))
             @info "TDVP sweep:" sites = "$(k):$(k + 1)" energy = real(E0)
@@ -104,7 +104,7 @@ function tdvp1sweep!(
     k = Nsites
     H1N = x -> _applyH1_lsr(x, F[k], F[k + 2], M_asbs[k])
     tN = _real_or_complex_t(-im * dt)
-    AC, _ = exponentiate(H1N, tN, AC; ishermitian = true, kwargs...)
+    AC, _ = exponentiate(H1N, tN, AC; ishermitian = ishermitian, kwargs...)
     if verbose
         E = _dot3(AC, H1N(AC))
         @info "TDVP sweep:" site = k energy = real(E)
@@ -126,7 +126,7 @@ function tdvp1sweep!(
         C = L
         H0 = X -> _applyH0(X, F[k + 1], F[k + 2])
         t0 = _real_or_complex_t(+im * dt)
-        C, _ = exponentiate(H0, t0, C; ishermitian = true, kwargs...)
+        C, _ = exponentiate(H0, t0, C; ishermitian = ishermitian, kwargs...)
         if verbose
             E0 = _dot3(C, H0(C))
             @info "TDVP sweep:" sites = "$(k):$(k + 1)" energy = real(E0)
@@ -136,7 +136,7 @@ function tdvp1sweep!(
 
         H1k = x -> _applyH1_lsr(x, F[k], F[k + 2], M_asbs[k])
         tk = _real_or_complex_t(-im * dt)
-        AC, _ = exponentiate(H1k, tk, AC; ishermitian = true, kwargs...)
+        AC, _ = exponentiate(H1k, tk, AC; ishermitian = ishermitian, kwargs...)
         if verbose
             E = _dot3(AC, H1k(AC))
             @info "TDVP sweep:" site = k energy = real(E)
@@ -175,7 +175,7 @@ function tdvp(
     F = nothing
 
     @showprogress for h in steps
-        ψ_prev_step = ψ
+        ψ_prev_step = deepcopy(ψ)
         dt_eff = imaginary_time ? (+im * h) : (complex(1.0) * h)
         for s in 1:sweeps
             F_in = carry_env ? F : nothing
@@ -192,7 +192,7 @@ function tdvp(
     if return_error
         h = steps[end]
         if imaginary_time
-            residual = (ψ - ψ_prev) * (1 / h) + (Hc * ψ)
+            residual = (ψ - ψ_prev) * (1 / h) - (Hc * ψ)
         else
             residual = (ψ - ψ_prev) * (1 / h) + im * (Hc * ψ)
         end
@@ -209,7 +209,8 @@ end
 
 function tdvp2sweep!(
         dt, ψ::AbstractTTvector, H::AbstractTToperator, F::Union{Nothing, Vector{Any}} = nothing;
-        verbose::Bool = true, max_bond::Int = typemax(Int), truncerr::Real = 0.0, kwargs...
+        verbose::Bool = true, max_bond::Int = typemax(Int), truncerr::Real = 0.0,
+        ishermitian::Bool = true, kwargs...
     )
 
     T = eltype(ψ)
@@ -239,7 +240,7 @@ function tdvp2sweep!(
         @tensor AAC[α, s1, s2, β] := AC[α, s1, γ] * A_lsr[k + 1][γ, s2, β]
         H2 = X -> _applyH2_lsr(X, F[k], F[k + 3], M_asbs[k], M_asbs[k + 1])
         t2 = _real_or_complex_t(-im * dt_half)
-        AAC, _ = exponentiate(H2, t2, AAC; ishermitian = true, kwargs...)
+        AAC, _ = exponentiate(H2, t2, AAC; ishermitian = ishermitian, kwargs...)
         if verbose
             E = _dot3(AAC, H2(AAC))
             @info "2TDVP sweep:" sites = "$(k):$(k + 1)"   energy = real(E)
@@ -259,7 +260,7 @@ function tdvp2sweep!(
         if k < Nsites - 1
             H1 = x -> _applyH1_lsr(x, F[k + 1], F[k + 3], M_asbs[k + 1])
             t1 = _real_or_complex_t(+im * dt_half)
-            AC, _ = exponentiate(H1, t1, AC; ishermitian = true, kwargs...)
+            AC, _ = exponentiate(H1, t1, AC; ishermitian = ishermitian, kwargs...)
         end
     end
 
@@ -267,7 +268,7 @@ function tdvp2sweep!(
         @tensor AAC[α, s1, s2, β] := A_lsr[k][α, s1, γ] * AC[γ, s2, β]
         H2 = X -> _applyH2_lsr(X, F[k], F[k + 3], M_asbs[k], M_asbs[k + 1])
         t2 = _real_or_complex_t(-im * dt_half)
-        AAC, _ = exponentiate(H2, t2, AAC; ishermitian = true, kwargs...)
+        AAC, _ = exponentiate(H2, t2, AAC; ishermitian = ishermitian, kwargs...)
         if verbose
             E = _dot3(AAC, H2(AAC))
             @info "2TDVP sweep:" sites = "$(k):$(k + 1)" energy = real(E)
@@ -287,7 +288,7 @@ function tdvp2sweep!(
         if k > 1
             H1 = x -> _applyH1_lsr(x, F[k], F[k + 2], M_asbs[k])
             t1 = _real_or_complex_t(+im * dt_half)
-            AC, _ = exponentiate(H1, t1, AC; ishermitian = true, kwargs...)
+            AC, _ = exponentiate(H1, t1, AC; ishermitian = ishermitian, kwargs...)
         end
     end
 
@@ -325,7 +326,7 @@ function tdvp2(
     F = nothing
 
     @showprogress for h in steps
-        ψ_prev_step = ψ
+        ψ_prev_step = deepcopy(ψ)
         dt_eff = imaginary_time ? (+im * h) : (complex(1.0) * h)
         for s in 1:sweeps
             F_in = carry_env ? F : nothing
@@ -345,7 +346,7 @@ function tdvp2(
     if return_error
         h = steps[end]
         if imaginary_time
-            residual = (ψ - ψ_prev) * (1 / h) + (Hc * ψ)
+            residual = (ψ - ψ_prev) * (1 / h) - (Hc * ψ)
         else
             residual = (ψ - ψ_prev) * (1 / h) + im * (Hc * ψ)
         end

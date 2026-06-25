@@ -24,4 +24,4 @@ fine_values = qtt_to_function(u_fine)
 reference = dense_linear_prolongation(coarse_values)
 relative_error = norm(fine_values - reference) / max(norm(reference), eps(Float64))
 
-@info "QTT linear prolongation" coarse_sites=d fine_sites=(d + 1) coarse_points=length(coarse_values) fine_points=length(fine_values) relative_error=relative_error max_rank=maximum(u_fine.ttv_rks)
+@info "QTT linear prolongation" coarse_sites = d fine_sites = (d + 1) coarse_points = length(coarse_values) fine_points = length(fine_values) relative_error = relative_error max_rank = maximum(u_fine.ttv_rks)

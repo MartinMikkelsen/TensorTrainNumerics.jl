@@ -2,6 +2,7 @@ using Test
 using LinearAlgebra
 using KrylovKit
 using TensorTrainNumerics
+using VectorInterface
 
 @testset "Complex TT dot and norm" begin
     d = 4
@@ -25,4 +26,22 @@ end
 
     @test info.converged == 1
     @test norm(actual - expected) / norm(expected) < 1.0e-12
+end
+
+@testset "VectorInterface add!! promotes when destination eltype is too narrow" begin
+    d = 3
+    y = qtt_sin(d)
+    x = complex(qtt_cos(d))
+    α = 0.25 + 0.5im
+    β = 1.5
+
+    z1 = VectorInterface.add!!(copy(y), x, α)
+    expected1 = qtt_to_vector(y) + α * qtt_to_vector(x)
+    @test z1 isa TTvector{ComplexF64}
+    @test norm(qtt_to_vector(z1) - expected1) / norm(expected1) < 1.0e-12
+
+    z2 = VectorInterface.add!!(copy(y), x, α, β)
+    expected2 = β * qtt_to_vector(y) + α * qtt_to_vector(x)
+    @test z2 isa TTvector{ComplexF64}
+    @test norm(qtt_to_vector(z2) - expected2) / norm(expected2) < 1.0e-12
 end

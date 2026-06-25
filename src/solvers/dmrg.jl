@@ -405,7 +405,7 @@ function dmrg_linsolve(
     d = b.N
     rmax = maximum(rmax_schedule)
     if N == 1
-        tt_start = tt_up_rks(tt_start, rmax)
+        tt_start = increase_ranks(tt_start, rmax)
     end
     tt_opt = orthogonalize(tt_start)
     dims = tt_start.ttv_dims
@@ -427,12 +427,16 @@ function dmrg_linsolve(
                 Gi_view, Hi_view, V_view = update_G_H_V(G[1], H[1], V, tt_opt.ttv_dims, tt_opt.ttv_rks, 1, N)
                 G_bi_view, H_bi_view, Pb_view = update_G_H_V_b(G_b[1], H_b[1], Pb_temp, tt_opt.ttv_dims, tt_opt.ttv_rks, 1, N)
                 Ksolve!(Gi_view, G_bi_view, Hi_view, H_bi_view, Amid_list[1], bmid_list[1], Pb_view, V0_view, V_view; it_solver = it_solver, maxiter = linsolv_maxiter, tol = linsolv_tol, itslv_thresh = itslv_thresh)
-                for i in N:-1:2
-                    V_view = @view(V[1:tt_opt.ttv_rks[i - N + 1], 1:prod(tt_opt.ttv_dims[(i - N + 1):i]), 1:tt_opt.ttv_rks[i + 1]])
-                    left_core_move!(tt_opt, V_view, V_move, i, tol, rmax_schedule[end])
+                if N == 1
+                    tt_opt.ttv_vec[1] = permutedims(copy(V_view), (2, 1, 3))
+                else
+                    for i in N:-1:2
+                        V_view = @view(V[1:tt_opt.ttv_rks[i - N + 1], 1:prod(tt_opt.ttv_dims[(i - N + 1):i]), 1:tt_opt.ttv_rks[i + 1]])
+                        left_core_move!(tt_opt, V_view, V_move, i, tol, rmax_schedule[end])
+                    end
+                    V_moveview = @view(V_move[1:tt_opt.ttv_rks[1], 1:prod(tt_opt.ttv_dims[1:(N - 1)]), 1:tt_opt.ttv_rks[N]])
+                    tt_opt.ttv_vec[1] = permutedims(reshape(V_moveview, 1, tt_opt.ttv_dims[1], :), (2, 1, 3))
                 end
-                V_moveview = @view(V_move[1:tt_opt.ttv_rks[1], 1:prod(tt_opt.ttv_dims[1:(N - 1)]), 1:tt_opt.ttv_rks[N]])
-                tt_opt.ttv_vec[1] = permutedims(reshape(V_moveview, 1, tt_opt.ttv_dims[1], :), (2, 1, 3))
                 tt_opt.ttv_ot[1] = 0
                 return return_info ? (tt_opt, (; residual = norm(A * tt_opt - b) / max(norm(b), eps(real(T))))) : tt_opt
             end
@@ -534,12 +538,16 @@ function dmrg_eigsolve(
                 λ = K_eigmin(Gi_view, Hi_view, V0_view, Amid_list[1], V_view; it_solver = it_solver, maxiter = linsolv_maxiter, tol = linsolv_tol, itslv_thresh = itslv_thresh)
                 push!(E, λ)
                 push!(r_hist, maximum(tt_opt.ttv_rks))
-                for i in N:-1:2
-                    V_view = @view(V[1:tt_opt.ttv_rks[i - N + 1], 1:prod(tt_opt.ttv_dims[(i - N + 1):i]), 1:tt_opt.ttv_rks[i + 1]])
-                    left_core_move!(tt_opt, V_view, V_move, i, tol, rmax_schedule[end])
+                if N == 1
+                    tt_opt.ttv_vec[1] = permutedims(copy(V_view), (2, 1, 3))
+                else
+                    for i in N:-1:2
+                        V_view = @view(V[1:tt_opt.ttv_rks[i - N + 1], 1:prod(tt_opt.ttv_dims[(i - N + 1):i]), 1:tt_opt.ttv_rks[i + 1]])
+                        left_core_move!(tt_opt, V_view, V_move, i, tol, rmax_schedule[end])
+                    end
+                    V_moveview = @view(V_move[1:tt_opt.ttv_rks[1], 1:prod(tt_opt.ttv_dims[1:(N - 1)]), 1:tt_opt.ttv_rks[N]])
+                    tt_opt.ttv_vec[1] = permutedims(reshape(V_moveview, 1, tt_opt.ttv_dims[1], :), (2, 1, 3))
                 end
-                V_moveview = @view(V_move[1:tt_opt.ttv_rks[1], 1:prod(tt_opt.ttv_dims[1:(N - 1)]), 1:tt_opt.ttv_rks[N]])
-                tt_opt.ttv_vec[1] = permutedims(reshape(V_moveview, 1, tt_opt.ttv_dims[1], :), (2, 1, 3))
                 tt_opt.ttv_ot[1] = 0
                 return E::Array{Float64, 1}, tt_opt::AbstractTTvector, r_hist::Array{Int, 1}
             end

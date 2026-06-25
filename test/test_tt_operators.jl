@@ -452,7 +452,7 @@ end
     @test size(P.tto_vec[end], 2) == 1
 
     P_dense = constant_prolongation_matrix(d)
-    for col in 1:2^d
+    for col in 1:(2^d)
         y = P * qtt_basis_vector(d, col)
         @test y isa TTvector{Float64, 4}
         @test y.ttv_dims == ntuple(_ -> 2, d + 1)
@@ -496,7 +496,7 @@ end
     @test size(P.tto_vec[end], 2) == 1
 
     P_dense = linear_prolongation_matrix(d)
-    for col in 1:2^d
+    for col in 1:(2^d)
         e = qtt_basis_vector(d, col)
         y = P * e
         @test y isa TTvector{Float64, 4}

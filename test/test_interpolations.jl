@@ -19,7 +19,7 @@ import TensorCrossInterpolation as TCI
     @test all(d -> d == 2, tt.ttv_dims)
     for k in 1:tt.N
         @test size(tt.ttv_vec[k], 2) == tt.ttv_rks[k]
-        @test size(tt.ttv_vec[k], 3) == tt.ttv_rks[k+1]
+        @test size(tt.ttv_vec[k], 3) == tt.ttv_rks[k + 1]
     end
 end
 
@@ -33,8 +33,8 @@ end
 
     # Both representations should evaluate to the same values at random binary indices
     full = ttv_to_tensor(tt)
-    for idx in ([1,1,1,1,1,1,1,1], [2,1,2,1,2,1,2,1], [1,2,1,2,1,2,1,2])
-        @test full[idx...] ≈ tt_tci(idx) atol=1e-14
+    for idx in ([1, 1, 1, 1, 1, 1, 1, 1], [2, 1, 2, 1, 2, 1, 2, 1], [1, 2, 1, 2, 1, 2, 1, 2])
+        @test full[idx...] ≈ tt_tci(idx) atol = 1.0e-14
     end
 end
 
@@ -54,6 +54,6 @@ end
     @test all(d -> d == 4, tt.ttv_dims)
     for k in 1:tt.N
         @test size(tt.ttv_vec[k], 2) == tt.ttv_rks[k]
-        @test size(tt.ttv_vec[k], 3) == tt.ttv_rks[k+1]
+        @test size(tt.ttv_vec[k], 3) == tt.ttv_rks[k + 1]
     end
 end

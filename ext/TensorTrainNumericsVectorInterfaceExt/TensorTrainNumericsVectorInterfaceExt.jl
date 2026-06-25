@@ -3,53 +3,66 @@ using TensorTrainNumerics
 using VectorInterface
 import Base: zero, copy
 
+# Optional rank rounding for the rank-growing `add` operations. When the parent
+# package's `KRYLOV_ROUND_RANK` is > 0 (set only during a Krylov solve), truncate
+# the sum back to that bond dimension; otherwise just orthogonalize, the default,
+# exact behavior used by Manopt and everything else. This keeps Krylov basis and
+# iterate updates from accumulating rank through repeated vector additions.
+function _round(r::TTvector)
+    rk = TensorTrainNumerics.KRYLOV_ROUND_RANK[]
+    return rk > 0 ? tt_compress!(r, rk) : orthogonalize(r)
+end
+
+function _promoted_add(y::TTvector, x::TTvector, α::Number, β::Number)
+    S = promote_type(eltype(y), eltype(x), typeof(α), typeof(β))
+    return _round(convert(S, β) * y + convert(S, α) * x)
+end
+
 function VectorInterface.add(a::TTvector, b::TTvector)
-    return orthogonalize(a + b)
+    return _round(a + b)
 end
 function VectorInterface.add(a::TToperator, b::TToperator)
     return orthogonalize(a + b)
 end
 
 function VectorInterface.add(a::TTvector, b::TTvector, α::Number)
-    return orthogonalize(a + α * b)
+    return _round(a + α * b)
 end
 function VectorInterface.add(a::TTvector, b::TTvector, α::Number, β::Number)
-    return orthogonalize(β * a + α * b)
+    return _round(β * a + α * b)
 end
 
 function VectorInterface.add!(y::TTvector, x::TTvector)
     r = y + x
     y.ttv_vec = r.ttv_vec; y.ttv_rks = r.ttv_rks; y.ttv_dims = r.ttv_dims; y.ttv_ot = r.ttv_ot
-    return orthogonalize(y)
+    return _round(y)
 end
 function VectorInterface.add!(y::TTvector{T, N}, x::TTvector{T, N}, α::Number, β::Number) where {T, N}
     αT = convert(T, α); βT = convert(T, β)
     r = βT * y + αT * x
     y.ttv_vec = r.ttv_vec; y.ttv_rks = r.ttv_rks; y.ttv_dims = r.ttv_dims; y.ttv_ot = r.ttv_ot
-    return orthogonalize(y)
+    return _round(y)
 end
 
 function VectorInterface.add!!(y::TTvector, x::TTvector)
     return if promote_type(eltype(y), eltype(x)) <: eltype(y)
         VectorInterface.add!(y, x)
     else
-        orthogonalize(y + x)
+        _round(y + x)
     end
 end
 function VectorInterface.add!!(y::TTvector, x::TTvector, α::Number)
     return if promote_type(eltype(y), eltype(x), typeof(α)) <: eltype(y)
         VectorInterface.add!(y, x, α, one(eltype(y)))
     else
-        orthogonalize(y + α * x)
+        _promoted_add(y, x, α, one(eltype(y)))
     end
 end
 function VectorInterface.add!!(y::TTvector, x::TTvector, α::Number, β::Number)
     return if promote_type(eltype(y), eltype(x), typeof(α), typeof(β)) <: eltype(y)
         VectorInterface.add!(y, x, α, β)
     else
-        r = orthogonalize(β * y + α * x)
-        y.ttv_vec = r.ttv_vec; y.ttv_rks = r.ttv_rks; y.ttv_dims = r.ttv_dims; y.ttv_ot = r.ttv_ot
-        y
+        _promoted_add(y, x, α, β)
     end
 end
 

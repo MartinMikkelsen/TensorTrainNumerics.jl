@@ -641,9 +641,11 @@ points over `[a, b]`). The finite-difference scaling `1/h²` is included.
 # Returns
 A `QTToperator` with `N = n_dims * bits_per_dim` sites.
 """
-function qtt_laplacian(n_dims::Int, bits_per_dim::Int;
+function qtt_laplacian(
+        n_dims::Int, bits_per_dim::Int;
         ordering::Symbol = :interleaved, a::Real = 0.0, b::Real = 1.0,
-        bc::Symbol = :DN)
+        bc::Symbol = :DN
+    )
     @assert ordering ∈ (:interleaved, :serial) "ordering must be :interleaved or :serial"
     @assert n_dims ≥ 1 "n_dims must be at least 1"
     @assert bc ∈ (:DD, :DN, :ND, :NN) "bc must be :DD, :DN, :ND, or :NN"
