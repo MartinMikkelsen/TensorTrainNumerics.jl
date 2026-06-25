@@ -1,6 +1,7 @@
 using TensorTrainNumerics
 using CairoMakie
 using LinearAlgebra
+using Random
 
 # Coupled 2D Ornstein–Uhlenbeck / Fokker–Planck in QTT format.
 #
@@ -22,7 +23,7 @@ using LinearAlgebra
 #
 # The correlated stationary is NOT a product, so it needs x|y bond rank > 1.
 # ALS optimises at the rank of its initial guess, so we start from a product
-# Gaussian whose rank is *enriched* (tt_up_rks, with a little noise) to give ALS
+# Gaussian whose rank is *enriched* (increase_ranks, with a little noise) to give ALS
 # room to develop the correlation; we then march with Crank–Nicholson + ALS.
 
 # --- model parameters --------------------------------------------------------
@@ -61,7 +62,8 @@ mass(P) = sum(P) * h^2
 gx = function_to_qtt(t -> exp(-(a + (b - a) * t)^2 / 2), d)
 gy = function_to_qtt(t -> exp(-(a + (b - a) * t)^2 / 2), d)
 u₀_clean = (1 / mass(toarr(gx ⊗ gy))) * (gx ⊗ gy)                  # clean product IC (t=0 panel)
-u₀ = TensorTrainNumerics.tt_up_rks(gx ⊗ gy, 16; ϵ_wn = 1e-2)      # rank-16, small noise
+Random.seed!(42)                                                  # reproducible enrichment noise
+u₀ = TensorTrainNumerics.increase_ranks(gx ⊗ gy, 16; noise = 1e-2)      # rank-16, small noise
 u₀ = (1 / mass(toarr(u₀))) * u₀
 
 # --- analytic stationary distribution  N(μ, Σ∞) ------------------------------

@@ -405,7 +405,7 @@ function dmrg_linsolve(
     d = b.N
     rmax = maximum(rmax_schedule)
     if N == 1
-        tt_start = tt_up_rks(tt_start, rmax)
+        tt_start = increase_ranks(tt_start, rmax)
     end
     tt_opt = orthogonalize(tt_start)
     dims = tt_start.ttv_dims

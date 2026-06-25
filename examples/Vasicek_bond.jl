@@ -1,5 +1,6 @@
 using TensorTrainNumerics
 using CairoMakie
+using Random
 
 # Vasicek model: zero-coupon bond pricing as a Feynman–Kac (discounted backward)
 # equation, in QTT.
@@ -31,7 +32,8 @@ X   = ttv_to_diag_tto(qtt_polynom([0.0, 1.0], d; a = a, b = b))  # diag(r)    (d
 L_FK = -θ * (M * ∂r) + D * ∂rr - X
 
 # --- terminal payoff P(r,0)=1, rank-enriched so ALS can grow the bond profile -
-u₀ = TensorTrainNumerics.tt_up_rks(function_to_qtt(t -> 1.0, d), 6; ϵ_wn = 1e-3)
+Random.seed!(42)                                                  # reproducible enrichment noise
+u₀ = TensorTrainNumerics.increase_ranks(function_to_qtt(t -> 1.0, d), 6; noise = 1e-3)
 
 # --- Vasicek closed form  P(r,τ) = exp(A(τ) - B(τ) r) ------------------------
 B(τ) = (1 - exp(-θ * τ)) / θ

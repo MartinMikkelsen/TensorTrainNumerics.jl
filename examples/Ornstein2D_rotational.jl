@@ -77,7 +77,7 @@ P∞ = [exp(-((xi - μx)^2 + (yj - μy)^2) / (2var∞)) / (2π * var∞) for xi 
 # (transiently correlated) transient even though the endpoints are low-rank
 gx = function_to_qtt(t -> exp(-(a + (b - a) * t)^2 / 2), d)
 gy = function_to_qtt(t -> exp(-(a + (b - a) * t)^2 / 2), d)
-ic() = (u = TensorTrainNumerics.tt_up_rks(gx ⊗ gy, 14; ϵ_wn = 1e-2); (1 / mass(toarr(u))) * u)
+ic() = (u = TensorTrainNumerics.increase_ranks(gx ⊗ gy, 14; noise = 1e-2); (1 / mass(toarr(u))) * u)
 
 τ         = 0.02
 record_dt = 0.8

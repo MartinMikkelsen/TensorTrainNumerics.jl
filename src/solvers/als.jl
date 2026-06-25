@@ -288,7 +288,7 @@ function als_eigsolve(
             if i_schedule > length(sweep_schedule)
                 return E[1:i_μit]::Array{Float64, 1}, tt_opt::AbstractTTvector
             else
-                tt_opt = tt_up_rks(tt_opt, rmax_schedule[i_schedule]; ϵ_wn = noise_schedule[i_schedule])
+                tt_opt = increase_ranks(tt_opt, rmax_schedule[i_schedule]; noise = noise_schedule[i_schedule])
                 tt_opt = orthogonalize(tt_opt)
                 H = init_H(tt_opt, A)
                 for i in 1:(d - 1)
@@ -376,7 +376,7 @@ function als_gen_eigsolv(A::AbstractTToperator, S::AbstractTToperator, tt_start:
             if i_schedule > length(sweep_schedule)
                 return E[1:i_μit], tt_opt
             else
-                tt_opt = tt_up_rks(tt_opt, rmax_schedule[i_schedule])
+                tt_opt = increase_ranks(tt_opt, rmax_schedule[i_schedule])
                 for i in 1:(d - 1)
                     Htemp = zeros(tt_opt.ttv_rks[i], tt_opt.ttv_rks[i], A.tto_rks[i])
                     Ltemp = zeros(tt_opt.ttv_rks[i], tt_opt.ttv_rks[i], S.tto_rks[i])

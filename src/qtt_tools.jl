@@ -780,12 +780,12 @@ function tt_compress!(q::QTTvector, max_bond::Int; kwargs...)
 end
 
 """
-    tt_up_rks(q::QTTvector, rk_max::Int; kwargs...)
+    increase_ranks(q::QTTvector, max_bond::Int; kwargs...)
 
 Increase the bond dimension of a `QTTvector`, preserving QTT metadata.
 """
-function tt_up_rks(q::QTTvector, rk_max::Int; kwargs...)
-    QTTvector(tt_up_rks(TTvector(q), rk_max; kwargs...), q.n_dims, q.bits_per_dim, q.ordering)
+function increase_ranks(q::QTTvector, max_bond::Int; kwargs...)
+    QTTvector(increase_ranks(TTvector(q), max_bond; kwargs...), q.n_dims, q.bits_per_dim, q.ordering)
 end
 
 """

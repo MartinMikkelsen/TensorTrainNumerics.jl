@@ -1,6 +1,7 @@
 using TensorTrainNumerics
 using CairoMakie
 import LinearAlgebra as LA
+using Random
 
 # Feynman–Kac for the COUPLED 2D quantum harmonic oscillator (imaginary time), QTT.
 #
@@ -51,7 +52,8 @@ energy(u) = real(dot(u, H * u)) / real(dot(u, u))
 
 # --- isotropic Gaussian payoff, rank-enriched so ALS can develop correlation -
 gx = function_to_qtt(t -> exp(-0.5 * α * (lo + (hi - lo) * t)^2), d)
-u₀ = TensorTrainNumerics.tt_up_rks(gx ⊗ gx, 16; ϵ_wn = 1e-2)
+Random.seed!(42)                                              # reproducible enrichment noise
+u₀ = TensorTrainNumerics.increase_ranks(gx ⊗ gx, 16; noise = 1e-2)
 
 # --- Crank–Nicholson march in τ, recording density, energy, correlation ------
 τstep = 0.02; record_dt = 0.2; T = 6.0      # record_dt must be a multiple of τstep

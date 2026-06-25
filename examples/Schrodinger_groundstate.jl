@@ -1,6 +1,7 @@
 using TensorTrainNumerics
 using CairoMakie
 import LinearAlgebra as LA
+using Random
 
 # Quantum ground state of a double-well potential by imaginary-time propagation,
 # in QTT — solved two ways and cross-checked against dense diagonalisation.
@@ -11,7 +12,7 @@ import LinearAlgebra as LA
 #
 #   • Crank–Nicolson + ALS:  normalize=true is the standard normalised
 #     imaginary-time propagation. ALS is *fixed-rank*, so the initial state is
-#     rank-enriched (tt_up_rks) up front to give it room.
+#     rank-enriched (increase_ranks) up front to give it room.
 #   • TDVP2:  two-site, *rank-adaptive* — grows the bond dimension itself, so a
 #     plain low-rank initial state suffices. Same convention as the steppers
 #     (evolves exp(+Aτ)), so pass the same A = -H with imaginary_time=true.
@@ -45,7 +46,8 @@ blk = round(Int, record_dt / τstep); nblk = round(Int, T / record_dt)
 times = collect(0.0:record_dt:T)
 
 # --- method 1: Crank–Nicolson + ALS (fixed rank → rank-enrich the IC) --------
-ψ_cn = TensorTrainNumerics.tt_up_rks(gauss(), 12; ϵ_wn = 1e-3); ψ_cn = (1 / nrm(ψ_cn)) * ψ_cn
+Random.seed!(42)                                              # reproducible enrichment noise
+ψ_cn = TensorTrainNumerics.increase_ranks(gauss(), 12; noise = 1e-3); ψ_cn = (1 / nrm(ψ_cn)) * ψ_cn
 E_cn = Float64[Energy(ψ_cn)]
 for _ in 1:nblk
     global ψ_cn = crank_nicholson_method(A, ψ_cn, ψ_cn, fill(τstep, blk); normalize = true, tt_solver = "als")
