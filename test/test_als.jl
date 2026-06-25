@@ -1,6 +1,7 @@
 using Test
 using Random
 using LinearAlgebra
+using TensorTrainNumerics
 
 import TensorTrainNumerics: update_H!
 
@@ -178,4 +179,39 @@ end
     E_std, _ = als_eigsolve(A, x0; sweep_schedule = [2], rmax_schedule = [2])
 
     @test isapprox(E_gen[end], E_std[end]; rtol = 0.05)
+end
+
+@testset "als_gen_eigsolv: multi-stage schedule grows ranks" begin
+    d = 3
+    A = als_spd_op(d, 2.0)
+    S = id_tto(d)
+    x0 = rand_tt(ntuple(_ -> 2, d), [1, 1, 1, 1]; normalise = true)
+
+    result = als_gen_eigsolv(A, S, x0; sweep_schedule = [1, 2], rmax_schedule = [1, 2])
+
+    @test result !== nothing
+    E, x_opt = result
+    @test x_opt isa TTvector{Float64}
+    @test maximum(x_opt.ttv_rks) ≤ 2
+    @test all(isfinite, E)
+end
+
+@testset "als_gen_eigsolv: iterative local eigensolver path" begin
+    d = 3
+    A = als_spd_op(d, 2.0)
+    S = id_tto(d)
+    x0 = rand_tt(ntuple(_ -> 2, d), [1, 2, 2, 1]; normalise = true)
+
+    result = als_gen_eigsolv(
+        A, S, x0;
+        sweep_schedule = [2],
+        rmax_schedule = [2],
+        it_solver = true,
+        itslv_thresh = 1,
+    )
+
+    @test result !== nothing
+    E, x_opt = result
+    @test x_opt isa TTvector{Float64}
+    @test isfinite(E[end])
 end

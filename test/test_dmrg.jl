@@ -1,6 +1,7 @@
 using Test
 using Random
 using LinearAlgebra
+using TensorTrainNumerics
 
 Random.seed!(1234)
 
@@ -15,6 +16,13 @@ end
 
 # Build a small SPD operator: Δ(d) + shift * I  (positive-definite for shift > 0)
 dmrg_spd_op(d, shift = 3.0) = Δ(d) + shift * id_tto(d)
+
+@testset "cut_off_index preserves near-degenerate singular values" begin
+    s = [1.0, 1.0 - 5.0e-11, 0.1]
+    tol = (1.0 - 2.0e-11) / norm(s)
+
+    @test TensorTrainNumerics.cut_off_index(s, tol) == 2
+end
 
 # ── dmrg_linsolve ─────────────────────────────────────────────────────────────
 
@@ -64,6 +72,27 @@ end
     x = dmrg_linsolve(A, b, x0; N = 2, sweep_schedule = [4], rmax_schedule = [4])
 
     @test dmrg_rel_residual(A, x, b) < 0.05
+end
+
+@testset "dmrg_linsolve N=1: full local solve returns residual info" begin
+    d = 3
+    A = dmrg_spd_op(d, 5.0)
+    b = rand_tt(ntuple(_ -> 2, d), [1, 1, 1, 1])
+    x0 = rand_tt(ntuple(_ -> 2, d), [1, 1, 1, 1])
+
+    x, info = dmrg_linsolve(
+        A, b, x0;
+        N = 1,
+        sweep_schedule = [2],
+        rmax_schedule = [2],
+        it_solver = false,
+        itslv_thresh = typemax(Int),
+        return_info = true,
+    )
+
+    @test x isa TTvector{Float64}
+    @test haskey(info, :residual)
+    @test isfinite(info.residual)
 end
 
 # ── dmrg_eigsolve ─────────────────────────────────────────────────────────────
@@ -119,4 +148,44 @@ end
 
     @test all(isreal, E)
     @test all(isfinite, E)
+end
+
+@testset "dmrg_eigsolve: iterative local eigensolver path" begin
+    d = 3
+    A = dmrg_spd_op(d, 2.0)
+    x0 = rand_tt(ntuple(_ -> 2, d), [1, 2, 2, 1]; normalise = true)
+
+    E, x_opt, r_hist = dmrg_eigsolve(
+        A, x0;
+        N = 2,
+        sweep_schedule = [1],
+        rmax_schedule = [2],
+        it_solver = true,
+        itslv_thresh = 1,
+        linsolv_maxiter = 20,
+    )
+
+    @test all(isfinite, E)
+    @test x_opt isa TTvector{Float64}
+    @test length(r_hist) == length(E)
+end
+
+@testset "dmrg_eigsolve N=1: finalizes single-site core" begin
+    d = 3
+    A = dmrg_spd_op(d, 2.0)
+    x0 = rand_tt(ntuple(_ -> 2, d), [1, 1, 1, 1]; normalise = true)
+
+    E, x_opt, r_hist = dmrg_eigsolve(
+        A, x0;
+        N = 1,
+        sweep_schedule = [2],
+        rmax_schedule = [2],
+        it_solver = false,
+        itslv_thresh = typemax(Int),
+    )
+
+    @test all(isfinite, E)
+    @test x_opt isa TTvector{Float64}
+    @test x_opt.ttv_ot[1] == 0
+    @test length(r_hist) == length(E)
 end

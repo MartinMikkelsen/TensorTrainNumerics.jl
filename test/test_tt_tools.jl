@@ -317,6 +317,11 @@ end
         @test isapprox(abs.(reshape(reverse(A_rand.tensors)[i], 2, 1, 1)), abs.((B_rand.ttv_vec)[i]), rtol = 1.0e-10)
     end
 
+    tensor_centered = randn(2, 3, 2)
+    tt_centered = ttv_decomp(tensor_centered; index = 2)
+    @test tt_centered.ttv_ot == [-1, 0, 1]
+    @test isapprox(ttv_to_tensor(tt_centered), tensor_centered; atol = 1.0e-10)
+
 end
 
 @testset "tto_decomp" begin
@@ -554,6 +559,17 @@ end
         y = TensorTrainNumerics.tt_compress!(tt, 3; sweeps = 2, truncerr = 0.0)
         @test typeof(y) == typeof(tt)
         @test y === tt
+    end
+
+    @testset "verbose mode logs both sweep directions" begin
+        N = 3
+        dims = (2, 2, 2)
+        rks = [1, 2, 2, 1]
+        ot = zeros(Int, N)
+        vec = [randn(dims[1], rks[1], rks[2]), randn(dims[2], rks[2], rks[3]), randn(dims[3], rks[3], rks[4])]
+        tt = TTvector{Float64, N}(N, vec, dims, rks, ot)
+
+        @test_logs (:info, r"TT compress: sweep 1") (:info, r"TT compress: sweep 1") TensorTrainNumerics.tt_compress!(tt, 2; verbose = true)
     end
 end
 
@@ -925,6 +941,41 @@ end
     # Requested ranks below bounds are preserved
     rks_small = [1, 1, 1, 1]
     @test r_and_d_to_rks(rks_small, dims) == [1, 1, 1, 1]
+
+    @test r_and_d_to_rks([5, 5, 5], (0, 2); rmax = 4) == [1, 2, 1]
+    @test r_and_d_to_rks([5, 5, 5], (0, 0); rmax = 4) == [1, 4, 1]
+end
+
+@testset "increase_ranks preserves represented tensor and validates rank growth" begin
+    dims = (2, 2, 2)
+    tt = rand_tt(dims, [1, 1, 1, 1])
+    dense = ttv_to_tensor(tt)
+
+    enlarged = TensorTrainNumerics.increase_ranks(tt, 3; noise = 0.0)
+    @test enlarged isa TTvector{Float64, 3}
+    @test maximum(enlarged.ttv_rks) <= 3
+    @test maximum(enlarged.ttv_rks) > maximum(tt.ttv_rks)
+    @test ttv_to_tensor(enlarged) ≈ dense
+
+    noisy = TensorTrainNumerics.increase_ranks(tt, 2; noise = 1.0e-3)
+    @test noisy isa TTvector{Float64, 3}
+    @test noisy.ttv_rks == [1, 2, 2, 1]
+    @test any(!iszero, noisy.ttv_vec[1][:, :, 2])
+    @test any(!iszero, noisy.ttv_vec[2][:, 2, 2])
+    @test any(!iszero, noisy.ttv_vec[3][:, 2, :])
+
+    @test_throws AssertionError TensorTrainNumerics.increase_ranks(tt, 1)
+    @test_deprecated TensorTrainNumerics.tt_up_rks(tt, 3; ϵ_wn = 0.0)
+end
+
+@testset "concatenate rejects incompatible boundary ranks" begin
+    tt1 = rand_tt((2, 2), [1, 2, 2])
+    tt2 = rand_tt((2, 2), [1, 2, 1])
+    @test_throws ArgumentError concatenate(tt1, tt2)
+
+    A1 = TToperator{Float64, 1}(1, [randn(2, 2, 1, 2)], (2,), [1, 2], [0])
+    A2 = TToperator{Float64, 1}(1, [randn(2, 2, 1, 1)], (2,), [1, 1], [0])
+    @test_throws ArgumentError concatenate(A1, A2)
 end
 
 @testset "orthogonalize" begin
@@ -1011,6 +1062,8 @@ end
     # no canonical form: all zeros
     tt_nc = TTvector{Float64, 3}(3, tt.ttv_vec, tt.ttv_dims, tt.ttv_rks, [0, 0, 0])
     @test occursin("none", sprint(show, MIME("text/plain"), tt_nc))
+
+    @test TensorTrainNumerics._ot_description([1, 0, 1]) == "[1, 0, 1]"
 
     # TToperator
     tto = rand_tto((2, 3), 2)

@@ -377,9 +377,18 @@ function als_gen_eigsolv(A::AbstractTToperator, S::AbstractTToperator, tt_start:
                 return E[1:i_μit], tt_opt
             else
                 tt_opt = increase_ranks(tt_opt, rmax_schedule[i_schedule])
+                tt_opt = orthogonalize(tt_opt)
+                rks = copy(tt_opt.ttv_rks)
                 for i in 1:(d - 1)
-                    Htemp = zeros(tt_opt.ttv_rks[i], tt_opt.ttv_rks[i], A.tto_rks[i])
-                    Ltemp = zeros(tt_opt.ttv_rks[i], tt_opt.ttv_rks[i], S.tto_rks[i])
+                    Gtemp = zeros(T, dims[i + 1], rks[i + 1], dims[i + 1], rks[i + 1], A.tto_rks[i + 2])
+                    Ktemp = zeros(T, dims[i + 1], rks[i + 1], dims[i + 1], rks[i + 1], S.tto_rks[i + 2])
+                    Gtemp[1:size(G[i + 1], 1), 1:size(G[i + 1], 2), 1:size(G[i + 1], 3), 1:size(G[i + 1], 4), 1:size(G[i + 1], 5)] = G[i + 1]
+                    Ktemp[1:size(K[i + 1], 1), 1:size(K[i + 1], 2), 1:size(K[i + 1], 3), 1:size(K[i + 1], 4), 1:size(K[i + 1], 5)] = K[i + 1]
+                    G[i + 1] = Gtemp
+                    K[i + 1] = Ktemp
+
+                    Htemp = zeros(T, size(H[i], 1), rks[i + 1], rks[i + 1])
+                    Ltemp = zeros(T, size(L[i], 1), rks[i + 1], rks[i + 1])
                     Htemp[1:size(H[i], 1), 1:size(H[i], 2), 1:size(H[i], 3)] = H[i]
                     Ltemp[1:size(L[i], 1), 1:size(L[i], 2), 1:size(L[i], 3)] = L[i]
                     H[i] = Htemp
@@ -396,7 +405,7 @@ function als_gen_eigsolv(A::AbstractTToperator, S::AbstractTToperator, tt_start:
                 # Define V as solution of K*x=Pb in x
                 i_μit += 1
                 E[i_μit], V = K_eiggenmin(G[i], H[i], K[i], L[i], tt_opt.ttv_vec[i]; it_solver = it_solver, itslv_thresh = itslv_thresh)
-                tt_opt = right_core_move(tt_opt, V, i, rks)
+                tt_opt = right_core_move(tt_opt, V, i, tt_opt.ttv_rks)
             end
 
             #update G and K
@@ -409,7 +418,7 @@ function als_gen_eigsolv(A::AbstractTToperator, S::AbstractTToperator, tt_start:
             # Define V as solution of K*x=Pb in x
             i_μit += 1
             E[i_μit], V = K_eiggenmin(G[i], H[i], K[i], L[i], tt_opt.ttv_vec[i]; it_solver = it_solver, itslv_thresh = itslv_thresh)
-            tt_opt = left_core_move(tt_opt, V, i, rks)
+            tt_opt = left_core_move(tt_opt, V, i, tt_opt.ttv_rks)
             update_H!(tt_opt.ttv_vec[i], A.tto_vec[i], H[i], H[i - 1])
             update_H!(tt_opt.ttv_vec[i], S.tto_vec[i], L[i], L[i - 1])
         end

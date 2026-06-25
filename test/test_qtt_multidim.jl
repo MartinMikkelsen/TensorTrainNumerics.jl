@@ -473,6 +473,10 @@ end
     @test q_il_r.bits_per_dim == bits
     @test maximum(abs, qttv_to_array(q_il_r) .- arr_il) < 1e-10
 
+    q_il_r_truncated = reorder(q_sr, :interleaved; threshold = 1.0e-14)
+    @test q_il_r_truncated.ordering == :interleaved
+    @test maximum(abs, qttv_to_array(q_il_r_truncated) .- arr_il) < 1e-10
+
     # interleaved → serial via reorder matches direct serial construction
     q_sr_r = reorder(q_il, :serial)
     @test q_sr_r.ordering == :serial
@@ -579,6 +583,23 @@ end
     @test maximum(abs, qttv_to_array(q_c) .- arr_ref) < 1e-8
 end
 
+@testset "increase_ranks on QTTvector preserves metadata and values" begin
+    f = x -> exp(-x[1]) * exp(-x[2])
+    bits = 4
+    q = function_to_qttv(f, 2, bits; ordering = :serial)
+    arr_ref = qttv_to_array(q)
+
+    q_up = TensorTrainNumerics.increase_ranks(q, 4; noise = 0.0)
+
+    @test q_up isa QTTvector
+    @test q_up.ordering == q.ordering
+    @test q_up.n_dims == q.n_dims
+    @test q_up.bits_per_dim == q.bits_per_dim
+    @test maximum(q_up.ttv_rks) ≤ 4
+    @test maximum(q_up.ttv_rks) > maximum(q.ttv_rks)
+    @test maximum(abs, qttv_to_array(q_up) .- arr_ref) < 1e-12
+end
+
 @testset "qtt_laplacian — 3D Kronecker-sum matrix correctness" begin
     d = 3
     n = 2^d
@@ -658,6 +679,11 @@ end
     Av_direct  = qttv_to_array(A_il   * v_il)
     Av_reorder = qttv_to_array(A_il_r * v_il)
     @test maximum(abs, Av_direct .- Av_reorder) < 1e-8
+
+    A_il_truncated = reorder(A_sr, :interleaved; threshold = 1.0e-14)
+    @test A_il_truncated.ordering == :interleaved
+    Av_truncated = qttv_to_array(A_il_truncated * v_il)
+    @test maximum(abs, Av_direct .- Av_truncated) < 1e-8
 
     # Round-trip: serial → interleaved → serial
     A_sr_rt = reorder(A_il_r, :serial)

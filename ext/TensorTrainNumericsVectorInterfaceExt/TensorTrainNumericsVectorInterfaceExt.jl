@@ -13,6 +13,11 @@ function _round(r::TTvector)
     return rk > 0 ? tt_compress!(r, rk) : orthogonalize(r)
 end
 
+function _promoted_add(y::TTvector, x::TTvector, α::Number, β::Number)
+    S = promote_type(eltype(y), eltype(x), typeof(α), typeof(β))
+    return _round(convert(S, β) * y + convert(S, α) * x)
+end
+
 function VectorInterface.add(a::TTvector, b::TTvector)
     return _round(a + b)
 end
@@ -50,16 +55,14 @@ function VectorInterface.add!!(y::TTvector, x::TTvector, α::Number)
     return if promote_type(eltype(y), eltype(x), typeof(α)) <: eltype(y)
         VectorInterface.add!(y, x, α, one(eltype(y)))
     else
-        _round(y + α * x)
+        _promoted_add(y, x, α, one(eltype(y)))
     end
 end
 function VectorInterface.add!!(y::TTvector, x::TTvector, α::Number, β::Number)
     return if promote_type(eltype(y), eltype(x), typeof(α), typeof(β)) <: eltype(y)
         VectorInterface.add!(y, x, α, β)
     else
-        r = _round(β * y + α * x)
-        y.ttv_vec = r.ttv_vec; y.ttv_rks = r.ttv_rks; y.ttv_dims = r.ttv_dims; y.ttv_ot = r.ttv_ot
-        y
+        _promoted_add(y, x, α, β)
     end
 end
 
