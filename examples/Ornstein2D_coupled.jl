@@ -3,30 +3,6 @@ using CairoMakie
 using LinearAlgebra
 using Random
 
-# Coupled 2D Ornstein–Uhlenbeck / Fokker–Planck in QTT format.
-#
-# Multivariate OU:  dX = -Θ(X-μ) dt + σ dW,   X ∈ ℝ²,  Θ = [θ -k; -k θ] symmetric.
-# A symmetric off-diagonal coupling k makes the stationary distribution a
-# *correlated* (tilted) Gaussian; the diffusion is kept isotropic so the
-# correlation comes purely from the drift.
-#
-#   ∂P/∂t = Σᵢ ∂/∂xᵢ[(Θ(x-μ))ᵢ P] + D Σᵢ ∂²P/∂xᵢ²,   D = σ²/2.
-#
-# Expanding (Θ(x-μ))ᵢ = Σⱼ Θᵢⱼ(xⱼ-μⱼ) gives, in serial QTT layout (sites 1:d = x,
-# d+1:2d = y) with 1D operators ∂, ∂², Mx=diag(x-μx), My=diag(y-μy):
-#
-#   A = θ[(∂Mx)⊗I + I⊗(∂My)]            # diagonal drift
-#     - k[∂⊗My + Mx⊗∂]                  # off-diagonal coupling (rank-1 across x|y)
-#     + D[∂²⊗I + I⊗∂²]                   # isotropic diffusion
-#
-# Stationary distribution: N(μ, Σ∞) with the Lyapunov solution Σ∞ = D·Θ⁻¹.
-#
-# The correlated stationary is NOT a product, so it needs x|y bond rank > 1.
-# ALS optimises at the rank of its initial guess, so we start from a product
-# Gaussian whose rank is *enriched* (increase_ranks, with a little noise) to give ALS
-# room to develop the correlation; we then march with Crank–Nicholson + ALS.
-
-# --- model parameters --------------------------------------------------------
 θ = 1.0                 # mean-reversion rate
 k = 0.6                 # drift coupling  (ρ = k/θ = 0.6)
 μx, μy = 2.0, -2.0      # long-term mean
@@ -42,23 +18,19 @@ a, b = -6.0, 6.0
 h = (b - a) / (N - 1)
 xes = collect(range(a, b, N))
 
-# --- 1D building blocks on d bits --------------------------------------------
 ∂ = (1 / (2h)) * (shift(d) - (id_tto(d) - ∇(d)))   # central first derivative
 ∂² = -(1 / h^2) * Δ(d)                              # second derivative
 idd = id_tto(d)
 Mx = ttv_to_diag_tto(qtt_polynom([-μx, 1.0], d; a = a, b = b))
 My = ttv_to_diag_tto(qtt_polynom([-μy, 1.0], d; a = a, b = b))
 
-# --- coupled 2D generator ----------------------------------------------------
 A = θ * ((∂ * Mx) ⊗ idd + idd ⊗ (∂ * My)) -
     k * (∂ ⊗ My + Mx ⊗ ∂) +
     D * (∂² ⊗ idd + idd ⊗ ∂²)
 
-# --- reconstruction / mass helpers -------------------------------------------
 toarr(v) = qttv_to_array(QTTvector(v, 2, d, :serial))   # raw 2d-site TT -> N×N grid
 mass(P) = sum(P) * h^2
 
-# --- product-Gaussian IC at the origin, rank-enriched so ALS can correlate ----
 gx = function_to_qtt(t -> exp(-(a + (b - a) * t)^2 / 2), d)
 gy = function_to_qtt(t -> exp(-(a + (b - a) * t)^2 / 2), d)
 u₀_clean = (1 / mass(toarr(gx ⊗ gy))) * (gx ⊗ gy)                  # clean product IC (t=0 panel)
@@ -66,12 +38,10 @@ Random.seed!(42)                                                  # reproducible
 u₀ = TensorTrainNumerics.increase_ranks(gx ⊗ gy, 16; noise = 1.0e-2)      # rank-16, small noise
 u₀ = (1 / mass(toarr(u₀))) * u₀
 
-# --- analytic stationary distribution  N(μ, Σ∞) ------------------------------
 Σi = inv(Σ∞)
 nrm = 1 / (2π * sqrt(det(Σ∞)))
 P∞ = [nrm * exp(-0.5 * ([xi - μx, yj - μy]' * Σi * [xi - μx, yj - μy])) for xi in xes, yj in xes]
 
-# --- Crank–Nicholson march, recording snapshots, error, and ρ(t) -------------
 τ = 0.02
 record_dt = 0.4
 T = 8.0
@@ -125,7 +95,6 @@ function cov_ellipse(μ, Σ; nσ = 1.0, n = 120)
     return getindex.(pts, 1), getindex.(pts, 2)
 end
 
-# --- Figure 1: density snapshots developing the diagonal correlation ----------
 let
     snap = [0.0, 0.4, 1.2, 8.0]
     cmax = maximum(P∞)
@@ -152,7 +121,6 @@ let
     display(fig)
 end
 
-# --- Figure 2: convergence (left) and correlation developing (right) ----------
 let
     fig = Figure(size = (1000, 420))
     ax1 = Axis(

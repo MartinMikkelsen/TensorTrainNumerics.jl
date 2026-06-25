@@ -2,27 +2,6 @@ using TensorTrainNumerics
 using CairoMakie
 using LinearAlgebra
 
-# Non-symmetric (rotational) 2D Ornstein–Uhlenbeck — a stability study.
-#
-# Drift matrix  Θ = [θ ω; -ω θ] = θI + ωJ,  J = [0 1; -1 0].  Eigenvalues θ±iω:
-# the drift ROTATES at frequency ω while decaying at rate θ, so the mean spirals
-# into μ.  Unlike the symmetric-coupling case the stationary is *isotropic*,
-#   P∞ = N(μ, (D/θ)·I),
-# because the antisymmetric part of Θ drops out of the Lyapunov equation.  What
-# ω≠0 adds is a divergence-free *probability current* circulating around μ — the
-# signature of a non-equilibrium (non-reversible) steady state.
-#
-# Why this is a stability test: the central-difference ∂ is EXACTLY antisymmetric
-# (∂ᵀ=-∂, since shift and id-∇ are exact transposes), so the rotational coupling
-# ω(∂⊗My - Mx⊗∂) is exactly antisymmetric.  Hence:
-#   • it contributes nothing to (A+Aᵀ)/2, so the numerical abscissa
-#     ν = λmax((A+Aᵀ)/2) — the bound on transient growth ‖e^{tA}‖ ≤ e^{tν} — is
-#     INDEPENDENT of ω;
-#   • it only shifts eigenvalues along the imaginary axis, so max Re λ stays ≤ 0.
-# The operator becomes more non-normal as ω grows, but CN+ALS stays stable.
-# Below we verify both the spectrum (small d, dense) and full evolutions.
-
-# --- model parameters --------------------------------------------------------
 θ = 1.0
 μx, μy = 2.0, -2.0
 σ = 1.0
@@ -31,7 +10,6 @@ var∞ = D / θ                      # isotropic stationary variance
 
 a, b = -6.0, 6.0
 
-# rotational generator A(ω) at d bits per axis (serial layout, sites 1:d = x)
 function generator(d, ω)
     N = 2^d
     h = (b - a) / (N - 1)
@@ -46,9 +24,7 @@ function generator(d, ω)
     return A, h
 end
 
-# ============================================================================
-# Part 1 — spectrum sweep (small d, dense eigenvalues)
-# ============================================================================
+
 d_spec = 5
 ωs = collect(0.0:0.2:2.0)
 abscissa = Float64[]   # max Re λ(A)        (spectral abscissa)
@@ -62,9 +38,6 @@ for ω in ωs
     push!(nonnormal, norm(M - M'))
 end
 
-# ============================================================================
-# Part 2 — full CN+ALS evolutions across ω (QTT)
-# ============================================================================
 d = 7
 N = 2^d
 h = (b - a) / (N - 1)
@@ -73,8 +46,6 @@ toarr(v) = qttv_to_array(QTTvector(v, 2, d, :serial))
 mass(P) = sum(P) * h^2
 P∞ = [exp(-((xi - μx)^2 + (yj - μy)^2) / (2var∞)) / (2π * var∞) for xi in xes, yj in xes]
 
-# product Gaussian IC at the origin, rank-enriched so ALS can follow the rotating
-# (transiently correlated) transient even though the endpoints are low-rank
 gx = function_to_qtt(t -> exp(-(a + (b - a) * t)^2 / 2), d)
 gy = function_to_qtt(t -> exp(-(a + (b - a) * t)^2 / 2), d)
 ic() = (u = TensorTrainNumerics.increase_ranks(gx ⊗ gy, 14; noise = 1.0e-2); (1 / mass(toarr(u))) * u)
@@ -126,9 +97,7 @@ let ω = 2.0, P = Pfinal[2.0]
     global current = (qx, qy, ju, jv)
 end
 
-# ============================================================================
-# Figure 1 — stability of the spectrum vs ω
-# ============================================================================
+
 let
     fig = Figure(size = (1000, 420))
     ax1 = Axis(
@@ -147,9 +116,6 @@ let
     display(fig)
 end
 
-# ============================================================================
-# Figure 2 — evolution robustness (left) and the steady current (right)
-# ============================================================================
 let
     fig = Figure(size = (1050, 430))
     ax1 = Axis(

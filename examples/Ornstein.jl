@@ -1,33 +1,12 @@
 using TensorTrainNumerics
 using CairoMakie
 
-# Ornstein–Uhlenbeck process as a Fokker–Planck equation, solved in QTT format.
-#
-#   ∂P/∂t = θ ∂/∂x[(x-μ)P] + (σ²/2) ∂²P/∂x²
-#
-# Writing M = diag(x-μ), the generator is the low-rank QTT operator
-#
-#   A = θ ∇ M + (σ²/2) Δ ,
-#
-# and the density relaxes to the stationary Gaussian  P∞ = N(μ, σ²/2θ).
-# We march with Crank–Nicholson,  (I - τ/2 A) Pⁿ⁺¹ = (I + τ/2 A) Pⁿ,  solved in
-# TT format with ALS.  ALS performs a direct (non-symmetric) local solve, which
-# is required here because the advection operator ∇M is non-symmetric — the
-# MALS/DMRG local solves symmetrise the system and diverge for this problem.
-# CN+ALS is the right tool here because it is *implicit* — unconditionally stable
-# for any stiffness. TDVP steps via a local matrix exponential, which is NOT
-# unconditionally stable: at this fine grid (D/h² ≈ 4e4) tdvp2 needs dt ≈ 2e-4 vs
-# CN's 0.02 to stay bounded (~100× more steps, hence impractical), and single-site
-# tdvp is unstable at any dt on this non-normal advection operator. Not a bug —
-# the inherent limit of explicit-exponential vs implicit time-stepping.
 
-# --- model parameters --------------------------------------------------------
 θ = 1.0           # mean-reversion rate
 μ = 2.0           # long-term mean
 σ = 1.0           # volatility
 D = σ^2 / 2       # diffusion coefficient
 
-# --- grid: 2^d points on [a, b] ----------------------------------------------
 d = 12
 N = 2^d
 a, b = -6.0, 8.0
@@ -54,7 +33,6 @@ u₀ = (1 / mass(qtt_to_function(u₀))) * u₀
 var∞ = D / θ
 P∞ = @. exp(-(xes - μ)^2 / (2var∞)) / sqrt(2π * var∞)
 
-# --- Crank–Nicholson march, recording snapshots and the error to P∞ ----------
 τ = 0.001
 record_dt = 0.4
 T = 8.0
@@ -81,14 +59,12 @@ for _ in 1:n_blocks
     record!(P)
 end
 
-# moments of the final state vs the analytic targets
 let v = density[end]
     m = sum(xes .* v) * h
     s = sum((xes .- m) .^ 2 .* v) * h
     @info "final state" mean = m target_mean = μ variance = s target_var = var∞ L1 = errL1[end]
 end
 
-# --- Figure 1: relaxation of the density toward the stationary distribution ---
 let
     snap = [0.0, 0.4, 0.8, 1.6, 3.2, 8.0]
     fig = Figure(size = (760, 480))
@@ -111,7 +87,6 @@ let
     display(fig)
 end
 
-# --- Figure 2: convergence to the stationary distribution --------------------
 let
     fig = Figure(size = (760, 480))
     ax = Axis(

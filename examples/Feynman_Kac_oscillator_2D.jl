@@ -3,22 +3,6 @@ using CairoMakie
 import LinearAlgebra as LA
 using Random
 
-# Feynman–Kac for the COUPLED 2D quantum harmonic oscillator (imaginary time), QTT.
-#
-# Brownian L = ½∇² and a coupled harmonic potential V = ½ zᵀK z (z=(x,y)):
-#   ∂u/∂τ = ½∇²u − ½ zᵀK z · u = −H u ,   H = −½∇² + ½ zᵀK z ,   K = [a c; c b].
-# By Feynman–Kac, u(x,y,τ) = E[ exp(−½∫₀^τ X_sᵀK X_s ds) g(X_τ) | X₀ ].
-#
-# Diagonalising K = R diag(λ₁,λ₂) Rᵀ gives normal modes with frequencies
-# Ω_i = √λ_i. From an ISOTROPIC Gaussian payoff the matrix Riccati decouples in
-# K's eigenbasis, so everything is exact:
-#   • energy ⟨u|H|u⟩/⟨u|u⟩ → E₀ = ½(Ω₁+Ω₂)  (and = Σ_i[β_i/4 + λ_i/4β_i], β_i the
-#     1D Riccati for frequency Ω_i),
-#   • the ground state is a *correlated* Gaussian with covariance ½(√K)⁻¹.
-# The coupling makes the ground state non-separable (rank > 1 across x|y), so the
-# product IC is rank-enriched. Marched with Crank–Nicholson + ALS, normalize=false.
-
-# --- model: coupled harmonic potential  V = ½(a x² + b y² + 2c xy) -----------
 a_, b_, c_ = 1.0, 2.0, 0.8                 # K = [a c; c b] (positive definite)
 α = 2.0                                     # isotropic initial Gaussian width
 d = 7; N = 2^d; lo, hi = -5.0, 5.0
@@ -41,21 +25,16 @@ covGS = 0.5 * ev.vectors * LA.diagm(1 ./ Ω) * ev.vectors'    # ½(√K)⁻¹  (
 βi(λi, τ) = (ωi = sqrt(λi); ωi * (α + ωi * tanh(ωi * τ)) / (ωi + α * tanh(ωi * τ)))
 E_riccati(τ) = sum(βi(λ[i], τ) / 4 + λ[i] / (4 * βi(λ[i], τ)) for i in 1:2)   # → E₀
 
-# finite-time analytic density covariance/correlation from the SAME normal-mode
-# Riccati: B(τ)=R diag(β_i(τ)) Rᵀ is the wavefunction precision, so the |u|²
-# covariance is Σ(τ)=½B(τ)⁻¹ (→ ½(√K)⁻¹ as β_i→Ω_i). Gives ρ(τ) at every τ.
 Σ_riccati(τ) = 0.5 * LA.inv(ev.vectors * LA.diagm([βi(λ[1], τ), βi(λ[2], τ)]) * ev.vectors')
 ρ_riccati(τ) = (Σ = Σ_riccati(τ); Σ[1, 2] / sqrt(Σ[1, 1] * Σ[2, 2]))
 
 toarr(v) = qttv_to_array(QTTvector(v, 2, d, :serial))
 energy(u) = real(dot(u, H * u)) / real(dot(u, u))
 
-# --- isotropic Gaussian payoff, rank-enriched so ALS can develop correlation -
 gx = function_to_qtt(t -> exp(-0.5 * α * (lo + (hi - lo) * t)^2), d)
 Random.seed!(42)                                              # reproducible enrichment noise
 u₀ = TensorTrainNumerics.increase_ranks(gx ⊗ gx, 16; noise = 1.0e-2)
 
-# --- Crank–Nicholson march in τ, recording density, energy, correlation ------
 τstep = 0.02; record_dt = 0.2; T = 6.0      # record_dt must be a multiple of τstep
 blk = round(Int, record_dt / τstep); nblk = round(Int, T / record_dt)
 times = collect(0.0:record_dt:T)
@@ -81,14 +60,12 @@ end
 
 @info "FK 2D coupled HO" E_final = E_num[end] E0 = E0 ρ_final = ρ_num[end] ρ_analytic = ρ∞ rank = maximum(u.ttv_rks)
 
-# 1σ ellipse of a covariance matrix Σ centred at the origin
 function cov_ellipse(Σ; n = 120)
     vals, vecs = LA.eigen(LA.Symmetric(Σ))
     pts = [vecs * (sqrt.(vals) .* [cos(t), sin(t)]) for t in range(0, 2π, n)]
     return getindex.(pts, 1), getindex.(pts, 2)
 end
 
-# --- Figure 1: density relaxing from isotropic to the correlated ground state -
 let
     snap = [0.0, 0.2, 0.6, 1.2, 6.0]
     cmax = maximum(dens[end])
@@ -104,7 +81,6 @@ let
     display(fig)
 end
 
-# --- Figure 2: energy → E₀ and correlation developing -----------------------
 let
     fig = Figure(size = (1000, 420))
     ax1 = Axis(

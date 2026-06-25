@@ -14,6 +14,7 @@ makedocs(
             "Solvers" => "solvers.md",
         ],
         "Examples" => "examples.md",
+        "Advanced Examples" => "advanced_examples.md",
         "Resources" => "resources.md",
         "API Reference" => "API.md",
     ],
