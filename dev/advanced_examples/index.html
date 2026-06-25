@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Advanced Examples · TensorTrainNumerics.jl</title><meta name="title" content="Advanced Examples · TensorTrainNumerics.jl"/><meta property="og:title" content="Advanced Examples · TensorTrainNumerics.jl"/><meta property="twitter:title" content="Advanced Examples · TensorTrainNumerics.jl"/><meta name="description" content="Documentation for TensorTrainNumerics.jl."/><meta property="og:description" content="Documentation for TensorTrainNumerics.jl."/><meta property="twitter:description" content="Documentation for TensorTrainNumerics.jl."/><script data-outdated-warner src="../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../search_index.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script><link href="../assets/favicon.ico" rel="icon" type="image/x-icon"/><link href="../assets/citations.css" rel="stylesheet" type="text/css"/></head><body><div id="documenter"><nav class="docs-sidebar"><a class="docs-logo" href="../"><img src="../assets/logo.svg" alt="TensorTrainNumerics.jl logo"/></a><div class="docs-package-name"><span class="docs-autofit"><a href="../">TensorTrainNumerics.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../">Home</a></li><li><span class="tocitem">Guide</span><ul><li><a class="tocitem" href="../theory/">Tensor Train Basics</a></li><li><a class="tocitem" href="../qtt/">Quantics Tensor Trains</a></li><li><a class="tocitem" href="../solvers/">Solvers</a></li></ul></li><li><a class="tocitem" href="../examples/">Examples</a></li><li class="is-active"><a class="tocitem" href>Advanced Examples</a><ul class="internal"><li><a class="tocitem" href="#Ornstein-Uhlenbeck-Process-In-QTT-Format"><span>Ornstein-Uhlenbeck Process In QTT Format</span></a></li></ul></li><li><a class="tocitem" href="../resources/">Resources</a></li><li><a class="tocitem" href="../API/">API Reference</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li class="is-active"><a href>Advanced Examples</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Advanced Examples</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/MartinMikkelsen/TensorTrainNumerics.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/MartinMikkelsen/TensorTrainNumerics.jl/blob/main/docs/src/advanced_examples.md" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="Advanced-Examples"><a class="docs-heading-anchor" href="#Advanced-Examples">Advanced Examples</a><a id="Advanced-Examples-1"></a><a class="docs-heading-anchor-permalink" href="#Advanced-Examples" title="Permalink"></a></h1><p>This section collects larger examples where the tensor-train representation is used as the main numerical representation, not just as a compression format. The first example solves a two-dimensional Ornstein-Uhlenbeck equation in QTT format; the same construction is the starting point for Kolmogorov backward equations and Feynman-Kac equations.</p><p>The complete script is available in <a href="https://github.com/MartinMikkelsen/TensorTrainNumerics.jl/blob/main/examples/Ornstein2D.jl"><code>examples/Ornstein2D.jl</code></a>. The executable version below uses the same parameters as that script, but splits the implementation into smaller pieces so that the QTT construction is easier to follow.</p><h2 id="Ornstein-Uhlenbeck-Process-In-QTT-Format"><a class="docs-heading-anchor" href="#Ornstein-Uhlenbeck-Process-In-QTT-Format">Ornstein-Uhlenbeck Process In QTT Format</a><a id="Ornstein-Uhlenbeck-Process-In-QTT-Format-1"></a><a class="docs-heading-anchor-permalink" href="#Ornstein-Uhlenbeck-Process-In-QTT-Format" title="Permalink"></a></h2><p>The Ornstein-Uhlenbeck equation is a useful proof-of-concept for solving higher-order linear partial differential equations with quantics tensor trains. In one dimension the density <span>$P(x,t)$</span> satisfies</p><p class="math-container">\[\frac{\partial P}{\partial t}
+    = \theta \frac{\partial}{\partial x}\left((x-\mu)P\right)
+      + D \frac{\partial^2 P}{\partial x^2},\]</p><p>where <span>$\theta$</span> is the mean-reversion rate, <span>$\mu$</span> is the long-time mean, and <span>$D = \sigma^2/2$</span> is the diffusion coefficient. Equivalently,</p><p class="math-container">\[\frac{\partial P}{\partial t}
+    = \theta \nabla_d\left((x-\mu)P\right)
+      + \frac{\sigma^2}{2}\Delta_d P.\]</p><p>The key observation is that the finite-difference derivative matrices, coordinate multiplication matrices, and Kronecker sums all have low-rank QTT representations. This lets us assemble the spatial generator directly in QTT/MPO form.</p><h3 id="1.-Choose-A-Quantics-Grid"><a class="docs-heading-anchor" href="#1.-Choose-A-Quantics-Grid">1. Choose A Quantics Grid</a><a id="1.-Choose-A-Quantics-Grid-1"></a><a class="docs-heading-anchor-permalink" href="#1.-Choose-A-Quantics-Grid" title="Permalink"></a></h3><p>We discretize each spatial variable with <span>$n = 2^d$</span> points. For the endpoint grid used in <code>examples/Ornstein2D.jl</code>, the interval is <span>$[a,b]$</span> and</p><p class="math-container">\[x_i = a + (i-1)h,\qquad h = \frac{b-a}{n-1},\qquad i=1,\ldots,n.\]</p><p>The script uses <code>d = 8</code>, so the physical density lives on a <span>$256 \times 256$</span> grid represented by <code>2d</code> QTT sites.</p><pre><code class="language-julia hljs">using TensorTrainNumerics
+using CairoMakie
+
+θ = 1.0                # mean-reversion rate
+μx, μy = 2.0, -2.0     # long-time mean
+σ = 1.0                # volatility
+D = σ^2 / 2            # diffusion coefficient
+
+d = 8
+N = 2^d
+a, b = -6.0, 6.0
+h = (b - a) / (N - 1)
+xes = collect(range(a, b, N))
+
+N</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">256</code></pre><p>The physical grid has <span>$N^2$</span> points, but the QTT representation stores the two-dimensional state as a tensor train with <span>$2d$</span> binary sites.</p><h3 id="2.-Build-The-One-Dimensional-QTT-Operators"><a class="docs-heading-anchor" href="#2.-Build-The-One-Dimensional-QTT-Operators">2. Build The One-Dimensional QTT Operators</a><a id="2.-Build-The-One-Dimensional-QTT-Operators-1"></a><a class="docs-heading-anchor-permalink" href="#2.-Build-The-One-Dimensional-QTT-Operators" title="Permalink"></a></h3><p>The <span>$d$</span>-dimensional Laplacian is a Kronecker sum,</p><p class="math-container">\[\Delta_d
+    = \Delta_1 \otimes I \otimes \cdots \otimes I
+      + \cdots
+      + I \otimes \cdots \otimes I \otimes \Delta_1,\]</p><p>with</p><p class="math-container">\[\Delta_1 = \frac{1}{h^2}\operatorname{tridiag}(1,-2,1).\]</p><p>The drift term is a divergence. In dimension <span>$j$</span> we need a derivative matrix <span>$D_j$</span> and a diagonal multiplication matrix</p><p class="math-container">\[M_j = \operatorname{diag}(x_j-\mu_j).\]</p><p>In code, the one-dimensional blocks are:</p><pre><code class="language-julia hljs">∂x = (1 / (2h)) * (shift(d) - (id_tto(d) - ∇(d)))   # central first derivative
+∂xx = -(1 / h^2) * Δ(d)                              # second derivative
+idd = id_tto(d)
+
+Mx = ttv_to_diag_tto(qtt_polynom([-μx, 1.0], d; a = a, b = b))
+My = ttv_to_diag_tto(qtt_polynom([-μy, 1.0], d; a = a, b = b))
+
+Mx</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">MPO{Float64} with 8 sites
+  Physical dims : (2, 2, 2, 2, 2, 2, 2, 2)
+  Bond dims     : [1, 2, 2, 2, 2, 2, 2, 2, 1]
+  Orthogonality : none</code></pre><p>Here <code>qtt_polynom([-μx, 1.0], d; a, b)</code> represents the sampled function <span>$x-\mu_x$</span> in QTT format, and <code>ttv_to_diag_tto</code> turns it into a diagonal QTT operator. The output is the compact MPO summary produced by the tensor-train <code>show</code> method.</p><h3 id="3.-Assemble-The-Two-Dimensional-Generator"><a class="docs-heading-anchor" href="#3.-Assemble-The-Two-Dimensional-Generator">3. Assemble The Two-Dimensional Generator</a><a id="3.-Assemble-The-Two-Dimensional-Generator-1"></a><a class="docs-heading-anchor-permalink" href="#3.-Assemble-The-Two-Dimensional-Generator" title="Permalink"></a></h3><p>For the two-dimensional density <span>$P(x,y,t)$</span>,</p><p class="math-container">\[\frac{\partial P}{\partial t}
+    = \theta \partial_x\left((x-\mu_x)P\right)
+      + \theta \partial_y\left((y-\mu_y)P\right)
+      + D(\partial_{xx}P + \partial_{yy}P).\]</p><p>The QTT system matrix is assembled from Kronecker products:</p><p class="math-container">\[A =
+\theta\left(D_x M_x \otimes I + I \otimes D_y M_y\right)
++ D\left(\Delta_x \otimes I + I \otimes \Delta_y\right).\]</p><p>In the script both spatial directions use the same one-dimensional derivative blocks:</p><pre><code class="language-julia hljs">A = θ * ((∂x * Mx) ⊗ idd + idd ⊗ (∂x * My)) +
+    D * (∂xx ⊗ idd + idd ⊗ ∂xx)
+
+toarr(v) = qttv_to_array(QTTvector(v, 2, d, :serial))
+mass(P) = sum(P) * h^2
+
+A</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">MPO{Float64} with 16 sites
+  Physical dims : (2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2)
+  Bond dims     : [1, 19, 19, 19, 19, 19, 19, 19, 4, 19, 19, 19, 19, 19, 19, 19, 1]
+  Orthogonality : none</code></pre><p>This is a plain <code>TToperator</code> with <span>$2d$</span> sites. Since the sites are ordered serially, we can view vectors as two-dimensional QTT arrays by wrapping them with <code>QTTvector(v, 2, d, :serial)</code>.</p><h3 id="4.-Construct-And-Normalize-The-Initial-Density"><a class="docs-heading-anchor" href="#4.-Construct-And-Normalize-The-Initial-Density">4. Construct And Normalize The Initial Density</a><a id="4.-Construct-And-Normalize-The-Initial-Density-1"></a><a class="docs-heading-anchor-permalink" href="#4.-Construct-And-Normalize-The-Initial-Density" title="Permalink"></a></h3><p>The example starts from a separable Gaussian centered near the origin:</p><pre><code class="language-julia hljs">gx = function_to_qtt(t -&gt; exp(-(a + (b - a) * t)^2 / 2), d)
+gy = function_to_qtt(t -&gt; exp(-(a + (b - a) * t)^2 / 2), d)
+u₀ = gx ⊗ gy
+u₀ = (1 / mass(toarr(u₀))) * u₀
+
+u₀</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">MPS{Float64} with 16 sites
+  Physical dims : (2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2)
+  Bond dims     : [1, 2, 4, 8, 11, 8, 4, 2, 1, 2, 4, 8, 11, 8, 4, 2, 1]
+  Orthogonality : [0, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1]</code></pre><p>The exact stationary density for the uncoupled two-dimensional Ornstein-Uhlenbeck process is a product Gaussian:</p><p class="math-container">\[P_\infty(x,y)
+    = \prod_{j=1}^2
+      \frac{1}{\sqrt{2\pi D/\theta}}
+      \exp\left(-\frac{(x_j-\mu_j)^2}{2D/\theta}\right).\]</p><p>The script uses this expression to track convergence:</p><pre><code class="language-julia hljs">var∞ = D / θ
+g1(x, m) = exp(-(x - m)^2 / (2var∞)) / sqrt(2π * var∞)
+P∞ = [g1(xi, μx) * g1(yj, μy) for xi in xes, yj in xes]
+
+maximum(P∞)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">0.31830988618379064</code></pre><h3 id="5.-Evolve-With-Crank-Nicholson"><a class="docs-heading-anchor" href="#5.-Evolve-With-Crank-Nicholson">5. Evolve With Crank-Nicholson</a><a id="5.-Evolve-With-Crank-Nicholson-1"></a><a class="docs-heading-anchor-permalink" href="#5.-Evolve-With-Crank-Nicholson" title="Permalink"></a></h3><p>For an autonomous linear system <span>$\dot{u} = A u$</span>, Crank-Nicholson applies</p><p class="math-container">\[u^{k+1}
+    =
+    \left(I-\frac{\tau}{2}A\right)^{-1}
+    \left(I+\frac{\tau}{2}A\right)u^k,\]</p><p>with time step <span>$\tau$</span>. The implementation calls <code>crank_nicholson_method</code>, solving each implicit TT linear system with ALS:</p><pre><code class="language-julia hljs">τ = 0.02
+record_dt = 0.4
+T = 8.0
+block = round(Int, record_dt / τ)
+n_blocks = round(Int, T / record_dt)
+
+times = collect(0.0:record_dt:T)
+density = Vector{Matrix{Float64}}()
+errL1 = Float64[]
+errL2 = Float64[]
+
+function record!(v)
+    P = toarr(v)
+    P ./= mass(P)
+    push!(density, P)
+    push!(errL1, sum(abs.(P .- P∞)) * h^2)
+    return push!(errL2, sqrt(sum(abs2, P .- P∞) * h^2))
+end
+
+ψ = u₀
+record!(ψ)
+for _ in 1:n_blocks
+    global ψ = crank_nicholson_method(
+        A, ψ, ψ, fill(τ, block);
+        normalize = false, tt_solver = &quot;als&quot;
+    )
+    record!(ψ)
+end
+
+ψ</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">MPS{Float64} with 16 sites
+  Physical dims : (2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2)
+  Bond dims     : [1, 2, 4, 8, 11, 8, 4, 2, 1, 2, 4, 8, 11, 8, 4, 2, 1]
+  Orthogonality : center @ site 1</code></pre><p>The density is renormalized only for diagnostics. This makes mass loss or gain visible instead of hiding it inside the time stepper.</p><h3 id="6.-Check-The-Limiting-Moments"><a class="docs-heading-anchor" href="#6.-Check-The-Limiting-Moments">6. Check The Limiting Moments</a><a id="6.-Check-The-Limiting-Moments-1"></a><a class="docs-heading-anchor-permalink" href="#6.-Check-The-Limiting-Moments" title="Permalink"></a></h3><p>A useful sanity check is that the mean approaches <span>$(\mu_x,\mu_y)$</span>, the variances approach <span>$D/\theta$</span>, and the covariance approaches zero:</p><pre><code class="language-julia hljs">let P = density[end]
+    mx = sum(xes .* vec(sum(P, dims = 2))) * h^2
+    my = sum(xes .* vec(sum(P, dims = 1))) * h^2
+    vx = sum((xes .- mx) .^ 2 .* vec(sum(P, dims = 2))) * h^2
+    vy = sum((xes .- my) .^ 2 .* vec(sum(P, dims = 1))) * h^2
+    cov = sum((xes .- mx) .* P .* (xes .- my)&#39;) * h^2
+    (; mean = (mx, my), target_mean = (μx, μy), var = (vx, vy),
+        target_var = var∞, cov, L1 = errL1[end])
+end</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">(mean = (1.999328512642629, -1.9993285126273312), target_mean = (2.0, -2.0), var = (0.4999988226005913, 0.4999988226006012), target_var = 0.5, cov = -3.415950830357685e-19, L1 = 0.0011432269293080736)</code></pre><p>The final-state diagnostics are close to the analytic targets: mean <span>$(\mu_x,\mu_y)$</span>, variance <span>$D/\theta$</span>, and covariance zero.</p><h3 id="7.-Show-The-Solution"><a class="docs-heading-anchor" href="#7.-Show-The-Solution">7. Show The Solution</a><a id="7.-Show-The-Solution-1"></a><a class="docs-heading-anchor-permalink" href="#7.-Show-The-Solution" title="Permalink"></a></h3><p>The numerical solution can be converted back to two-dimensional arrays with <code>qttv_to_array</code>. The plot below shows the same snapshots as <code>examples/Ornstein2D.jl</code>.</p><pre><code class="language-julia hljs">snap = [0.0, 0.4, 1.2, 8.0]
+cmax = maximum(P∞)
+fig = Figure(size = (1100, 320))
+
+for (k, t) in enumerate(snap)
+    ax = Axis(
+        fig[1, k], aspect = 1, xlabel = &quot;x&quot;, ylabel = k == 1 ? &quot;y&quot; : &quot;&quot;,
+        title = &quot;t = $t&quot;
+    )
+    heatmap!(
+        ax, xes, xes, density[round(Int, t / record_dt) + 1],
+        colormap = :viridis, colorrange = (0, cmax)
+    )
+    scatter!(ax, [μx], [μy], color = :red, marker = :xcross, markersize = 14)
+    xlims!(ax, -4, 5)
+    ylims!(ax, -5, 4)
+end
+
+Colorbar(
+    fig[1, length(snap) + 1], limits = (0, cmax), colormap = :viridis,
+    label = &quot;P(x, y, t)&quot;
+)
+fig</code></pre><img src="291855c7.png" alt="Example block output"/><p>The error curves show the convergence of the QTT solution toward the stationary density.</p><pre><code class="language-julia hljs">fig = Figure(size = (760, 480))
+ax = Axis(
+    fig[1, 1], xlabel = &quot;t&quot;, ylabel = &quot;‖P(·, t) − P∞‖&quot;, yscale = log10,
+    title = &quot;2D Ornstein–Uhlenbeck: convergence to the stationary distribution&quot;
+)
+lines!(ax, times, errL1, linewidth = 2.5, label = &quot;L¹ error&quot;)
+lines!(ax, times, errL2, linewidth = 2.5, label = &quot;L² error&quot;)
+axislegend(ax; position = :rt)
+fig</code></pre><img src="f1d29700.png" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../examples/">« Examples</a><a class="docs-footer-nextpage" href="../resources/">Resources »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Thursday 25 June 2026 11:51">Thursday 25 June 2026</span>. Using Julia version 1.12.6.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
