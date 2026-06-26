@@ -224,6 +224,74 @@ end
     @test qtt_to_function(tt3) ≈ qtt_to_function(qtt_exp(d; a = a, b = b, α = 1.0, β = 0.0))
 end
 
+@testset "to_qtt and to_ttv" begin
+    @testset "single-core big-endian split and merge" begin
+        values = Float64.(1:6)
+        tt = TTvector{Float64, 1}(1, [reshape(values, 6, 1, 1)], (6,), [1, 1], [0])
+
+        qtt = to_qtt(tt, [[2, 3]])
+        @test qtt.N == 2
+        @test qtt.ttv_dims == (2, 3)
+        @test ttv_to_tensor(qtt) ≈ [1.0 2.0 3.0; 4.0 5.0 6.0] atol = 1.0e-12
+
+        merged = to_ttv(qtt, [2])
+        @test merged.N == 1
+        @test merged.ttv_dims == (6,)
+        @test vec(ttv_to_tensor(merged)) ≈ values atol = 1.0e-12
+    end
+
+    @testset "round-trip preserves multi-core dense tensor" begin
+        tensor = reshape(Float64.(1:24), 4, 6)
+        tt = ttv_decomp(tensor)
+
+        qtt = to_qtt(tt, [[2, 2], [2, 3]])
+        @test qtt.N == 4
+        @test qtt.ttv_dims == (2, 2, 2, 3)
+
+        merged = to_ttv(qtt, [2, 2])
+        @test merged.N == 2
+        @test merged.ttv_dims == (4, 6)
+        @test ttv_to_tensor(merged) ≈ tensor atol = 1.0e-11
+    end
+
+    @testset "to_ttv uses the earlier core as the coarser index" begin
+        tensor = reshape(Float64.(1:16), 2, 2, 2, 2)
+        qtt = ttv_decomp(tensor)
+
+        merged = to_ttv(qtt, [2, 2])
+        expected = zeros(Float64, 4, 4)
+        for i1 in 1:2, i2 in 1:2, i3 in 1:2, i4 in 1:2
+            expected[(i1 - 1) * 2 + i2, (i3 - 1) * 2 + i4] = tensor[i1, i2, i3, i4]
+        end
+
+        @test ttv_to_tensor(merged) ≈ expected atol = 1.0e-12
+    end
+
+    @testset "threshold truncates small relative singular values" begin
+        values = [1.0, 0.0, 0.0, 1.0e-3]
+        tt = TTvector{Float64, 1}(1, [reshape(values, 4, 1, 1)], (4,), [1, 1], [0])
+
+        exact = to_qtt(tt, [[2, 2]])
+        truncated = to_qtt(tt, [[2, 2]]; threshold = 1.0e-2)
+
+        @test exact.ttv_rks == [1, 2, 1]
+        @test truncated.ttv_rks == [1, 1, 1]
+        @test vec(ttv_to_tensor(to_ttv(exact, [2]))) ≈ values atol = 1.0e-12
+        @test vec(ttv_to_tensor(to_ttv(truncated, [2]))) ≈ [1.0, 0.0, 0.0, 0.0] atol = 1.0e-12
+    end
+
+    @testset "invalid split and merge metadata throws" begin
+        tt = TTvector{Float64, 1}(1, [reshape(Float64.(1:4), 4, 1, 1)], (4,), [1, 1], [0])
+
+        @test_throws AssertionError to_qtt(tt, [[2, 2], [2]])
+        @test_throws AssertionError to_qtt(tt, [[2, 3]])
+
+        qtt = to_qtt(tt, [[2, 2]])
+        @test_throws AssertionError to_ttv(qtt, [1])
+        @test_throws AssertionError to_ttv(qtt, [1, 2])
+    end
+end
+
 @testset "qtt_basis_vector" begin
     d = 3
     # Test for position 1 (should be [1,0,0,0,0,0,0,0])
