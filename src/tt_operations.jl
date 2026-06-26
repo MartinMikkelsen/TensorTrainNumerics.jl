@@ -172,6 +172,59 @@ function *(A::TToperator{T, N}, B::TToperator{T, N}) where {T <: Number, N}
     return TToperator{T, N}(d, Y, A.tto_dims, A.tto_rks .* B.tto_rks, zeros(Int64, d))
 end
 
+"""
+    ⨝(A::TToperator, B::TToperator)
+    A ⨝ B
+
+Inner core product of two TT operators (the `⋈` of the QTT literature; Julia's
+parser rejects U+22C8, so the visually identical U+2A1D `⨝` is used). At each
+site the physical TT blocks are combined by a tensor (Kronecker) product, growing
+the physical dimension from `dᴬ` to `dᴬ·dᴮ`, while the bond indices combine
+multiplicatively:
+
+    (A ⨝ B)ₖ[(iᴬiᴮ), (jᴬjᴮ), (aᴬaᴮ), (bᴬbᴮ)] = Aₖ[iᴬ,jᴬ,aᴬ,bᴬ] · Bₖ[iᴮ,jᴮ,aᴮ,bᴮ].
+
+The result is an operator on the tensor-product physical space, interleaving the
+two operators site-by-site, with ranks `A.tto_rks .* B.tto_rks`. For separable
+(rank-1) operators this is exactly the textbook inner core product; in general it
+is its rank-stable extension to arbitrary TT operators. Unlike [`kron`](@ref),
+which concatenates the cores of the two operators (sequential bit ordering), `⨝`
+keeps the same number of sites and interleaves them — usually the lower-rank
+ordering for multivariate operators.
+
+The dual operation — physical blocks composed by matrix product, bonds tensored
+(the *outer* core product `•`) — is ordinary operator multiplication `A * B`.
+"""
+function ⨝(A::TToperator{T, N}, B::TToperator{T, N}) where {T <: Number, N}
+    @assert A.N == B.N "Inner core product requires operators with the same number of cores"
+    d = A.N
+    Y = Vector{Array{T, 4}}(undef, d)
+    @inbounds for k in 1:d
+        Ak = A.tto_vec[k]
+        Bk = B.tto_vec[k]
+        nAo, nAi, rAl, rAr = size(Ak)
+        nBo, nBi, rBl, rBr = size(Bk)
+        # B-fastest broadcast on every axis so the single reshape produces the
+        # Kronecker (A-major, B-minor) layout on physical and bond axes alike.
+        T8 = reshape(Bk, nBo, 1, nBi, 1, rBl, 1, rBr, 1) .*
+            reshape(Ak, 1, nAo, 1, nAi, 1, rAl, 1, rAr)
+        Y[k] = reshape(T8, nBo * nAo, nBi * nAi, rBl * rAl, rBr * rAr)
+    end
+    dims = ntuple(k -> A.tto_dims[k] * B.tto_dims[k], N)
+    rks = A.tto_rks .* B.tto_rks
+    return TToperator{T, N}(d, Y, dims, rks, zeros(Int64, d))
+end
+
+"""
+    ∙(A::TToperator, B::TToperator)
+    A ∙ B
+
+Outer core product of two TT operators. The physical TT blocks are composed by matrix product while the bond
+indices are tensored — i.e. ordinary operator composition, with ranks combining
+as `A.tto_rks .* B.tto_rks`. 
+"""
+∙(A::TToperator{T, N}, B::TToperator{T, N}) where {T <: Number, N} = A * B
+
 function *(A::Array{TTvector{T, N}, 1}, x::Vector{T}) where {T, N}
     out = x[1] * A[1]
     for i in 2:length(A)

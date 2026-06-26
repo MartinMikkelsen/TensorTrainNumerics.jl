@@ -135,6 +135,100 @@ end
     @test C.tto_rks == A.tto_rks .* B.tto_rks
 end
 
+@testset "Inner core product ⨝ (TToperator)" begin
+    Random.seed!(42)
+
+    # d = 1: the inner core product reduces to a plain Kronecker product of the
+    # two operator matrices (no bond structure to interleave).
+    A1 = rand_tto((3,), 1)
+    B1 = rand_tto((4,), 1)
+    C1 = A1 ⨝ B1
+    A1_mat = reshape(tto_to_tensor(A1), 3, 3)
+    B1_mat = reshape(tto_to_tensor(B1), 4, 4)
+    C1_mat = reshape(tto_to_tensor(C1), 12, 12)
+    @test C1.tto_dims == (12,)
+    @test C1.tto_rks == [1, 1]
+    @test isapprox(C1_mat, kron(A1_mat, B1_mat); atol = 1.0e-12)
+
+    # Dimensions and ranks: physical dims multiply, ranks multiply elementwise.
+    A = rand_tto((2, 2, 2), 2)
+    B = rand_tto((2, 2, 2), 3)
+    C = A ⨝ B
+    @test C.N == 3
+    @test C.tto_dims == (4, 4, 4)
+    @test C.tto_rks == A.tto_rks .* B.tto_rks
+
+    # Multi-site semantics: (A ⨝ B) interleaves the two operators site-by-site,
+    # so every dense entry factorises into the matching entries of A and B.
+    As = rand_tto((2, 3), 2)
+    Bs = rand_tto((3, 2), 2)
+    Cs = As ⨝ Bs
+    TA = tto_to_tensor(As)            # (2,3,2,3)
+    TB = tto_to_tensor(Bs)            # (3,2,3,2)
+    TC = tto_to_tensor(Cs)            # (6,6,6,6)
+    nB1, nB2 = 3, 2
+    decode(c, nB) = (div(c - 1, nB) + 1, mod(c - 1, nB) + 1)   # (A-index, B-index)
+    ok = true
+    for σ1 in 1:6, σ2 in 1:6, τ1 in 1:6, τ2 in 1:6
+        (iA1, iB1) = decode(σ1, nB1); (iA2, iB2) = decode(σ2, nB2)
+        (jA1, jB1) = decode(τ1, nB1); (jA2, jB2) = decode(τ2, nB2)
+        ref = TA[iA1, iA2, jA1, jA2] * TB[iB1, iB2, jB1, jB2]
+        ok &= isapprox(TC[σ1, σ2, τ1, τ2], ref; atol = 1.0e-12)
+    end
+    @test ok
+end
+
+@testset "Outer core product ∙ (TToperator)" begin
+    dims = (2, 3, 2)
+    A = rand_tto(dims, 2)
+    B = rand_tto(dims, 2)
+    # The outer core product is ordinary operator composition: A ∙ B == A * B.
+    C_outer = A ∙ B
+    C_mul = A * B
+    n = prod(dims)
+    @test C_outer.tto_dims == C_mul.tto_dims
+    @test C_outer.tto_rks == C_mul.tto_rks
+    @test isapprox(reshape(tto_to_tensor(C_outer), n, n), reshape(tto_to_tensor(C_mul), n, n); atol = 1.0e-12)
+end
+
+@testset "Core product identities (⨝ inner vs ∙ outer)" begin
+    Random.seed!(7)
+    # singular values of the dense operator — invariant under the interleaved-vs-
+    # sequential bit reordering, so they make ⨝ and ⊗ directly comparable.
+    svals(M) = sort(LinearAlgebra.svdvals(reshape(tto_to_tensor(M), prod(M.tto_dims), prod(M.tto_dims))))
+
+    A = rand_tto((2, 2), 2)
+    B = rand_tto((2, 2), 2)
+    C = rand_tto((2, 2), 2)
+    Id = id_tto(2)
+
+    # ⨝ is the Kronecker PRODUCT: the same operator as the sequential ⊗/kron, only
+    # the bit ordering differs, so the singular values coincide.
+    @test maximum(abs, svals(A ⨝ B) - svals(A ⊗ B)) < 1.0e-10
+
+    # The Kronecker SUM is (A⨝I)+(I⨝B), spectrally equal to the sequential
+    # (A⊗I)+(I⊗B) — and a Kronecker product is NOT a Kronecker sum.
+    @test maximum(abs, svals((A ⨝ Id) + (Id ⨝ B)) - svals((A ⊗ Id) + (Id ⊗ B))) < 1.0e-10
+    @test maximum(abs, svals(A ⨝ B) - svals((A ⨝ Id) + (Id ⨝ B))) > 1.0e-3
+
+    # ⨝ inherits associativity from the Kronecker product (exact, same ordering).
+    n3 = prod((A ⨝ B ⨝ C).tto_dims)
+    @test isapprox(
+        reshape(tto_to_tensor((A ⨝ B) ⨝ C), n3, n3),
+        reshape(tto_to_tensor(A ⨝ (B ⨝ C)), n3, n3); atol = 1.0e-12
+    )
+
+    # ⨝ grows the physical space; ∙ (= operator composition) keeps it.
+    @test (A ⨝ B).tto_dims == (4, 4)
+    @test (A ∙ B).tto_dims == A.tto_dims
+
+    # ∙ is operator composition, so composing with the identity is a no-op.
+    n = prod(A.tto_dims)
+    Adense = reshape(tto_to_tensor(A), n, n)
+    @test isapprox(reshape(tto_to_tensor(A ∙ Id), n, n), Adense; atol = 1.0e-12)
+    @test isapprox(reshape(tto_to_tensor(Id ∙ A), n, n), Adense; atol = 1.0e-12)
+end
+
 @testset "Array{TTvector} * Vector (linear combination)" begin
     dims = (2, 3)
     a = rand_tt(dims, [1, 2, 1])
