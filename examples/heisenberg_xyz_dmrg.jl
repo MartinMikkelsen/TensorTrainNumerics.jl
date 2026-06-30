@@ -1,7 +1,7 @@
 using LinearAlgebra
 using Random
 using TensorTrainNumerics
-using CairoMakie 
+using CairoMakie
 
 Random.seed!(1234)
 
@@ -19,7 +19,7 @@ dmrg_ground_energy = energies[end]
 energy_error = abs(dmrg_ground_energy - exact_ground_energy)
 ground_entropy = entanglemententropy(ground_state; base = 2)
 
-@info "Heisenberg XYZ ground state" sites=d hamiltonian_rank=maximum(H.tto_rks) state_rank=maximum(ground_state.ttv_rks) dmrg_ground_energy exact_ground_energy energy_error final_sweep_rank=rank_history[end]
+@info "Heisenberg XYZ ground state" sites = d hamiltonian_rank = maximum(H.tto_rks) state_rank = maximum(ground_state.ttv_rks) dmrg_ground_energy exact_ground_energy energy_error final_sweep_rank = rank_history[end]
 
 ψ = qtt_to_function(ground_state)
 probabilities = abs2.(ψ)
@@ -53,12 +53,12 @@ end
 
 entropy_history, time_rank_history = entropy_trajectory(H, initial_state, dt, nsteps; max_bond = 8)
 
-@info "Real-time Heisenberg entropy growth" dt nsteps max_time=times[end] max_entropy=maximum(entropy_history) final_rank=time_rank_history[end]
+@info "Real-time Heisenberg entropy growth" dt nsteps max_time = times[end] max_entropy = maximum(entropy_history) final_rank = time_rank_history[end]
 
 fig = Figure(size = (1100, 760))
 
 ax_prob = Axis(fig[1, 1], xlabel = "basis index", ylabel = "|ψ|²", title = "Ground-state")
-barplot!(ax_prob, basis_indices, probabilities, width=5.0)
+barplot!(ax_prob, basis_indices, probabilities, width = 5.0)
 
 ax_entropy = Axis(fig[1, 2], xlabel = "bond index", ylabel = "S (bits)", title = "Ground-state entanglement")
 scatterlines!(ax_entropy, bond_indices, ground_entropy; marker = :circle, linewidth = 3)

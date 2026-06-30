@@ -8,7 +8,6 @@ a_, b_, c_ = 1.0, 2.0, 0.8                 # K = [a c; c b] (positive definite)
 d = 7; N = 2^d; lo, hi = -5.0, 5.0
 h = (hi - lo) / (N - 1); xes = collect(range(lo, hi, N))
 
-# --- operator  A = ½∇² − V  (= −H), serial 2D layout (sites 1:d = x, d+1:2d = y)
 ∂xx = -(1 / h^2) * Δ(d)                                       # = d²/dx²
 idd = id_tto(d)
 X2 = ttv_to_diag_tto(qtt_polynom([0.0, 0.0, 1.0], d; a = lo, b = hi))   # diag(x²)
@@ -17,7 +16,6 @@ A = 0.5 * (∂xx ⊗ idd + idd ⊗ ∂xx) -
     (0.5a_ * (X2 ⊗ idd) + 0.5b_ * (idd ⊗ X2) + c_ * (X1 ⊗ X1))
 H = (-1.0) * A                                               # H_HO, for the energy
 
-# --- analytic: normal modes, ground-state energy and covariance --------------
 K = [a_ c_; c_ b_]; ev = LA.eigen(LA.Symmetric(K)); λ = ev.values; Ω = sqrt.(λ)
 E0 = 0.5 * sum(Ω)
 covGS = 0.5 * ev.vectors * LA.diagm(1 ./ Ω) * ev.vectors'    # ½(√K)⁻¹  (ground-state cov)
