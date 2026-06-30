@@ -345,9 +345,9 @@ end
     jx, jy, jz, λ = 1.2, 0.7, -0.4, 0.25
     H = heisenberg_xyz_tto(d; jx = jx, jy = jy, jz = jz, λ = λ, field = :x)
     H_ref = jx * _dense_pauli_pair_sum(:x, :x, d) +
-            jy * _dense_pauli_pair_sum(:y, :y, d) +
-            jz * _dense_pauli_pair_sum(:z, :z, d) +
-            λ * _dense_pauli_sum(:x, d)
+        jy * _dense_pauli_pair_sum(:y, :y, d) +
+        jz * _dense_pauli_pair_sum(:z, :z, d) +
+        λ * _dense_pauli_sum(:x, d)
 
     @test H isa TToperator{Float64, 4}
     @test maximum(H.tto_rks) <= 7
@@ -377,8 +377,8 @@ end
     jx, jy, hxy = 0.9, -0.6, 0.2
     Hxy = xy_tto(d; jx = jx, jy = jy, h = hxy, field = :y)
     Hxy_ref = jx * _dense_pauli_pair_sum(:x, :x, d) +
-              jy * _dense_pauli_pair_sum(:y, :y, d) +
-              hxy * _dense_pauli_sum(:y, d)
+        jy * _dense_pauli_pair_sum(:y, :y, d) +
+        hxy * _dense_pauli_sum(:y, d)
     @test qtto_to_matrix(Hxy) ≈ Hxy_ref
     @test eltype(Hxy) <: Complex
 end
