@@ -21,15 +21,17 @@ include("solvers/tdvp.jl")
 
 export to_ttvector
 function to_ttvector end
+export to_tci_tensortrain
+function to_tci_tensortrain end
 
-export toeplitz_to_qtto, qtto_prolongation, qtto_constant_prolongation, qtto_linear_prolongation, ∇, Δ_DN, Δ_ND, Δ_NN, Δ_P, Δ, Δ⁻¹_DN, shift, pauli_matrix, pauli_sum_tto, pauli_pair_sum_tto, H_μ, H_μν, heisenberg_xyz_tto, ising_tto, xxz_tto, xxx_tto, xy_tto, zeros_tt, zeros_tto, rand_tt, id_tto, rand_tto, qtt_laplacian
+export toeplitz_to_qtto, qtto_prolongation, qtto_constant_prolongation, qtto_linear_prolongation, ∇, Δ_DN, Δ_ND, Δ_NN, Δ_P, Δ, Δ⁻¹_DN, shift, qtt_time_identity, qtt_lower_shift, pauli_matrix, pauli_sum_tto, pauli_pair_sum_tto, H_μ, H_μν, heisenberg_xyz_tto, ising_tto, xxz_tto, xxx_tto, xy_tto, zeros_tt, zeros_tto, rand_tt, id_tto, rand_tto, qtt_laplacian
 include("tt_operators.jl")
 
 export gauss_chebyshev_lobatto
-export index_to_point, tuple_to_index, function_to_tensor, tensor_to_grid, function_to_qtt, qtt_to_function, qtt_to_vector, function_to_qtt_uniform, qtt_polynom, qtt_cos, qtt_sin, qtt_exp, qtto_to_matrix, qtt_basis_vector, qtt_chebyshev, qtt_trapezoidal, to_qtt, to_ttv, QTTvector, QTToperator, check_compat, function_to_qttv, qttv_to_array, reorder
+export index_to_point, tuple_to_index, function_to_tensor, tensor_to_grid, function_to_qtt, qtt_to_function, qtt_to_vector, function_to_qtt_uniform, qtt_polynom, qtt_cos, qtt_sin, qtt_exp, qtto_to_matrix, qtt_basis_vector, qtt_chebyshev, qtt_trapezoidal, to_qtt, to_ttv, QTTvector, QTToperator, SpaceTimeQTTvector, space_time_slice, check_compat, function_to_qttv, qttv_to_array, reorder
 include("qtt_tools.jl")
 
-export euler_method, implicit_euler_method, crank_nicholson_method, rk4_method
+export euler_method, implicit_euler_method, crank_nicholson_method, global_crank_nicholson_method, rk4_method
 include("solvers/euler.jl")
 
 export fourier_qtto, reverse_qtt_bits

@@ -190,6 +190,144 @@ function crank_nicholson_method(
     return solution
 end
 
+function _global_cn_time_bits(steps::Vector{Float64})
+    isempty(steps) && throw(ArgumentError("steps must be nonempty"))
+    τ = steps[1]
+    all(step -> step == τ, steps) || throw(ArgumentError("global_crank_nicholson_method requires constant time steps"))
+    Nt = length(steps)
+    Nt < 2 && throw(ArgumentError("global_crank_nicholson_method requires at least two time steps so the time index has at least one QTT bit"))
+    ispow2(Nt) || throw(ArgumentError("global_crank_nicholson_method requires length(steps) to be a power of two"))
+    return τ, round(Int, log2(Nt))
+end
+
+function _convert_ttv_eltype(::Type{T}, v::TTvector{S, N}) where {T <: Number, S <: Number, N}
+    return TTvector{T, N}(
+        v.N,
+        [convert(Array{T, 3}, core) for core in v.ttv_vec],
+        v.ttv_dims,
+        copy(v.ttv_rks),
+        copy(v.ttv_ot)
+    )
+end
+
+function _space_time_guess(
+        ::Type{T},
+        guess::QTTvector,
+        time_bits::Int,
+        space_n_dims::Int,
+        space_bits_per_dim::Int,
+        space_ordering::Symbol
+    ) where {T <: Number}
+    @assert guess.n_dims == space_n_dims "guess n_dims must match u0"
+    @assert guess.bits_per_dim == space_bits_per_dim "guess bits_per_dim must match u0"
+    @assert guess.ordering == space_ordering "guess ordering must match u0"
+    time_guess = ones_tt(T, ntuple(_ -> 2, time_bits))
+    return time_guess ⊗ _convert_ttv_eltype(T, TTvector(guess))
+end
+
+function _space_time_guess(
+        ::Type{T},
+        guess::SpaceTimeQTTvector,
+        time_bits::Int,
+        space_n_dims::Int,
+        space_bits_per_dim::Int,
+        space_ordering::Symbol
+    ) where {T <: Number}
+    @assert guess.time_bits == time_bits "space-time guess time_bits must match length(steps)"
+    @assert guess.space_n_dims == space_n_dims "space-time guess space_n_dims must match u0"
+    @assert guess.space_bits_per_dim == space_bits_per_dim "space-time guess space_bits_per_dim must match u0"
+    @assert guess.space_ordering == space_ordering "space-time guess ordering must match u0"
+    return _convert_ttv_eltype(T, TTvector(guess))
+end
+
+function _global_tt_linsolve(
+        A::AbstractTToperator,
+        b::AbstractTTvector,
+        guess::AbstractTTvector,
+        tt_solver::String,
+        max_bond::Int;
+        kwargs...
+    )
+    return (
+        tt_solver == "mals" ? mals_linsolve(A, b, guess; kwargs...) :
+            tt_solver == "als" ? als_linsolve(A, b, guess; kwargs...) :
+            tt_solver == "dmrg" ? dmrg_linsolve(A, b, guess; kwargs...) :
+            tt_solver == "krylov" ? krylov_linsolve(A, b, guess; max_bond = max_bond, kwargs...) :
+            error("Unknown TT solver: $tt_solver")
+    )::AbstractTTvector
+end
+
+function global_crank_nicholson_method(
+        A::QTToperator,
+        u0::QTTvector,
+        guess::Union{QTTvector, SpaceTimeQTTvector},
+        steps::Vector{Float64};
+        normalize::Bool = false,
+        return_error::Bool = false,
+        tt_solver::String = "mals",
+        max_bond::Int = 0,
+        kwargs...
+    )
+    normalize && throw(ArgumentError("global_crank_nicholson_method does not support per-step normalization"))
+    check_compat(A, u0)
+
+    τ, time_bits = _global_cn_time_bits(steps)
+    T = promote_type(eltype(A), eltype(u0), typeof(τ))
+    τT = convert(T, τ)
+
+    A_tt = _convert_tto_eltype(T, TToperator(A))
+    u0_tt = _convert_ttv_eltype(T, TTvector(u0))
+
+    I_space = id_tto(T, A.N)
+    L = I_space - (τT / 2) * A_tt
+    R = I_space + (τT / 2) * A_tt
+
+    I_time = qtt_time_identity(T, time_bits)
+    S_time = qtt_lower_shift(T, time_bits)
+    A_global = (I_time ⊗ L) - (S_time ⊗ R)
+
+    first_rhs = R * u0_tt
+    time_rhs = _convert_ttv_eltype(T, qtt_basis_vector(time_bits, 1))
+    rhs = time_rhs ⊗ first_rhs
+
+    guess_tt = _space_time_guess(
+        T,
+        guess,
+        time_bits,
+        u0.n_dims,
+        u0.bits_per_dim,
+        u0.ordering
+    )
+
+    solution_tt = _global_tt_linsolve(
+        A_global,
+        rhs,
+        guess_tt,
+        tt_solver,
+        max_bond;
+        kwargs...
+    )
+    if max_bond > 0
+        solution_tt = tt_compress!(solution_tt, max_bond)
+    else
+        solution_tt = orthogonalize(solution_tt)
+    end
+
+    U = SpaceTimeQTTvector(
+        solution_tt,
+        time_bits,
+        u0.n_dims,
+        u0.bits_per_dim,
+        u0.ordering
+    )
+
+    if return_error
+        residual = norm(A_global * solution_tt - rhs) / max(norm(rhs), eps(real(T)))
+        return U, residual
+    end
+    return U
+end
+
 function rk4_method(
         A::AbstractTToperator, u₀::AbstractTTvector, steps::Vector{Float64}, max_bond::Int;
         normalize::Bool = true, return_error::Bool = false

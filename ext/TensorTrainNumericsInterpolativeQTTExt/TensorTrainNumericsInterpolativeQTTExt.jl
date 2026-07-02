@@ -22,4 +22,18 @@ function TensorTrainNumerics.to_ttvector(tt::TCI.TensorTrain{V, 3}) where {V}
     return TTvector{V, N}(N, ttv_vec, ttv_dims, ttv_rks, ttv_ot)
 end
 
+"""
+    to_tci_tensortrain(tt::TTvector) -> TCI.TensorTrain
+
+Convert a TensorTrainNumerics `TTvector` to a TensorCrossInterpolation
+`TensorTrain`.
+
+TTN cores have layout `(phys_dim, left_rank, right_rank)` while TCI cores use
+`(left_rank, phys_dim, right_rank)`, so each core is permuted accordingly.
+"""
+function TensorTrainNumerics.to_tci_tensortrain(tt::TTvector{V, N}) where {V, N}
+    sites = [permutedims(core, (2, 1, 3)) for core in tt.ttv_vec]
+    return TCI.TensorTrain(sites)
+end
+
 end

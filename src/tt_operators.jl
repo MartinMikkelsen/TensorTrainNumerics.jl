@@ -25,6 +25,46 @@ function shift(d::Int)
     return toeplitz_to_qtto(0, 1, 0, d)
 end
 
+function _convert_tto_eltype(::Type{T}, A::TToperator{S, N}) where {T <: Number, S <: Number, N}
+    return TToperator{T, N}(
+        A.N,
+        [convert(Array{T, 4}, core) for core in A.tto_vec],
+        A.tto_dims,
+        copy(A.tto_rks),
+        copy(A.tto_ot)
+    )
+end
+
+"""
+    qtt_time_identity(time_bits)
+
+Identity operator on the quantized time index with `2^time_bits` entries.
+"""
+qtt_time_identity(time_bits::Int) = qtt_time_identity(Float64, time_bits)
+
+function qtt_time_identity(::Type{T}, time_bits::Int) where {T <: Number}
+    time_bits ≥ 1 || throw(ArgumentError("time_bits must be at least 1"))
+    return id_tto(T, time_bits)
+end
+
+"""
+    qtt_lower_shift(time_bits)
+
+Strict lower shift on the quantized time index, with dense entries
+`S[k, k - 1] = 1` for `k = 2, ..., 2^time_bits`.
+"""
+qtt_lower_shift(time_bits::Int) = qtt_lower_shift(Float64, time_bits)
+
+function qtt_lower_shift(::Type{T}, time_bits::Int) where {T <: Number}
+    time_bits ≥ 1 || throw(ArgumentError("time_bits must be at least 1"))
+    if time_bits == 1
+        core = zeros(T, 2, 2, 1, 1)
+        core[2, 1, 1, 1] = one(T)
+        return TToperator{T, 1}(1, [core], (2,), [1, 1], zeros(Int64, 1))
+    end
+    return _convert_tto_eltype(T, toeplitz_to_qtto(0.0, 0.0, 1.0, time_bits))
+end
+
 function _pauli_axis(μ)
     axis = lowercase(string(μ))
     if axis == "x"

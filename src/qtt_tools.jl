@@ -392,8 +392,27 @@ struct QTToperator{T <: Number, M} <: AbstractTToperator
     ordering::Symbol
 end
 
+"""
+A QTT vector over time and space with time cores first.
+
+The represented unknown is `[u1, ..., uNt]`; the known initial state `u0` is not
+stored in this tensor.
+"""
+struct SpaceTimeQTTvector{T <: Number, M} <: AbstractTTvector
+    N::Int64
+    ttv_vec::Vector{Array{T, 3}}
+    ttv_dims::NTuple{M, Int64}
+    ttv_rks::Vector{Int64}
+    ttv_ot::Vector{Int64}
+    time_bits::Int
+    space_n_dims::Int
+    space_bits_per_dim::Int
+    space_ordering::Symbol
+end
+
 Base.eltype(::QTTvector{T, M}) where {T, M} = T
 Base.eltype(::QTToperator{T, M}) where {T, M} = T
+Base.eltype(::SpaceTimeQTTvector{T, M}) where {T, M} = T
 
 function Base.show(io::IO, q::QTTvector{T, M}) where {T, M}
     return print(io, "QTT-MPS{$T}($(q.N) sites, $(q.n_dims)d×$(q.bits_per_dim)bits, $(q.ordering))")
@@ -461,6 +480,49 @@ function QTToperator(tto::TToperator{T, M}, n_dims::Int, bits_per_dim::Int, orde
     return QTToperator{T, M}(tto.N, tto.tto_vec, tto.tto_dims, tto.tto_rks, tto.tto_ot, n_dims, bits_per_dim, ordering)
 end
 
+function SpaceTimeQTTvector(
+        ttv::TTvector{T, M},
+        time_bits::Int,
+        space_n_dims::Int,
+        space_bits_per_dim::Int,
+        space_ordering::Symbol
+    ) where {T, M}
+    @assert time_bits ≥ 1 "time_bits must be at least 1"
+    @assert space_n_dims ≥ 1 "space_n_dims must be at least 1"
+    @assert space_bits_per_dim ≥ 1 "space_bits_per_dim must be at least 1"
+    @assert space_ordering ∈ (:interleaved, :serial) "space_ordering must be :interleaved or :serial"
+    @assert time_bits + space_n_dims * space_bits_per_dim == ttv.N "time_bits + space_n_dims * space_bits_per_dim must equal the number of TT cores"
+    @assert all(==(2), ttv.ttv_dims) "All physical dimensions must be 2 for a space-time QTT vector"
+    return SpaceTimeQTTvector{T, M}(
+        ttv.N,
+        ttv.ttv_vec,
+        ttv.ttv_dims,
+        ttv.ttv_rks,
+        ttv.ttv_ot,
+        time_bits,
+        space_n_dims,
+        space_bits_per_dim,
+        space_ordering
+    )
+end
+
+TTvector(st::SpaceTimeQTTvector{T, M}) where {T, M} =
+    TTvector{T, M}(st.N, st.ttv_vec, st.ttv_dims, st.ttv_rks, st.ttv_ot)
+
+function Base.show(io::IO, st::SpaceTimeQTTvector{T, M}) where {T, M}
+    return print(io, "SpaceTimeQTT{$T}($(st.time_bits) time bits, $(st.space_n_dims)d×$(st.space_bits_per_dim) space bits, $(st.space_ordering))")
+end
+
+function Base.show(io::IO, ::MIME"text/plain", st::SpaceTimeQTTvector{T, M}) where {T, M}
+    println(io, "SpaceTimeQTT{$T} with $(st.N) sites")
+    println(io, "  Time bits     : $(st.time_bits)")
+    println(io, "  Space         : $(st.space_n_dims)d × $(st.space_bits_per_dim) bits/dim")
+    println(io, "  Ordering      : $(st.space_ordering)")
+    println(io, "  Physical dims : $(st.ttv_dims)")
+    println(io, "  Bond dims     : $(st.ttv_rks)")
+    return print(io, "  Orthogonality : $(_ot_description(st.ttv_ot))")
+end
+
 """
     TTvector(q::QTTvector{T, M})
 
@@ -468,6 +530,57 @@ Strip QTT metadata to recover the underlying `TTvector`.
 """
 TTvector(q::QTTvector{T, M}) where {T, M} =
     TTvector{T, M}(q.N, q.ttv_vec, q.ttv_dims, q.ttv_rks, q.ttv_ot)
+
+qtt_to_vector(q::QTTvector) = qtt_to_vector(TTvector(q))
+
+qtt_to_function(q::QTTvector) = qtt_to_vector(q)
+
+function _contract_time_prefix(st::SpaceTimeQTTvector{T}, k::Int) where {T}
+    Nt = 2^st.time_bits
+    1 ≤ k ≤ Nt || throw(BoundsError(st, k))
+    bits = reverse(digits(k - 1, base = 2, pad = st.time_bits))
+
+    left = ones(T, 1, 1)
+    @inbounds for site in 1:st.time_bits
+        selected = @view st.ttv_vec[site][bits[site] + 1, :, :]
+        left = left * selected
+    end
+    return left
+end
+
+"""
+    space_time_slice(st, k)
+
+Extract the `k`-th unknown time slice from a `SpaceTimeQTTvector`.
+`k = 1` corresponds to the first state after the initial condition.
+"""
+function space_time_slice(st::SpaceTimeQTTvector{T}, k::Int) where {T}
+    left = _contract_time_prefix(st, k)
+    first_space_site = st.time_bits + 1
+    space_cores = deepcopy(st.ttv_vec[first_space_site:end])
+    first_core = space_cores[1]
+    new_first = zeros(T, size(first_core, 1), 1, size(first_core, 3))
+
+    @inbounds for s in 1:size(first_core, 1), a in 1:size(first_core, 2), r in 1:size(first_core, 3)
+        new_first[s, 1, r] += left[1, a] * first_core[s, a, r]
+    end
+    space_cores[1] = new_first
+
+    space_dims = ntuple(_ -> 2, length(space_cores))
+    space_rks = ones(Int64, length(space_cores) + 1)
+    @inbounds for site in 1:length(space_cores)
+        space_rks[site + 1] = size(space_cores[site], 3)
+    end
+    space_ot = zeros(Int64, length(space_cores))
+    ttv = TTvector{T, length(space_cores)}(
+        length(space_cores),
+        space_cores,
+        space_dims,
+        space_rks,
+        space_ot
+    )
+    return QTTvector(ttv, st.space_n_dims, st.space_bits_per_dim, st.space_ordering)
+end
 
 function entanglemententropy(q::QTTvector; base::Real = exp(1.0))
     return entanglemententropy(TTvector(q); base = base)
@@ -533,6 +646,16 @@ end
 
 function Base.copy(q::QTTvector)
     return QTTvector(copy(TTvector(q)), q.n_dims, q.bits_per_dim, q.ordering)
+end
+
+function Base.copy(st::SpaceTimeQTTvector)
+    return SpaceTimeQTTvector(
+        copy(TTvector(st)),
+        st.time_bits,
+        st.space_n_dims,
+        st.space_bits_per_dim,
+        st.space_ordering
+    )
 end
 
 function Base.complex(q::QTTvector)
