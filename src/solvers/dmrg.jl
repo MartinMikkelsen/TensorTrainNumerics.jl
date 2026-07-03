@@ -184,7 +184,7 @@ function cut_off_index(s::Array{T}, tol::Float64; degen_tol = 1.0e-10) where {T 
     return k
 end
 
-function right_core_move!(x_tt::AbstractTTvector, V, V_move, i::Int, tol::Float64, r_max::Integer; verbose::Bool = true)
+function right_core_move!(x_tt::AbstractTTvector, V, V_move, i::Int, tol::Float64, r_max::Integer; verbose::Bool = false)
     # Perform the truncated svd
     u_V, s_V, v_V = svd(reshape(V, x_tt.ttv_rks[i] * x_tt.ttv_dims[i], :))
     # Update the ranks to the truncated one
@@ -208,7 +208,7 @@ function right_core_move!(x_tt::AbstractTTvector, V, V_move, i::Int, tol::Float6
     return nothing
 end
 
-function left_core_move!(x_tt::AbstractTTvector, V, V_move, j::Int, tol::Float64, r_max::Integer; verbose::Bool = true)
+function left_core_move!(x_tt::AbstractTTvector, V, V_move, j::Int, tol::Float64, r_max::Integer; verbose::Bool = false)
     # Perform the truncated svd
     u_V, s_V, v_V = svd(reshape(V, :, x_tt.ttv_dims[j] * x_tt.ttv_rks[j + 1]))
     # Update the ranks to the truncated one
@@ -309,9 +309,9 @@ function update_G_H_V_b(Gbi, Hbi, Pb_temp, tt_dims, tt_rks, i, N)
     return G_bi_view, H_bi_view, Pb_view
 end
 
-function update_right(tt_opt, V0, V_view, V_move, V_temp, i, N, tol, rmax, Ai, Gi_view, Gip)
+function update_right(tt_opt, V0, V_view, V_move, V_temp, i, N, tol, rmax, Ai, Gi_view, Gip; verbose::Bool = false)
     #update tt_opt
-    right_core_move!(tt_opt, V_view, V_move, i, tol, rmax)
+    right_core_move!(tt_opt, V_view, V_move, i, tol, rmax; verbose = verbose)
 
     V_moveview = @view(V_move[1:tt_opt.ttv_rks[i + 1], 1:prod(tt_opt.ttv_dims[(i + 1):(i + N - 1)]), 1:tt_opt.ttv_rks[i + N]])
     V_tempview = @view(V_temp[1:size(V_moveview, 1), 1:size(V_moveview, 2), 1:tt_opt.ttv_dims[i + N], 1:tt_opt.ttv_rks[i + 1 + N]])
@@ -325,8 +325,8 @@ function update_right(tt_opt, V0, V_view, V_move, V_temp, i, N, tol, rmax, Ai, G
     return V0_view
 end
 
-function update_left(tt_opt, V0, V_view, V_move, V_temp, i, N, tol, rmax, Aip, Hi_view, Him)
-    left_core_move!(tt_opt, V_view, V_move, i + N - 1, tol, rmax)
+function update_left(tt_opt, V0, V_view, V_move, V_temp, i, N, tol, rmax, Aip, Hi_view, Him; verbose::Bool = false)
+    left_core_move!(tt_opt, V_view, V_move, i + N - 1, tol, rmax; verbose = verbose)
 
     #update the initialization
     V_moveview = @view(V_move[1:tt_opt.ttv_rks[i], 1:prod(tt_opt.ttv_dims[i:(i + N - 2)]), 1:tt_opt.ttv_rks[i + N - 1]])
@@ -390,7 +390,8 @@ function dmrg_linsolve(
         linsolv_maxiter = 200::Int64, #maximum of iterations for the iterative solver
         linsolv_tol = max(sqrt(tol), 1.0e-8)::Float64, #tolerance of the iterative linear solver
         itslv_thresh = 256::Int, #switch from full to iterative
-        return_info::Bool = false
+        return_info::Bool = false,
+        verbose::Bool = false #log rank information at every core move
     )
     # als finds the minimum of the operator J:1/2*<Ax,Ax> - <x,b>
     # input:
@@ -432,7 +433,7 @@ function dmrg_linsolve(
                 else
                     for i in N:-1:2
                         V_view = @view(V[1:tt_opt.ttv_rks[i - N + 1], 1:prod(tt_opt.ttv_dims[(i - N + 1):i]), 1:tt_opt.ttv_rks[i + 1]])
-                        left_core_move!(tt_opt, V_view, V_move, i, tol, rmax_schedule[end])
+                        left_core_move!(tt_opt, V_view, V_move, i, tol, rmax_schedule[end]; verbose = verbose)
                     end
                     V_moveview = @view(V_move[1:tt_opt.ttv_rks[1], 1:prod(tt_opt.ttv_dims[1:(N - 1)]), 1:tt_opt.ttv_rks[N]])
                     tt_opt.ttv_vec[1] = permutedims(reshape(V_moveview, 1, tt_opt.ttv_dims[1], :), (2, 1, 3))
@@ -449,7 +450,7 @@ function dmrg_linsolve(
             Ksolve!(Gi_view, G_bi_view, Hi_view, H_bi_view, Amid_list[i], bmid_list[i], Pb_view, V0_view, V_view; it_solver = it_solver, maxiter = linsolv_maxiter, tol = linsolv_tol, itslv_thresh = itslv_thresh)
 
             #Update TT core i and the next initialization
-            V0_view = update_right(tt_opt, V0, V_view, V_move, V_temp, i, N, tol, rmax_schedule[i_schedule], A.tto_vec[i], Gi_view, G[i + 1])
+            V0_view = update_right(tt_opt, V0, V_view, V_move, V_temp, i, N, tol, rmax_schedule[i_schedule], A.tto_vec[i], Gi_view, G[i + 1]; verbose = verbose)
 
             G_bip = @view(G_b[i + 1][1:tt_opt.ttv_rks[i + 1], :])
             update_Gb!(tt_opt.ttv_vec[i], b.ttv_vec[i], G_bi_view, G_bip)
@@ -463,7 +464,7 @@ function dmrg_linsolve(
             # Define V as solution of K*x=Pb in x
             Ksolve!(Gi_view, G_bi_view, Hi_view, H_bi_view, Amid_list[i], bmid_list[i], Pb_view, V0_view, V_view; it_solver = it_solver, maxiter = linsolv_maxiter, tol = linsolv_tol, itslv_thresh = itslv_thresh)
 
-            V0_view = update_left(tt_opt, V0, V_view, V_move, V_temp, i, N, tol, rmax_schedule[i_schedule], A.tto_vec[i + N - 1], Hi_view, H[i - 1])
+            V0_view = update_left(tt_opt, V0, V_view, V_move, V_temp, i, N, tol, rmax_schedule[i_schedule], A.tto_vec[i + N - 1], Hi_view, H[i - 1]; verbose = verbose)
 
             H_bim = @view(H_b[i - 1][1:tt_opt.ttv_rks[i + N - 1], :])
             update_Hb!(tt_opt.ttv_vec[i + N - 1], b.ttv_vec[i + N - 1], H_bi_view, H_bim)
@@ -508,7 +509,8 @@ function dmrg_eigsolve(
         it_solver = false::Bool, #linear solver for the microstep
         linsolv_maxiter = 200::Int64, #maximum of iterations for the iterative solver
         linsolv_tol = max(sqrt(tol), 1.0e-8)::Float64, #tolerance of the iterative linear solver
-        itslv_thresh = 256::Int #switch from full to iterative
+        itslv_thresh = 256::Int, #switch from full to iterative
+        verbose::Bool = false #log rank information at every core move
     )
     @assert(length(rmax_schedule) == length(sweep_schedule), "Sweep schedule error")
 
@@ -543,7 +545,7 @@ function dmrg_eigsolve(
                 else
                     for i in N:-1:2
                         V_view = @view(V[1:tt_opt.ttv_rks[i - N + 1], 1:prod(tt_opt.ttv_dims[(i - N + 1):i]), 1:tt_opt.ttv_rks[i + 1]])
-                        left_core_move!(tt_opt, V_view, V_move, i, tol, rmax_schedule[end])
+                        left_core_move!(tt_opt, V_view, V_move, i, tol, rmax_schedule[end]; verbose = verbose)
                     end
                     V_moveview = @view(V_move[1:tt_opt.ttv_rks[1], 1:prod(tt_opt.ttv_dims[1:(N - 1)]), 1:tt_opt.ttv_rks[N]])
                     tt_opt.ttv_vec[1] = permutedims(reshape(V_moveview, 1, tt_opt.ttv_dims[1], :), (2, 1, 3))
@@ -559,7 +561,7 @@ function dmrg_eigsolve(
             λ = K_eigmin(Gi_view, Hi_view, V0_view, Amid_list[i], V_view; it_solver = it_solver, maxiter = linsolv_maxiter, tol = linsolv_tol, itslv_thresh = itslv_thresh)
             push!(E, λ)
             #Update TT core i and the next initialization
-            V0_view = update_right(tt_opt, V0, V_view, V_move, V_temp, i, N, tol, rmax_schedule[i_schedule], A.tto_vec[i], Gi_view, G[i + 1])
+            V0_view = update_right(tt_opt, V0, V_view, V_move, V_temp, i, N, tol, rmax_schedule[i_schedule], A.tto_vec[i], Gi_view, G[i + 1]; verbose = verbose)
             push!(r_hist, maximum(tt_opt.ttv_rks))
         end
 
@@ -570,7 +572,7 @@ function dmrg_eigsolve(
             λ = K_eigmin(Gi_view, Hi_view, V0_view, Amid_list[i], V_view; it_solver = it_solver, maxiter = linsolv_maxiter, tol = linsolv_tol, itslv_thresh = itslv_thresh)
             push!(E, λ)
             #update the initialization
-            V0_view = update_left(tt_opt, V0, V_view, V_move, V_temp, i, N, tol, rmax_schedule[i_schedule], A.tto_vec[i + N - 1], Hi_view, H[i - 1])
+            V0_view = update_left(tt_opt, V0, V_view, V_move, V_temp, i, N, tol, rmax_schedule[i_schedule], A.tto_vec[i + N - 1], Hi_view, H[i - 1]; verbose = verbose)
             push!(r_hist, maximum(tt_opt.ttv_rks))
         end
     end

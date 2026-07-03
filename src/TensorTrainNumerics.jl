@@ -1,6 +1,6 @@
 module TensorTrainNumerics
 
-export AbstractTTvector, AbstractTToperator, TTvector, TToperator, eltype, complex, ttv_decomp, tto_decomp, ttv_to_tensor, tto_to_tensor, tto_to_ttv, visualize, matricize, concatenate, orthogonalize, entanglemententropy, copy, r_and_d_to_rks, tt_compress!, _svdtrunc, ttvector_manifold
+export AbstractTTvector, AbstractTToperator, TTvector, TToperator, eltype, complex, ttv_decomp, tto_decomp, ttv_to_tensor, tto_to_tensor, tto_to_ttv, visualize, matricize, concatenate, orthogonalize, entanglemententropy, copy, r_and_d_to_rks, tt_compress!, tt_round!, tt_round, _svdtrunc, ttvector_manifold
 function ttvector_manifold end
 include("tt_tools.jl")
 
@@ -30,6 +30,7 @@ export index_to_point, tuple_to_index, function_to_tensor, tensor_to_grid, funct
 include("qtt_tools.jl")
 
 export euler_method, implicit_euler_method, crank_nicholson_method, rk4_method
+export TTLinearSolver, ALSSolver, MALSSolver, DMRGSolver, KrylovSolver
 include("solvers/euler.jl")
 
 export fourier_qtto, reverse_qtt_bits

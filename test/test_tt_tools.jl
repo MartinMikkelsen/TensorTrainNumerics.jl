@@ -430,10 +430,8 @@ end
     @test isapprox(Matrix(B' * B), Matrix{Float32}(I, m, m); atol = 1.0e-6)
 end
 
-@testset "tt bond truncate internal function" begin
-    using LinearAlgebra
-
-    @testset "reduces rank to max_bond and updates core shapes" begin
+@testset "tt truncation behavior" begin
+    @testset "tt_compress! reduces rank to max_bond and updates core shapes" begin
         N = 3
         dims = (2, 2, 2)
         rks = [1, 4, 4, 1]
@@ -444,17 +442,15 @@ end
         vec[3] = randn(2, 4, 1)
         tt = TTvector{Float64, 3}(N, vec, dims, rks, ot)
 
-        y = TensorTrainNumerics._tt_bond_truncate!(tt, 1; max_bond = 2, truncerr = 0.0)
-
-        @test tt.ttv_rks[2] ≤ 2
-        new_r = tt.ttv_rks[2]
-        @test size(tt.ttv_vec[1]) == (dims[1], tt.ttv_rks[1], new_r)
-        @test size(tt.ttv_vec[2]) == (dims[2], new_r, tt.ttv_rks[3])
-        @test y.ttv_rks[2] == tt.ttv_rks[2]
-        @test size(y.ttv_vec[1]) == size(tt.ttv_vec[1])
+        y = tt_compress!(tt, 2)
+        @test y === tt
+        @test maximum(tt.ttv_rks) ≤ 2
+        for i in 1:N
+            @test size(tt.ttv_vec[i]) == (dims[i], tt.ttv_rks[i], tt.ttv_rks[i + 1])
+        end
     end
 
-    @testset "exact rank-1 reconstruction leads to new rank 1" begin
+    @testset "exact rank-1 vector rounds to rank 1" begin
         N = 2
         n1 = 2; n2 = 2
         rks = [1, 2, 1]
@@ -475,25 +471,17 @@ end
         end
 
         tt = TTvector{Float64, 2}(N, [core1, core2], (n1, n2), rks, ot)
+        expected = (p' * q) .* (u * v')
 
-        y = TensorTrainNumerics._tt_bond_truncate!(tt, 1; max_bond = 1, truncerr = 0.0)
+        # rank cap finds the exact rank-1 structure
+        t1 = tt_compress!(copy(tt), 1)
+        @test t1.ttv_rks[2] == 1
+        @test ttv_to_tensor(t1) ≈ expected
 
-        @test tt.ttv_rks[2] == 1
-        @test size(tt.ttv_vec[1]) == (n1, 1, 1)
-        @test size(tt.ttv_vec[2]) == (n2, 1, 1)
-        @test y.ttv_rks[2] == 1
-    end
-
-    @testset "invalid k throws AssertionError" begin
-        N = 3
-        dims = (2, 2, 2)
-        rks = [1, 2, 2, 1]
-        ot = zeros(Int, N)
-        vec = [randn(2, 1, 2), randn(2, 2, 2), randn(2, 2, 1)]
-        tt = TTvector{Float64, 3}(N, vec, dims, rks, ot)
-
-        @test_throws AssertionError TensorTrainNumerics._tt_bond_truncate!(tt, 0)
-        @test_throws AssertionError TensorTrainNumerics._tt_bond_truncate!(tt, tt.N)
+        # tolerance-based rounding detects the zero singular value on its own
+        t2 = tt_round!(copy(tt); tol = 1.0e-13)
+        @test t2.ttv_rks[2] == 1
+        @test ttv_to_tensor(t2) ≈ expected
     end
 end
 
@@ -561,7 +549,7 @@ end
         @test y === tt
     end
 
-    @testset "verbose mode logs both sweep directions" begin
+    @testset "verbose mode logs each rounding pass" begin
         N = 3
         dims = (2, 2, 2)
         rks = [1, 2, 2, 1]
@@ -569,7 +557,7 @@ end
         vec = [randn(dims[1], rks[1], rks[2]), randn(dims[2], rks[2], rks[3]), randn(dims[3], rks[3], rks[4])]
         tt = TTvector{Float64, N}(N, vec, dims, rks, ot)
 
-        @test_logs (:info, r"TT compress: sweep 1") (:info, r"TT compress: sweep 1") TensorTrainNumerics.tt_compress!(tt, 2; verbose = true)
+        @test_logs (:info, r"TT compress: sweep 1") TensorTrainNumerics.tt_compress!(tt, 2; verbose = true)
     end
 end
 
@@ -1098,4 +1086,89 @@ end
     # visualize still works (ASCII diagram, returns nothing)
     @test visualize(tt) === nothing
     @test visualize(tto) === nothing
+end
+
+@testset "ones_tt" begin
+    o = TensorTrainNumerics.ones_tt(2, 3)
+    @test ttv_to_tensor(o) ≈ ones(2, 2, 2)
+    o2 = TensorTrainNumerics.ones_tt(Float64, (2, 3))
+    @test ttv_to_tensor(o2) ≈ ones(2, 3)
+end
+
+@testset "tt_round!" begin
+    d = 6
+    y = qtt_sin(d) + qtt_cos(d)          # exact QTT rank 2: sin + cos is a shifted sine
+    pad = 0.0 * rand_tt(y.ttv_dims, 6)
+    x = y + pad                          # same vector, inflated ranks
+    before = qtt_to_vector(x)
+    @test maximum(x.ttv_rks) > 4
+    r = tt_round!(x; tol = 1.0e-12)
+    @test r === x
+    @test maximum(x.ttv_rks) ≤ 2
+    @test qtt_to_vector(x) ≈ before
+
+    # max_bond cap
+    Random.seed!(3)
+    z = rand_tt((2, 2, 2, 2, 2, 2), 4; normalise = true)
+    tt_round!(z; max_bond = 2)
+    @test maximum(z.ttv_rks) ≤ 2
+
+    # exact rounding with tol = 0 and no cap preserves the tensor
+    w = rand_tt((2, 3, 2, 3), 3; normalise = true)
+    before_w = ttv_to_tensor(w)
+    tt_round!(w)
+    @test ttv_to_tensor(w) ≈ before_w
+
+    # non-mutating variant leaves the input untouched
+    v = qtt_sin(d) + 0.0 * rand_tt(y.ttv_dims, 5)
+    rks_before = copy(v.ttv_rks)
+    v2 = tt_round(v; tol = 1.0e-12)
+    @test maximum(v2.ttv_rks) ≤ 2
+    @test v.ttv_rks == rks_before
+end
+
+@testset "tt_compress! and tt_round! mutate through the QTT wrapper" begin
+    d = 6
+    x = qtt_sin(d) + 0.0 * rand_tt(qtt_sin(d).ttv_dims, 5)
+    q = QTTvector(x, 1, d, :serial)
+    tt_compress!(q, 3)
+    @test maximum(q.ttv_rks) ≤ 3
+    tt_round!(q; tol = 1.0e-12)
+    @test maximum(q.ttv_rks) ≤ 2
+end
+
+@testset "dense conversion layouts (non-uniform dims)" begin
+    Random.seed!(5)
+    dims = (2, 3, 4)
+    x = rand_tt(dims, [1, 2, 3, 1])
+    dense = ttv_to_tensor(x)
+    for t in CartesianIndices(dense)
+        v = x.ttv_vec[1][t[1], :, :] * x.ttv_vec[2][t[2], :, :] * x.ttv_vec[3][t[3], :, :]
+        @test dense[t] ≈ v[1, 1]
+    end
+
+    A = rand_tto((2, 3), 2)
+    T4 = tto_to_tensor(A)
+    for t in CartesianIndices(T4)
+        M = A.tto_vec[1][t[1], t[3], :, :] * A.tto_vec[2][t[2], t[4], :, :]
+        @test T4[t] ≈ M[1, 1]
+    end
+end
+
+@testset "matricize agrees with dense extraction" begin
+    d = 5
+    x = qtt_sin(d) + qtt_polynom([0.5, 1.0], d)
+    dense = ttv_to_tensor(x)
+    for core in (2, d)
+        vals = matricize(x, core)
+        @test length(vals) == 2^core
+        ok = true
+        for i in 1:(2^core)
+            bits = reverse(digits(i - 1, base = 2, pad = core)) .+ 1
+            idx = CartesianIndex(Tuple(vcat(bits, ones(Int, d - core))))
+            ok &= isapprox(vals[i], dense[idx])
+        end
+        @test ok
+    end
+    @test matricize(x, d) ≈ qtt_to_vector(x)
 end

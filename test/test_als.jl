@@ -215,3 +215,15 @@ end
     @test x_opt isa TTvector{Float64}
     @test isfinite(E[end])
 end
+
+@testset "als_linsolve return_info for odd and even sweep counts" begin
+    Random.seed!(1)
+    d = 5
+    A = id_tto(d) + 0.1 * Δ(d)
+    b = qtt_sin(d)
+    x0 = rand_tt(b.ttv_dims, 4)
+    x1, info1 = als_linsolve(A, b, x0; sweep_count = 1, return_info = true)
+    @test info1.residual ≥ 0
+    x2, info2 = als_linsolve(A, b, x0; sweep_count = 2, return_info = true)
+    @test info2.residual < 1.0e-6
+end

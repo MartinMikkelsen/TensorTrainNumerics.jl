@@ -208,7 +208,7 @@ function als_linsolve(A::AbstractTToperator, b::AbstractTTvector, tt_start::Abst
         end
 
         if nsweeps == sweep_count
-            return_info ? (tt_opt, (; residual = norm(A * tt_opt - b) / max(norm(b), eps(real(T))))) : tt_opt
+            break
         else
             nsweeps += 1
             # Second half sweep
@@ -423,5 +423,5 @@ function als_gen_eigsolv(A::AbstractTToperator, S::AbstractTToperator, tt_start:
             update_H!(tt_opt.ttv_vec[i], S.tto_vec[i], L[i], L[i - 1])
         end
     end
-    return
+    return E[1:i_μit], tt_opt
 end

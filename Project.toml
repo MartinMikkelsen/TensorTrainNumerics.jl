@@ -36,6 +36,7 @@ JET = "0.11"
 KrylovKit = "0.6.1, 0.9, 0.10"
 LinearAlgebra = "1.6.7"
 LinearMaps = "3.11.3"
+Logging = "1"
 ManifoldsBase = "2"
 Manopt = "0.5"
 Maxvol = "1.0.0"
@@ -53,6 +54,7 @@ Aqua = "4c88cf16-eb10-579e-8560-4a9242c79595"
 ChainRulesCore = "d360d2e6-b24c-11e9-a2a3-2a2ae2dbcce4"
 InterpolativeQTT = "87f1ea11-1d4d-47cb-b1d1-07788fc25290"
 JET = "c3a54625-cd67-489e-a8e7-0a5a0ff4e31b"
+Logging = "56ddb016-857b-54e1-b83d-db4d58db5568"
 ManifoldsBase = "3362f125-f0bb-47a3-aa74-596ffd7ef2fb"
 Manopt = "0fc0a36d-df90-57f3-8f93-d78a9fc72bb5"
 TensorCrossInterpolation = "b261b2ec-6378-4871-b32e-9173bb050604"
@@ -61,4 +63,4 @@ VectorInterface = "409d34a3-91d5-4945-b6ec-7529ddf182d8"
 Zygote = "e88e6eb3-aa80-5325-afca-941959d7151f"
 
 [targets]
-test = ["Test", "Aqua", "JET", "InterpolativeQTT", "ManifoldsBase", "Manopt", "TensorCrossInterpolation", "ChainRulesCore", "Zygote"]
+test = ["Test", "Aqua", "JET", "InterpolativeQTT", "Logging", "ManifoldsBase", "Manopt", "TensorCrossInterpolation", "ChainRulesCore", "Zygote"]
