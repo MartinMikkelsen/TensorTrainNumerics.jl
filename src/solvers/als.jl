@@ -158,7 +158,7 @@ fixed to those of `tt_start`.
 # Returns
 - `TTvector{T}`, or `(TTvector{T}, NamedTuple)` when `return_info=true`.
 """
-function als_linsolve(A::AbstractTToperator, b::AbstractTTvector, tt_start::AbstractTTvector; sweep_count = 2, it_solver = false, r_itsolver = 5000, return_info = false)
+function _als_linsolve_impl(A::AbstractTToperator, b::AbstractTTvector, tt_start::AbstractTTvector; sweep_count = 2, it_solver = false, r_itsolver = 5000, return_info = false)
     # als finds the minimum of the operator J:1/2*<Ax,Ax> - <x,b>
     # input:
     # 	A: the tensor operator in its tensor train format
@@ -248,7 +248,7 @@ via the Alternating Linear Scheme.
 `(E, tt_opt)` where `E::Vector{Float64}` is the eigenvalue history (one entry per
 micro-step) and `tt_opt::TTvector{T}` is the approximate eigenvector at termination.
 """
-function als_eigsolve(
+function _als_eigsolve_impl(
         A::AbstractTToperator,
         tt_start::AbstractTTvector; #TT initial guess
         sweep_schedule = [2]::Array{Int64, 1}, #Number of sweeps for each bond dimension in rmax_schedule
@@ -318,6 +318,22 @@ function als_eigsolve(
         end
     end
     return E[1:i_μit]::Array{Float64, 1}, tt_opt::AbstractTTvector
+end
+
+function eigen_solve(A::AbstractTToperator, guess::AbstractTTvector, alg::ALS)
+    sweep_schedule = isnothing(alg.sweep_schedule) ? [2] : alg.sweep_schedule
+    rmax_schedule = isnothing(alg.rmax_schedule) ? [maximum(guess.ttv_rks)] : alg.rmax_schedule
+    noise_schedule = isnothing(alg.noise_schedule) ? zeros(length(rmax_schedule)) : alg.noise_schedule
+    return _als_eigsolve_impl(
+        A, guess;
+        sweep_schedule = sweep_schedule,
+        rmax_schedule = rmax_schedule,
+        noise_schedule = noise_schedule,
+        it_solver = alg.it_solver,
+        itslv_thresh = alg.itslv_thresh,
+        maxiter = alg.maxiter,
+        linsolv_tol = alg.linsolv_tol
+    )
 end
 
 """

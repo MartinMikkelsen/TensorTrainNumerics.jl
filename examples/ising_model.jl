@@ -48,12 +48,14 @@ function z_magnetization(state)
 end
 
 function ground_state(H, initial_state; max_bond)
-    energies, state, rank_history = dmrg_eigsolve(
+    energies, state, rank_history = eigen_solve(
         H,
-        initial_state;
-        sweep_schedule = [2, 4],
-        rmax_schedule = [max_bond, max_bond],
-        tol = 1.0e-10,
+        initial_state,
+        DMRG(
+            sweep_schedule = [2, 4],
+            rmax_schedule = [max_bond, max_bond],
+            tol = 1.0e-10,
+        ),
     )
     return energies[end], state, rank_history[end]
 end

@@ -19,7 +19,7 @@ b_raw = 2π^2 * qtt_sin(d; a = h, b = 1 - h) ⊗ qtt_sin(d; a = h, b = 1 - h)
 b = QTTvector(b_raw, 2, d, :serial)
 
 x0 = QTTvector(rand_tt(b_raw.ttv_dims, b_raw.ttv_rks), 2, d, :serial)
-x_sol = dmrg_linsolve(A, b, x0; sweep_count = 20, tol = 1.0e-10)
+x_sol = linear_solve(A, b, x0, DMRG(sweep_count = 20, tol = 1.0e-10))
 
 sol = qttv_to_array(x_sol)
 u_exact = [sin(π * xi) * sin(π * yi) for xi in xes, yi in xes]

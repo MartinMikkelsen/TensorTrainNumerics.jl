@@ -135,7 +135,7 @@ TT-cross algorithms build a TT approximation of a black-box function $f:\{1,\ldo
 | Algorithm | Constructor | Notes |
 |---|---|---|
 | MaxVol | `MaxVol(tol, maxiter)` | Stable pivot selection via maximal-volume submatrices |
-| DMRG-cross | `DMRG(tol, maxiter)` | Alternating left–right sweeps |
+| DMRG-cross | `DMRGcross(tol, maxiter)` | Alternating left–right sweeps |
 | Greedy | `Greedy(tol, maxiter)` | Fast but less robust |
 
 ```@example ttcross
@@ -149,7 +149,7 @@ d = 6
 domain = [collect(range(0.0, π, length = n)) for _ in 1:d]
 
 tt_mv = tt_cross(f, domain, MaxVol(tol = 1.0e-8, maxiter = 20); ranks = 4)
-tt_dg = tt_cross(f, domain, DMRG(tol = 1.0e-8, maxiter = 25))
+tt_dg = tt_cross(f, domain, DMRGcross(tol = 1.0e-8, maxiter = 25))
 ```
 
 ### Numerical integration

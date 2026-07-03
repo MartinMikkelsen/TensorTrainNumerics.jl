@@ -382,7 +382,7 @@ with adaptive rank growth).
 # Returns
 `TTvector{T}`, or `(TTvector{T}, NamedTuple)` when `return_info=true`.
 """
-function dmrg_linsolve(
+function _dmrg_linsolve_impl(
         A::AbstractTToperator, b::AbstractTTvector, tt_start::AbstractTTvector; sweep_count = 2, N = 2, tol = 1.0e-12::Float64,
         sweep_schedule = [2]::Array{Int64, 1}, #Number of sweeps for each bond dimension in rmax_schedule
         rmax_schedule = [isqrt(prod(tt_start.ttv_dims)::Int)]::Array{Int64, 1}, #maximum rank in sweep_schedule
@@ -499,7 +499,7 @@ two-site with adaptive bond dimension).
 `tt_opt::TTvector{T}` is the approximate eigenvector, and `r_hist::Vector{Int}`
 records the maximum bond dimension after each micro-step.
 """
-function dmrg_eigsolve(
+function _dmrg_eigsolve_impl(
         A::AbstractTToperator,
         tt_start::AbstractTTvector; #TT initial guess
         N = 2::Integer, #Number of open sites, N=1 is one-site DMRG, N=2 is two-site DMRG...
@@ -554,6 +554,7 @@ function dmrg_eigsolve(
                 return E::Array{Float64, 1}, tt_opt::AbstractTTvector, r_hist::Array{Int, 1}
             end
         end
+
         # First half sweep
         for i in 1:(d - N)
             # Define V as solution of K V= λ V for smallest λ
@@ -577,4 +578,22 @@ function dmrg_eigsolve(
         end
     end
     return E::Array{Float64, 1}, tt_opt::AbstractTTvector, r_hist::Array{Int, 1}
+end
+
+function eigen_solve(A::AbstractTToperator, guess::AbstractTTvector, alg::DMRG)
+    sweep_schedule = isnothing(alg.sweep_schedule) ? [2] : alg.sweep_schedule
+    rmax_schedule = isnothing(alg.rmax_schedule) ? [isqrt(prod(guess.ttv_dims)::Int)] : alg.rmax_schedule
+    linsolv_tol = isnothing(alg.linsolv_tol) ? max(sqrt(alg.tol), 1.0e-8) : alg.linsolv_tol
+    return _dmrg_eigsolve_impl(
+        A, guess;
+        N = alg.N,
+        tol = alg.tol,
+        sweep_schedule = sweep_schedule,
+        rmax_schedule = rmax_schedule,
+        it_solver = alg.it_solver,
+        linsolv_maxiter = alg.linsolv_maxiter,
+        linsolv_tol = linsolv_tol,
+        itslv_thresh = alg.itslv_thresh,
+        verbose = alg.verbose
+    )
 end

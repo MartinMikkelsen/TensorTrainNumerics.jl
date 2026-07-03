@@ -69,7 +69,7 @@ function Greedy(;
     return Greedy(maxiter, tol, rmax, verbose, nsamples, pivot)
 end
 
-struct DMRG{T <: Real, P <: PivotAlgorithm} <: CrossAlgorithm
+struct DMRGcross{T <: Real, P <: PivotAlgorithm} <: CrossAlgorithm
     maxiter::Int
     tol::T
     rmax::Int
@@ -78,7 +78,7 @@ struct DMRG{T <: Real, P <: PivotAlgorithm} <: CrossAlgorithm
     pivot::P
 end
 
-function DMRG(;
+function DMRGcross(;
         maxiter::Int = CROSS_MAXITER[],
         tol::Real = CROSS_TOL[],
         rmax::Int = CROSS_RMAX[],
@@ -86,7 +86,7 @@ function DMRG(;
         verbose::Bool = true,
         pivot::PivotAlgorithm = MaxVolPivot()
     )
-    return DMRG(maxiter, tol, rmax, kickrank, verbose, pivot)
+    return DMRGcross(maxiter, tol, rmax, kickrank, verbose, pivot)
 end
 
 function tt_cross(f::Function, domain; alg::CrossAlgorithm = MaxVol(), kwargs...)
@@ -511,9 +511,9 @@ function tt_cross(
 
     fallback_tol = max(sqrt(alg.tol), 10 * alg.tol)
     if !converged && (!isfinite(val_eps) || val_eps > fallback_tol)
-        alg.verbose && @warn "Greedy cross appears stalled/unstable (ε = $(val_eps)); retrying with DMRG cross"
+        alg.verbose && @warn "Greedy cross appears stalled/unstable (ε = $(val_eps)); retrying with DMRGcross"
         init_rank = min(maximum(Rs), alg.rmax)
-        dmrg_alg = DMRG(maxiter = alg.maxiter, tol = alg.tol, rmax = alg.rmax, kickrank = nothing, verbose = alg.verbose)
+        dmrg_alg = DMRGcross(maxiter = alg.maxiter, tol = alg.tol, rmax = alg.rmax, kickrank = nothing, verbose = alg.verbose)
         return tt_cross(f, domain, dmrg_alg; ranks = init_rank, val_size = val_size)
     end
 
@@ -562,7 +562,7 @@ end
 function tt_cross(
         f::Function,
         domain::Vector{<:AbstractVector{T}},
-        alg::DMRG;
+        alg::DMRGcross;
         ranks::Union{Int, Vector{Int}} = 2,
         val_size::Int = 1000
     ) where {T <: Number}
@@ -598,7 +598,7 @@ function tt_cross(
     ys_val = _evaluate_on_domain(f, domain, Xs_val)
     norm_ys_val = max(norm(ys_val), alg.tol)
 
-    alg.verbose && @info "DMRG cross-interpolation over $(N)D domain with $(prod(Is)) grid points"
+    alg.verbose && @info "DMRGcross cross-interpolation over $(N)D domain with $(prod(Is)) grid points"
 
     converged = false
     val_eps = Inf

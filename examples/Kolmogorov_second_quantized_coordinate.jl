@@ -53,7 +53,7 @@ end
 
 ψ = ψ0; record!(ψ)
 for _ in 1:nblk
-    global ψ = crank_nicholson_method(G, ψ, ψ, fill(τstep, blk); normalize = false, tt_solver = "als", max_bond = max_bond, sweep_count = 5)
+    global ψ = crank_nicholson_method(G, ψ, ψ, fill(τstep, blk); normalize = false, tt_solver = ALS(sweep_count = 5), max_bond = max_bond)
     global ψ = tt_compress!(ψ, max_bond; truncerr = truncerr)
     record!(ψ)
 end

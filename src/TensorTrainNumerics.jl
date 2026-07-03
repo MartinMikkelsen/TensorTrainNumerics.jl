@@ -7,6 +7,12 @@ include("tt_tools.jl")
 export *, +, dot, -, /, add!, outer_product, hadamard, hadamard_ttm, kron, ⊕, ⊗, ⨝, ∙, euclidean_distance, euclidean_distance_normalized, ttv_to_diag_tto, norm
 include("tt_operations.jl")
 
+export LinearSolverAlgorithm, EigenSolverAlgorithm
+export ALS, MALS, DMRG, Krylov
+export TTLinearSolver, ALSSolver, MALSSolver, DMRGSolver, KrylovSolver
+export linear_solve, eigen_solve
+include("solvers/linear_solver.jl")
+
 export als_linsolve, als_eigsolve, als_gen_eigsolv
 include("solvers/als.jl")
 
@@ -15,6 +21,8 @@ include("solvers/mals.jl")
 
 export dmrg_linsolve, dmrg_eigsolve
 include("solvers/dmrg.jl")
+
+include("solvers/eigen_solver.jl")
 
 export tdvp, tdvp2
 include("solvers/tdvp.jl")
@@ -30,13 +38,12 @@ export index_to_point, tuple_to_index, function_to_tensor, tensor_to_grid, funct
 include("qtt_tools.jl")
 
 export euler_method, implicit_euler_method, crank_nicholson_method, rk4_method
-export TTLinearSolver, ALSSolver, MALSSolver, DMRGSolver, KrylovSolver
-include("solvers/euler.jl")
+include("solvers/time_evolution.jl")
 
 export fourier_qtto, reverse_qtt_bits
 include("tt_transformations.jl")
 
-export tt_cross, tt_integrate, MaxVol, DMRG, Greedy
+export tt_cross, tt_integrate, MaxVol, DMRGcross, Greedy
 include("tt_cross_interpolation.jl")
 
 end

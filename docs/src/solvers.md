@@ -4,6 +4,8 @@ TensorTrainNumerics.jl provides four families of iterative solvers for problems 
 
 All solvers operate on `AbstractTTvector` and `AbstractTToperator` inputs, so they accept both plain `TTvector`/`TToperator` and the `QTTvector`/`QTToperator` wrappers transparently.
 
+Use `linear_solve(A, b, x0, MALS(tol = 1e-10))` for linear systems and `eigen_solve(A, x0, DMRG(tol = 1e-12))` for eigenvalue problems. The older `*_linsolve` and `*_eigsolve` names are kept as compatibility wrappers.
+
 ---
 
 ## ALS, MALS, DMRG — alternating sweep solvers
@@ -16,8 +18,8 @@ These three solvers address linear systems $Ax = b$ and eigenvalue problems $Ax 
 | Local problem | Single-site | Two-site | Two-site |
 | Memory per sweep | Low | Moderate | Moderate–high |
 | Convergence | Moderate | Often faster | Often fastest |
-| Linear solve | `als_linsolve` | `mals_linsolve` | `dmrg_linsolve` |
-| Eigenvalue solve | `als_eigsolve` | `mals_eigsolve` | `dmrg_eigsolve` |
+| Linear solve | `linear_solve(..., ALS(...))` | `linear_solve(..., MALS(...))` | `linear_solve(..., DMRG(...))` |
+| Eigenvalue solve | `eigen_solve(..., ALS(...))` | `eigen_solve(..., MALS(...))` | `eigen_solve(..., DMRG(...))` |
 
 ### ALS
 
@@ -32,13 +34,13 @@ A = rand_tto(dims, 3)
 b = rand_tt(dims, [1; fill(3, d - 1); 1])
 x0 = rand_tt(dims, [1; fill(2, d - 1); 1])
 
-x_als = als_linsolve(A, b, x0; sweep_count = 4)
+x_als = linear_solve(A, b, x0, ALS(sweep_count = 4))
 ```
 
-For eigenvalue problems use `als_eigsolve`:
+For eigenvalue problems use `eigen_solve` with `ALS`:
 
 ```@example als
-E, x_eig = als_eigsolve(A, x0; sweep_schedule = [4])
+E, x_eig = eigen_solve(A, x0, ALS(sweep_schedule = [4]))
 println("Lowest eigenvalue: ", E[end])
 ```
 
@@ -55,8 +57,8 @@ A = rand_tto(dims, 3)
 b = rand_tt(dims, [1; fill(3, d - 1); 1])
 x0 = rand_tt(dims, [1; fill(2, d - 1); 1])
 
-x_mals = mals_linsolve(A, b, x0; tol = 1e-10)
-E_mals, x_eig_mals = mals_eigsolve(A, x0; sweep_schedule = [4])
+x_mals = linear_solve(A, b, x0, MALS(tol = 1e-10))
+E_mals, x_eig_mals = eigen_solve(A, x0, MALS(sweep_schedule = [4]))
 ```
 
 ### DMRG
@@ -72,14 +74,15 @@ A = rand_tto(dims, 3)
 b = rand_tt(dims, [1; fill(2, d - 1); 1])
 x0 = rand_tt(dims, [1; fill(2, d - 1); 1])
 
-x_dmrg = dmrg_linsolve(A, b, x0; sweep_count = 20, tol = 1e-12)
+x_dmrg = linear_solve(A, b, x0, DMRG(sweep_count = 20, tol = 1e-12))
 
 sweep_schedule = [2, 4, 8]
 rmax_schedule  = [2, 3, 4]
-E_dmrg, x_eig, r_hist = dmrg_eigsolve(A, x0;
+E_dmrg, x_eig, r_hist = eigen_solve(A, x0, DMRG(
     sweep_schedule = sweep_schedule,
     rmax_schedule  = rmax_schedule,
-    tol = 1e-12)
+    tol = 1e-12,
+))
 
 println("Lowest eigenvalue: ", E_dmrg[end])
 println("Rank history: ", r_hist)
@@ -152,7 +155,7 @@ steps = collect(range(0.0, 5.0, 500))
 sol_impl, err_impl  = implicit_euler_method(A, u0, init, steps;
     return_error = true, normalize = false)
 sol_cn, err_cn      = crank_nicholson_method(A, u0, init, steps;
-    return_error = true, tt_solver = "mals", normalize = false)
+    return_error = true, tt_solver = MALS(), normalize = false)
 sol_krylov, _       = expintegrator(A, last(steps), u0)
 
 fig = Figure()

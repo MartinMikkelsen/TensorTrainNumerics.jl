@@ -237,7 +237,7 @@ the bond dimensions adapt at each micro-step by discarding singular values below
 # Returns
 `TTvector{T}`, or `(TTvector{T}, NamedTuple)` when `return_info=true`.
 """
-function mals_linsolve(
+function _mals_linsolve_impl(
         A::AbstractTToperator, b::AbstractTTvector,
         tt_start::AbstractTTvector;
         tol::Float64 = 1.0e-12,
@@ -332,7 +332,7 @@ Scheme with bond-adaptive rank growth.
 `tt_opt::TTvector{T}` is the approximate eigenvector, and `r_hist::Vector{Int}`
 records the maximum bond dimension after each micro-step.
 """
-function mals_eigsolve(
+function _mals_eigsolve_impl(
         A::AbstractTToperator, tt_start::AbstractTTvector;
         tol::Float64 = 1.0e-12,
         sweep_schedule::Vector{Int} = [2],
@@ -422,4 +422,20 @@ function mals_eigsolve(
     end
 
     return E, tt_opt, r_hist
+end
+
+function eigen_solve(A::AbstractTToperator, guess::AbstractTTvector, alg::MALS)
+    sweep_schedule = isnothing(alg.sweep_schedule) ? [2] : alg.sweep_schedule
+    rmax_schedule = isnothing(alg.rmax_schedule) ? [round(Int, sqrt(prod(guess.ttv_dims)::Int))] : alg.rmax_schedule
+    linsolv_tol = isnothing(alg.linsolv_tol) ? max(sqrt(alg.tol), 1.0e-8) : alg.linsolv_tol
+    return _mals_eigsolve_impl(
+        A, guess;
+        tol = alg.tol,
+        sweep_schedule = sweep_schedule,
+        rmax_schedule = rmax_schedule,
+        it_solver = alg.it_solver,
+        linsolv_maxiter = alg.linsolv_maxiter,
+        linsolv_tol = linsolv_tol,
+        itslv_thresh = alg.itslv_thresh
+    )
 end

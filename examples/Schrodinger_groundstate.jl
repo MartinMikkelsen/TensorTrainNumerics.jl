@@ -50,7 +50,7 @@ Random.seed!(42)                                              # reproducible enr
 ψ_cn = TensorTrainNumerics.increase_ranks(gauss(), 12; noise = 1.0e-3); ψ_cn = (1 / nrm(ψ_cn)) * ψ_cn
 E_cn = Float64[Energy(ψ_cn)]
 for _ in 1:nblk
-    global ψ_cn = crank_nicholson_method(A, ψ_cn, ψ_cn, fill(τstep, blk); normalize = true, tt_solver = "als")
+    global ψ_cn = crank_nicholson_method(A, ψ_cn, ψ_cn, fill(τstep, blk); normalize = true, tt_solver = ALS())
     push!(E_cn, Energy(ψ_cn))
 end
 

@@ -375,3 +375,43 @@ end
     @test dm isa TTvector
     @test qtt_to_vector(dm) ≈ qtt_to_vector(sol_str) rtol = 1.0e-5
 end
+
+@testset "time-stepper solver kwargs preserve wrapper parity" begin
+    d = 4
+    h = 1 / d^2
+    A = -h^2 * toeplitz_to_qtto(-2.0, 1.0, 1.0, d)
+    dims = ntuple(_ -> 2, d)
+    ranks = [1; fill(2, d - 1); 1]
+    u₀ = rand_tt(dims, ranks)
+    guess = u₀
+    steps = [0.05]
+
+    @test_throws MethodError implicit_euler_method(
+        A, u₀, guess, steps;
+        normalize = false,
+        tt_solver = ALSSolver(),
+        tol = 1.0e-8
+    )
+
+    @test_throws MethodError crank_nicholson_method(
+        A, u₀, guess, steps;
+        normalize = false,
+        tt_solver = MALSSolver(),
+        sweep_count = 2
+    )
+
+    @test implicit_euler_method(
+        A, u₀, guess, steps;
+        normalize = false,
+        tt_solver = DMRGSolver(),
+        linsolv_maxiter = 50
+    ) isa TTvector
+
+    @test crank_nicholson_method(
+        A, u₀, guess, steps;
+        normalize = false,
+        tt_solver = KrylovSolver(),
+        max_bond = 6,
+        krylovdim = 10
+    ) isa TTvector
+end
