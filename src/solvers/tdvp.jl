@@ -161,6 +161,7 @@ function tdvp(
         carry_env::Bool = true,
         verbose::Bool = false,
         imaginary_time::Bool = false,
+        show_progress::Bool = true,
         kwargs...
     )
     ψ = orthogonalize(u₀)
@@ -173,8 +174,9 @@ function tdvp(
 
     ψ_prev = ψ
     F = nothing
+    progress = _solver_progress(length(steps), show_progress; desc = "TDVP")
 
-    @showprogress for h in steps
+    for h in steps
         ψ_prev_step = deepcopy(ψ)
         dt_eff = imaginary_time ? (+im * h) : (complex(1.0) * h)
         for s in 1:sweeps
@@ -187,6 +189,7 @@ function tdvp(
         ψ = orthogonalize(ψ)
         F = nothing
         ψ_prev = ψ_prev_step
+        next!(progress)
     end
 
     if return_error
@@ -312,6 +315,7 @@ function tdvp2(
         max_bond::Int = typemax(Int),
         truncerr::Real = 0.0,
         imaginary_time::Bool = false,
+        show_progress::Bool = true,
         kwargs...
     )
     ψ = orthogonalize(u₀)
@@ -324,8 +328,9 @@ function tdvp2(
 
     ψ_prev = ψ
     F = nothing
+    progress = _solver_progress(length(steps), show_progress; desc = "2TDVP")
 
-    @showprogress for h in steps
+    for h in steps
         ψ_prev_step = deepcopy(ψ)
         dt_eff = imaginary_time ? (+im * h) : (complex(1.0) * h)
         for s in 1:sweeps
@@ -341,6 +346,7 @@ function tdvp2(
         ψ = orthogonalize(ψ)
         F = nothing
         ψ_prev = ψ_prev_step
+        next!(progress)
     end
 
     if return_error

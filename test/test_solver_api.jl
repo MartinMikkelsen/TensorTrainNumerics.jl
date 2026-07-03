@@ -5,15 +5,23 @@ using TensorTrainNumerics
 
 @testset "solver algorithm constructors" begin
     @test ALS(sweep_count = 3).sweep_count == 3
+    @test !ALS().show_progress
+    @test ALS(show_progress = true).show_progress
     @test MALS(tol = 1.0e-9, rmax = 4).tol == 1.0e-9
     @test MALS(tol = 1.0e-9, rmax = 4).rmax == 4
+    @test !MALS().show_progress
+    @test MALS(show_progress = true).show_progress
     @test isnothing(MALS().linsolv_tol)
     @test DMRG(N = 2, tol = 1.0e-8, rmax_schedule = [4]).N == 2
     @test DMRG(N = 2, tol = 1.0e-8, rmax_schedule = [4]).rmax_schedule == [4]
     @test DMRG().it_solver
+    @test !DMRG().show_progress
+    @test DMRG(show_progress = true).show_progress
     @test isnothing(DMRG().linsolv_tol)
     @test Krylov(max_bond = 3, krylov_solver = :gmres).max_bond == 3
     @test Krylov(max_bond = 3, krylov_solver = :gmres).krylov_solver == :gmres
+    @test !Krylov().show_progress
+    @test Krylov(show_progress = true).show_progress
     @test ALSSolver === ALS
     @test MALSSolver === MALS
     @test DMRGSolver === DMRG

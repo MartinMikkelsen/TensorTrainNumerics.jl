@@ -6,6 +6,8 @@ All solvers operate on `AbstractTTvector` and `AbstractTToperator` inputs, so th
 
 Use `linear_solve(A, b, x0, MALS(tol = 1e-10))` for linear systems and `eigen_solve(A, x0, DMRG(tol = 1e-12))` for eigenvalue problems. The older `*_linsolve` and `*_eigsolve` names are kept as compatibility wrappers.
 
+Progress meters are controlled at the outer solver level. Use `ALS(show_progress = true)`, `MALS(show_progress = true)`, `DMRG(show_progress = true)`, or `Krylov(show_progress = true)` to show a single bar for the full linear or eigen solve. Time-evolution routines (`euler_method`, `implicit_euler_method`, `crank_nicholson_method`, `rk4_method`, `tdvp`, and `tdvp2`) show one bar over time steps by default; pass `show_progress = false` to silence it.
+
 ---
 
 ## ALS, MALS, DMRG — alternating sweep solvers

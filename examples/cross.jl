@@ -47,7 +47,7 @@ domain = [collect(range(0.0, π, length = n)) for _ in 1:d]
 
 tt_maxvol = tt_cross(sin_6d, domain, MaxVol(tol = 1.0e-12, verbose = true); ranks = 25);
 
-tt_dmrg = tt_cross(sin_6d, domain, DMRG(tol = 1.0e-8, maxiter = 25, verbose = true); ranks = 4);
+tt_dmrg = tt_cross(sin_6d, domain, DMRGcross(tol = 1.0e-8, maxiter = 25, verbose = true); ranks = 4);
 
 tt_greedy = tt_cross(sin_6d, domain, Greedy(tol = 1.0e-12, verbose = true, maxiter = 100));
 

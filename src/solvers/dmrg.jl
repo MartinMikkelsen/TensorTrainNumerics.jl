@@ -391,7 +391,8 @@ function _dmrg_linsolve_impl(
         linsolv_tol = max(sqrt(tol), 1.0e-8)::Float64, #tolerance of the iterative linear solver
         itslv_thresh = 256::Int, #switch from full to iterative
         return_info::Bool = false,
-        verbose::Bool = false #log rank information at every core move
+        verbose::Bool = false, #log rank information at every core move
+        show_progress::Bool = false
     )
     # als finds the minimum of the operator J:1/2*<Ax,Ax> - <x,b>
     # input:
@@ -419,6 +420,7 @@ function _dmrg_linsolve_impl(
 
     nsweeps = 0 #sweeps counter
     i_schedule = 1
+    progress = _solver_progress(max(sweep_schedule[end], 1), show_progress; desc = "DMRG linear solve")
     while i_schedule <= length(sweep_schedule)
         nsweeps += 1
         if nsweeps == sweep_schedule[i_schedule]
@@ -439,6 +441,7 @@ function _dmrg_linsolve_impl(
                     tt_opt.ttv_vec[1] = permutedims(reshape(V_moveview, 1, tt_opt.ttv_dims[1], :), (2, 1, 3))
                 end
                 tt_opt.ttv_ot[1] = 0
+                next!(progress)
                 return return_info ? (tt_opt, (; residual = norm(A * tt_opt - b) / max(norm(b), eps(real(T))))) : tt_opt
             end
         end
@@ -469,6 +472,7 @@ function _dmrg_linsolve_impl(
             H_bim = @view(H_b[i - 1][1:tt_opt.ttv_rks[i + N - 1], :])
             update_Hb!(tt_opt.ttv_vec[i + N - 1], b.ttv_vec[i + N - 1], H_bi_view, H_bim)
         end
+        next!(progress)
     end
     return return_info ? (tt_opt, (; residual = norm(A * tt_opt - b) / max(norm(b), eps(real(T))))) : tt_opt
 end
@@ -510,7 +514,8 @@ function _dmrg_eigsolve_impl(
         linsolv_maxiter = 200::Int64, #maximum of iterations for the iterative solver
         linsolv_tol = max(sqrt(tol), 1.0e-8)::Float64, #tolerance of the iterative linear solver
         itslv_thresh = 256::Int, #switch from full to iterative
-        verbose::Bool = false #log rank information at every core move
+        verbose::Bool = false, #log rank information at every core move
+        show_progress::Bool = false
     )
     @assert(length(rmax_schedule) == length(sweep_schedule), "Sweep schedule error")
 
@@ -529,6 +534,7 @@ function _dmrg_eigsolve_impl(
 
     nsweeps = 0 #sweeps counter
     i_schedule = 1
+    progress = _solver_progress(max(sweep_schedule[end], 1), show_progress; desc = "DMRG eigen solve")
     while i_schedule <= length(sweep_schedule)
         nsweeps += 1
 
@@ -551,6 +557,7 @@ function _dmrg_eigsolve_impl(
                     tt_opt.ttv_vec[1] = permutedims(reshape(V_moveview, 1, tt_opt.ttv_dims[1], :), (2, 1, 3))
                 end
                 tt_opt.ttv_ot[1] = 0
+                next!(progress)
                 return E::Array{Float64, 1}, tt_opt::AbstractTTvector, r_hist::Array{Int, 1}
             end
         end
@@ -576,6 +583,7 @@ function _dmrg_eigsolve_impl(
             V0_view = update_left(tt_opt, V0, V_view, V_move, V_temp, i, N, tol, rmax_schedule[i_schedule], A.tto_vec[i + N - 1], Hi_view, H[i - 1]; verbose = verbose)
             push!(r_hist, maximum(tt_opt.ttv_rks))
         end
+        next!(progress)
     end
     return E::Array{Float64, 1}, tt_opt::AbstractTTvector, r_hist::Array{Int, 1}
 end
@@ -594,6 +602,7 @@ function eigen_solve(A::AbstractTToperator, guess::AbstractTTvector, alg::DMRG)
         linsolv_maxiter = alg.linsolv_maxiter,
         linsolv_tol = linsolv_tol,
         itslv_thresh = alg.itslv_thresh,
-        verbose = alg.verbose
+        verbose = alg.verbose,
+        show_progress = alg.show_progress
     )
 end

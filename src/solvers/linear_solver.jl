@@ -1,4 +1,5 @@
 using KrylovKit
+using ProgressMeter
 
 const KRYLOV_ROUND_RANK = Ref{Int}(0)
 
@@ -16,6 +17,7 @@ struct ALS <: EigenSolverAlgorithm
     itslv_thresh::Int
     maxiter::Int
     linsolv_tol::Float64
+    show_progress::Bool
 end
 
 function ALS(;
@@ -28,12 +30,13 @@ function ALS(;
         noise_schedule::Union{Nothing, Vector{Float64}} = nothing,
         itslv_thresh::Int = 1024,
         maxiter::Int = 200,
-        linsolv_tol::Float64 = 1.0e-8
+        linsolv_tol::Float64 = 1.0e-8,
+        show_progress::Bool = false
     )
     return ALS(
         sweep_count, it_solver, r_itsolver, return_info,
         sweep_schedule, rmax_schedule, noise_schedule,
-        itslv_thresh, maxiter, linsolv_tol
+        itslv_thresh, maxiter, linsolv_tol, show_progress
     )
 end
 
@@ -47,6 +50,7 @@ struct MALS <: EigenSolverAlgorithm
     linsolv_maxiter::Int
     linsolv_tol::Union{Nothing, Float64}
     itslv_thresh::Int
+    show_progress::Bool
 end
 
 function MALS(;
@@ -58,10 +62,11 @@ function MALS(;
         it_solver::Bool = false,
         linsolv_maxiter::Int = 200,
         linsolv_tol::Union{Nothing, Real} = nothing,
-        itslv_thresh::Int = 256
+        itslv_thresh::Int = 256,
+        show_progress::Bool = false
     )
     linsolv_tol_value = isnothing(linsolv_tol) ? nothing : Float64(linsolv_tol)
-    return MALS(tol, rmax, return_info, sweep_schedule, rmax_schedule, it_solver, linsolv_maxiter, linsolv_tol_value, itslv_thresh)
+    return MALS(tol, rmax, return_info, sweep_schedule, rmax_schedule, it_solver, linsolv_maxiter, linsolv_tol_value, itslv_thresh, show_progress)
 end
 
 struct DMRG <: EigenSolverAlgorithm
@@ -76,6 +81,7 @@ struct DMRG <: EigenSolverAlgorithm
     itslv_thresh::Int
     return_info::Bool
     verbose::Bool
+    show_progress::Bool
 end
 
 function DMRG(;
@@ -89,10 +95,11 @@ function DMRG(;
         linsolv_tol::Union{Nothing, Real} = nothing,
         itslv_thresh::Int = 256,
         return_info::Bool = false,
-        verbose::Bool = false
+        verbose::Bool = false,
+        show_progress::Bool = false
     )
     linsolv_tol_value = isnothing(linsolv_tol) ? nothing : Float64(linsolv_tol)
-    return DMRG(sweep_count, N, tol, sweep_schedule, rmax_schedule, it_solver, linsolv_maxiter, linsolv_tol_value, itslv_thresh, return_info, verbose)
+    return DMRG(sweep_count, N, tol, sweep_schedule, rmax_schedule, it_solver, linsolv_maxiter, linsolv_tol_value, itslv_thresh, return_info, verbose, show_progress)
 end
 
 struct Krylov <: LinearSolverAlgorithm
@@ -108,6 +115,7 @@ struct Krylov <: LinearSolverAlgorithm
     ishermitian::Bool
     isposdef::Bool
     verbosity::Int
+    show_progress::Bool
 end
 
 function Krylov(;
@@ -122,11 +130,12 @@ function Krylov(;
         issymmetric::Bool = false,
         ishermitian::Union{Nothing, Bool} = nothing,
         isposdef::Bool = false,
-        verbosity::Int = 0
+        verbosity::Int = 0,
+        show_progress::Bool = false
     )
     tol_value = isnothing(tol) ? nothing : Float64(tol)
     hermitian_value = isnothing(ishermitian) ? issymmetric : ishermitian
-    return Krylov(max_bond, krylov_solver, krylovdim, maxiter, Float64(rtol), Float64(atol), tol_value, orth, issymmetric, hermitian_value, isposdef, verbosity)
+    return Krylov(max_bond, krylov_solver, krylovdim, maxiter, Float64(rtol), Float64(atol), tol_value, orth, issymmetric, hermitian_value, isposdef, verbosity, show_progress)
 end
 
 const TTLinearSolver = LinearSolverAlgorithm
@@ -142,6 +151,8 @@ function _linear_solver_algorithm(name::AbstractString)
     name == "krylov" && return Krylov()
     throw(ArgumentError("Unknown TT solver: $name. Use \"als\", \"mals\", \"dmrg\", \"krylov\", or a LinearSolverAlgorithm instance."))
 end
+
+_solver_progress(total::Integer, show_progress::Bool; desc::AbstractString = "") = Progress(max(total, 1); desc = desc, enabled = show_progress)
 
 """
     linear_solve(A, b, guess; alg=MALS())
@@ -165,7 +176,8 @@ function linear_solve(A, b, guess, alg::Krylov)
         issymmetric = alg.issymmetric,
         ishermitian = alg.ishermitian,
         isposdef = alg.isposdef,
-        verbosity = alg.verbosity
+        verbosity = alg.verbosity,
+        show_progress = alg.show_progress
     )
 end
 
@@ -175,7 +187,8 @@ function linear_solve(A, b, guess, alg::ALS)
         sweep_count = alg.sweep_count,
         it_solver = alg.it_solver,
         r_itsolver = alg.r_itsolver,
-        return_info = alg.return_info
+        return_info = alg.return_info,
+        show_progress = alg.show_progress
     )
 end
 
@@ -190,7 +203,7 @@ end
 
 function linear_solve(A, b, guess, alg::MALS)
     rmax = isnothing(alg.rmax) ? round(Int, sqrt(prod(guess.ttv_dims)::Int)) : alg.rmax
-    return _mals_linsolve_impl(A, b, guess; tol = alg.tol, rmax = rmax, return_info = alg.return_info)
+    return _mals_linsolve_impl(A, b, guess; tol = alg.tol, rmax = rmax, return_info = alg.return_info, show_progress = alg.show_progress)
 end
 
 """
@@ -218,7 +231,8 @@ function linear_solve(A, b, guess, alg::DMRG)
         linsolv_tol = linsolv_tol,
         itslv_thresh = alg.itslv_thresh,
         return_info = alg.return_info,
-        verbose = alg.verbose
+        verbose = alg.verbose,
+        show_progress = alg.show_progress
     )
 end
 
@@ -242,7 +256,8 @@ function _stepper_algorithm(
         sweep_count = sweep_count,
         it_solver = it_solver,
         r_itsolver = r_itsolver,
-        return_info = return_info
+        return_info = return_info,
+        show_progress = false
     )
 end
 
@@ -255,7 +270,8 @@ function _stepper_algorithm(
     return MALS(;
         tol = tol,
         rmax = rmax,
-        return_info = return_info
+        return_info = return_info,
+        show_progress = false
     )
 end
 
@@ -284,7 +300,8 @@ function _stepper_algorithm(
         linsolv_tol = linsolv_tol,
         itslv_thresh = itslv_thresh,
         return_info = return_info,
-        verbose = verbose
+        verbose = verbose,
+        show_progress = false
     )
 end
 
@@ -315,7 +332,8 @@ function _stepper_algorithm(
         issymmetric = issymmetric,
         ishermitian = ishermitian,
         isposdef = isposdef,
-        verbosity = verbosity
+        verbosity = verbosity,
+        show_progress = false
     )
 end
 
@@ -361,6 +379,7 @@ function krylov_linsolve(
         ishermitian::Bool = issymmetric,
         isposdef::Bool = false,
         verbosity::Int = 0,
+        show_progress::Bool = false,
         kwargs...
     )
     # Keep the Krylov iterates from accumulating rank: rank(A*x) = rank(A)*rank(x),
@@ -379,10 +398,12 @@ function krylov_linsolve(
         orth = orth,
         verbosity = verbosity
     )
+    progress = _solver_progress(1, show_progress; desc = "Krylov linear solve")
     old = KRYLOV_ROUND_RANK[]
     KRYLOV_ROUND_RANK[] = max_bond
     try
         x, _ = linsolve(op, b, guess, alg; kwargs...)
+        next!(progress)
         return x
     finally
         KRYLOV_ROUND_RANK[] = old

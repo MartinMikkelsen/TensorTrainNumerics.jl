@@ -175,7 +175,8 @@ end
 
     ψ_rt = tdvp(
         H0c, complex(u0), [0.1];
-        normalize = false, sweeps = 1, carry_env = false, verbose = false, imaginary_time = false
+        normalize = false, sweeps = 1, carry_env = false, verbose = false, imaginary_time = false,
+        show_progress = false
     )
     @test eltype(ψ_rt) <: Complex
 
@@ -328,6 +329,8 @@ end
     steps = [0.02, 0.02]
 
     ψ_it = tdvp2(H0, ψ0, steps; normalize = false, sweeps = 2, carry_env = true, verbose = false, imaginary_time = true)
+    ψ_it_quiet = tdvp2(H0, ψ0, steps; normalize = false, sweeps = 2, carry_env = true, verbose = false, imaginary_time = true, show_progress = false)
+    @test dense_relerr(ψ_it_quiet, ψ0) < 1.0e-12
     @test dense_relerr(ψ_it, ψ0) < 1.0e-12
 end
 

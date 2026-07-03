@@ -415,3 +415,17 @@ end
         krylovdim = 10
     ) isa TTvector
 end
+
+@testset "time steppers accept top-level show_progress option" begin
+    d = 3
+    h = 1 / 2^d
+    A = -h^2 * toeplitz_to_qtto(-2.0, 1.0, 1.0, d)
+    u₀ = qtt_sin(d)
+    guess = rand_tt(u₀.ttv_dims, u₀.ttv_rks)
+    steps = [0.01]
+
+    @test euler_method(A, u₀, steps; normalize = false, show_progress = false) isa TTvector
+    @test implicit_euler_method(A, u₀, guess, steps; normalize = false, show_progress = false, tt_solver = ALS(sweep_count = 2)) isa TTvector
+    @test crank_nicholson_method(A, u₀, guess, steps; normalize = false, show_progress = false, tt_solver = MALS()) isa TTvector
+    @test rk4_method(A, u₀, steps, 4; normalize = false, show_progress = false) isa TTvector
+end

@@ -27,7 +27,7 @@ x, fx, gx, numfg, normgradhistor = optimize(fg, x0, method)
 relres = norm(A * x - f) / max(norm(f), eps())
 println("relative residual = ", relres)
 
-x_mals = linear_solve(A, f, x0, MALS())
+x_mals = linear_solve(A, f, x0, MALS(show_progress=true))
 relres = norm(A * x_mals - f) / max(norm(f), eps())
 println("relative residual = ", relres)
 
