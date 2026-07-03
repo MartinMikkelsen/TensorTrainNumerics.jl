@@ -3,36 +3,17 @@ using CairoMakie
 import LinearAlgebra as LA
 using Random
 
-# Quantum ground state of a double-well potential by imaginary-time propagation,
-# in QTT — solved two ways and cross-checked against dense diagonalisation.
-#
-# Hamiltonian  H = -½ ∂²/∂x² + V(x),  V(x) = λ(x²-a²)²  (wells at ±a).
-# Imaginary time:  ∂ψ/∂τ = -H ψ  → renormalised relaxation projects onto the
-# ground state,  E₀ = ⟨ψ|H|ψ⟩/⟨ψ|ψ⟩  (variational, converges from above).
-#
-#   • Crank–Nicolson + ALS:  normalize=true is the standard normalised
-#     imaginary-time propagation. ALS is *fixed-rank*, so the initial state is
-#     rank-enriched (increase_ranks) up front to give it room.
-#   • TDVP2:  two-site, *rank-adaptive* — grows the bond dimension itself, so a
-#     plain low-rank initial state suffices. Same convention as the steppers
-#     (evolves exp(+Aτ)), so pass the same A = -H with imaginary_time=true.
-#
-# (Potential built with function_to_qtt; for large d build it with
-# InterpolativeQTT.jl and convert via to_ttvector.)
 
-# --- parameters --------------------------------------------------------------
-λ = 0.2; xa = 2.0                         # double well  V = λ(x²-a²)²
+λ = 0.2; xa = 2.0                         
 d = 8; N = 2^d; a, b = -5.0, 5.0
 h = (b - a) / (N - 1); xes = collect(range(a, b, N))
 
-# --- Hamiltonian  H = -½ ∂xx + V ---------------------------------------------
-∂xx = -(1 / h^2) * Δ(d)                                       # = d²/dx²
+∂xx = -(1 / h^2) * Δ(d)
 Vfun(x) = λ * (x^2 - xa^2)^2
 Vop = ttv_to_diag_tto(function_to_qtt(t -> Vfun(a + (b - a) * t), d))
 H = -0.5 * ∂xx + Vop
-A = (-1.0) * H                                                # both methods evolve ∂ψ/∂τ = A ψ = -H ψ
+A = (-1.0) * H                                               
 
-# --- dense reference: ground state of the same discrete H --------------------
 F = LA.eigen(LA.Symmetric(qtto_to_matrix(H)), 1:1)
 E0_dense = F.values[1]
 ψ0_dense = F.vectors[:, 1]; ψ0_dense ./= sqrt(sum(abs2, ψ0_dense) * h)

@@ -6,24 +6,17 @@ N = 2^d
 h = 1.0 / (N + 1)          # uniform interior spacing on [0,1]
 xes = h .* (1:N)            # interior grid: x_i = i/(N+1)
 
-# Discrete 2D Laplacian on N×N interior grid (zero Dirichlet BCs at x=0,1).
-# The Toeplitz stencil is correct for interior-only points because the missing
-# ghost-point values (u=0 at boundary) drop out of the stencil equations.
 Δ1d = toeplitz_to_qtto(-2.0, 1.0, 1.0, d)
 A_raw = (1 / h^2) * (Δ1d ⊗ id_tto(d) + id_tto(d) ⊗ Δ1d)
 A = QTToperator(A_raw, 2, d, :serial)
 
-# BCs: u(x, 0) = sin(πx),  all other boundaries zero.
-# The bottom BC contributes −sin(πx_i)/h² to the first y-row (y=h) of the RHS.
-# qtt_sin with a=h, b=1−h evaluates sin(πx) at interior points x_i = i·h.
 b_raw = -(1 / h^2) * qtt_sin(d; a = h, b = 1 - h) ⊗ qtt_basis_vector(d, 1)
 b = QTTvector(b_raw, 2, d, :serial)
 
-# Random initial guess
 x0 = QTTvector(rand_tt(b_raw.ttv_dims, b_raw.ttv_rks), 2, d, :serial)
 
 # Solve with MALS (single sweep) and DMRG (50 sweeps)
-x_mals = linear_solve(A, b, x0, MALS())
+x_mals = linear_solve(A, b, x0, MALS(show_progress=true))
 x_dmrg = linear_solve(A, b, x0, DMRG(sweep_count = 50, tol = 1.0e-12))
 
 # Solutions on the N×N interior grid
