@@ -143,23 +143,28 @@ end
     @test isfinite(norm(ψ_out))
     @test norm(ψ_out - ψ0) / norm(ψ0) < 1.0e-6
 end
-absnorm(x::TensorTrainNumerics.TTvector) = sqrt(real(TensorTrainNumerics.dot(x, x)))
+
+function dense_relerr(x::TensorTrainNumerics.TTvector, y::TensorTrainNumerics.TTvector)
+    x_dense = vec(ttv_to_tensor(x))
+    y_dense = vec(ttv_to_tensor(y))
+    y_norm = norm(y_dense)
+    return norm(x_dense - y_dense) / max(y_norm, eps(typeof(y_norm)))
+end
 
 @testset "tdvp1sweep! (H = 0 ⇒ identity)" begin
     d = 4
     u0 = qtt_sin(d, λ = π)
 
     ψ = complex(orthogonalize(u0))
+    ψ_ref = deepcopy(ψ)
     Hc = complex(id_tto(d))                 # make MPO complex to match ψ
     H0 = (0.0 + 0.0im) * Hc                 # zero MPO with Complex element type
 
     ψ2, F = tdvp1sweep!(complex(0.1), ψ, H0, nothing; verbose = false)
 
-    @test abs(absnorm(ψ2 - ψ)) / max(absnorm(ψ), eps()) < 1.0e-12
+    @test dense_relerr(ψ2, ψ_ref) < 1.0e-12
     @test length(F) == ψ.N + 2
 end
-
-absnorm(x::TensorTrainNumerics.TTvector) = sqrt(max(real(TensorTrainNumerics.dot(x, x)), 0.0))
 
 @testset "tdvp: basic behavior" begin
     d = 4
@@ -170,7 +175,8 @@ absnorm(x::TensorTrainNumerics.TTvector) = sqrt(max(real(TensorTrainNumerics.dot
 
     ψ_rt = tdvp(
         H0c, complex(u0), [0.1];
-        normalize = false, sweeps = 1, carry_env = false, verbose = false, imaginary_time = false
+        normalize = false, sweeps = 1, carry_env = false, verbose = false, imaginary_time = false,
+        show_progress = false
     )
     @test eltype(ψ_rt) <: Complex
 
@@ -193,7 +199,7 @@ absnorm(x::TensorTrainNumerics.TTvector) = sqrt(max(real(TensorTrainNumerics.dot
         H0c, ψ0, [0.1];
         normalize = false, sweeps = 1, carry_env = false, verbose = false, imaginary_time = false
     )
-    rel = absnorm(ψ_id - ψ0) / max(absnorm(ψ0), eps())
+    rel = dense_relerr(ψ_id, ψ0)
     @test rel ≤ 1.0e-10
 
     ψ_carryT = tdvp(
@@ -204,7 +210,7 @@ absnorm(x::TensorTrainNumerics.TTvector) = sqrt(max(real(TensorTrainNumerics.dot
         H0c, complex(u0), [0.1, 0.1];
         normalize = false, sweeps = 2, carry_env = false, verbose = false, imaginary_time = false
     )
-    rel_c = absnorm(ψ_carryT - ψ_carryF) / max(absnorm(ψ_carryF), eps())
+    rel_c = dense_relerr(ψ_carryT, ψ_carryF)
     @test rel_c ≤ 1.0e-10
 end
 
@@ -301,7 +307,7 @@ end
         H0c, ψ0, [0.1];
         normalize = false, sweeps = 1, carry_env = false, verbose = false, imaginary_time = false
     )
-    rel = absnorm(ψ_id - ψ0) / max(absnorm(ψ0), eps())
+    rel = dense_relerr(ψ_id, ψ0)
     @test rel ≤ 1.0e-7
 
     ψ_carryT = tdvp2(
@@ -312,7 +318,7 @@ end
         H0c, complex(u0), [0.1, 0.1];
         normalize = false, sweeps = 2, carry_env = false, verbose = false, imaginary_time = false
     )
-    rel_c = absnorm(ψ_carryT - ψ_carryF) / max(absnorm(ψ_carryF), eps())
+    rel_c = dense_relerr(ψ_carryT, ψ_carryF)
     @test rel_c ≤ 1.0e-10
 end
 
@@ -323,7 +329,9 @@ end
     steps = [0.02, 0.02]
 
     ψ_it = tdvp2(H0, ψ0, steps; normalize = false, sweeps = 2, carry_env = true, verbose = false, imaginary_time = true)
-    @test absnorm(ψ_it - ψ0) / max(absnorm(ψ0), eps()) < 1.0e-12
+    ψ_it_quiet = tdvp2(H0, ψ0, steps; normalize = false, sweeps = 2, carry_env = true, verbose = false, imaginary_time = true, show_progress = false)
+    @test dense_relerr(ψ_it_quiet, ψ0) < 1.0e-12
+    @test dense_relerr(ψ_it, ψ0) < 1.0e-12
 end
 
 @testset "tdvp heat eigenmode with QTT" begin

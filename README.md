@@ -90,7 +90,7 @@ A = id_tto(d)
 b = qtt_sin(d, λ = π)
 x0 = rand_tt(b.ttv_dims, b.ttv_rks)
 
-x = als_linsolve(A, b, x0; sweep_count = 4)
+x = linear_solve(A, b, x0, ALS(sweep_count = 4))
 
 rhs = qtt_to_function(b)
 sol = qtt_to_function(x)

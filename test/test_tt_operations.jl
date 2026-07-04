@@ -318,3 +318,66 @@ end
     @test isapprox(sqrt(1.0 + LinearAlgebra.dot(S1, S1) / LinearAlgebra.dot(S2, S2) - 2.0 * real(LinearAlgebra.dot(S2, S1)) / LinearAlgebra.dot(S2, S2)), euclidean_distance_normalized(A1, A2), atol = 1.0e-12)
 
 end
+
+@testset "single-core (N = 1) addition" begin
+    Random.seed!(42)
+    x = rand_tt((4,), [1, 1])
+    y = rand_tt((4,), [1, 1])
+    @test ttv_to_tensor(x + y) ≈ ttv_to_tensor(x) .+ ttv_to_tensor(y)
+
+    z = copy(x)
+    add!(z, y)
+    @test ttv_to_tensor(z) ≈ ttv_to_tensor(x) .+ ttv_to_tensor(y)
+
+    A1 = rand_tto((3,), 1)
+    B1 = rand_tto((3,), 1)
+    @test tto_to_tensor(A1 + B1) ≈ tto_to_tensor(A1) .+ tto_to_tensor(B1)
+end
+
+@testset "mixed eltype promotion" begin
+    Random.seed!(7)
+    dims = (2, 3, 2)
+    n = prod(dims)
+    x = rand_tt(dims, [1, 2, 2, 1])
+    y = complex(rand_tt(dims, [1, 2, 2, 1]))
+
+    s = x + y
+    @test eltype(s) == ComplexF64
+    @test ttv_to_tensor(s) ≈ ttv_to_tensor(x) .+ ttv_to_tensor(y)
+    @test ttv_to_tensor(x - y) ≈ ttv_to_tensor(x) .- ttv_to_tensor(y)
+    @test TensorTrainNumerics.dot(x, y) ≈ sum(conj(ttv_to_tensor(x)) .* ttv_to_tensor(y))
+    @test TensorTrainNumerics.dot(y, x) ≈ sum(conj(ttv_to_tensor(y)) .* ttv_to_tensor(x))
+
+    A = rand_tto(dims, 2)
+    Ac = complex(rand_tto(dims, 2))
+    @test tto_to_tensor(A + Ac) ≈ tto_to_tensor(A) .+ tto_to_tensor(Ac)
+    @test tto_to_tensor(A - Ac) ≈ tto_to_tensor(A) .- tto_to_tensor(Ac)
+
+    w = A * y                       # Float64 operator × ComplexF64 vector
+    @test eltype(w) == ComplexF64
+    Amat = reshape(tto_to_tensor(A), n, n)
+    @test vec(ttv_to_tensor(w)) ≈ Amat * vec(ttv_to_tensor(y))
+
+    P = Ac * A                      # ComplexF64 operator × Float64 operator
+    @test eltype(P) == ComplexF64
+    @test reshape(tto_to_tensor(P), n, n) ≈ reshape(tto_to_tensor(Ac), n, n) * Amat
+end
+
+@testset "eltype preservation for narrow float types" begin
+    Random.seed!(11)
+    x = rand_tt(Float32, (2, 2, 2), [1, 2, 2, 1])
+    y = rand_tt(Float32, (2, 2, 2), [1, 2, 2, 1])
+    @test eltype(x + y) == Float32
+    @test eltype(x - y) == Float32
+    @test ttv_to_tensor(x - y) ≈ ttv_to_tensor(x) .- ttv_to_tensor(y)
+end
+
+@testset "dot is a LinearAlgebra.dot method" begin
+    # One shared function: no export conflict between the two packages,
+    # and the generic `dot` name works on TT vectors unqualified.
+    @test TensorTrainNumerics.dot === LinearAlgebra.dot
+    Random.seed!(21)
+    x = rand_tt((2, 3, 2), [1, 2, 2, 1])
+    y = complex(rand_tt((2, 3, 2), [1, 2, 2, 1]))
+    @test LinearAlgebra.dot(x, y) ≈ sum(conj(ttv_to_tensor(x)) .* ttv_to_tensor(y))
+end

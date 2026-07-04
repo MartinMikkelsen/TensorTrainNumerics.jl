@@ -516,19 +516,19 @@ Create an identity tensor train operator (TTO) of dimension `d` with optional ke
 # Returns
 - An identity tensor train operator of the specified dimension and number of dimensions.
 """
-function id_tto(d; n_dim = 2)
+function id_tto(d; n_dim::Int = 2)
     return id_tto(Float64, d; n_dim = n_dim)
 end
 
 
-function id_tto(::Type{T}, d; n_dim = 2) where {T}
-    dims = Tuple(n_dim * ones(Int64, d))
+function id_tto(::Type{T}, d; n_dim::Int = 2) where {T}
+    dims = ntuple(_ -> n_dim, d)
     A = Array{Array{T, 4}, 1}(undef, d)
     for j in 1:d
-        A[j] = zeros(T, 2, 2, 1, 1)
-        A[j][:, :, 1, 1] = Matrix{T}(I, 2, 2)
+        A[j] = zeros(T, n_dim, n_dim, 1, 1)
+        A[j][:, :, 1, 1] = Matrix{T}(I, n_dim, n_dim)
     end
-    return TToperator{T, d}(d, A, dims, ones(Int64, d + 1), zeros(d))
+    return TToperator{T, d}(d, A, dims, ones(Int64, d + 1), zeros(Int64, d))
 end
 
 function rand_tto(dims, rmax::Int; T = Float64)
@@ -589,7 +589,7 @@ function ones_tt(::Type{T}, dims) where {T}
     vec = [ones(T, n, 1, 1) for n in dims]
     rks = ones(Int64, N + 1)
     ot = zeros(Int64, N)
-    return TTvector{T, N}(N, vec, dims, rks, ot)
+    return TTvector{T, N}(N, vec, Tuple(dims), rks, ot)
 end
 
 function ones_tt(n::Integer, d::Integer)

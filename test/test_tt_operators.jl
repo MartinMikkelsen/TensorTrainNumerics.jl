@@ -521,3 +521,11 @@ end
     uxy = Px * uy
     @test qtt_to_function(uxy) ≈ kron(P2, Matrix(I, 2^(d2 + 1), 2^(d2 + 1))) * qtt_to_function(uy)
 end
+
+@testset "id_tto respects n_dim" begin
+    A = id_tto(2; n_dim = 3)
+    @test A.tto_dims == (3, 3)
+    @test all(size(c) == (3, 3, 1, 1) for c in A.tto_vec)
+    v = rand_tt((3, 3), [1, 2, 1])
+    @test ttv_to_tensor(A * v) ≈ ttv_to_tensor(v)
+end

@@ -6,7 +6,7 @@ The examples below are ordered from simplest to most advanced. Each can be run d
 
 Solve $-u'' = \pi^2 \sin(\pi x)$ on $(0,1)$ with Dirichlet boundary conditions $u(0) = u(1) = 0$. The exact solution is $u(x) = \sin(\pi x)$.
 
-This is the simplest end-to-end demonstration: build the 1-D finite-difference operator in QTT format, set up the right-hand side, and solve with DMRG.
+This is the simplest end-to-end demonstration: build the 1-D finite-difference operator in QTT format, set up the right-hand side, and solve with MALS.
 
 ```@example poisson1d
 using TensorTrainNumerics
@@ -23,7 +23,7 @@ A  = -(1/h^2) * toeplitz_to_qtto(-2.0, 1.0, 1.0, d)
 b   = π^2 * qtt_sin(d; a = h, b = 1 - h)
 x0  = rand_tt(b.ttv_dims, b.ttv_rks)
 
-u_qtt   = mals_linsolve(A, b, x0; tol = 1e-12, return_info=false)
+u_qtt   = linear_solve(A, b, x0, MALS(tol = 1e-12, return_info = false))
 u_sol   = qtt_to_function(u_qtt)
 u_exact = sin.(π .* xes)
 
@@ -32,9 +32,9 @@ println("Relative L² error: ", norm(u_sol .- u_exact) / norm(u_exact))
 And we can plot the solution
 ```@example poisson1d
 fig = Figure()
-ax  = Axis(fig[1, 1], xlabel = "x", ylabel = "u(x)", title = "1-D Poisson — DMRG solution")
+ax  = Axis(fig[1, 1], xlabel = "x", ylabel = "u(x)", title = "1-D Poisson - MALS solution")
 lines!(ax, xes, u_exact, label = "exact",   linewidth = 2)
-lines!(ax, xes, u_sol,   label = "DMRG",    linewidth = 2, linestyle = :dash)
+lines!(ax, xes, u_sol,   label = "MALS",    linewidth = 2, linestyle = :dash)
 axislegend(ax)
 fig
 ```
@@ -56,7 +56,7 @@ d      = 6
 domain = [collect(range(0.0, π, length = n)) for _ in 1:d]
 
 tt_mv = tt_cross(f, domain, MaxVol(tol = 1e-8, maxiter = 20, verbose = false); ranks = 4)
-tt_dg = tt_cross(f, domain, DMRG(tol  = 1e-8, maxiter = 25, verbose = false); ranks = 4)
+tt_dg = tt_cross(f, domain, DMRGcross(tol  = 1e-8, maxiter = 25, verbose = false); ranks = 4)
 ```
 
 Verify accuracy against the full reference tensor:
@@ -68,7 +68,7 @@ for idx in CartesianIndices(tensor_exact)
 end
 
 println("MaxVol relative error: ", norm(ttv_to_tensor(tt_mv) .- tensor_exact) / norm(tensor_exact))
-println("DMRG   relative error: ", norm(ttv_to_tensor(tt_dg) .- tensor_exact) / norm(tensor_exact))
+println("DMRGcross relative error: ", norm(ttv_to_tensor(tt_dg) .- tensor_exact) / norm(tensor_exact))
 ```
 
 
@@ -99,4 +99,3 @@ scale = sqrt(N)
 println("Spectral recovery error: ", norm(spec[1:r] .- scale .* coeffs) / (scale * norm(coeffs)))
 println("Out-of-band energy:      ", norm(spec[(r+1):end]) / norm(spec))
 ```
-

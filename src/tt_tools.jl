@@ -53,7 +53,6 @@ struct TToperator{T <: Number, M} <: AbstractTToperator
     tto_ot::Array{Int64, 1}
 end
 
-Base.eltype(::TTvector{T, N}) where {T, N} = T
 Base.eltype(::TToperator{T, M}) where {T, M} = T
 
 function Base.complex(A::TToperator{T, M}) where {T, M}
@@ -264,18 +263,22 @@ Convert a TTvector (Tensor Train vector) to a full tensor.
 """
 function ttv_to_tensor(x_tt::TTvector{T, N}) where {T <: Number, N}
     d = x_tt.N
-    tensor = zeros(T, x_tt.ttv_dims)
-    @simd for t in CartesianIndices(tensor)
-        # Start with the last core
-        i = d
-        curr = view(x_tt.ttv_vec[i], t[i], :, :)
-        # Contract backwards through the TT d
-        for j in (d - 1):-1:1
-            curr = view(x_tt.ttv_vec[j], t[j], :, :) * curr
+    # Progressive contraction: P holds the partial contraction of cores 1:k as a
+    # (prod(dims[1:k]), r_k) matrix with the first physical index fastest, so the
+    # final reshape matches Julia's column-major tensor layout. O(d·n·r²·prod)
+    # instead of one O(d·r²) chain per entry.
+    P = x_tt.ttv_vec[1][:, 1, :]
+    for k in 2:d
+        G = x_tt.ttv_vec[k]
+        nk = size(G, 1)
+        rk = size(G, 3)
+        Pnew = Array{T, 3}(undef, size(P, 1), nk, rk)
+        for s in 1:nk
+            Pnew[:, s, :] = P * G[s, :, :]
         end
-        tensor[t] = curr[1, 1]
+        P = reshape(Pnew, size(Pnew, 1) * nk, rk)
     end
-    return tensor
+    return reshape(P[:, 1], x_tt.ttv_dims)
 end
 
 """
@@ -374,21 +377,13 @@ Convert a TToperator to a full tensor.
 """
 function tto_to_tensor(tto::TToperator{T, N}) where {T <: Number, N}
     d = tto.N
-    # Define the array of ranks [r_0=1,r_1,...,r_d]
-    rks = tto.tto_rks
-    r_max = maximum(rks)
-    # The tensor has dimensions [n_1,...,n_d,n_1,...,n_d]
-    tensor = zeros(T, (tto.tto_dims..., tto.tto_dims...))
-    # Fill in the tensor for every t=(x_1,...,x_d,y_1,...,y_d)
-    curr = ones(T, r_max)
-    @simd for t in CartesianIndices(tensor)
-        curr[1] = one(T)
-        for i in d:-1:1
-            curr[1:rks[i]] = tto.tto_vec[i][t[i], t[d + i], :, :] * curr[1:rks[i + 1]]
-        end
-        tensor[t] = curr[1]
-    end
-    return tensor
+    # Fuse each core's (i, j) pair, contract progressively as a TT vector, then
+    # split the fused axes back and sort them into [i_1,…,i_d, j_1,…,j_d].
+    fused = ttv_to_tensor(tto_to_ttv(tto))
+    pairs = ntuple(i -> tto.tto_dims[cld(i, 2)], 2 * d)
+    split = reshape(fused, pairs)
+    perm = (ntuple(k -> 2k - 1, d)..., ntuple(k -> 2k, d)...)
+    return permutedims(split, perm)
 end
 
 """
@@ -677,31 +672,42 @@ function visualize(tt::TToperator)
 end
 
 """
-    matricize(qtt::TTvector{Float64}, core::Int)::Vector{Float64}
+    matricize(qtt::TTvector, core::Int) -> Vector
 
-Convert a TTvector to a vector of Float64 values by extracting a specific core.
+Evaluate a binary (QTT) tensor train on the coarse grid spanned by its first
+`core` bits, returning `2^core` values in big-endian order (bit 1 is the most
+significant, matching `tuple_to_index`). The remaining sites are fixed at
+physical index 1 (bit value 0). For `core == qtt.N` this is the full grid
+vector, identical to [`qtt_to_vector`](@ref).
 
-# Arguments
-- `qtt::TTvector{Float64}`: The TTvector to be converted.
-- `core::Int`: The core index to be used for the conversion.
-
-# Returns
-- `Vector{Float64}`: A vector of Float64 values representing the specified core of the TTvector.
-
-# Description
-This function converts a given TTvector into a vector of Float64 values by extracting the specified core. It first converts the TTvector to a full tensor using `ttv_to_tensor`, then calculates the dyadic points and binary indices to extract the values from the tensor.
+The contraction is progressive — O(d·r²·2^core) — and never materializes the
+full tensor.
 """
 function matricize(qtt::TTvector{T}, core::Int)::Vector{T} where {T <: Number}
-    full_tensor = ttv_to_tensor(qtt)
-    n = 2^core
-    values = zeros(T, n)
+    d = qtt.N
+    @assert 1 ≤ core ≤ d "core must be in 1:$(d)"
+    @assert all(==(2), qtt.ttv_dims) "matricize expects binary (QTT) physical dimensions"
 
-    for i in 1:n
-        index_bits = bitstring(i - 1)[(end - core + 1):end]  # Binary representation
-        indices = [parse(Int, bit) + 1 for bit in index_bits]  # Indices for CartesianIndex
-        values[i] = full_tensor[CartesianIndex(indices...)]
+    # Contract the trailing cores at physical index 1 into a boundary vector.
+    v = ones(T, 1)
+    for k in d:-1:(core + 1)
+        v = qtt.ttv_vec[k][1, :, :] * v
     end
-    return values
+
+    # Progressive contraction over the first `core` cores, appending each bit
+    # as the least-significant index (big-endian, as in `qtt_to_vector`).
+    P = qtt.ttv_vec[1][:, 1, :]
+    for k in 2:core
+        G = qtt.ttv_vec[k]
+        n_prev = size(P, 1)
+        Pn = similar(P, 2 * n_prev, size(G, 3))
+        @views begin
+            Pn[1:2:end, :] .= P * G[1, :, :]
+            Pn[2:2:end, :] .= P * G[2, :, :]
+        end
+        P = Pn
+    end
+    return P * v
 end
 
 
@@ -740,50 +746,99 @@ function _svdtrunc(A; max_bond = max(size(A)...), truncerr = 0.0)
     return F.U[:, 1:d], diagm(0 => F.S[1:d]), F.Vt[1:d, :]
 end
 
-function _tt_bond_truncate!(ψ::TTvector{T, N}, k::Int; max_bond::Int = typemax(Int), truncerr::Real = 0.0) where {T <: Number, N}
-    @assert(1 ≤ k < ψ.N, "k must be in 1:(N-1)")
-
-    A = permutedims(ψ.ttv_vec[k], (2, 1, 3))
-    B = permutedims(ψ.ttv_vec[k + 1], (2, 1, 3))
-
-    @tensor AAC[α, s1, s2, β] := A[α, s1, γ] * B[γ, s2, β]
-    Dl, d1, d2, Dr = size(AAC)
-
-    U, S, Vt = _svdtrunc(reshape(AAC, Dl * d1, d2 * Dr); max_bond = max_bond, truncerr = truncerr)
-
-    svec = diag(S)
-    s_sqrt = sqrt.(svec)
-    U = U * Diagonal(s_sqrt)
-    Vt = Diagonal(s_sqrt) * Vt
-
-    new_r = size(U, 2)
-
-    AL = reshape(U, Dl, d1, new_r)
-    AR = reshape(Vt, new_r, d2, Dr)
-
-    ψ.ttv_vec[k] = permutedims(AL, (2, 1, 3))
-    ψ.ttv_vec[k + 1] = permutedims(AR, (2, 1, 3))
-
-    ψ.ttv_rks[k + 1] = new_r
-
-    return orthogonalize(ψ; i = k)
+# Smallest rank whose discarded singular-value tail has Frobenius norm ≤ δ,
+# capped at max_bond and floored at 1.
+function _frob_trunc_rank(s::AbstractVector{<:Real}, δ::Real, max_bond::Int)
+    r = length(s)
+    if δ > 0
+        tail = zero(float(eltype(s)))
+        while r > 1 && sqrt(tail + abs2(s[r])) ≤ δ
+            tail += abs2(s[r])
+            r -= 1
+        end
+    end
+    return max(min(r, max_bond), 1)
 end
 
+# Per-bond relative criterion: discard the tail whose Frobenius norm is
+# ≤ truncerr·‖s‖ (the historical `tt_compress!` semantics).
+function _relnorm_trunc_rank(s::AbstractVector{<:Real}, truncerr::Real, max_bond::Int)
+    return _frob_trunc_rank(s, truncerr > 0 ? truncerr * norm(s) : 0.0, max_bond)
+end
+
+# One TT-rounding pass (Oseledets 2011): a right-to-left orthogonalization via
+# `orthogonalize`, then a left-to-right sweep of truncated SVDs with the
+# orthogonality center carried along, so every SVD sees the state's true
+# Schmidt values. `select` maps a singular-value vector to the rank to keep.
+# Mutates the *contents* of x's containers (not just the field bindings) so
+# wrappers sharing them — e.g. `QTTvector` — observe the update.
+function _tt_truncate_sweep!(x::TTvector{T, N}, select::F) where {T <: Number, N, F}
+    d = x.N
+    y = orthogonalize(x; i = 1)
+    for k in 1:d
+        x.ttv_vec[k] = y.ttv_vec[k]
+    end
+    x.ttv_rks .= y.ttv_rks
+    x.ttv_ot .= y.ttv_ot
+    d == 1 && return x
+    for k in 1:(d - 1)
+        C = x.ttv_vec[k]                          # center core, (n, r_l, r_r)
+        n, rl, rr = size(C)
+        F_svd = svd(reshape(permutedims(C, (2, 1, 3)), rl * n, rr))
+        r_new = min(select(F_svd.S), length(F_svd.S))
+        U = F_svd.U[:, 1:r_new]
+        x.ttv_vec[k] = permutedims(reshape(U, rl, n, r_new), (2, 1, 3))
+        x.ttv_rks[k + 1] = r_new
+        x.ttv_ot[k] = 1
+        SV = Diagonal(F_svd.S[1:r_new]) * F_svd.Vt[1:r_new, :]
+        B = x.ttv_vec[k + 1]                      # (n₂, r_r, r₃)
+        n2 = size(B, 1)
+        r3 = size(B, 3)
+        Bnew = reshape(SV * reshape(permutedims(B, (2, 1, 3)), rr, n2 * r3), r_new, n2, r3)
+        x.ttv_vec[k + 1] = permutedims(Bnew, (2, 1, 3))
+        x.ttv_ot[k + 1] = 0
+    end
+    return x
+end
+
+"""
+    tt_round!(x::TTvector; tol=0.0, max_bond=typemax(Int))
+
+Truncate the TT ranks of `x` in place with the TT-rounding algorithm of
+Oseledets (2011): one right-to-left orthogonalization sweep followed by one
+left-to-right truncating SVD sweep, O(d·n·r³) in total.
+
+`tol` is a relative Frobenius tolerance for the whole tensor: the result
+satisfies `‖x − round(x)‖ ≤ tol·‖x‖` (the budget is split evenly over the
+`d − 1` bonds). `max_bond` additionally caps every bond dimension. The result
+is left-canonical with the orthogonality center on the last core.
+"""
+function tt_round!(x::TTvector{T, N}; tol::Real = 0.0, max_bond::Int = typemax(Int)) where {T <: Number, N}
+    δ = tol > 0 ? tol * norm(x) / sqrt(max(x.N - 1, 1)) : 0.0
+    return _tt_truncate_sweep!(x, s -> _frob_trunc_rank(s, δ, max_bond))
+end
+
+"""
+    tt_round(x::TTvector; tol=0.0, max_bond=typemax(Int))
+
+Non-mutating variant of [`tt_round!`](@ref).
+"""
+tt_round(x::TTvector; kwargs...) = tt_round!(copy(x); kwargs...)
+
+"""
+    tt_compress!(ψ::TTvector, max_bond::Int; truncerr=0.0, sweeps=1, verbose=false)
+
+Compress `ψ` in place to bond dimension at most `max_bond` via TT rounding
+(see [`tt_round!`](@ref)). `truncerr` is a per-bond relative truncation
+tolerance: at every bond the discarded singular-value tail has Frobenius norm
+at most `truncerr` times that bond's spectrum norm. A single `sweep` already
+yields the quasi-optimal rounding; additional sweeps re-run the pass.
+"""
 function tt_compress!(ψ::TTvector{T, N}, max_bond::Int; truncerr::Real = 0.0, sweeps::Int = 1, verbose::Bool = false) where {T <: Number, N}
     @assert(sweeps ≥ 1, "sweeps must be >= 1")
     for sw in 1:sweeps
-        if verbose
-            @info "TT compress: sweep $sw (L→R)"
-        end
-        for k in 1:(ψ.N - 1)
-            _tt_bond_truncate!(ψ, k; max_bond = max_bond, truncerr = truncerr)
-        end
-        if verbose
-            @info "TT compress: sweep $sw (R→L)"
-        end
-        for k in (ψ.N - 1):-1:1
-            _tt_bond_truncate!(ψ, k; max_bond = max_bond, truncerr = truncerr)
-        end
+        verbose && @info "TT compress: sweep $sw"
+        _tt_truncate_sweep!(ψ, s -> _relnorm_trunc_rank(s, truncerr, max_bond))
     end
     return ψ
 end

@@ -562,11 +562,6 @@ function hadamard(a::QTTvector, b::QTTvector)
     return QTTvector(hadamard(TTvector(a), TTvector(b)), a.n_dims, a.bits_per_dim, a.ordering)
 end
 
-function LinearAlgebra.dot(a::QTTvector, b::QTTvector)
-    check_compat(a, b)
-    return dot(TTvector(a), TTvector(b))
-end
-
 function dot(a::QTTvector, b::QTTvector)
     check_compat(a, b)
     return dot(TTvector(a), TTvector(b))
@@ -626,9 +621,6 @@ end
 
 dot(a::TTvector, b::QTTvector) = dot(a, TTvector(b))
 dot(a::QTTvector, b::TTvector) = dot(TTvector(a), b)
-
-LinearAlgebra.dot(a::TTvector, b::QTTvector) = dot(a, TTvector(b))
-LinearAlgebra.dot(a::QTTvector, b::TTvector) = dot(TTvector(a), b)
 
 function Base.:-(A::TToperator, B::QTToperator)
     return A - TToperator(B)
@@ -782,6 +774,16 @@ Delegates to the underlying `TTvector` compression via shared array mutation.
 """
 function tt_compress!(q::QTTvector, max_bond::Int; kwargs...)
     tt_compress!(TTvector(q), max_bond; kwargs...)
+    return q
+end
+
+"""
+    tt_round!(q::QTTvector; kwargs...)
+
+In-place TT rounding of a `QTTvector`, preserving QTT metadata.
+"""
+function tt_round!(q::QTTvector; kwargs...)
+    tt_round!(TTvector(q); kwargs...)
     return q
 end
 

@@ -7,11 +7,6 @@ h = 1.0 / (N + 1)
 xes = h .* (1:N)
 κ = 0.1        # diffusion coefficient
 
-# 2D heat equation: u_t = κ∇²u on (0,1)², zero Dirichlet BCs.
-# Initial condition: u0(x,y) = sin(πx)sin(πy) — lowest Dirichlet eigenfunction.
-# Exact solution:    u(x,y,T) = sin(πx)sin(πy) exp(−2κπ²T).
-
-# Discrete −∇² scaled correctly: (1/h²) toeplitz(−2,1,1) ≈ d²/dx²
 Δ1d = toeplitz_to_qtto(-2.0, 1.0, 1.0, d)
 A_raw = (κ / h^2) * (Δ1d ⊗ id_tto(d) + id_tto(d) ⊗ Δ1d)
 A = QTToperator(A_raw, 2, d, :serial)

@@ -1,6 +1,7 @@
 using Test
 using Random
 using LinearAlgebra
+using Logging
 using TensorTrainNumerics
 
 Random.seed!(1234)
@@ -188,4 +189,17 @@ end
     @test x_opt isa TTvector{Float64}
     @test x_opt.ttv_ot[1] == 0
     @test length(r_hist) == length(E)
+end
+
+@testset "dmrg solvers are quiet by default" begin
+    d = 5
+    A = id_tto(d) + 0.1 * Δ(d)
+    b = qtt_sin(d)
+    x0 = rand_tt(b.ttv_dims, 2)
+    @test_logs min_level = Logging.Info begin
+        dmrg_linsolve(A, b, x0; sweep_schedule = [2], rmax_schedule = [4])
+    end
+    @test_logs min_level = Logging.Info begin
+        dmrg_eigsolve(A, x0; sweep_schedule = [2], rmax_schedule = [4])
+    end
 end

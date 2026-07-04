@@ -37,7 +37,7 @@ end
 
 u = u₀; record!(u)
 for _ in 1:nblk
-    global u = crank_nicholson_method(A, u, u, fill(τstep, blk); normalize = false, tt_solver = "als")
+    global u = crank_nicholson_method(A, u, u, fill(τstep, blk); normalize = false, tt_solver = ALS())
     record!(u)
 end
 

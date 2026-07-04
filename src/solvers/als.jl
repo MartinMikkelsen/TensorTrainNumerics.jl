@@ -158,7 +158,11 @@ fixed to those of `tt_start`.
 # Returns
 - `TTvector{T}`, or `(TTvector{T}, NamedTuple)` when `return_info=true`.
 """
-function als_linsolve(A::AbstractTToperator, b::AbstractTTvector, tt_start::AbstractTTvector; sweep_count = 2, it_solver = false, r_itsolver = 5000, return_info = false)
+function _als_linsolve_impl(
+        A::AbstractTToperator, b::AbstractTTvector, tt_start::AbstractTTvector;
+        sweep_count = 2, it_solver = false, r_itsolver = 5000,
+        return_info = false, show_progress::Bool = false
+    )
     # als finds the minimum of the operator J:1/2*<Ax,Ax> - <x,b>
     # input:
     # 	A: the tensor operator in its tensor train format
@@ -194,6 +198,7 @@ function als_linsolve(A::AbstractTToperator, b::AbstractTTvector, tt_start::Abst
     H_b = init_Hb(tt_opt, b)
 
     nsweeps = 0 #sweeps counter
+    progress = _solver_progress(sweep_count, show_progress; desc = "ALS linear solve")
 
     while nsweeps < sweep_count
         nsweeps += 1
@@ -206,9 +211,10 @@ function als_linsolve(A::AbstractTToperator, b::AbstractTTvector, tt_start::Abst
             update_G!(tt_opt.ttv_vec[i], A.tto_vec[i + 1], G[i], G[i + 1])
             update_Gb!(tt_opt.ttv_vec[i], b.ttv_vec[i + 1], G_b[i], G_b[i + 1])
         end
+        next!(progress)
 
         if nsweeps == sweep_count
-            return_info ? (tt_opt, (; residual = norm(A * tt_opt - b) / max(norm(b), eps(real(T))))) : tt_opt
+            break
         else
             nsweeps += 1
             # Second half sweep
@@ -219,6 +225,7 @@ function als_linsolve(A::AbstractTToperator, b::AbstractTTvector, tt_start::Abst
                 update_H!(tt_opt.ttv_vec[i], A.tto_vec[i], H[i], H[i - 1])
                 update_Hb!(tt_opt.ttv_vec[i], b.ttv_vec[i], H_b[i], H_b[i - 1])
             end
+            next!(progress)
         end
     end
     return return_info ? (tt_opt, (; residual = norm(A * tt_opt - b) / max(norm(b), eps(real(T))))) : tt_opt
@@ -248,7 +255,7 @@ via the Alternating Linear Scheme.
 `(E, tt_opt)` where `E::Vector{Float64}` is the eigenvalue history (one entry per
 micro-step) and `tt_opt::TTvector{T}` is the approximate eigenvector at termination.
 """
-function als_eigsolve(
+function _als_eigsolve_impl(
         A::AbstractTToperator,
         tt_start::AbstractTTvector; #TT initial guess
         sweep_schedule = [2]::Array{Int64, 1}, #Number of sweeps for each bond dimension in rmax_schedule
@@ -257,7 +264,8 @@ function als_eigsolve(
         it_solver = false::Bool, #linear solver for the microstep
         itslv_thresh = 1024::Int64, #switch from full to iterative
         maxiter = 200::Int64, #maximum of iterations for the iterative solver
-        linsolv_tol = 1.0e-8::Float64
+        linsolv_tol = 1.0e-8::Float64,
+        show_progress::Bool = false
     ) #tolerance of the iterative linear solver
     T = eltype(tt_start)
     @assert(length(rmax_schedule) == length(sweep_schedule) == length(noise_schedule), "Sweep schedule error")
@@ -281,6 +289,7 @@ function als_eigsolve(
 
     nsweeps = 0 #sweeps counter
     i_schedule, i_μit = 1, 0
+    progress = _solver_progress(max(sweep_schedule[end] - 1, 1), show_progress; desc = "ALS eigen solve")
     while i_schedule <= length(sweep_schedule)
         nsweeps += 1
         if nsweeps == sweep_schedule[i_schedule]
@@ -316,8 +325,26 @@ function als_eigsolve(
             tt_opt = left_core_move(tt_opt, V, i, tt_opt.ttv_rks)
             update_H!(tt_opt.ttv_vec[i], A.tto_vec[i], H[i], H[i - 1])
         end
+        next!(progress)
     end
     return E[1:i_μit]::Array{Float64, 1}, tt_opt::AbstractTTvector
+end
+
+function eigen_solve(A::AbstractTToperator, guess::AbstractTTvector, alg::ALS)
+    sweep_schedule = isnothing(alg.sweep_schedule) ? [2] : alg.sweep_schedule
+    rmax_schedule = isnothing(alg.rmax_schedule) ? [maximum(guess.ttv_rks)] : alg.rmax_schedule
+    noise_schedule = isnothing(alg.noise_schedule) ? zeros(length(rmax_schedule)) : alg.noise_schedule
+    return _als_eigsolve_impl(
+        A, guess;
+        sweep_schedule = sweep_schedule,
+        rmax_schedule = rmax_schedule,
+        noise_schedule = noise_schedule,
+        it_solver = alg.it_solver,
+        itslv_thresh = alg.itslv_thresh,
+        maxiter = alg.maxiter,
+        linsolv_tol = alg.linsolv_tol,
+        show_progress = alg.show_progress
+    )
 end
 
 """
@@ -341,7 +368,12 @@ Find the smallest generalized eigenpair `Ax = λ S x` using the ALS algorithm.
 `(E, tt_opt)` where `E` is the eigenvalue history and `tt_opt` is the approximate
 eigenvector, or `nothing` if the schedule is exhausted without a final return.
 """
-function als_gen_eigsolv(A::AbstractTToperator, S::AbstractTToperator, tt_start::AbstractTTvector; sweep_schedule = [2], rmax_schedule = [maximum(tt_start.ttv_rks)], tol = 1.0e-10, it_solver = false, itslv_thresh = 2500)
+function als_gen_eigsolv(
+        A::AbstractTToperator, S::AbstractTToperator, tt_start::AbstractTTvector;
+        sweep_schedule = [2], rmax_schedule = [maximum(tt_start.ttv_rks)],
+        tol = 1.0e-10, it_solver = false, itslv_thresh = 2500,
+        show_progress::Bool = false
+    )
     T = eltype(tt_start)
     d = A.N
     # Initialize the to be returned tensor in its tensor train format
@@ -369,6 +401,7 @@ function als_gen_eigsolv(A::AbstractTToperator, S::AbstractTToperator, tt_start:
 
     nsweeps = 0 #sweeps counter
     i_schedule, i_μit = 1, 0
+    progress = _solver_progress(max(sweep_schedule[end] - 1, 1), show_progress; desc = "ALS generalized eigen solve")
     while i_schedule <= length(sweep_schedule)
         nsweeps += 1
         if nsweeps == sweep_schedule[i_schedule]
@@ -422,6 +455,7 @@ function als_gen_eigsolv(A::AbstractTToperator, S::AbstractTToperator, tt_start:
             update_H!(tt_opt.ttv_vec[i], A.tto_vec[i], H[i], H[i - 1])
             update_H!(tt_opt.ttv_vec[i], S.tto_vec[i], L[i], L[i - 1])
         end
+        next!(progress)
     end
-    return
+    return E[1:i_μit], tt_opt
 end

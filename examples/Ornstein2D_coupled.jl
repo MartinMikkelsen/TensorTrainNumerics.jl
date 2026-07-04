@@ -73,7 +73,7 @@ record!(u₀_clean)                       # t = 0: clean product Gaussian
 for _ in 1:n_blocks
     global ψ = crank_nicholson_method(
         A, ψ, ψ, fill(τ, block);
-        normalize = false, tt_solver = "als"
+        normalize = false, tt_solver = ALS()
     )
     record!(ψ)
 end

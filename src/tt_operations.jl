@@ -2,7 +2,24 @@ using Base.Threads
 using TensorOperations
 import Base: +, -, *, /, kron
 using LinearAlgebra
-import LinearAlgebra: norm
+# `dot` and `norm` extend the LinearAlgebra generics (and are re-exported), so
+# `using TensorTrainNumerics` alongside `using LinearAlgebra` causes no name clash.
+import LinearAlgebra: norm, dot
+
+"""
+    _convert_eltype(T, x)
+
+Return `x` with its cores converted to element type `T` (`x` itself if already `T`).
+"""
+function _convert_eltype(::Type{T}, x::TTvector{S, N}) where {T <: Number, S <: Number, N}
+    T === S && return x
+    return TTvector{T, N}(x.N, [convert(Array{T, 3}, c) for c in x.ttv_vec], x.ttv_dims, copy(x.ttv_rks), copy(x.ttv_ot))
+end
+
+function _convert_eltype(::Type{T}, A::TToperator{S, N}) where {T <: Number, S <: Number, N}
+    T === S && return A
+    return TToperator{T, N}(A.N, [convert(Array{T, 4}, c) for c in A.tto_vec], A.tto_dims, copy(A.tto_rks), copy(A.tto_ot))
+end
 
 """
 Adds two TTvectors and returns a new TTvector.
@@ -10,6 +27,9 @@ Adds two TTvectors and returns a new TTvector.
 function +(x::TTvector{T, N}, y::TTvector{T, N}) where {T <: Number, N}
     @assert x.ttv_dims == y.ttv_dims "Incompatible dimensions"
     d = x.N
+    if d == 1
+        return TTvector{T, N}(1, [x.ttv_vec[1] + y.ttv_vec[1]], x.ttv_dims, [1, 1], zeros(Int64, 1))
+    end
     ttv_vec = Array{Array{T, 3}, 1}(undef, d)
     rks = x.ttv_rks + y.ttv_rks
     rks[1] = 1
@@ -35,33 +55,10 @@ function +(x::TTvector{T, N}, y::TTvector{T, N}) where {T <: Number, N}
 end
 
 function add!(x::TTvector{T, N}, y::TTvector{T, N}) where {T <: Number, N}
-    @assert x.ttv_dims == y.ttv_dims "Incompatible dimensions"
-    d = x.N
-    ttv_vec = Array{Array{T, 3}, 1}(undef, d)
-    rks = x.ttv_rks + y.ttv_rks
-    rks[1] = 1
-    rks[d + 1] = 1
-    #initialize ttv_vec
-    @threads for k in 1:d
-        ttv_vec[k] = zeros(T, x.ttv_dims[k], rks[k], rks[k + 1])
-    end
-    @inbounds begin
-        #first core
-        ttv_vec[1][:, :, 1:x.ttv_rks[2]] = x.ttv_vec[1]
-        ttv_vec[1][:, :, (x.ttv_rks[2] + 1):rks[2]] = y.ttv_vec[1]
-        #2nd to end-1 d
-        @threads for k in 2:(d - 1)
-            ttv_vec[k][:, 1:x.ttv_rks[k], 1:x.ttv_rks[k + 1]] = x.ttv_vec[k]
-            ttv_vec[k][:, (x.ttv_rks[k] + 1):rks[k], (x.ttv_rks[k + 1] + 1):rks[k + 1]] = y.ttv_vec[k]
-        end
-        #last core
-        ttv_vec[d][:, 1:x.ttv_rks[d], 1] = x.ttv_vec[d]
-        ttv_vec[d][:, (x.ttv_rks[d] + 1):rks[d], 1] = y.ttv_vec[d]
-    end
-    # Overwrite x fields
-    x.ttv_vec = ttv_vec
-    x.ttv_rks = rks
-    x.ttv_ot = zeros(Int64, d)
+    r = x + y
+    x.ttv_vec = r.ttv_vec
+    x.ttv_rks = r.ttv_rks
+    x.ttv_ot = r.ttv_ot
     return x
 end
 
@@ -71,6 +68,9 @@ Adds two TToperators and returns a new TToperator.
 function +(x::TToperator{T, N}, y::TToperator{T, N}) where {T <: Number, N}
     @assert x.tto_dims == y.tto_dims "Incompatible dimensions"
     d = x.N
+    if d == 1
+        return TToperator{T, N}(1, [x.tto_vec[1] + y.tto_vec[1]], x.tto_dims, [1, 1], zeros(Int64, 1))
+    end
     tto_vec = Array{Array{T, 4}, 1}(undef, d)
     rks = x.tto_rks + y.tto_rks
     rks[1] = 1
@@ -283,11 +283,47 @@ end
 Base.:*(A::TTvector{T, N}, a::S) where {T <: Number, S <: Number, N} = a * A
 
 function -(A::TTvector{T, N}, B::TTvector{T, N}) where {T <: Number, N}
-    return *(-1.0, B) + A
+    return A + (-one(T)) * B
 end
 
 function -(A::TToperator{T, N}, B::TToperator{T, N}) where {T <: Number, N}
-    return *(-1.0, B) + A
+    return A + (-one(T)) * B
+end
+
+# Mixed element types promote to a common type and dispatch to the same-type methods.
+function +(x::TTvector{T1, N}, y::TTvector{T2, N}) where {T1 <: Number, T2 <: Number, N}
+    T = promote_type(T1, T2)
+    return _convert_eltype(T, x) + _convert_eltype(T, y)
+end
+
+function +(x::TToperator{T1, N}, y::TToperator{T2, N}) where {T1 <: Number, T2 <: Number, N}
+    T = promote_type(T1, T2)
+    return _convert_eltype(T, x) + _convert_eltype(T, y)
+end
+
+function -(x::TTvector{T1, N}, y::TTvector{T2, N}) where {T1 <: Number, T2 <: Number, N}
+    T = promote_type(T1, T2)
+    return _convert_eltype(T, x) - _convert_eltype(T, y)
+end
+
+function -(x::TToperator{T1, N}, y::TToperator{T2, N}) where {T1 <: Number, T2 <: Number, N}
+    T = promote_type(T1, T2)
+    return _convert_eltype(T, x) - _convert_eltype(T, y)
+end
+
+function *(A::TToperator{T1, N}, v::TTvector{T2, N}) where {T1 <: Number, T2 <: Number, N}
+    T = promote_type(T1, T2)
+    return _convert_eltype(T, A) * _convert_eltype(T, v)
+end
+
+function *(A::TToperator{T1, N}, B::TToperator{T2, N}) where {T1 <: Number, T2 <: Number, N}
+    T = promote_type(T1, T2)
+    return _convert_eltype(T, A) * _convert_eltype(T, B)
+end
+
+function dot(A::TTvector{T1, N}, B::TTvector{T2, N}) where {T1 <: Number, T2 <: Number, N}
+    T = promote_type(T1, T2)
+    return dot(_convert_eltype(T, A), _convert_eltype(T, B))
 end
 
 function /(A::TTvector, a)

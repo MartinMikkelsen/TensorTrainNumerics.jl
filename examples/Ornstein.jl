@@ -55,7 +55,7 @@ end
 P = u₀
 record!(P)
 for _ in 1:n_blocks
-    global P = crank_nicholson_method(A, P, P, fill(τ, block); normalize = false, tt_solver = "als")
+    global P = crank_nicholson_method(A, P, P, fill(τ, block); normalize = false, tt_solver = ALS())
     record!(P)
 end
 

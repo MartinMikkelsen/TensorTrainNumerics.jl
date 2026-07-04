@@ -66,7 +66,7 @@ for ω in ωs_evo
     ψ = ic()
     err = [sum(abs.((P = toarr(ψ); P ./= mass(P); P) .- P∞)) * h^2]
     for _ in 1:nblk
-        ψ = crank_nicholson_method(A, ψ, ψ, fill(τ, blk); normalize = false, tt_solver = "als")
+        ψ = crank_nicholson_method(A, ψ, ψ, fill(τ, blk); normalize = false, tt_solver = ALS())
         P = toarr(ψ); P ./= mass(P)
         push!(err, sum(abs.(P .- P∞)) * h^2)
     end

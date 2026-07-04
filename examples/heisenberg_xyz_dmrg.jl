@@ -11,7 +11,11 @@ H = heisenberg_xyz_tto(d; jx = 1.1, jy = 0.8, jz = 1.2, λ = 1.1, field = :x)
 x0_ranks = vcat(1, fill(2, d - 1), 1)
 x0 = rand_tt(eltype(H), H.tto_dims, x0_ranks; normalise = true)
 
-energies, ground_state, rank_history = dmrg_eigsolve(H, x0; sweep_schedule = [4, 8], rmax_schedule = [4, 8])
+energies, ground_state, rank_history = eigen_solve(
+    H,
+    x0,
+    DMRG(sweep_schedule = [4, 8], rmax_schedule = [4, 8]),
+)
 
 H_dense = qtto_to_matrix(H)
 exact_ground_energy = first(eigvals(Hermitian(H_dense)))

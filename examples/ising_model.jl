@@ -48,12 +48,14 @@ function z_magnetization(state)
 end
 
 function ground_state(H, initial_state; max_bond)
-    energies, state, rank_history = dmrg_eigsolve(
+    energies, state, rank_history = eigen_solve(
         H,
-        initial_state;
-        sweep_schedule = [2, 4],
-        rmax_schedule = [max_bond, max_bond],
-        tol = 1.0e-10,
+        initial_state,
+        DMRG(
+            sweep_schedule = [2, 4],
+            rmax_schedule = [max_bond, max_bond],
+            tol = 1.0e-10,
+        ),
     )
     return energies[end], state, rank_history[end]
 end
@@ -148,7 +150,6 @@ finally
     TensorTrainNumerics.KRYLOV_ROUND_RANK[] = old_round
 end
 
-# DMRG reference for the same Hamiltonian (reuses the helper defined above).
 E_dmrg, ψ_dmrg, _ = ground_state(H_ising, qtt_basis_vector(n, 1); max_bond = opt_bond)
 
 println("Variational (LBFGS) vs DMRG ground state: sites=$n J=$J h=$h E_lbfgs=$E_lbfgs E_dmrg=$E_dmrg gap=$(abs(E_lbfgs - E_dmrg))")

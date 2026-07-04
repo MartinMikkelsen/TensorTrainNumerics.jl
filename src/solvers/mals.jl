@@ -237,12 +237,13 @@ the bond dimensions adapt at each micro-step by discarding singular values below
 # Returns
 `TTvector{T}`, or `(TTvector{T}, NamedTuple)` when `return_info=true`.
 """
-function mals_linsolve(
+function _mals_linsolve_impl(
         A::AbstractTToperator, b::AbstractTTvector,
         tt_start::AbstractTTvector;
         tol::Float64 = 1.0e-12,
         rmax::Int = round(Int, sqrt(prod(tt_start.ttv_dims)::Int)),
-        return_info::Bool = false
+        return_info::Bool = false,
+        show_progress::Bool = false
     )
     T = eltype(tt_start)
     d = b.N
@@ -266,6 +267,7 @@ function mals_linsolve(
 
     H = init_H_mals(tt_opt, A, rmax)
     H_b = init_Hb_mals(tt_opt, b, rmax)
+    progress = _solver_progress(1, show_progress; desc = "MALS linear solve")
 
     # One sweep: can be wrapped in a loop if repeats > 1
     # First half sweep
@@ -305,6 +307,7 @@ function mals_linsolve(
         end
     end
 
+    next!(progress)
     return return_info ? (tt_opt, (; residual = norm(A * tt_opt - b) / max(norm(b), eps(real(T))))) : tt_opt
 end
 
@@ -332,7 +335,7 @@ Scheme with bond-adaptive rank growth.
 `tt_opt::TTvector{T}` is the approximate eigenvector, and `r_hist::Vector{Int}`
 records the maximum bond dimension after each micro-step.
 """
-function mals_eigsolve(
+function _mals_eigsolve_impl(
         A::AbstractTToperator, tt_start::AbstractTTvector;
         tol::Float64 = 1.0e-12,
         sweep_schedule::Vector{Int} = [2],
@@ -340,7 +343,8 @@ function mals_eigsolve(
         it_solver::Bool = false,
         linsolv_maxiter::Int = 200,
         linsolv_tol::Float64 = max(sqrt(tol), 1.0e-8),
-        itslv_thresh::Int = 256
+        itslv_thresh::Int = 256,
+        show_progress::Bool = false
     )
     T = eltype(tt_start)
     d = A.N
@@ -368,6 +372,7 @@ function mals_eigsolve(
 
     nsweeps = 0
     i_schedule = 1
+    progress = _solver_progress(max(sweep_schedule[end] - 1, 1), show_progress; desc = "MALS eigen solve")
     while i_schedule <= length(sweep_schedule)
         nsweeps += 1
 
@@ -419,7 +424,25 @@ function mals_eigsolve(
                 updateH_mals!(tt_opt.ttv_vec[i + 1], A.tto_vec[i], Hi, Him)
             end
         end
+        next!(progress)
     end
 
     return E, tt_opt, r_hist
+end
+
+function eigen_solve(A::AbstractTToperator, guess::AbstractTTvector, alg::MALS)
+    sweep_schedule = isnothing(alg.sweep_schedule) ? [2] : alg.sweep_schedule
+    rmax_schedule = isnothing(alg.rmax_schedule) ? [round(Int, sqrt(prod(guess.ttv_dims)::Int))] : alg.rmax_schedule
+    linsolv_tol = isnothing(alg.linsolv_tol) ? max(sqrt(alg.tol), 1.0e-8) : alg.linsolv_tol
+    return _mals_eigsolve_impl(
+        A, guess;
+        tol = alg.tol,
+        sweep_schedule = sweep_schedule,
+        rmax_schedule = rmax_schedule,
+        it_solver = alg.it_solver,
+        linsolv_maxiter = alg.linsolv_maxiter,
+        linsolv_tol = linsolv_tol,
+        itslv_thresh = alg.itslv_thresh,
+        show_progress = alg.show_progress
+    )
 end

@@ -1,4 +1,5 @@
 using Test
+using Random
 using TensorTrainNumerics
 using LinearAlgebra
 
@@ -326,4 +327,105 @@ end
     sol_tt_vec = qtt_to_function(sol_tt)
     rel_error = norm(sol_tt_vec - sol_dense) / norm(sol_dense)
     @test rel_error < 1.0e-6
+end
+
+@testset "euler_method return_error measures the last-step defect" begin
+    d = 5
+    A = toeplitz_to_qtto(-2.0, 1.0, 1.0, d)
+    u₀ = qtt_sin(d)
+    steps = fill(1.0e-2, 5)
+    sol, err = euler_method(A, u₀, steps; normalize = false, return_error = true)
+    # Exact explicit step with no truncation: the defect of the last step is zero.
+    @test err < 1.0e-10
+end
+
+@testset "rk4_method return_error reflects truncation error" begin
+    d = 5
+    A = ∇(d)
+    u₀ = qtt_sin(d)
+    steps = fill(0.5, 3)
+    _, err_tight = rk4_method(A, u₀, steps, 32; normalize = false, return_error = true)
+    _, err_loose = rk4_method(A, u₀, steps, 1; normalize = false, return_error = true)
+    @test err_tight < 1.0e-10   # no truncation at max_bond = 32 for d = 5
+    @test err_loose > 1.0e-6    # rank-1 cap must show up as compression error
+end
+
+@testset "solver-type dispatch for implicit time steppers" begin
+    d = 5
+    h_grid = 1 / 2^d
+    A = -h_grid^2 * toeplitz_to_qtto(-2.0, 1.0, 1.0, d)
+    u₀ = qtt_sin(d)
+    Random.seed!(17)
+    guess = rand_tt(u₀.ttv_dims, 4)
+    steps = fill(0.05, 3)
+
+    sol_str = implicit_euler_method(A, u₀, guess, steps; tt_solver = "als", normalize = false, sweep_count = 4)
+    sol_typ = implicit_euler_method(A, u₀, guess, steps; tt_solver = ALSSolver(), normalize = false, sweep_count = 4)
+    @test qtt_to_vector(sol_typ) ≈ qtt_to_vector(sol_str)
+
+    cn_str = crank_nicholson_method(A, u₀, guess, steps; tt_solver = "mals", normalize = false)
+    cn_typ = crank_nicholson_method(A, u₀, guess, steps; tt_solver = MALSSolver(), normalize = false)
+    @test qtt_to_vector(cn_typ) ≈ qtt_to_vector(cn_str)
+
+    kr = crank_nicholson_method(A, u₀, guess, steps; tt_solver = KrylovSolver(), normalize = false, max_bond = 6)
+    @test kr isa TTvector
+    @test qtt_to_vector(kr) ≈ qtt_to_vector(cn_str) rtol = 1.0e-5
+
+    dm = implicit_euler_method(A, u₀, guess, steps; tt_solver = DMRGSolver(), normalize = false)
+    @test dm isa TTvector
+    @test qtt_to_vector(dm) ≈ qtt_to_vector(sol_str) rtol = 1.0e-5
+end
+
+@testset "time-stepper solver kwargs preserve wrapper parity" begin
+    d = 4
+    h = 1 / d^2
+    A = -h^2 * toeplitz_to_qtto(-2.0, 1.0, 1.0, d)
+    dims = ntuple(_ -> 2, d)
+    ranks = [1; fill(2, d - 1); 1]
+    u₀ = rand_tt(dims, ranks)
+    guess = u₀
+    steps = [0.05]
+
+    @test_throws MethodError implicit_euler_method(
+        A, u₀, guess, steps;
+        normalize = false,
+        tt_solver = ALSSolver(),
+        tol = 1.0e-8
+    )
+
+    @test_throws MethodError crank_nicholson_method(
+        A, u₀, guess, steps;
+        normalize = false,
+        tt_solver = MALSSolver(),
+        sweep_count = 2
+    )
+
+    @test implicit_euler_method(
+        A, u₀, guess, steps;
+        normalize = false,
+        tt_solver = DMRGSolver(),
+        linsolv_maxiter = 50
+    ) isa TTvector
+
+    @test crank_nicholson_method(
+        A, u₀, guess, steps;
+        normalize = false,
+        tt_solver = KrylovSolver(),
+        max_bond = 6,
+        krylovdim = 10
+    ) isa TTvector
+end
+
+@testset "time steppers accept top-level show_progress option" begin
+    d = 3
+    h = 1 / 2^d
+    A = -h^2 * toeplitz_to_qtto(-2.0, 1.0, 1.0, d)
+    u₀ = qtt_sin(d)
+    guess = rand_tt(u₀.ttv_dims, u₀.ttv_rks)
+    steps = [0.01]
+
+    @test euler_method(A, u₀, steps; normalize = false, show_progress = false) isa TTvector
+    @test implicit_euler_method(A, u₀, guess, steps; normalize = false, show_progress = false, tt_solver = ALS(sweep_count = 2)) isa TTvector
+    @test crank_nicholson_method(A, u₀, guess, steps; normalize = false, show_progress = false, tt_solver = MALS()) isa TTvector
+    @test rk4_method(A, u₀, steps, 4; normalize = false, show_progress = false) isa TTvector
 end
