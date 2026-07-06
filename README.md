@@ -18,10 +18,10 @@
 
 ## Features
 
-- **Solvers** — ALS, MALS [[1](README.md#12-references)], and DMRG for linear systems [[2](README.md#12-references)], non-linear (multigrid) [[3](README.md#12-references)] and eigenvalue problems; adaptive rank control via SVD truncation [[4](README.md#12-references)]
-- **Time evolution** — single- and two-site TDVP [[5](README.md#12-references)], implicit Euler, Crank–Nicolson, and Krylov exponential integrators 
-- **TT-cross** — MaxVol [[6](README.md#12-references)], DMRG-cross [[7](README.md#12-references)], and Greedy algorithms [[8](README.md#12-references)] for black-box function approximation and numerical integration [[9](README.md#12-references)]
-- **QTT operators** — exact low-rank representations of Laplacians, gradient operators [[10](README.md#12-references)], shift matrices, and the discrete Fourier transform [[11](README.md#12-references)]
+- **Solvers** — ALS, MALS [[1](#references)], and DMRG for linear systems [[2](#references)], non-linear (multigrid) [[3](#references)] and eigenvalue problems; adaptive rank control via SVD truncation [[4](#references)]
+- **Time evolution** — single- and two-site TDVP [[5](#references)], implicit Euler, Crank–Nicolson, and Krylov exponential integrators 
+- **TT-cross** — MaxVol [[6](#references)], DMRG-cross [[7](#references)], and Greedy algorithms [[8](#references)] for black-box function approximation and numerical integration [[9](#references)]
+- **QTT operators** — exact low-rank representations of Laplacians, gradient operators [[10](#references)], shift matrices, and the discrete Fourier transform [[11](#references)]
 - **Quantics tensor trains** — serial and interleaved multi-dimensional encodings with `QTTvector`/`QTToperator` wrappers
 - **Interoperability** — compatible with [KrylovKit.jl](https://github.com/Jutho/KrylovKit.jl) and [OptimKit.jl](https://github.com/Jutho/OptimKit.jl) via [VectorInterface.jl](https://github.com/Jutho/VectorInterface.jl)
 
