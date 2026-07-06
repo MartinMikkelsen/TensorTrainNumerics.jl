@@ -16,6 +16,9 @@ include("solvers/linear_solver.jl")
 export als_linsolve, als_eigsolve, als_gen_eigsolv
 include("solvers/als.jl")
 
+export NonLinearSolverAlgorithm, PenaltyALS, MGR, non_linear_solve, gpe_energy
+include("solvers/non_linear_solver.jl")
+
 export mals_eigsolve, mals_linsolve
 include("solvers/mals.jl")
 
