@@ -18,10 +18,10 @@
 
 ## Features
 
-- **Solvers** — ALS, MALS, and DMRG for linear systems and eigenvalue problems; adaptive rank control via SVD truncation
-- **Time evolution** — single- and two-site TDVP, implicit Euler, Crank–Nicolson, and Krylov exponential integrators
-- **TT-cross** — MaxVol, DMRG-cross, and Greedy algorithms for black-box function approximation and numerical integration
-- **QTT operators** — exact low-rank representations of Laplacians, gradient operators, shift matrices, and the discrete Fourier transform
+- **Solvers** — ALS, MALS [[1](README.md#12-references)], and DMRG for linear systems [[2](README.md#12-references)], non-linear (multigrid) [[3](README.md#12-references)] and eigenvalue problems; adaptive rank control via SVD truncation [[4](README.md#12-references)]
+- **Time evolution** — single- and two-site TDVP [[5](README.md#12-references)], implicit Euler, Crank–Nicolson, and Krylov exponential integrators 
+- **TT-cross** — MaxVol [[6](README.md#12-references)], DMRG-cross [[7](README.md#12-references)], and Greedy algorithms [[8](README.md#12-references)] for black-box function approximation and numerical integration [[9](README.md#12-references)]
+- **QTT operators** — exact low-rank representations of Laplacians, gradient operators [[10](README.md#12-references)], shift matrices, and the discrete Fourier transform [[11](README.md#12-references)]
 - **Quantics tensor trains** — serial and interleaved multi-dimensional encodings with `QTTvector`/`QTToperator` wrappers
 - **Interoperability** — compatible with [KrylovKit.jl](https://github.com/Jutho/KrylovKit.jl) and [OptimKit.jl](https://github.com/Jutho/OptimKit.jl) via [VectorInterface.jl](https://github.com/Jutho/VectorInterface.jl)
 
@@ -103,3 +103,27 @@ Relative error: 4.560872651853784e-16
 ```
 
 For more examples including 2D PDEs, time evolution, and the QTT Fourier transform, see the [documentation](https://martinmikkelsen.github.io/TensorTrainNumerics.jl/).
+
+### References
+
+[1] S. Holtz, T. Rohwedder, R. Schneider, "The Alternating Linear Scheme for Tensor Optimization in the Tensor Train Format", SIAM Journal on Scientific Computing 34 (2) (2012)
+
+[2] Oseledets, Ivan V., and Sergey V. Dolgov. "Solution of linear systems and matrix inversion in the TT-format." SIAM Journal on Scientific Computing 34.5 (2012): A2718-A2739.
+
+[3] Lubasch, Michael, Pierre Moinier, and Dieter Jaksch. "Multigrid renormalization." Journal of Computational Physics 372 (2018): 587-602.
+
+[4] Oseledets, Ivan V. "Tensor-train decomposition." SIAM Journal on Scientific Computing 33.5 (2011): 2295-2317.
+
+[5] Haegeman, Jutho, et al. "Unifying time evolution and optimization with matrix product states." Physical Review B 94.16 (2016): 165116.
+
+[6] I. Oseledets, E. Tyrtyshnikov, "TT-cross approximation for multidimensional arrays", Linear Algebra and its Applications 432 (1) (2010)
+
+[7] Savostyanov, Dmitry, and Ivan Oseledets. "Fast adaptive interpolation of multi-dimensional arrays in tensor train format." The 2011 International Workshop on Multidimensional (nD) Systems. IEEE, 2011.
+
+[8] Savostyanov, Dmitry V. "Quasioptimality of maximum-volume cross interpolation of tensors." Linear Algebra and its Applications 458 (2014): 217-244.
+
+[9] Vysotsky, Lev I., Alexander V. Smirnov, and Eugene E. Tyrtyshnikov. "Tensor-train numerical integration of multivariate functions with singularities." Lobachevskii Journal of Mathematics 42.7 (2021): 1608-1621.
+
+[10] Kazeev, Vladimir A., and Boris N. Khoromskij. "Low-rank explicit QTT representation of the Laplace operator and its inverse." SIAM journal on matrix analysis and applications 33.3 (2012): 742-758.
+
+[11] Chen, Jielun, and Michael Lindsey. "Direct interpolative construction of the discrete Fourier transform as a matrix product operator." Applied and Computational Harmonic Analysis (2025): 101817.
