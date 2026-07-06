@@ -2,6 +2,7 @@ using Test
 using Random
 using LinearAlgebra
 using TensorOperations
+using TensorTrainNumerics
 import TensorTrainNumerics: _sync_ranks_from_lsr!, _real_or_complex_t, _svdtrunc, _to_lsr, _to_slr, _mpo_to_asbs, _dot3, _applyH1_lsr, _applyH0, _update_left_env, _update_right_env, tdvp1sweep!, tdvp2sweep!, _applyH2_lsr
 Random.seed!(42)
 

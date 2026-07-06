@@ -1,7 +1,7 @@
 module TensorTrainNumericsVectorInterfaceExt
 using TensorTrainNumerics
 using VectorInterface
-import Base: zero, copy
+import Base: zero
 
 # Optional rank rounding for the rank-growing `add` operations. When the parent
 # package's `KRYLOV_ROUND_RANK` is > 0 (set only during a Krylov solve), truncate

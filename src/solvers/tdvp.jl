@@ -2,8 +2,6 @@ using KrylovKit
 using ProgressMeter
 using TensorOperations
 using LinearAlgebra
-using TensorTrainNumerics
-import TensorTrainNumerics: _svdtrunc
 
 function _sync_ranks_from_lsr!(ψ::AbstractTTvector, A_lsr::Vector{<:AbstractArray})
     N = ψ.N

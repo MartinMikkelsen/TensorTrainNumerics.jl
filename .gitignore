@@ -25,3 +25,7 @@ docs/site/
 # environment.
 Manifest.toml
 docs/build/
+
+.superpowers/
+docs/superpowers/
+.claude/settings.local.json
