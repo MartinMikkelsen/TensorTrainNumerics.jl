@@ -99,6 +99,43 @@ end
     @test maximum(Ps) - minimum(Ps) < 1.0e-6
 end
 
+@testset "nonlinear solver: backtracking-Armijo fallback (_nl_backtrack)" begin
+    # Descent path: from a non-stationary point the SD fallback finds a step along p = −g_c
+    # that satisfies Armijo sufficient decrease, so the returned point strictly lowers P.
+    Random.seed!(11)
+    for (g, η) in ((0.0, 1.0), (50.0, 1.0), (10.0, 10.0))
+        Φ = rand_iso(16, 4); A = rand_sym(4)
+        Q = dense_Q(Φ); Qg = dense_Qgrad(Φ)
+        x = randn(4)
+        gc = TTN._nl_gradient(x, A, Qg, g, η)
+        P0 = TTN._nl_penalty(x, A, Q, g, η)
+        xnew = TTN._nl_backtrack(x, -gc, gc, A, Q, g, η, P0)
+        @test xnew != x                                       # a step was taken
+        @test TTN._nl_penalty(xnew, A, Q, g, η) < P0          # accepted ⇒ strict decrease
+    end
+
+    # Zero direction: nothing to search, returns the input unchanged (accept by equality).
+    let Φ = rand_iso(16, 4), A = rand_sym(4)
+        Q = dense_Q(Φ); x = randn(4)
+        gc = TTN._nl_gradient(x, A, dense_Qgrad(Φ), 5.0, 1.0)
+        P0 = TTN._nl_penalty(x, A, Q, 5.0, 1.0)
+        @test TTN._nl_backtrack(x, zero(x), gc, A, Q, 5.0, 1.0, P0) == x
+    end
+
+    # Give-up vs ptol: an unreachable target P0 (far below anything achievable) with ptol = 0
+    # exhausts every backtracking step and returns x unchanged; a large ptol relaxes the
+    # acceptance threshold so the first step is taken (the machine-equal-P path of the docstring).
+    let Φ = rand_iso(16, 4), A = rand_sym(4)
+        Q = dense_Q(Φ); g = 20.0; η = 1.0
+        x = randn(4)
+        gc = TTN._nl_gradient(x, A, dense_Qgrad(Φ), g, η)
+        @test TTN._nl_backtrack(x, -gc, gc, A, Q, g, η, -1.0e18; ptol = 0.0) == x
+        xacc = TTN._nl_backtrack(x, -gc, gc, A, Q, g, η, -1.0e18; ptol = 1.0e19)
+        @test xacc != x
+        @test all(isfinite, xacc)
+    end
+end
+
 # Replace core l of u (shallow copy elsewhere); orthogonality flags reset.
 function with_core(u::TTvector{T}, l::Int, c::Array{T, 3}) where {T}
     v = copy(u.ttv_vec)

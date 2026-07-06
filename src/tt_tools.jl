@@ -1,6 +1,5 @@
 using Random
 using LinearAlgebra
-using Base.Threads
 using IterativeSolvers
 using TensorOperations
 import Base: isempty, eltype, copy, complex
@@ -78,8 +77,7 @@ Generate a random orthogonal matrix of size `n` by `m`.
 """
 function rand_orthogonal(n, m; T = Float64)
     N = max(n, m)
-    q, r = qr(rand(T, N, N))
-    return Matrix(q)[1:n, 1:m]
+    return Matrix(qr(rand(T, N, N)).Q)[1:n, 1:m]
 end
 
 """
@@ -168,13 +166,8 @@ Create a deep copy of a `TTvector` object.
 # Returns
 - A new `TTvector` object that is a deep copy of `x_tt`.
 """
-function Base.copy(x_tt::TTvector{T, N}) where {T <: Number, N}
-    y_tt = zeros_tt(T, x_tt.ttv_dims, x_tt.ttv_rks; ot = x_tt.ttv_ot)
-    @threads for i in eachindex(x_tt.ttv_dims)
-        y_tt.ttv_vec[i] = copy(x_tt.ttv_vec[i])
-    end
-    return y_tt
-end
+Base.copy(x_tt::TTvector{T, N}) where {T <: Number, N} =
+    TTvector{T, N}(x_tt.N, copy.(x_tt.ttv_vec), x_tt.ttv_dims, copy(x_tt.ttv_rks), copy(x_tt.ttv_ot))
 
 """
 TT decomposition by the Hierarchical SVD algorithm 
@@ -420,14 +413,13 @@ function r_and_d_to_rks(rks, dims; rmax = 1024)
 end
 
 """
-    increase_ranks_noise(tt_vec, tt_ot_i, rkm, rk, noise)
+    increase_ranks_noise(tt_vec, rkm, rk, noise)
 
 Pad a single TT core to larger bond dimensions `(rkm, rk)`, filling the new
 entries with `noise`-scaled random orthogonal values (private helper).
 
 # Arguments
 - `tt_vec::Array`: The input TT core.
-- `tt_ot_i::Int`: An integer parameter that is modified within the function.
 - `rkm::Int`: The new rank for the second dimension.
 - `rk::Int`: The new rank for the third dimension.
 - `noise::Float64`: The noise level.
@@ -435,18 +427,16 @@ entries with `noise`-scaled random orthogonal values (private helper).
 # Returns
 - `vec_out::Array`: The padded TT core.
 """
-function increase_ranks_noise(tt_vec, tt_ot_i, rkm, rk, noise)
+function increase_ranks_noise(tt_vec, rkm, rk, noise)
     vec_out = zeros(eltype(tt_vec), size(tt_vec, 1), rkm, rk)
     vec_out[:, 1:size(tt_vec, 2), 1:size(tt_vec, 3)] = tt_vec
     if !iszero(noise)
         if rkm == size(tt_vec, 2) && rk > size(tt_vec, 3)
             Q = rand_orthogonal(size(tt_vec, 1) * rkm, rk - size(tt_vec, 3))
             vec_out[:, :, (size(tt_vec, 3) + 1):rk] = noise * reshape(Q, size(tt_vec, 1), rkm, rk - size(tt_vec, 3))
-            tt_ot_i = 0
         elseif rk == size(tt_vec, 3) && rkm > size(tt_vec, 2)
             Q = rand_orthogonal(rkm - size(tt_vec, 2), size(tt_vec, 1) * rk)
             vec_out[:, (size(tt_vec, 2) + 1):rkm, :] = noise * reshape(Q, size(tt_vec, 1), rkm - size(tt_vec, 2), rk)
-            tt_ot_i = 0
         elseif rk > size(tt_vec, 3) && rkm > size(tt_vec, 2)
             Q = rand_orthogonal((rkm - size(tt_vec, 2)) * size(tt_vec, 1), (rk - size(tt_vec, 3)))
             vec_out[:, (size(tt_vec, 2) + 1):rkm, (size(tt_vec, 3) + 1):rk] = noise * reshape(Q, size(tt_vec, 1), rkm - size(tt_vec, 2), rk - size(tt_vec, 3))
@@ -479,7 +469,7 @@ function increase_ranks(x_tt::TTvector{T, N}, max_bond::Int; rks = vcat(1, max_b
     @assert(max_bond > maximum(x_tt.ttv_rks), "New bond dimension too low")
     rks = r_and_d_to_rks(rks, x_tt.ttv_dims; rmax = max_bond)
     for i in 1:d
-        vec_out[i] = increase_ranks_noise(x_tt.ttv_vec[i], x_tt.ttv_ot[i], rks[i], rks[i + 1], noise)
+        vec_out[i] = increase_ranks_noise(x_tt.ttv_vec[i], rks[i], rks[i + 1], noise)
     end
     return TTvector{T, N}(d, vec_out, x_tt.ttv_dims, rks, out_ot)
 end
