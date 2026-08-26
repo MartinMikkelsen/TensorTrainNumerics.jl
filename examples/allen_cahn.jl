@@ -54,13 +54,15 @@ let N = 2^L
 end
 
 # plot: full domain-wall state + zoom on the left wall layer vs the analytic tanh kink
-x = (1:2^L) ./ 2^L
+x = (1:(2^L)) ./ 2^L
 v = qtt_to_function(u)
 zoom = x .≤ 8 * sqrt(2) * ε
 
 fig = Figure(size = (900, 400))
-ax1 = Axis(fig[1, 1]; xlabel = "x", ylabel = "u(x)",
-    title = "Allen–Cahn domain-wall state (QTT multigrid, L = $L, ε = $ε)")
+ax1 = Axis(
+    fig[1, 1]; xlabel = "x", ylabel = "u(x)",
+    title = "Allen–Cahn domain-wall state (QTT multigrid, L = $L, ε = $ε)"
+)
 lines!(ax1, x, v; label = "QTT (E = $(round(E; digits = 4)))")
 lines!(ax1, x, wall_profile.(x); linestyle = :dash, label = "tanh product ansatz")
 axislegend(ax1; position = :cb)

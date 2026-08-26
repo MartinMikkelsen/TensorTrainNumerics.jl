@@ -16,7 +16,7 @@ b = QTTvector(b_raw, 2, d, :serial)
 x0 = QTTvector(rand_tt(b_raw.ttv_dims, b_raw.ttv_rks), 2, d, :serial)
 
 # Solve with MALS (single sweep) and DMRG (50 sweeps)
-x_mals = linear_solve(A, b, x0, MALS(show_progress=true))
+x_mals = linear_solve(A, b, x0, MALS(show_progress = true))
 x_dmrg = linear_solve(A, b, x0, DMRG(sweep_count = 50, tol = 1.0e-12))
 
 # Solutions on the N×N interior grid

@@ -15,8 +15,8 @@ function f(X::AbstractMatrix{<:Number})
 end
 
 Random.seed!(30260)
-alg = DMRGcross(verbose = true, tol = 1.0e-8, maxiter = 18, rmax = 50)
-tt = tt_cross(f, domain, alg; ranks = 2, val_size = 1200)
+alg = DMRGcross()
+tt = tt_cross(f, domain, alg)
 println("TT ranks: ", tt.ttv_rks)
 
 Random.seed!(30261)
