@@ -141,6 +141,12 @@ function _evaluate_tt(cores, indices, N)
     return vec(state)
 end
 
+function _relative_residual(y, y_approx)
+    y_norm = norm(y)
+    residual = norm(y - y_approx)
+    return iszero(y_norm) ? residual : residual / y_norm
+end
+
 # Local _svdtrunc for cross interpolation: uses relative-norm truncation
 # (keeps singular values until the cumulative tail norm exceeds truncerr * ‖s‖).
 # tt_tools.jl has a separate _svdtrunc with absolute-threshold truncation
@@ -219,7 +225,6 @@ function tt_cross(
 
     Xs_val = hcat([rand(1:Is[d], val_size) for d in 1:N]...)::Matrix{Int}
     ys_val = _evaluate_on_domain(f, domain, Xs_val)
-    norm_ys_val = max(norm(ys_val), alg.tol)
 
     alg.verbose && @info "MaxVol cross-interpolation over $(N)D domain with $(prod(Is)) grid points"
 
@@ -285,7 +290,7 @@ function tt_cross(
         cores[1] = reshape(V, Is[1], Rs[1], Rs[2])
 
         y_approx = _evaluate_tt(cores, Xs_val, N)
-        val_eps = norm(ys_val - y_approx) / norm_ys_val
+        val_eps = _relative_residual(ys_val, y_approx)
 
         alg.verbose && @info "Iteration $iter: ε = $(val_eps), max rank = $(maximum(Rs))"
 
@@ -369,14 +374,15 @@ function tt_cross(
         ilocr[i] = [1]
     end
 
+    initial_index = [rand(rng, Is[i] > 2 ? (2:(Is[i] - 1)) : (1:Is[i])) for i in 1:N]
     for i in 1:(N - 1)
         Jcand = _indexmerge(Jyl[i], reshape(collect(1:Is[i]), :, 1))
-        row = argmax(abs.(domain[i]))
+        row = initial_index[i]
         Jyl[i + 1] = Jcand[row:row, :]
     end
     for i in N:-1:2
         Jcand = _indexmerge(reshape(collect(1:Is[i]), :, 1), Jyr[i + 1])
-        row = argmax(abs.(domain[i]))
+        row = initial_index[i]
         Jyr[i] = Jcand[row:row, :]
     end
 
@@ -385,15 +391,16 @@ function tt_cross(
         cry = _evaluate_on_domain(f, domain, J)
         if i > 1
             cry_mat = reshape(cry, Rs[i], Is[i] * Rs[i + 1])
-            _, imax = findmax(abs.(cry_mat), dims = 2)
-            ilocr[i] = [imax[1][2]]
+            ilocr[i] = [initial_index[i]]
             Jyr[i] = _indexmerge(reshape(collect(1:Is[i]), :, 1), Jyr[i + 1])[ilocr[i], :]
             piv = cry_mat[1, ilocr[i][1]]
-            if abs(piv) > max(alg.tol, eps(real(float(abs(piv)))))
-                mid_inv_L[i] = reshape([1 / piv], 1, 1)
+            pivot_scale = maximum(abs, cry_mat)
+            if abs(piv) > eps(real(float(one(Tv)))) * pivot_scale
+                mid_inv_U[i] = reshape([1 / piv], 1, 1)
             else
-                mid_inv_L[i] = ones(Tv, 1, 1)
+                mid_inv_U[i] = ones(Tv, 1, 1)
             end
+            mid_inv_L[i] = ones(Tv, 1, 1)
         end
         y[i] = reshape(cry, Rs[i], Is[i], Rs[i + 1])
     end
@@ -403,11 +410,11 @@ function tt_cross(
         cry = _evaluate_on_domain(f, domain, J)
         if i < N
             cry_mat = reshape(cry, Rs[i] * Is[i], Rs[i + 1])
-            _, imax = findmax(abs.(cry_mat), dims = 1)
-            ilocl[i + 1] = [imax[1][1]]
+            ilocl[i + 1] = [initial_index[i]]
             Jyl[i + 1] = _indexmerge(Jyl[i], reshape(collect(1:Is[i]), :, 1))[ilocl[i + 1], :]
             piv = cry_mat[ilocl[i + 1][1], 1]
-            if abs(piv) > max(alg.tol, eps(real(float(abs(piv)))))
+            pivot_scale = maximum(abs, cry_mat)
+            if abs(piv) > eps(real(float(one(Tv)))) * pivot_scale
                 mid_inv_U[i + 1] = reshape([1 / piv], 1, 1)
             else
                 mid_inv_U[i + 1] = ones(Tv, 1, 1)
@@ -418,12 +425,12 @@ function tt_cross(
 
     Xs_val = hcat([rand(1:Is[d], val_size) for d in 1:N]...)::Matrix{Int}
     ys_val = _evaluate_on_domain(f, domain, Xs_val)
-    norm_ys_val = max(norm(ys_val), alg.tol)
 
     alg.verbose && @info "Greedy cross-interpolation over $(N)D domain with $(prod(Is)) grid points"
 
     converged = false
     val_eps = Inf
+    maxy = maximum(maximum(abs, y_i) for y_i in y)
 
     for swp in 1:alg.maxiter
         max_dx = 0.0
@@ -441,7 +448,7 @@ function tt_cross(
             J2 = _indexmerge(reshape(collect(1:Is[i + 1]), :, 1), Jyr[i + 2])
 
             crt = _evaluate_on_domain(f, domain, hcat(J1[tind1, :], J2[tind2, :]))
-            maxy = maximum(abs.(crt))
+            maxy = max(maxy, maximum(abs, crt))
 
             cry1 = reshape(y[i], Rs[i] * Is[i], Rs[i + 1])
             cry2 = reshape(y[i + 1], Rs[i + 1], Is[i + 1] * Rs[i + 2])
@@ -454,11 +461,12 @@ function tt_cross(
             j_g_best = tind2[imax_test]
 
             crt_col = _evaluate_on_domain(f, domain, hcat(J1[cind1, :], repeat(J2[j_g_best:j_g_best, :], length(cind1), 1)))
+            maxy = max(maxy, maximum(abs, crt_col))
             cre_col = crt_col - cre1[cind1, :] * cre2[:, j_g_best]
 
             emax, imax1_local = findmax(abs.(cre_col))
             imax1 = cind1[imax1_local]
-            dx = emax / max(maxy, eps(real(float(one(Tv)))))
+            dx = iszero(maxy) ? (iszero(emax) ? zero(emax) : Inf) : emax / maxy
             max_dx = max(max_dx, dx)
 
             if dx > alg.tol && Rs[i + 1] < alg.rmax
@@ -470,7 +478,8 @@ function tt_cross(
                 erow = reshape(cry1[imax1, :], 1, Rs[i + 1])
                 ecol = cre1_new[ilocl[i + 1], 1]
                 alpha = cre1_new[imax1, 1] - sum(vec(erow * uold) .* vec(lold * ecol))
-                (!isfinite(real(alpha)) || !isfinite(imag(alpha)) || abs(alpha) <= max(alg.tol, eps(real(float(abs(alpha)))))) && continue
+                alpha_scale = max(maximum(abs, cre1_new), maximum(abs, cre2_new))
+                (!isfinite(alpha) || abs(alpha) <= eps(real(float(one(Tv)))) * alpha_scale) && continue
 
                 new_U = zeros(Tv, Rs[i + 1] + 1, Rs[i + 1] + 1)
                 new_U[1:Rs[i + 1], 1:Rs[i + 1]] = uold
@@ -487,6 +496,10 @@ function tt_cross(
                 y[i] = reshape(hcat(cry1, cre1_new), Rs[i], Is[i], Rs[i + 1] + 1)
                 y[i + 1] = reshape(vcat(cry2, cre2_new), Rs[i + 1] + 1, Is[i + 1], Rs[i + 2])
                 Rs[i + 1] += 1
+                if i < N - 1
+                    rank_shift = div.(ilocl[i + 2] .- 1, Rs[i + 1] - 1)
+                    ilocl[i + 2] .+= rank_shift
+                end
 
                 Jyl[i + 1] = vcat(Jyl[i + 1], J1m)
                 Jyr[i + 1] = vcat(Jyr[i + 1], J2m)
@@ -496,7 +509,7 @@ function tt_cross(
         end
 
         cores_out = _form_tensor(y, mid_inv_L, mid_inv_U, N, Rs, Is)
-        val_eps = norm(ys_val - _evaluate_tt(cores_out, Xs_val, N)) / norm_ys_val
+        val_eps = _relative_residual(ys_val, _evaluate_tt(cores_out, Xs_val, N))
 
         alg.verbose && @info "Sweep $swp: ε = $(val_eps), max_dx = $(max_dx), max rank = $(maximum(Rs))"
 
@@ -508,14 +521,6 @@ function tt_cross(
 
     converged && alg.verbose && @info "Converged: ε = $(val_eps) < $(alg.tol)"
     !converged && alg.verbose && @warn "Max iterations reached"
-
-    fallback_tol = max(sqrt(alg.tol), 10 * alg.tol)
-    if !converged && (!isfinite(val_eps) || val_eps > fallback_tol)
-        alg.verbose && @warn "Greedy cross appears stalled/unstable (ε = $(val_eps)); retrying with DMRGcross"
-        init_rank = min(maximum(Rs), alg.rmax)
-        dmrg_alg = DMRGcross(maxiter = alg.maxiter, tol = alg.tol, rmax = alg.rmax, kickrank = nothing, verbose = alg.verbose)
-        return tt_cross(f, domain, dmrg_alg; ranks = init_rank, val_size = val_size)
-    end
 
     return TTvector{eltype(y[1]), N}(N, _form_tensor(y, mid_inv_L, mid_inv_U, N, Rs, Is), Tuple(Is), copy(Rs), zeros(Int, N))
 end
@@ -596,22 +601,29 @@ function tt_cross(
 
     Xs_val = hcat([rand(1:Is[d], val_size) for d in 1:N]...)::Matrix{Int}
     ys_val = _evaluate_on_domain(f, domain, Xs_val)
-    norm_ys_val = max(norm(ys_val), alg.tol)
 
     alg.verbose && @info "DMRGcross cross-interpolation over $(N)D domain with $(prod(Is)) grid points"
 
     converged = false
     val_eps = Inf
+    local_tol = alg.tol / sqrt(N - 1)
 
     for iter in 1:alg.maxiter
         for k in 1:(N - 1)
             superblock = _sample_superblock(f, domain, I_l, I_g, k, Is, N)
             r_l, s1, s2, r_g = size(superblock)
-            U, S, Vt = _svdtrunc(reshape(superblock, r_l * s1, s2 * r_g); max_bond = alg.rmax, truncerr = alg.tol)
+            U, S, Vt = _svdtrunc(reshape(superblock, r_l * s1, s2 * r_g); max_bond = alg.rmax, truncerr = local_tol)
             r = size(S, 1)
 
             if k < N - 1
-                Q_mat = Matrix(first(qr(U)))
+                if alg.kickrank !== nothing
+                    r_kick = min(r + alg.kickrank, alg.rmax, r_l * s1)
+                    Q_mat = r_kick > r ?
+                        Matrix(first(qr(hcat(U, randn(Tv, r_l * s1, r_kick - r)))))[:, 1:r_kick] :
+                        Matrix(first(qr(U)))
+                else
+                    Q_mat = Matrix(first(qr(U)))
+                end
                 I_idx, _ = maxvol!(copy(Q_mat), alg.pivot.tol, alg.pivot.maxiter)
                 I_l[k + 1] = _combine_indices_left(I_l[k], s1)[I_idx, :]
                 Rs[k + 1] = length(I_idx)
@@ -623,18 +635,25 @@ function tt_cross(
             end
         end
 
-        val_eps = norm(ys_val - _evaluate_tt(cores, Xs_val, N)) / norm_ys_val
+        val_eps = _relative_residual(ys_val, _evaluate_tt(cores, Xs_val, N))
         alg.verbose && @info "Sweep $(2 * iter - 1) (L→R): ε = $(val_eps), max rank = $(maximum(Rs))"
         val_eps < alg.tol && (converged = true; break)
 
         for k in (N - 1):-1:1
             superblock = _sample_superblock(f, domain, I_l, I_g, k, Is, N)
             r_l, s1, s2, r_g = size(superblock)
-            U, S, Vt = _svdtrunc(reshape(superblock, r_l * s1, s2 * r_g); max_bond = alg.rmax, truncerr = alg.tol)
+            U, S, Vt = _svdtrunc(reshape(superblock, r_l * s1, s2 * r_g); max_bond = alg.rmax, truncerr = local_tol)
             r = size(S, 1)
 
             if k > 1
-                Q_mat = Matrix(first(qr(Vt')))
+                if alg.kickrank !== nothing
+                    r_kick = min(r + alg.kickrank, alg.rmax, s2 * r_g)
+                    Q_mat = r_kick > r ?
+                        Matrix(first(qr(hcat(Vt', randn(Tv, s2 * r_g, r_kick - r)))))[:, 1:r_kick] :
+                        Matrix(first(qr(Vt')))
+                else
+                    Q_mat = Matrix(first(qr(Vt')))
+                end
                 I_idx, _ = maxvol!(copy(Q_mat), alg.pivot.tol, alg.pivot.maxiter)
                 I_g[k] = _combine_indices_right(s2, I_g[k + 1])[I_idx, :]
                 Rs[k + 1] = length(I_idx)
@@ -646,7 +665,7 @@ function tt_cross(
             end
         end
 
-        val_eps = norm(ys_val - _evaluate_tt(cores, Xs_val, N)) / norm_ys_val
+        val_eps = _relative_residual(ys_val, _evaluate_tt(cores, Xs_val, N))
         alg.verbose && @info "Sweep $(2 * iter) (R→L): ε = $(val_eps), max rank = $(maximum(Rs))"
         val_eps < alg.tol && (converged = true; break)
     end

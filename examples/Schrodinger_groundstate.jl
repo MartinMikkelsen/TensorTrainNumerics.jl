@@ -4,7 +4,7 @@ import LinearAlgebra as LA
 using Random
 
 
-λ = 0.2; xa = 2.0                         
+λ = 0.2; xa = 2.0
 d = 8; N = 2^d; a, b = -5.0, 5.0
 h = (b - a) / (N - 1); xes = collect(range(a, b, N))
 
@@ -12,7 +12,7 @@ h = (b - a) / (N - 1); xes = collect(range(a, b, N))
 Vfun(x) = λ * (x^2 - xa^2)^2
 Vop = ttv_to_diag_tto(function_to_qtt(t -> Vfun(a + (b - a) * t), d))
 H = -0.5 * ∂xx + Vop
-A = (-1.0) * H                                               
+A = (-1.0) * H
 
 F = LA.eigen(LA.Symmetric(qtto_to_matrix(H)), 1:1)
 E0_dense = F.values[1]

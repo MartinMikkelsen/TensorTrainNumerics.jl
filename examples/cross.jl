@@ -1,6 +1,5 @@
 using LinearAlgebra
 using Random
-using CairoMakie
 using TensorTrainNumerics
 
 println("1. Simple 1D integral: ∫₀¹ x² dx = 1/3")
@@ -49,12 +48,12 @@ tt_maxvol = tt_cross(sin_6d, domain, MaxVol(tol = 1.0e-12, verbose = true); rank
 
 tt_dmrg = tt_cross(sin_6d, domain, DMRGcross(tol = 1.0e-8, maxiter = 25, verbose = true); ranks = 4);
 
-tt_greedy = tt_cross(sin_6d, domain, Greedy(tol = 1.0e-12, verbose = true, maxiter = 100));
+tt_greedy = tt_cross(sin_6d, domain, Greedy(tol = 1.0e-12, verbose = true));
 
 println("\nResulting TT ranks: $(tt_greedy.ttv_rks)")
 
 println("\nConverting TT back to full tensor...")
-tensor_approx = ttv_to_tensor(tt_dmrg);
+tensor_approx = ttv_to_tensor(tt_greedy);
 
 println("Building reference tensor...")
 tensor_exact = zeros(Float64, ntuple(_ -> n, d));

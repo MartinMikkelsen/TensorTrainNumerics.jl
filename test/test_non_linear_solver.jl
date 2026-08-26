@@ -26,11 +26,15 @@ function fd_grad(f, x; h = 1.0e-6)
     return g
 end
 
-fd_jac(gfun, x; h = 1.0e-6) = reduce(hcat, [begin
-    xp = copy(x); xm = copy(x)
-    xp[i] += h; xm[i] -= h
-    (gfun(xp) - gfun(xm)) ./ (2h)
-end for i in eachindex(x)])
+fd_jac(gfun, x; h = 1.0e-6) = reduce(
+    hcat, [
+        begin
+                xp = copy(x); xm = copy(x)
+                xp[i] += h; xm[i] -= h
+                (gfun(xp) - gfun(xm)) ./ (2h)
+            end for i in eachindex(x)
+    ]
+)
 
 @testset "nonlinear solver: local update math (FD-audited)" begin
     Random.seed!(21)
@@ -256,7 +260,7 @@ end
     @test box_energy(20) ≈ 4.934793 atol = 1.0e-5
     @test box_energy(40) ≈ π^2 / 2 atol = 1.0e-6
     # continuum-normalized GS peaks at √2 (f_c = √N·f for unit-2-norm f)
-    f10 = [sin(π * m / (2^10 + 1)) for m in 1:2^10]
+    f10 = [sin(π * m / (2^10 + 1)) for m in 1:(2^10)]
     f10 ./= norm(f10)
     @test maximum(sqrt(2.0^10) .* f10) ≈ sqrt(2) atol = 1.0e-3
     # g_eff = 0 imaginary time == analytic eigenvalue
@@ -298,7 +302,7 @@ end
     seed = function_to_qtt(x -> sin(π * x), L)
     u0 = orthogonalize((1 / norm(seed)) * seed)
     u, info = non_linear_solve(A, u0, PenaltyALS(; return_info = true); g = 0.0)
-    fbox = [sin(π * m / (2^L + 1)) for m in 1:2^L]
+    fbox = [sin(π * m / (2^L + 1)) for m in 1:(2^L)]
     @test abs(info.energy - box_energy(L)) / box_energy(L) < 1.0e-9
     @test infidelity(u, fbox) < 1.0e-10
     @test abs(dot(u, u) - 1) < 1.0e-4
@@ -336,7 +340,7 @@ end
     let Lac = 5, ε = 0.05
         g_ac = 1 / (2 * ε^2)
         Aac_dense = SymTridiagonal(dense_A(Lac).dv .- g_ac, dense_A(Lac).ev)
-        f = [tanh(m / 2^Lac / (sqrt(2) * ε)) * tanh((1 - m / 2^Lac) / (sqrt(2) * ε)) for m in 1:2^Lac]
+        f = [tanh(m / 2^Lac / (sqrt(2) * ε)) * tanh((1 - m / 2^Lac) / (sqrt(2) * ε)) for m in 1:(2^Lac)]
         for _ in 1:50
             r = Aac_dense * f .+ g_ac .* f .^ 3
             J = SymTridiagonal(Aac_dense.dv .+ 3g_ac .* f .^ 2, Aac_dense.ev)
@@ -366,7 +370,7 @@ end
     # g = 0: MGR L=3→6 == analytic box GS to machine precision
     mgr0 = MGR(; max_rank = 8, return_info = true)
     u, info = non_linear_solve(A_builder, u03, mgr0; g_builder = d -> 0.0, target_sites = 6)
-    fbox = [sin(π * m / (2^6 + 1)) for m in 1:2^6]
+    fbox = [sin(π * m / (2^6 + 1)) for m in 1:(2^6)]
     @test abs(info.energy - box_energy(6)) / box_energy(6) < 1.0e-9
     @test infidelity(u, fbox) < 1.0e-10
 

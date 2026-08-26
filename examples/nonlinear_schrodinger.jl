@@ -36,8 +36,10 @@ f_gpe = sqrt(2.0^L) .* qtt_to_function(u)
 f_lin = sqrt(2.0^L) .* qtt_to_function(u_lin)
 
 fig = Figure(size = (800, 450))
-ax = Axis(fig[1, 1]; xlabel = "x", ylabel = "ψ(x)",
-    title = "Gross–Pitaevskii ground state in a box (QTT multigrid, L = $L)")
+ax = Axis(
+    fig[1, 1]; xlabel = "x", ylabel = "ψ(x)",
+    title = "Gross–Pitaevskii ground state in a box (QTT multigrid, L = $L)"
+)
 lines!(ax, x, abs.(f_gpe); label = "g = 100 (E = $(round(info.energy; digits = 4)))")
 lines!(ax, x, abs.(f_lin); linestyle = :dash, label = "g = 0 (box, √2·sin πx)")
 axislegend(ax)

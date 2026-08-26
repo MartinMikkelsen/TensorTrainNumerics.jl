@@ -97,8 +97,10 @@ end
 
 # Convergence plot: |E_k − E_ref| vs sweep number (log scale).
 fig = Figure(size = (760, 460))
-ax = Axis(fig[1, 1]; xlabel = "penalty sweep", ylabel = "|E − E_ref|", yscale = log10,
-    title = "Local-solver convergence, GPE box g = $(Int(g)) (L = $L, single η = 1e6)")
+ax = Axis(
+    fig[1, 1]; xlabel = "penalty sweep", ylabel = "|E − E_ref|", yscale = log10,
+    title = "Local-solver convergence, GPE box g = $(Int(g)) (L = $L, single η = 1e6)"
+)
 for s in solvers
     err = max.(abs.(curves[s] .- E_ref), 1.0e-16)
     scatterlines!(ax, 1:Ksweeps, err; label = labels[s])

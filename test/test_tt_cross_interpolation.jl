@@ -136,6 +136,54 @@ import TensorTrainNumerics: MaxVolPivot, RandomPivot, MaxVol, Greedy, DMRGcross,
             @test relerr < 1.0e-4
         end
 
+        @testset "Greedy regression: rank growth preserves neighboring pivots" begin
+            domain = [collect(range(0.0, 1.0, length = 8)) for _ in 1:3]
+            f(X) = vec(sum(X, dims = 2) .^ 2)
+            Random.seed!(43)
+            tt = tt_cross(
+                f,
+                domain,
+                Greedy(
+                    verbose = false,
+                    tol = 1.0e-8,
+                    maxiter = 30,
+                    rmax = 10,
+                    nsamples = 500,
+                    pivot = RandomPivot(seed = 43, nsamples = 500),
+                );
+                val_size = 800,
+            )
+            approx = TensorTrainNumerics.ttv_to_tensor(tt)
+            exact = [sum(domain[d][I[d]] for d in 1:3)^2 for I in CartesianIndices((8, 8, 8))]
+
+            @test norm(approx - exact) / norm(exact) < 1.0e-8
+            @test maximum(tt.ttv_rks) <= 3
+        end
+
+        @testset "Greedy regression: relative tolerance is scale invariant" begin
+            scale = 1.0e-15
+            domain = [collect(range(0.0, 1.0, length = 7)) for _ in 1:3]
+            f(X) = scale .* vec(sum(X, dims = 2) .^ 2)
+            Random.seed!(71)
+            tt = tt_cross(
+                f,
+                domain,
+                Greedy(
+                    verbose = false,
+                    tol = 1.0e-8,
+                    maxiter = 30,
+                    rmax = 10,
+                    nsamples = 500,
+                    pivot = RandomPivot(seed = 71, nsamples = 500),
+                );
+                val_size = 800,
+            )
+            approx = TensorTrainNumerics.ttv_to_tensor(tt)
+            exact = [scale * sum(domain[d][I[d]] for d in 1:3)^2 for I in CartesianIndices((7, 7, 7))]
+
+            @test norm(approx - exact) / norm(exact) < 1.0e-8
+        end
+
         @testset "DMRGcross algorithm" begin
             f(x) = exp.(-sum(x .^ 2, dims = 2))
             domain = [range(-1, 1, length = 12) |> collect for _ in 1:4]
@@ -143,6 +191,58 @@ import TensorTrainNumerics: MaxVolPivot, RandomPivot, MaxVol, Greedy, DMRGcross,
             tt = tt_cross(f, domain, DMRGcross(verbose = false, tol = 1.0e-6))
             @test tt isa TTvector
             @test tt.N == 4
+        end
+
+        @testset "DMRGcross regression: relative tolerance is scale invariant" begin
+            scale = 1.0e-20
+            Random.seed!(83)
+            d, n = 5, 4
+            exact_ranks = [1, 4, 5, 5, 4, 1]
+            exact_cores = [randn(n, exact_ranks[k], exact_ranks[k + 1]) for k in 1:d]
+            domain = [collect(1.0:n) for _ in 1:d]
+            f(X) = scale .* TensorTrainNumerics._evaluate_tt(exact_cores, round.(Int, X), d)
+
+            Random.seed!(84)
+            tt = tt_cross(
+                f,
+                domain,
+                DMRGcross(verbose = false, tol = 1.0e-8, maxiter = 20, rmax = 12, kickrank = nothing);
+                ranks = 1,
+                val_size = 1000,
+            )
+            approx = TensorTrainNumerics.ttv_to_tensor(tt)
+            exact = [
+                scale * TensorTrainNumerics._evaluate_tt(
+                        exact_cores,
+                        reshape(collect(Tuple(I)), 1, :),
+                        d,
+                    )[1] for I in CartesianIndices(ntuple(_ -> n, d))
+            ]
+
+            @test norm(approx - exact) / norm(exact) < 1.0e-7
+        end
+
+        @testset "DMRGcross regression: kickrank enriches the search space" begin
+            d = 5
+            domain = [collect(range(-2.0, 2.0, length = 8)) for _ in 1:d]
+            f(X) = vec(1.0 ./ (1.0 .+ sum(X .^ 2, dims = 2)))
+
+            Random.seed!(42)
+            tt_no_kick = tt_cross(
+                f,
+                domain,
+                DMRGcross(verbose = false, tol = 1.0e-14, maxiter = 3, kickrank = nothing, rmax = 30);
+                ranks = 1,
+            )
+            Random.seed!(42)
+            tt_kick = tt_cross(
+                f,
+                domain,
+                DMRGcross(verbose = false, tol = 1.0e-14, maxiter = 3, kickrank = 4, rmax = 30);
+                ranks = 1,
+            )
+
+            @test maximum(tt_kick.ttv_rks) > maximum(tt_no_kick.ttv_rks)
         end
 
         @testset "5D Wishart Laplace transform (parameterized)" begin
