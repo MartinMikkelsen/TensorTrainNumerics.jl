@@ -146,7 +146,7 @@ import TensorTrainNumerics: MaxVolPivot, RandomPivot, MaxVol, Greedy, DMRGcross,
             alg = Greedy(
                 verbose = false,
                 tol = 1.0e-6,
-                maxiter = 25,
+                maxiter = 30,
                 nsamples = 400,
                 pivot = RandomPivot(seed = 11, nsamples = 400),
             )
