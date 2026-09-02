@@ -44,6 +44,7 @@ import TensorTrainNumerics: MaxVolPivot, RandomPivot, MaxVol, Greedy, DMRGcross,
 
     @testset "Greedy" begin
         alg = Greedy()
+        @test typeof(alg) === Greedy{Float64, RandomPivot}
         @test alg.maxiter == 50
         @test alg.tol ≈ 1.0e-10
         @test alg.rmax == 500
@@ -69,6 +70,19 @@ import TensorTrainNumerics: MaxVolPivot, RandomPivot, MaxVol, Greedy, DMRGcross,
         alg = DMRGcross(maxiter = 30, tol = 1.0e-12, kickrank = 5)
         @test alg.maxiter == 30
         @test alg.tol ≈ 1.0e-12
+    end
+
+    @testset "pivot compatibility is validated at construction" begin
+        maxvol_pivot = MaxVolPivot(tol = 1.1, maxiter = 20)
+        random_pivot = RandomPivot(seed = 7, nsamples = 50)
+
+        @test MaxVol(pivot = maxvol_pivot).pivot === maxvol_pivot
+        @test DMRGcross(pivot = maxvol_pivot).pivot === maxvol_pivot
+        @test Greedy(pivot = random_pivot).pivot === random_pivot
+
+        @test_throws TypeError MaxVol(pivot = random_pivot)
+        @test_throws TypeError DMRGcross(pivot = random_pivot)
+        @test_throws TypeError Greedy(pivot = maxvol_pivot)
     end
 
     @testset "tt_cross" begin

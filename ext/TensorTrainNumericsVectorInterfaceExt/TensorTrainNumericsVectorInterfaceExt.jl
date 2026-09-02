@@ -3,14 +3,31 @@ using TensorTrainNumerics
 using VectorInterface
 import Base: zero
 
-# Optional rank rounding for the rank-growing `add` operations. When the parent
-# package's `KRYLOV_ROUND_RANK` is > 0 (set only during a Krylov solve), truncate
-# the sum back to that bond dimension; otherwise just orthogonalize, the default,
-# exact behavior used by Manopt and everything else. This keeps Krylov basis and
-# iterate updates from accumulating rank through repeated vector additions.
-function _round(r::TTvector)
-    rk = TensorTrainNumerics.KRYLOV_ROUND_RANK[]
-    return rk > 0 ? tt_compress!(r, rk) : orthogonalize(r)
+const _RankBoundedTTvector = TensorTrainNumerics._RankBoundedTTvector
+
+_round(r::TTvector) = orthogonalize(r)
+
+function _max_bond(y::_RankBoundedTTvector, x::_RankBoundedTTvector)
+    y.max_bond == x.max_bond || throw(ArgumentError("cannot combine rank-bounded TT vectors with different bounds"))
+    return y.max_bond
+end
+
+function _bound(r::TTvector, max_bond::Int)
+    return _RankBoundedTTvector(tt_compress!(r, max_bond), max_bond)
+end
+
+function _overwrite!(destination::TTvector, source::TTvector)
+    destination.ttv_vec = source.ttv_vec
+    destination.ttv_rks = source.ttv_rks
+    destination.ttv_dims = source.ttv_dims
+    destination.ttv_ot = source.ttv_ot
+    return destination
+end
+
+function _overwrite_bounded!(destination::_RankBoundedTTvector, source::TTvector)
+    bounded = tt_compress!(source, destination.max_bond)
+    _overwrite!(destination.tt, bounded)
+    return destination
 end
 
 function _promoted_add(y::TTvector, x::TTvector, α::Number, β::Number)
@@ -22,7 +39,7 @@ function VectorInterface.add(a::TTvector, b::TTvector)
     return _round(a + b)
 end
 function VectorInterface.add(a::TToperator, b::TToperator)
-    return orthogonalize(a + b)
+    return a + b
 end
 
 function VectorInterface.add(a::TTvector, b::TTvector, α::Number)
@@ -80,16 +97,73 @@ function VectorInterface.scale!!(x::TTvector{T}, α::Number) where {T}
     return S === T ? orthogonalize(VectorInterface.scale!(x, α)) : orthogonalize(VectorInterface.scale(x, α))
 end
 function VectorInterface.scale!!(y::TTvector, x::TTvector, α::Number)
-    r = VectorInterface.scale(x, α)
-    y.ttv_vec = r.ttv_vec; y.ttv_rks = r.ttv_rks; y.ttv_dims = r.ttv_dims; y.ttv_ot = r.ttv_ot
-    return orthogonalize(y)
+    S = promote_type(eltype(y), eltype(x), typeof(α))
+    if S === eltype(y)
+        return _round(_overwrite!(y, VectorInterface.scale(x, α)))
+    else
+        return VectorInterface.scale(x, α)
+    end
 end
 
-function VectorInterface.zerovector(a::TTvector)
-    return zeros_tt(eltype(a), a.ttv_dims, a.ttv_rks)
+function VectorInterface.zerovector(x::_RankBoundedTTvector, ::Type{S}) where {S <: Number}
+    z = zeros_tt(S, x.tt.ttv_dims, copy(x.tt.ttv_rks))
+    return _RankBoundedTTvector(z, x.max_bond)
 end
-function VectorInterface.zerovector(a::TToperator)
-    return zeros_tto(eltype(a), a.tto_dims, copy(a.tto_rks))
+function VectorInterface.zerovector!(x::_RankBoundedTTvector)
+    VectorInterface.zerovector!(x.tt)
+    return x
+end
+function VectorInterface.zerovector!!(x::_RankBoundedTTvector)
+    VectorInterface.zerovector!!(x.tt)
+    return x
+end
+
+function VectorInterface.scale(x::_RankBoundedTTvector, α::Number)
+    return _RankBoundedTTvector(VectorInterface.scale(x.tt, α), x.max_bond)
+end
+function VectorInterface.scale!(x::_RankBoundedTTvector, α::Number)
+    VectorInterface.scale!(x.tt, α)
+    return x
+end
+function VectorInterface.scale!!(x::_RankBoundedTTvector, α::Number)
+    return _RankBoundedTTvector(VectorInterface.scale!!(x.tt, α), x.max_bond)
+end
+function VectorInterface.scale!(y::_RankBoundedTTvector, x::_RankBoundedTTvector, α::Number)
+    _max_bond(y, x)
+    return _overwrite_bounded!(y, VectorInterface.scale(x.tt, α))
+end
+function VectorInterface.scale!!(y::_RankBoundedTTvector, x::_RankBoundedTTvector, α::Number)
+    max_bond = _max_bond(y, x)
+    return _RankBoundedTTvector(VectorInterface.scale!!(y.tt, x.tt, α), max_bond)
+end
+
+function VectorInterface.add(
+        y::_RankBoundedTTvector, x::_RankBoundedTTvector,
+        α::Number, β::Number
+    )
+    max_bond = _max_bond(y, x)
+    return _bound(VectorInterface.add(y.tt, x.tt, α, β), max_bond)
+end
+function VectorInterface.add!(
+        y::_RankBoundedTTvector, x::_RankBoundedTTvector,
+        α::Number, β::Number
+    )
+    _max_bond(y, x)
+    return _overwrite_bounded!(y, VectorInterface.add(y.tt, x.tt, α, β))
+end
+function VectorInterface.add!!(
+        y::_RankBoundedTTvector, x::_RankBoundedTTvector,
+        α::Number, β::Number
+    )
+    max_bond = _max_bond(y, x)
+    return _bound(VectorInterface.add!!(y.tt, x.tt, α, β), max_bond)
+end
+
+function VectorInterface.zerovector(a::TTvector, ::Type{S}) where {S <: Number}
+    return zeros_tt(S, a.ttv_dims, copy(a.ttv_rks))
+end
+function VectorInterface.zerovector(a::TToperator, ::Type{S}) where {S <: Number}
+    return zeros_tto(S, a.tto_dims, copy(a.tto_rks))
 end
 function VectorInterface.zerovector!(a::TTvector)
     for core in a.ttv_vec
@@ -109,9 +183,20 @@ zero(a::TTvector) = zeros_tt(eltype(a), a.ttv_dims, a.ttv_rks)
 function VectorInterface.inner(a::TTvector, b::TTvector)
     return TensorTrainNumerics.dot(a, b)
 end
+function VectorInterface.inner(a::_RankBoundedTTvector, b::_RankBoundedTTvector)
+    _max_bond(a, b)
+    return VectorInterface.inner(a.tt, b.tt)
+end
+
+VectorInterface.norm(a::_RankBoundedTTvector) = norm(a.tt)
 
 VectorInterface.scalartype(a::TTvector) = eltype(a)
 VectorInterface.scalartype(a::TToperator) = eltype(a)
+VectorInterface.scalartype(::Type{<:TTvector{T}}) where {T} = T
+VectorInterface.scalartype(::Type{<:TToperator{T}}) where {T} = T
+function VectorInterface.scalartype(::Type{<:_RankBoundedTTvector{V}}) where {V}
+    return VectorInterface.scalartype(V)
+end
 
 
 end

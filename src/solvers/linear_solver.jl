@@ -1,7 +1,10 @@
 using KrylovKit
 using ProgressMeter
 
-const KRYLOV_ROUND_RANK = Ref{Int}(0)
+struct _RankBoundedTTvector{V <: AbstractTTvector}
+    tt::V
+    max_bond::Int
+end
 
 abstract type LinearSolverAlgorithm end
 abstract type EigenSolverAlgorithm <: LinearSolverAlgorithm end
@@ -187,6 +190,8 @@ function linear_solve(A, b, guess, alg::ALS)
         sweep_count = alg.sweep_count,
         it_solver = alg.it_solver,
         r_itsolver = alg.r_itsolver,
+        maxiter = alg.maxiter,
+        linsolv_tol = alg.linsolv_tol,
         return_info = alg.return_info,
         show_progress = alg.show_progress
     )
@@ -250,12 +255,16 @@ function _stepper_algorithm(
         sweep_count::Int = alg.sweep_count,
         it_solver::Bool = alg.it_solver,
         r_itsolver::Int = alg.r_itsolver,
+        maxiter::Int = alg.maxiter,
+        linsolv_tol::Float64 = alg.linsolv_tol,
         return_info::Bool = alg.return_info
     )
     return ALS(;
         sweep_count = sweep_count,
         it_solver = it_solver,
         r_itsolver = r_itsolver,
+        maxiter = maxiter,
+        linsolv_tol = linsolv_tol,
         return_info = return_info,
         show_progress = false
     )
@@ -382,12 +391,6 @@ function krylov_linsolve(
         show_progress::Bool = false,
         kwargs...
     )
-    # Keep the Krylov iterates from accumulating rank: rank(A*x) = rank(A)*rank(x),
-    # and the VectorInterface ops otherwise only orthogonalize (no truncation), so
-    # Krylov solves can blow up the bond dimension. We cap the matvec output here
-    # and via KRYLOV_ROUND_RANK, which the extension's `add`/`add!` read, the
-    # intermediate Krylov vectors.
-    op = max_bond > 0 ? (x -> tt_compress!(A * x, max_bond)) : (x -> A * x)
     solver = krylov_solver == :auto && isposdef && (issymmetric || ishermitian) ? :cg : krylov_solver
     tol_value = isnothing(tol) ? max(atol, rtol * norm(b)) : tol
     alg = _krylov_algorithm(
@@ -399,13 +402,22 @@ function krylov_linsolve(
         verbosity = verbosity
     )
     progress = _solver_progress(1, show_progress; desc = "Krylov linear solve")
-    old = KRYLOV_ROUND_RANK[]
-    KRYLOV_ROUND_RANK[] = max_bond
-    try
-        x, _ = linsolve(op, b, guess, alg; kwargs...)
+    if max_bond > 0
+        op = function (x::_RankBoundedTTvector)
+            y = tt_compress!(A * x.tt, x.max_bond)
+            return _RankBoundedTTvector(y, x.max_bond)
+        end
+        x, _ = linsolve(
+            op,
+            _RankBoundedTTvector(b, max_bond),
+            _RankBoundedTTvector(guess, max_bond),
+            alg;
+            kwargs...
+        )
         next!(progress)
-        return x
-    finally
-        KRYLOV_ROUND_RANK[] = old
+        return tt_compress!(x.tt, max_bond)
     end
+    x, _ = linsolve(x -> A * x, b, guess, alg; kwargs...)
+    next!(progress)
+    return x
 end

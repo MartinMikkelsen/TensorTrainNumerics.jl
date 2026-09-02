@@ -62,10 +62,38 @@ function K_full(Gi::Array{T, 5}, Hi::Array{T, 3}, K_dims::NTuple{3, Int}) where 
     return K
 end
 
-function Ksolve(Gi::Array{T, 5}, G_bi::Array{T, 3}, Hi::Array{T, 3}, H_bi::Array{T, 2}) where {T <: Number}
+function Ksolve(
+        Gi::Array{T, 5}, G_bi::Array{T, 3}, Hi::Array{T, 3}, H_bi::Array{T, 2};
+        it_solver::Bool = false,
+        r_itsolver::Int = 5000,
+        maxiter::Int = 200,
+        tol::Real = 1.0e-8
+    ) where {T <: Number}
     K_dims = (size(Gi, 1), size(Gi, 2), size(Hi, 2))
-    K = K_full(Gi, Hi, K_dims)
     @tensor Pb[i, α1, α2] := G_bi[i, α1, β] * H_bi[α2, β] #size (ni,rim,ri)
+    if it_solver && prod(K_dims) > r_itsolver
+        function K_matfree!(y::AbstractVector{T}, x::AbstractVector{T})
+            Yr = reshape(y, K_dims)
+            Xr = reshape(x, K_dims)
+            @tensor Yr[a, b, c] = Gi[a, b, d, e, z] * Xr[d, e, f] * Hi[z, c, f]
+            return y
+        end
+        sol, _ = linsolve(
+            LinearMap{T}(
+                K_matfree!, prod(K_dims);
+                issymmetric = true,
+                ismutating = true
+            ),
+            Pb[:],
+            zeros(T, prod(K_dims));
+            issymmetric = true,
+            isposdef = true,
+            tol = tol,
+            maxiter = maxiter,
+        )
+        return reshape(sol, K_dims)
+    end
+    K = K_full(Gi, Hi, K_dims)
     return reshape(K \ Pb[:], K_dims)
 end
 
@@ -151,7 +179,9 @@ fixed to those of `tt_start`.
 - `sweep_count::Int=2`: total ALS sweeps; each sweep is one forward + one backward half-sweep.
   An odd value stops after the forward half-sweep.
 - `it_solver::Bool=false`: use an iterative solver for the local subproblem.
-- `r_itsolver::Int=5000`: local problem size above which the iterative solver activates.
+- `r_itsolver::Int=5000`: local problem size above which the enabled iterative solver activates.
+- `maxiter::Int=200`: maximum iterations for the local iterative solver.
+- `linsolv_tol::Float64=1e-8`: tolerance for the local iterative solver.
 - `return_info::Bool=false`: when `true`, return `(tt_opt, info)` where `info = (; residual)`
   holds the final relative residual `‖A tt_opt − b‖ / ‖b‖`.
 
@@ -161,6 +191,7 @@ fixed to those of `tt_start`.
 function _als_linsolve_impl(
         A::AbstractTToperator, b::AbstractTTvector, tt_start::AbstractTTvector;
         sweep_count = 2, it_solver = false, r_itsolver = 5000,
+        maxiter = 200, linsolv_tol = 1.0e-8,
         return_info = false, show_progress::Bool = false
     )
     # als finds the minimum of the operator J:1/2*<Ax,Ax> - <x,b>
@@ -205,7 +236,13 @@ function _als_linsolve_impl(
         # First half sweep
         for i in 1:(d - 1)
             # Define V as solution of K*x=Pb in x
-            V = Ksolve(G[i], G_b[i], H[i], H_b[i])
+            V = Ksolve(
+                G[i], G_b[i], H[i], H_b[i];
+                it_solver = it_solver,
+                r_itsolver = r_itsolver,
+                maxiter = maxiter,
+                tol = linsolv_tol,
+            )
             tt_opt = right_core_move(tt_opt, V, i, rks)
             #update G,G_b
             update_G!(tt_opt.ttv_vec[i], A.tto_vec[i + 1], G[i], G[i + 1])
@@ -220,7 +257,13 @@ function _als_linsolve_impl(
             # Second half sweep
             for i in d:(-1):2
                 # Define V as solution of K*x=Pb in x
-                V = Ksolve(G[i], G_b[i], H[i], H_b[i])
+                V = Ksolve(
+                    G[i], G_b[i], H[i], H_b[i];
+                    it_solver = it_solver,
+                    r_itsolver = r_itsolver,
+                    maxiter = maxiter,
+                    tol = linsolv_tol,
+                )
                 tt_opt = left_core_move(tt_opt, V, i, rks)
                 update_H!(tt_opt.ttv_vec[i], A.tto_vec[i], H[i], H[i - 1])
                 update_Hb!(tt_opt.ttv_vec[i], b.ttv_vec[i], H_b[i], H_b[i - 1])

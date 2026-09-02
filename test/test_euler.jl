@@ -198,7 +198,6 @@ end
 
     @test rel_error < 1.0e-7
     @test maximum(sol_tt.ttv_rks) <= max_bond
-    @test TensorTrainNumerics.KRYLOV_ROUND_RANK[] == 0
 end
 
 @testset "Krylov solver supports CG selection and rejects unknown solvers" begin

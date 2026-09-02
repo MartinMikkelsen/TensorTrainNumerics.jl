@@ -139,16 +139,16 @@ Random.seed!(1)
 
 optimizer = LBFGS(; maxiter = 100, verbosity = 1)
 
-# `KRYLOV_ROUND_RANK` caps the rank growth from OptimKit's repeated vector
-# additions (the line search and the L-BFGS history), exactly as the package's
-# Krylov time-steppers do.
-old_round = TensorTrainNumerics.KRYLOV_ROUND_RANK[]
-TensorTrainNumerics.KRYLOV_ROUND_RANK[] = opt_bond
-ψ_ad, E_lbfgs, g_final, numfg, normgradhistory = try
-    optimize(loss_and_grad, ψ0_ad, optimizer)
-finally
-    TensorTrainNumerics.KRYLOV_ROUND_RANK[] = old_round
-end
+# Keep the rank policy local to this optimization's vector operations.
+bounded_retract(ψ, direction, α) = (tt_compress!(ψ + α * direction, opt_bond), direction)
+bounded_add!(destination, source, α) = tt_compress!(destination + α * source, opt_bond)
+ψ_ad, E_lbfgs, g_final, numfg, normgradhistory = optimize(
+    loss_and_grad,
+    ψ0_ad,
+    optimizer;
+    retract = bounded_retract,
+    add! = bounded_add!,
+)
 
 E_dmrg, ψ_dmrg, _ = ground_state(H_ising, qtt_basis_vector(n, 1); max_bond = opt_bond)
 
