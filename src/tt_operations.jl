@@ -257,12 +257,12 @@ function *(a::S, A::TTvector{R, N}) where {S <: Number, R <: Number, N}
     T = promote_type(S, R)
     aT = convert(T, a)
     if iszero(aT)
-        return zeros_tt(T, A.ttv_dims, A.ttv_rks)
+        return zeros_tt(T, A.ttv_dims, copy(A.ttv_rks))
     end
     i = findfirst(==(0), A.ttv_ot); i === nothing && (i = 1)
-    X = [convert(Array{T, 3}, c) for c in A.ttv_vec]   # promote cores to T before scaling
+    X = [Array{T, 3}(c) for c in A.ttv_vec]   # promote and copy cores before scaling
     X[i] = aT * X[i]
-    return TTvector{T, N}(A.N, X, A.ttv_dims, A.ttv_rks, A.ttv_ot)
+    return TTvector{T, N}(A.N, X, A.ttv_dims, copy(A.ttv_rks), copy(A.ttv_ot))
 end
 
 """
@@ -272,12 +272,12 @@ function *(a::S, A::TToperator{R, N}) where {S <: Number, R <: Number, N}
     T = promote_type(S, R)
     aT = convert(T, a)
     if iszero(aT)
-        return zeros_tto(T, A.tto_dims, A.tto_rks)
+        return zeros_tto(T, A.tto_dims, copy(A.tto_rks))
     end
     i = findfirst(==(0), A.tto_ot); i === nothing && (i = 1)
-    X = [convert(Array{T, 4}, c) for c in A.tto_vec]   # promote cores to T before scaling
+    X = [Array{T, 4}(c) for c in A.tto_vec]   # promote and copy cores before scaling
     X[i] = aT * X[i]
-    return TToperator{T, N}(A.N, X, A.tto_dims, A.tto_rks, A.tto_ot)
+    return TToperator{T, N}(A.N, X, A.tto_dims, copy(A.tto_rks), copy(A.tto_ot))
 end
 
 Base.:*(A::TTvector{T, N}, a::S) where {T <: Number, S <: Number, N} = a * A
@@ -398,7 +398,7 @@ end
 
 ⊕(x::TTvector{T, N}, y::TTvector{T, N}) where {T <: Number, N} = hadamard(x, y)
 
-# SVD with relative truncation criterion from Eq. (10) of arXiv:2410.19747.
+# SVD with the absolute singular-value cutoff used by TT operations.
 function _ttm_swap!(
         cores::Vector{Array{T, 3}}, rks::Vector{Int}, j::Int;
         tol::Float64 = 0.0, rmax::Int = typemax(Int)

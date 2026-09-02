@@ -147,12 +147,12 @@ function _relative_residual(y, y_approx)
     return iszero(y_norm) ? residual : residual / y_norm
 end
 
-# Local _svdtrunc for cross interpolation: uses relative-norm truncation
+# Local SVD truncation for cross interpolation: uses relative-norm truncation
 # (keeps singular values until the cumulative tail norm exceeds truncerr * ‖s‖).
 # tt_tools.jl has a separate _svdtrunc with absolute-threshold truncation
 # (count(s .>= truncerr)). The two strategies are intentionally different and
 # should not be consolidated.
-function _svdtrunc(A::AbstractMatrix{T}; max_bond::Int = typemax(Int), truncerr::Real = 0.0) where {T}
+function _cross_svdtrunc(A::AbstractMatrix{T}; max_bond::Int = typemax(Int), truncerr::Real = 0.0) where {T}
     F = svd(A)
     s = F.S
     r = length(s)
@@ -612,7 +612,7 @@ function tt_cross(
         for k in 1:(N - 1)
             superblock = _sample_superblock(f, domain, I_l, I_g, k, Is, N)
             r_l, s1, s2, r_g = size(superblock)
-            U, S, Vt = _svdtrunc(reshape(superblock, r_l * s1, s2 * r_g); max_bond = alg.rmax, truncerr = local_tol)
+            U, S, Vt = _cross_svdtrunc(reshape(superblock, r_l * s1, s2 * r_g); max_bond = alg.rmax, truncerr = local_tol)
             r = size(S, 1)
 
             if k < N - 1
@@ -642,7 +642,7 @@ function tt_cross(
         for k in (N - 1):-1:1
             superblock = _sample_superblock(f, domain, I_l, I_g, k, Is, N)
             r_l, s1, s2, r_g = size(superblock)
-            U, S, Vt = _svdtrunc(reshape(superblock, r_l * s1, s2 * r_g); max_bond = alg.rmax, truncerr = local_tol)
+            U, S, Vt = _cross_svdtrunc(reshape(superblock, r_l * s1, s2 * r_g); max_bond = alg.rmax, truncerr = local_tol)
             r = size(S, 1)
 
             if k > 1

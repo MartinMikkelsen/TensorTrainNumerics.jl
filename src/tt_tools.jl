@@ -55,11 +55,15 @@ end
 Base.eltype(::TToperator{T, M}) where {T, M} = T
 
 function Base.complex(A::TToperator{T, M}) where {T, M}
-    return TToperator{Complex{T}, M}(A.N, complex.(A.tto_vec), A.tto_dims, A.tto_rks, A.tto_ot)
+    return TToperator{Complex{real(T)}, M}(
+        A.N, complex.(A.tto_vec), A.tto_dims, copy(A.tto_rks), copy(A.tto_ot)
+    )
 end
 
 function Base.complex(v::TTvector{T, M}) where {T, M}
-    return TTvector{Complex{T}, M}(v.N, complex.(v.ttv_vec), v.ttv_dims, v.ttv_rks, v.ttv_ot)
+    return TTvector{Complex{real(T)}, M}(
+        v.N, complex.(v.ttv_vec), v.ttv_dims, copy(v.ttv_rks), copy(v.ttv_ot)
+    )
 end
 
 """

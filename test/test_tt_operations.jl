@@ -1,5 +1,6 @@
 using Test
 using Random
+using LinearAlgebra
 
 @testset "ttv_to_diag_tto for TTvector" begin
     # Test 1: ttv_to_diag_tto on a simple 2D TTvector (all ranks 1, should match diag of full vector)
@@ -101,6 +102,16 @@ end
 
     ttm_loose = hadamard_ttm(A1, A2; tol = 1.0e-8)
     @test isapprox(qtt_to_function(ttm_loose), expected2; atol = 1.0e-3)
+end
+
+@testset "Hadamard TTM uses absolute singular-value truncation" begin
+    spectrum = [1.0, 0.08, 0.08]
+    x = ttv_decomp(ones(3, 3))
+    y = ttv_decomp(Matrix(Diagonal(spectrum)))
+
+    result = hadamard_ttm(x, y; tol = 0.1)
+
+    @test result.ttv_rks == [1, 1, 1]
 end
 
 @testset "add!" begin
@@ -244,6 +255,22 @@ end
     a = 3.0
     y = x / a
     @test isapprox(ttv_to_tensor(y), ttv_to_tensor(x) / a; atol = 1.0e-12)
+end
+
+@testset "Scalar multiplication owns mutable TT storage" begin
+    for α in (0.0, 2.0)
+        x = rand_tt((2, 3), [1, 2, 1])
+        y = α * x
+        @test y.ttv_rks !== x.ttv_rks
+        @test y.ttv_ot !== x.ttv_ot
+        @test all(y.ttv_vec[i] !== x.ttv_vec[i] for i in eachindex(x.ttv_vec))
+
+        A = rand_tto((2, 3), 2)
+        B = α * A
+        @test B.tto_rks !== A.tto_rks
+        @test B.tto_ot !== A.tto_ot
+        @test all(B.tto_vec[i] !== A.tto_vec[i] for i in eachindex(A.tto_vec))
+    end
 end
 
 @testset "outer_product" begin

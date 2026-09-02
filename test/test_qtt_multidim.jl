@@ -99,6 +99,12 @@ end
     @test qc isa QTTvector
     @test qc.ordering == :interleaved
 
+    qcomplex = complex(q1)
+    @test complex(qcomplex) isa QTTvector{ComplexF64}
+    @test qcomplex.n_dims == q1.n_dims
+    @test qcomplex.bits_per_dim == q1.bits_per_dim
+    @test qcomplex.ordering == q1.ordering
+
     # arithmetic returns QTTvector with same metadata
     @test (q1 + q2) isa QTTvector
     @test (q1 + q2).ordering == :interleaved
@@ -127,6 +133,11 @@ end
     B = QTToperator(tto, 2, 3, :interleaved)
 
     @test copy(A) isa QTToperator
+    Acomplex = complex(A)
+    @test complex(Acomplex) isa QTToperator{ComplexF64}
+    @test Acomplex.n_dims == A.n_dims
+    @test Acomplex.bits_per_dim == A.bits_per_dim
+    @test Acomplex.ordering == A.ordering
     @test (A + B) isa QTToperator
     @test (2.0 * A) isa QTToperator
 

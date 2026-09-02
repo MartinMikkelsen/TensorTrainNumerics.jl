@@ -3,6 +3,24 @@ using TensorTrainNumerics
 import TensorTrainNumerics: rand_orthogonal, tto_to_ttv, ttv_to_tto
 using LinearAlgebra
 
+@testset "Complex TT conversion is idempotent and owns metadata" begin
+    x = rand_tt((2, 3), [1, 2, 1])
+    xc = complex(x)
+    xcc = complex(xc)
+    @test xcc isa TTvector{ComplexF64}
+    @test ttv_to_tensor(xcc) == complex.(ttv_to_tensor(x))
+    @test xc.ttv_rks !== x.ttv_rks
+    @test xc.ttv_ot !== x.ttv_ot
+
+    A = rand_tto((2, 3), 2)
+    Ac = complex(A)
+    Acc = complex(Ac)
+    @test Acc isa TToperator{ComplexF64}
+    @test tto_to_tensor(Acc) == complex.(tto_to_tensor(A))
+    @test Ac.tto_rks !== A.tto_rks
+    @test Ac.tto_ot !== A.tto_ot
+end
+
 @testset "TT constructors and properties" begin
     # Test TTvector constructor
     N = 3

@@ -539,6 +539,10 @@ function Base.complex(q::QTTvector)
     return QTTvector(complex(TTvector(q)), q.n_dims, q.bits_per_dim, q.ordering)
 end
 
+function Base.complex(A::QTToperator)
+    return QTToperator(complex(TToperator(A)), A.n_dims, A.bits_per_dim, A.ordering)
+end
+
 function Base.:+(a::QTTvector, b::QTTvector)
     check_compat(a, b)
     return QTTvector(TTvector(a) + TTvector(b), a.n_dims, a.bits_per_dim, a.ordering)

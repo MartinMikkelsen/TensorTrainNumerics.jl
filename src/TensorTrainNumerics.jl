@@ -1,6 +1,6 @@
 module TensorTrainNumerics
 
-export AbstractTTvector, AbstractTToperator, TTvector, TToperator, eltype, complex, ttv_decomp, tto_decomp, ttv_to_tensor, tto_to_tensor, tto_to_ttv, visualize, matricize, concatenate, orthogonalize, entanglemententropy, copy, r_and_d_to_rks, tt_compress!, tt_round!, tt_round, _svdtrunc, ttvector_manifold
+export AbstractTTvector, AbstractTToperator, TTvector, TToperator, eltype, complex, ttv_decomp, tto_decomp, ttv_to_tensor, tto_to_tensor, tto_to_ttv, visualize, matricize, concatenate, orthogonalize, entanglemententropy, copy, r_and_d_to_rks, tt_compress!, tt_round!, tt_round, ttvector_manifold
 function ttvector_manifold end
 include("tt_tools.jl")
 
