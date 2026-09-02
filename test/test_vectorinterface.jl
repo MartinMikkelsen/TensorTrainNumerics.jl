@@ -4,6 +4,20 @@ using KrylovKit
 using TensorTrainNumerics
 using VectorInterface
 
+@testset "VectorInterface TToperator zero and length" begin
+    A = rand_tto((2, 3), 2)
+    z = VectorInterface.zerovector(A)
+
+    @test z isa TToperator{Float64, 2}
+    @test VectorInterface.length(A) == prod(A.tto_dims)^2
+    if z isa TToperator
+        @test z.tto_dims == A.tto_dims
+        @test z.tto_rks == A.tto_rks
+        @test z.tto_rks !== A.tto_rks
+        @test all(iszero, tto_to_tensor(z))
+    end
+end
+
 @testset "Complex TT dot and norm" begin
     d = 4
     u = complex(qtt_sin(d, λ = π))

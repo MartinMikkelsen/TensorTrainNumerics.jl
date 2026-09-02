@@ -89,7 +89,7 @@ function VectorInterface.zerovector(a::TTvector)
     return zeros_tt(eltype(a), a.ttv_dims, a.ttv_rks)
 end
 function VectorInterface.zerovector(a::TToperator)
-    return zeros_tt(eltype(a), a.tto_dims, a.tto_rks)
+    return zeros_tto(eltype(a), a.tto_dims, copy(a.tto_rks))
 end
 function VectorInterface.zerovector!(a::TTvector)
     for core in a.ttv_vec
@@ -102,7 +102,7 @@ function VectorInterface.zerovector!!(a::TTvector)
 end
 
 VectorInterface.length(a::TTvector) = prod(a.ttv_dims)
-VectorInterface.length(a::TToperator) = prod(a.tto_dims)
+VectorInterface.length(a::TToperator) = prod(a.tto_dims)^2
 
 zero(a::TTvector) = zeros_tt(eltype(a), a.ttv_dims, a.ttv_rks)
 

@@ -85,6 +85,17 @@ import TensorTrainNumerics: MaxVolPivot, RandomPivot, MaxVol, Greedy, DMRGcross,
             @test tt.ttv_rks[end] == 1
         end
 
+        @testset "DMRGcross uses relative tail-norm truncation" begin
+            spectrum = [1.0, 0.08, 0.08]
+            f(x) = [x[p, 1] == x[p, 2] ? spectrum[Int(x[p, 1])] : 0.0 for p in axes(x, 1)]
+            domain = [collect(1.0:3.0), collect(1.0:3.0)]
+            alg = DMRGcross(maxiter = 1, tol = 0.1, rmax = 3, kickrank = nothing, verbose = false)
+
+            tt = tt_cross(f, domain, alg; ranks = 3, val_size = 20)
+
+            @test tt.ttv_rks == [1, 2, 1]
+        end
+
         @testset "Greedy algorithm" begin
             f(x) = prod(x, dims = 2)
             domain = [range(0, 1, length = 8) |> collect for _ in 1:3]

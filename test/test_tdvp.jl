@@ -42,6 +42,11 @@ end
     thr = (F2.S[2] + F2.S[3]) / 2
     U4, S4, Vt4 = _svdtrunc(A2; max_bond = 1, truncerr = 0.0)
     @test size(S4, 1) == 1
+
+    A3 = Matrix(Diagonal([1.0, 0.08, 0.08]))
+    _, S5, _ = _svdtrunc(A3; truncerr = 0.1)
+    @test size(S5, 1) == 1
+    @test :_svdtrunc ∉ names(TensorTrainNumerics)
 end
 
 @testset "_to_lsr/_to_slr" begin
@@ -276,6 +281,16 @@ end
     @test maximum(ψ2.ttv_rks) ≤ mb
 end
 
+@testset "tdvp2sweep! uses absolute singular-value truncation" begin
+    spectrum = [1.0, 0.08, 0.08, 0.08]
+    ψ0 = ttv_decomp(Matrix(Diagonal(spectrum)))
+    H0 = zeros_tto(Float64, (4, 4), [1, 1, 1])
+
+    ψ2, _ = tdvp2sweep!(0.1im, ψ0, H0, nothing; verbose = false, truncerr = 0.1)
+
+    @test ψ2.ttv_rks == [1, 1, 1]
+end
+
 @testset "tdvp2: basic behavior" begin
     d = 6
     u0 = qtt_sin(d, λ = π)
@@ -321,6 +336,18 @@ end
     )
     rel_c = dense_relerr(ψ_carryT, ψ_carryF)
     @test rel_c ≤ 1.0e-10
+end
+
+@testset "real-time QTT TDVP accepts real inputs" begin
+    d = 2
+    u0 = QTTvector(qtt_sin(d), 1, d, :serial)
+    H0 = QTToperator(0.0 * id_tto(d), 1, d, :serial)
+
+    ψ1 = tdvp(H0, u0, [0.01]; normalize = false, verbose = false, show_progress = false)
+    ψ2 = tdvp2(H0, u0, [0.01]; normalize = false, verbose = false, show_progress = false)
+
+    @test ψ1 isa QTTvector{ComplexF64}
+    @test ψ2 isa QTTvector{ComplexF64}
 end
 
 @testset "tdvp2: imaginary-time branch runs" begin
