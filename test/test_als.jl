@@ -3,7 +3,7 @@ using Random
 using LinearAlgebra
 using TensorTrainNumerics
 
-import TensorTrainNumerics: update_H!
+import TensorTrainNumerics: Ksolve, update_H!
 
 Random.seed!(9999)
 
@@ -73,6 +73,73 @@ end
 
     @test x isa TTvector{Float64}
     @test x.ttv_dims == b.ttv_dims
+end
+
+@testset "Ksolve iterative local solve agrees with the dense solve" begin
+    Gi = zeros(Float64, 2, 1, 2, 1, 1)
+    Gi[1, 1, 1, 1, 1] = 2.0
+    Gi[2, 1, 2, 1, 1] = 3.0
+    G_bi = reshape([4.0, 9.0], 2, 1, 1)
+    Hi = ones(Float64, 1, 1, 1)
+    H_bi = ones(Float64, 1, 1)
+
+    dense = Ksolve(Gi, G_bi, Hi, H_bi)
+    iterative = Ksolve(
+        Gi, G_bi, Hi, H_bi;
+        it_solver = true,
+        r_itsolver = 1,
+        maxiter = 20,
+        tol = 1.0e-12,
+    )
+
+    @test vec(dense) ≈ [2.0, 3.0]
+    @test iterative ≈ dense atol = 1.0e-10
+
+    disabled = Ksolve(
+        Gi, G_bi, Hi, H_bi;
+        it_solver = false,
+        r_itsolver = 0,
+        tol = Inf,
+    )
+    at_threshold = Ksolve(
+        Gi, G_bi, Hi, H_bi;
+        it_solver = true,
+        r_itsolver = 2,
+        tol = Inf,
+    )
+    forced_iterative = Ksolve(
+        Gi, G_bi, Hi, H_bi;
+        it_solver = true,
+        r_itsolver = 1,
+        tol = Inf,
+    )
+
+    @test disabled == dense
+    @test at_threshold == dense
+    @test iszero(forced_iterative)
+end
+
+@testset "als_linsolve forwards iterative options through a complete sweep" begin
+    d = 3
+    A = id_tto(d)
+    dims = ntuple(_ -> 2, d)
+    ranks = [1, 2, 2, 1]
+    b = rand_tt(dims, ranks)
+    x0 = rand_tt(dims, ranks)
+
+    dense = als_linsolve(A, b, x0; sweep_count = 2)
+    iterative = als_linsolve(
+        A, b, x0;
+        sweep_count = 2,
+        it_solver = true,
+        r_itsolver = 1,
+        maxiter = 50,
+        linsolv_tol = 1.0e-12,
+    )
+
+    dense_values = vec(ttv_to_tensor(dense))
+    iterative_values = vec(ttv_to_tensor(iterative))
+    @test norm(iterative_values - dense_values) / norm(dense_values) < 1.0e-10
 end
 
 # ── als_eigsolve ──────────────────────────────────────────────────────────────

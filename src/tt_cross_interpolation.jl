@@ -29,7 +29,7 @@ function RandomPivot(; nsamples::Int = 1000, seed::Union{Nothing, Int} = nothing
     return RandomPivot(nsamples, seed)
 end
 
-struct MaxVol{T <: Real, P <: PivotAlgorithm} <: CrossAlgorithm
+struct MaxVol{T <: Real, P <: MaxVolPivot} <: CrossAlgorithm
     maxiter::Int
     tol::T
     rmax::Int
@@ -44,12 +44,12 @@ function MaxVol(;
         rmax::Int = CROSS_RMAX[],
         kickrank::Union{Nothing, Int} = CROSS_KICKRANK[],
         verbose::Bool = true,
-        pivot::PivotAlgorithm = MaxVolPivot()
+        pivot::MaxVolPivot = MaxVolPivot()
     )
     return MaxVol(maxiter, tol, rmax, kickrank, verbose, pivot)
 end
 
-struct Greedy{T <: Real, P <: PivotAlgorithm} <: CrossAlgorithm
+struct Greedy{T <: Real, P <: RandomPivot} <: CrossAlgorithm
     maxiter::Int
     tol::T
     rmax::Int
@@ -64,12 +64,12 @@ function Greedy(;
         rmax::Int = CROSS_RMAX[],
         verbose::Bool = true,
         nsamples::Int = 1000,
-        pivot::PivotAlgorithm = RandomPivot()
+        pivot::RandomPivot = RandomPivot()
     )
     return Greedy(maxiter, tol, rmax, verbose, nsamples, pivot)
 end
 
-struct DMRGcross{T <: Real, P <: PivotAlgorithm} <: CrossAlgorithm
+struct DMRGcross{T <: Real, P <: MaxVolPivot} <: CrossAlgorithm
     maxiter::Int
     tol::T
     rmax::Int
@@ -84,7 +84,7 @@ function DMRGcross(;
         rmax::Int = CROSS_RMAX[],
         kickrank::Union{Nothing, Int} = CROSS_KICKRANK[],
         verbose::Bool = true,
-        pivot::PivotAlgorithm = MaxVolPivot()
+        pivot::MaxVolPivot = MaxVolPivot()
     )
     return DMRGcross(maxiter, tol, rmax, kickrank, verbose, pivot)
 end
