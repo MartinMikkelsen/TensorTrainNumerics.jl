@@ -39,7 +39,7 @@ function VectorInterface.add(a::TTvector, b::TTvector)
     return _round(a + b)
 end
 function VectorInterface.add(a::TToperator, b::TToperator)
-    return orthogonalize(a + b)
+    return a + b
 end
 
 function VectorInterface.add(a::TTvector, b::TTvector, α::Number)
@@ -97,9 +97,12 @@ function VectorInterface.scale!!(x::TTvector{T}, α::Number) where {T}
     return S === T ? orthogonalize(VectorInterface.scale!(x, α)) : orthogonalize(VectorInterface.scale(x, α))
 end
 function VectorInterface.scale!!(y::TTvector, x::TTvector, α::Number)
-    r = VectorInterface.scale(x, α)
-    y.ttv_vec = r.ttv_vec; y.ttv_rks = r.ttv_rks; y.ttv_dims = r.ttv_dims; y.ttv_ot = r.ttv_ot
-    return orthogonalize(y)
+    S = promote_type(eltype(y), eltype(x), typeof(α))
+    if S === eltype(y)
+        return _round(_overwrite!(y, VectorInterface.scale(x, α)))
+    else
+        return VectorInterface.scale(x, α)
+    end
 end
 
 function VectorInterface.zerovector(x::_RankBoundedTTvector, ::Type{S}) where {S <: Number}
@@ -156,11 +159,11 @@ function VectorInterface.add!!(
     return _bound(VectorInterface.add!!(y.tt, x.tt, α, β), max_bond)
 end
 
-function VectorInterface.zerovector(a::TTvector)
-    return zeros_tt(eltype(a), a.ttv_dims, a.ttv_rks)
+function VectorInterface.zerovector(a::TTvector, ::Type{S}) where {S <: Number}
+    return zeros_tt(S, a.ttv_dims, copy(a.ttv_rks))
 end
-function VectorInterface.zerovector(a::TToperator)
-    return zeros_tto(eltype(a), a.tto_dims, copy(a.tto_rks))
+function VectorInterface.zerovector(a::TToperator, ::Type{S}) where {S <: Number}
+    return zeros_tto(S, a.tto_dims, copy(a.tto_rks))
 end
 function VectorInterface.zerovector!(a::TTvector)
     for core in a.ttv_vec
@@ -190,6 +193,7 @@ VectorInterface.norm(a::_RankBoundedTTvector) = norm(a.tt)
 VectorInterface.scalartype(a::TTvector) = eltype(a)
 VectorInterface.scalartype(a::TToperator) = eltype(a)
 VectorInterface.scalartype(::Type{<:TTvector{T}}) where {T} = T
+VectorInterface.scalartype(::Type{<:TToperator{T}}) where {T} = T
 function VectorInterface.scalartype(::Type{<:_RankBoundedTTvector{V}}) where {V}
     return VectorInterface.scalartype(V)
 end
