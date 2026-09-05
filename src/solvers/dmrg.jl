@@ -50,7 +50,7 @@ function K_full(Gi::AbstractArray{T, 3}, Hi::AbstractArray{T, 3}, Amid_tensor::A
     K_dims = (size(Gi, 2), size(Amid_tensor, 2), size(Hi, 2))
     K = zeros(T, K_dims..., K_dims...)
     @tensoropt((a, c, d, f), K[a, b, c, d, e, f] = Gi[y, a, d] * Hi[z, c, f] * Amid_tensor[y, b, e, z]) #size (r^X_{i-1},n_i⋯n_j,r^X_j)
-    return Hermitian(reshape(K, prod(K_dims), prod(K_dims)))
+    return reshape(K, prod(K_dims), prod(K_dims))
 end
 
 function init_Hb(x_tt::AbstractTTvector, b_tt::AbstractTTvector, N::Integer, rmax)
@@ -94,80 +94,15 @@ function Ksolve!(Gi_view::AbstractArray{T, 3}, G_bi::AbstractArray{T, 2}, Hi_vie
     @tensoropt Pb[α1, i, α2] = G_bi[α1, β1] * Bmid[β1, i, β2] * H_bi[α2, β2] #size (r^X_{i-1},n_i⋯n_j,r^X_j)
 
     if it_solver || prod(K_dims) > itslv_thresh
-        VG_temp = zeros(T, size(Gi_view, 1), size(Gi_view, 2), size(Amid_tensor, 2), size(Hi_view, 2))
-        VGA_temp = zeros(T, size(Hi_view, 1), size(Gi_view, 2), size(Amid_tensor, 2), size(Hi_view, 2))
-        function K_matfree(Vout, V::AbstractArray{S, 1}; Gi = Gi_view::AbstractArray{S, 3}, Hi = Hi_view::AbstractArray{S, 3}, K_dims = K_dims::NTuple{3, Int}, Amid_tensor = Amid_tensor::AbstractArray{S, 4}) where {S <: Number}
+        function K_matfree(Vout, V)
             Hrshp = reshape(Vout, K_dims)
-            fill!(Hrshp, 0)
-            for β in axes(Hrshp, 3)
-                for i in axes(Hrshp, 2)
-                    for α in axes(Hrshp, 1)
-                        #VG
-                        fill!(VG_temp, 0)
-                        for j in axes(VG_temp, 3)
-                            for β1 in axes(VG_temp, 4)
-                                for a in axes(VG_temp, 1)
-                                    for α1 in axes(VG_temp, 2)
-                                        VG_temp[a, α, j, β1] += Gi[a, α, α1] * reshape(V, K_dims)[α1, j, β1]
-                                    end
-                                end
-                            end
-                        end
-                        #VGA
-                        fill!(VGA_temp, 0)
-                        for b in axes(VGA_temp, 1)
-                            for β1 in axes(VGA_temp, 4)
-                                for j in axes(VG_temp, 3)
-                                    for a in axes(VG_temp, 1)
-                                        VGA_temp[b, α, i, β1] += Amid_tensor[a, i, j, b] * VG_temp[a, α, j, β1]
-                                    end
-                                end
-                            end
-                        end
-                        #out
-                        for b in axes(VGA_temp, 1)
-                            for β1 in axes(VGA_temp, 4)
-                                Hrshp[α, i, β] += VGA_temp[b, α, i, β1] * Hi[b, β, β1]
-                            end
-                        end
-                        #symmetrisation
-                        fill!(VG_temp, 0)
-                        #VG
-                        for j in axes(VG_temp, 3)
-                            for β1 in axes(VG_temp, 4)
-                                for a in axes(VG_temp, 1)
-                                    for α1 in axes(VG_temp, 2)
-                                        VG_temp[a, α, j, β1] += Gi[a, α1, α] * reshape(V, K_dims)[α1, j, β1]
-                                    end
-                                end
-                            end
-                        end
-                        #VGA
-                        fill!(VGA_temp, 0)
-                        for b in axes(VGA_temp, 1)
-                            for β1 in axes(VGA_temp, 4)
-                                for j in axes(VG_temp, 3)
-                                    for a in axes(VG_temp, 1)
-                                        VGA_temp[b, α, i, β1] += Amid_tensor[a, j, i, b] * VG_temp[a, α, j, β1]
-                                    end
-                                end
-                            end
-                        end
-                        #out
-                        for b in axes(VGA_temp, 1)
-                            for β1 in axes(VGA_temp, 4)
-                                Hrshp[α, i, β] += VGA_temp[b, α, i, β1] * Hi[b, β1, β]
-                            end
-                        end
-                    end
-                end
-            end
-            #@tensoropt((a,c,d,f), Hrshp[a,b,c] = Gi[y,a,d]*Hi[z,c,f]*Amid_tensor[y,b,e,z]*reshape(V,K_dims)[d,e,f] + Gi[y,d,a]*Hi[z,f,c]*Amid_tensor[y,e,b,z]*reshape(V,K_dims)[d,e,f])
-            Hrshp .= 0.5 * Hrshp
+            @tensoropt((a, c, d, f), Hrshp[a, b, c] = Gi_view[y, a, d] * Amid_tensor[y, b, e, z] * reshape(V, K_dims)[d, e, f] * Hi_view[z, c, f])
             return nothing
         end
-
-        Vapp[:], _ = linsolve(LinearMap{T}(K_matfree, prod(K_dims); issymmetric = true, ismutating = true), Pb[:], V0[:]; issymmetric = true, tol = tol, maxiter = maxiter, isposdef = true)
+        Vapp[:], _ = linsolve(
+            LinearMap{T}(K_matfree, prod(K_dims); ismutating = true),
+            Pb[:], V0[:], KrylovKit.GMRES(; tol = tol, maxiter = maxiter)
+        )
         return nothing
     else
         K = K_full(Gi_view, Hi_view, Amid_tensor)
@@ -238,18 +173,17 @@ function K_eigmin(Gi_view::AbstractArray{T, 3}, Hi_view::AbstractArray{T, 3}, V0
     if it_solver || prod(K_dims) > itslv_thresh
         function K_matfree(Vout, V::AbstractArray{S, 1}; Gi = Gi_view::AbstractArray{S, 3}, Hi = Hi_view::AbstractArray{S, 3}, K_dims = K_dims::NTuple{3, Int}, Amid_tensor = Amid_tensor::AbstractArray{S, 4}) where {S <: Number}
             Hrshp = reshape(Vout, K_dims)
-            @tensoropt((a, c, d, f), Hrshp[a, b, c] = Gi[y, a, d] * Amid_tensor[y, b, e, z] * reshape(V, K_dims)[d, e, f] * Hi[z, c, f] + Gi[y, d, a] * Hi[z, f, c] * Amid_tensor[y, e, b, z] * reshape(V, K_dims)[d, e, f])
-            Hrshp .= 0.5 * Hrshp
+            @tensoropt((a, c, d, f), Hrshp[a, b, c] = Gi[y, a, d] * Amid_tensor[y, b, e, z] * reshape(V, K_dims)[d, e, f] * Hi[z, c, f])
             return nothing
         end
-        r = eigsolve(LinearMap{T}(K_matfree, prod(K_dims); issymmetric = true, ismutating = true), copy(V0[:]), 1, :SR, issymmetric = true, tol = tol, maxiter = maxiter)
+        r = eigsolve(LinearMap{T}(K_matfree, prod(K_dims); ishermitian = true, ismutating = true), copy(V0[:]), 1, :SR; ishermitian = true, tol = tol, maxiter = maxiter)
         for i in eachindex(V)
-            V[i] = reshape(real.(r[2][1]), K_dims)[i]
+            V[i] = reshape(r[2][1], K_dims)[i]
         end
         λ = real(r[1][1])
     else
         K = K_full(Gi_view, Hi_view, Amid_tensor)
-        F = eigen(K, 1:1)
+        F = eigen(Hermitian(K), 1:1)
         for i in eachindex(V)
             V[i] = reshape(F.vectors[:, 1], K_dims)[i]
         end

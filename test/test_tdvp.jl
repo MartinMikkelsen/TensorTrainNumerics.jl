@@ -6,6 +6,51 @@ using TensorTrainNumerics
 import TensorTrainNumerics: _sync_ranks_from_lsr!, _real_or_complex_t, _svdtrunc, _to_lsr, _to_slr, _mpo_to_asbs, _dot3, _applyH1_lsr, _applyH0, _update_left_env, _update_right_env, tdvp1sweep!, tdvp2sweep!, _applyH2_lsr
 Random.seed!(42)
 
+@testset "tdvp evolves nonstationary product states for the requested time" begin
+    # An on-site Hamiltonian preserves rank one, so a dense exponential is an
+    # exact reference for TDVP, with no error from the fixed-rank approximation.
+    for nsites in 1:3, active in unique([1, nsites])
+        local_ops = [k == active ? [0.0 0.0; 0.0 1.0] : Matrix{Float64}(I, 2, 2) for k in 1:nsites]
+        H = TToperator(
+            nsites, [reshape(A, 2, 2, 1, 1) for A in local_ops],
+            ntuple(_ -> 2, nsites), ones(Int, nsites + 1), zeros(Int, nsites)
+        )
+        # Site 1 is the fastest physical index in ttv_to_tensor.
+        H_dense = reduce(kron, reverse(local_ops))
+        initial = fill(1 / sqrt(2^nsites), ntuple(_ -> 2, nsites))
+        u0 = ttv_decomp(initial)
+        total_time = 0.1
+        for imaginary_time in (false, true), nsteps in (1, 4)
+            generator = imaginary_time ? H_dense : -im * H_dense
+            expected = exp(total_time * generator) * vec(initial)
+            u = tdvp(
+                H, u0, fill(total_time / nsteps, nsteps);
+                imaginary_time, normalize = false, show_progress = false
+            )
+            @test vec(ttv_to_tensor(u)) ≈ expected atol = 1.0e-11 rtol = 1.0e-11
+            @test ttv_to_tensor(u0) ≈ initial
+        end
+    end
+end
+
+@testset "tdvp preserves complex full-rank dense evolution" begin
+    H_dense = ComplexF64[
+        1 im 0.2 0;
+        -im 2 0.1 0.3;
+        0.2 0.1 -1 -0.5im;
+        0 0.3 0.5im 0.5
+    ]
+    H = tto_decomp(reshape(H_dense, 2, 2, 2, 2))
+    initial = normalize(ComplexF64[1, 2 + im, -im, -1])
+    u0 = ttv_decomp(reshape(initial, 2, 2))
+    expected = exp(-0.08im * H_dense) * initial
+    for steps in ([0.08], fill(0.02, 4))
+        u = tdvp(H, u0, steps; normalize = false, show_progress = false)
+        @test vec(ttv_to_tensor(u)) ≈ expected atol = 1.0e-10 rtol = 1.0e-10
+        @test norm(u) ≈ 1.0 atol = 1.0e-11
+    end
+end
+
 @testset "_sync_ranks_from_lsr!" begin
     N = 3
     dims = (2, 3, 2)

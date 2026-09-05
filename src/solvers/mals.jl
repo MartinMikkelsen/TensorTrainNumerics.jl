@@ -150,10 +150,11 @@ function K_full_mals(
         K_dims::NTuple{4, Int}
     )
     T = promote_type(eltype(Gi), eltype(Hi))
-    K = zeros(T, prod(K_dims), prod(K_dims))
+    # Keep the matrix dimension explicit when the promoted element type is abstract.
+    K = zeros(T, (prod(K_dims), prod(K_dims)))
     Krshp = reshape(K, (K_dims..., K_dims...))
     @tensor Krshp[a, b, c, d, e, f, g, h] = Gi[a, b, e, f, z] * Hi[z, c, d, g, h]
-    return Hermitian(K::AbstractMatrix)
+    return K
 end
 
 function Ksolve_mals(
@@ -211,7 +212,7 @@ function K_eigmin_mals(
         return r.λ[1]::Float64, reshape(r.X[:, 1], K_dims)::Array{T, 4}
     else
         K = K_full_mals(Gtemp, Htemp, K_dims)
-        F = eigen(K, 1:1)
+        F = eigen(Hermitian(K), 1:1)
         return real(F.values[1])::Float64,
             reshape(F.vectors[:, 1], K_dims)::Array{T, 4}
     end

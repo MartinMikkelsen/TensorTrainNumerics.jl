@@ -601,6 +601,58 @@ end
     @test eltype(tt_complex32) == Complex{Float32}
 end
 
+@testset "derived TT values own their mutable storage" begin
+    for T in (Float32, Float64, ComplexF64)
+        @testset "noisy copy: $T" begin
+            for ε in (0.0, 1.0e-3)
+                x = orthogonalize(rand_tt(T, (2, 2, 2), [1, 2, 2, 1]); i = 2)
+                before = copy(x)
+                dense = ttv_to_tensor(x)
+                y = rand_tt(x; ε)
+                y.ttv_vec[1][1, 1, 1] += one(T)
+                tt_round!(y; max_bond = 1)
+                @test x.ttv_vec == before.ttv_vec
+                @test x.ttv_rks == before.ttv_rks
+                @test x.ttv_ot == before.ttv_ot
+                @test norm(x) ≈ norm(dense)
+            end
+        end
+
+        @testset "operator to vector: $T" begin
+            A = rand_tto((2, 2, 2), 2; T)
+            dense = tto_to_tensor(A)
+            ranks = copy(A.tto_rks)
+            flags = copy(A.tto_ot)
+            x = tto_to_ttv(A)
+            x.ttv_vec[1][1, 1, 1] += one(T)
+            x.ttv_ot[1] = 1
+            @test tto_to_tensor(A) == dense
+            @test A.tto_ot == flags
+            tt_round!(x; max_bond = 1)
+            @test A.tto_rks == ranks
+            @test A.tto_ot == flags
+            @test tto_to_tensor(A) == dense
+        end
+
+        @testset "vector to operator: $T" begin
+            x = rand_tt(T, (4, 4, 4), [1, 2, 2, 1])
+            before = copy(x)
+            A = ttv_to_tto(x)
+            A.tto_vec[1][1, 1, 1, 1] += one(T)
+            A.tto_ot[1] = 1
+            @test x.ttv_vec == before.ttv_vec
+            @test x.ttv_ot == before.ttv_ot
+
+            A = ttv_to_tto(x)
+            dense = tto_to_tensor(A)
+            tt_round!(x; max_bond = 1)
+            @test A.tto_rks == before.ttv_rks
+            @test A.tto_ot == before.ttv_ot
+            @test tto_to_tensor(A) == dense
+        end
+    end
+end
+
 @testset "rand_tt with TTvector noise addition" begin
     N = 3
     vec = [randn(2, 1, 2), randn(2, 2, 2), randn(2, 2, 1)]
