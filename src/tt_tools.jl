@@ -149,14 +149,14 @@ Generate a random tensor train (TT) vector by adding Gaussian noise to the input
 - `ε`: The standard deviation of the Gaussian noise to be added. Default is `1e-3` converted to type `T`.
 
 # Returns
-- `TTvector{T,N}`: A new TT vector with added Gaussian noise.
+- `TTvector{T,N}`: A new TT vector with added Gaussian noise and independent mutable storage.
 """
 function rand_tt(x_tt::TTvector{T, N}; ε = convert(T, 1.0e-5)) where {T, N}
     tt_vec = copy(x_tt.ttv_vec)
     for i in eachindex(x_tt.ttv_vec)
         tt_vec[i] += ε * randn(x_tt.ttv_dims[i], x_tt.ttv_rks[i], x_tt.ttv_rks[i + 1])
     end
-    return TTvector{T, N}(N, tt_vec, x_tt.ttv_dims, x_tt.ttv_rks, zeros(Int, N))
+    return TTvector{T, N}(N, tt_vec, x_tt.ttv_dims, copy(x_tt.ttv_rks), zeros(Int, N))
 end
 
 """
@@ -291,6 +291,7 @@ Convert a `TToperator` to a `TTvector`.
 
 # Details
 This function takes a `TToperator` and converts it into a `TTvector`. It reshapes the internal tensor d of the `TToperator` and constructs a `TTvector` with the appropriate dimensions and ranks.
+The result owns its cores, ranks, and orthogonality flags; mutating it does not change `A`.
 
 """
 function tto_to_ttv(A::TToperator{T, N}) where {T <: Number, N}
@@ -298,9 +299,9 @@ function tto_to_ttv(A::TToperator{T, N}) where {T <: Number, N}
     xtt_vec = Array{Array{T, 3}, 1}(undef, d)
     A_rks = A.tto_rks
     for i in eachindex(xtt_vec)
-        xtt_vec[i] = reshape(A.tto_vec[i], A.tto_dims[i]^2, A_rks[i], A_rks[i + 1])
+        xtt_vec[i] = reshape(copy(A.tto_vec[i]), A.tto_dims[i]^2, A_rks[i], A_rks[i + 1])
     end
-    return TTvector{T, N}(d, xtt_vec, A.tto_dims .^ 2, A.tto_rks, A.tto_ot)
+    return TTvector{T, N}(d, xtt_vec, A.tto_dims .^ 2, copy(A.tto_rks), copy(A.tto_ot))
 end
 
 """
@@ -319,6 +320,7 @@ Convert a `TTvector` to a `TToperator`.
 
 # Description
 This function converts a `TTvector` to a `TToperator` by reshaping the core tensors of the `TTvector` into 4-dimensional arrays. The reshaping is done such that the first two dimensions of each core tensor are the square roots of the original dimensions, and the last two dimensions are the ranks of the `TTvector`.
+The result owns its cores, ranks, and orthogonality flags; mutating it does not change `x`.
 """
 function ttv_to_tto(x::TTvector{T, N}) where {T <: Number, N}
     @assert(isqrt.(x.ttv_dims) .^ 2 == x.ttv_dims, DimensionMismatch)
@@ -327,9 +329,9 @@ function ttv_to_tto(x::TTvector{T, N}) where {T <: Number, N}
     x_rks = x.ttv_rks
     A_dims = isqrt.(x.ttv_dims)
     for i in eachindex(A_dims)
-        Att_vec[i] = reshape(x.ttv_vec[i], A_dims[i], A_dims[i], x_rks[i], x_rks[i + 1])
+        Att_vec[i] = reshape(copy(x.ttv_vec[i]), A_dims[i], A_dims[i], x_rks[i], x_rks[i + 1])
     end
-    return TToperator{T, N}(d, Att_vec, A_dims, x.ttv_rks, x.ttv_ot)
+    return TToperator{T, N}(d, Att_vec, A_dims, copy(x.ttv_rks), copy(x.ttv_ot))
 end
 
 """

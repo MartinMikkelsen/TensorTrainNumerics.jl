@@ -48,6 +48,9 @@ function tdvp1sweep!(
     T = eltype(ψ)
     Tc = (dt isa Complex || T <: Complex) ? Complex{real(T)} : T
     Nsites = ψ.N
+    # Symmetric projector splitting: half steps on both sweeps, with a
+    # single full step at the terminal site.
+    dt_half = dt / 2
 
     A_lsr = [permutedims(ψ.ttv_vec[k], (2, 1, 3)) for k in 1:Nsites]
     M_asbs = [permutedims(H.tto_vec[k], (3, 1, 4, 2)) for k in 1:Nsites]
@@ -69,7 +72,7 @@ function tdvp1sweep!(
 
     for k in 1:(Nsites - 1)
         H1 = x -> _applyH1_lsr(x, F[k], F[k + 2], M_asbs[k])
-        t1 = _real_or_complex_t(-im * dt)
+        t1 = _real_or_complex_t(-im * dt_half)
         AC, _ = exponentiate(H1, t1, AC; ishermitian = ishermitian, kwargs...)
         if verbose
             E = _dot3(AC, H1(AC))
@@ -89,7 +92,7 @@ function tdvp1sweep!(
 
         C = Rthin
         H0 = X -> _applyH0(X, F[k + 1], F[k + 2])
-        t0 = _real_or_complex_t(+im * dt)
+        t0 = _real_or_complex_t(+im * dt_half)
         C, _ = exponentiate(H0, t0, C; ishermitian = ishermitian, kwargs...)
         if verbose
             E0 = _dot3(C, H0(C))
@@ -123,7 +126,7 @@ function tdvp1sweep!(
 
         C = L
         H0 = X -> _applyH0(X, F[k + 1], F[k + 2])
-        t0 = _real_or_complex_t(+im * dt)
+        t0 = _real_or_complex_t(+im * dt_half)
         C, _ = exponentiate(H0, t0, C; ishermitian = ishermitian, kwargs...)
         if verbose
             E0 = _dot3(C, H0(C))
@@ -133,7 +136,7 @@ function tdvp1sweep!(
         @tensor AC[α, s, β] := A_lsr[k][α, s, γ] * C[γ, β]
 
         H1k = x -> _applyH1_lsr(x, F[k], F[k + 2], M_asbs[k])
-        tk = _real_or_complex_t(-im * dt)
+        tk = _real_or_complex_t(-im * dt_half)
         AC, _ = exponentiate(H1k, tk, AC; ishermitian = ishermitian, kwargs...)
         if verbose
             E = _dot3(AC, H1k(AC))

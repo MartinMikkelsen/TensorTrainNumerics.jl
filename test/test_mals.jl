@@ -155,3 +155,34 @@ end
     @test x_opt isa TTvector{Float64}
     @test isfinite(E[end])
 end
+
+@testset "MALS preserves real and complex nonsymmetric linear systems" begin
+    Random.seed!(9202)
+    for d in (2, 3), T in (Float64, ComplexF64)
+        dims = ntuple(_ -> 2, d)
+        A_dense = 4I + 0.2 * randn(T, 2^d, 2^d)
+        b_dense = randn(T, 2^d)
+        A = tto_decomp(reshape(A_dense, dims..., dims...))
+        b = ttv_decomp(reshape(b_dense, dims))
+        x0 = ttv_decomp(randn(T, dims))
+
+        x = linear_solve(A, b, x0, MALS())
+        values = vec(ttv_to_tensor(x))
+        @test norm(A_dense * values - b_dense) / norm(b_dense) < 1.0e-10
+        @test values ≈ A_dense \ b_dense rtol = 1.0e-10 atol = 1.0e-12
+    end
+end
+
+@testset "MALS dense eigen solve retains Hermitian semantics" begin
+    Random.seed!(9203)
+    dims = (2, 2, 2)
+    M = randn(ComplexF64, 8, 8)
+    A_dense = 8I + M + M'
+    A = tto_decomp(reshape(A_dense, dims..., dims...))
+    x0 = ttv_decomp(randn(ComplexF64, dims))
+
+    E, x, _ = eigen_solve(A, x0, MALS())
+    values = vec(ttv_to_tensor(x))
+    @test E[end] ≈ first(eigvals(Hermitian(A_dense))) atol = 1.0e-10
+    @test norm(A_dense * values - E[end] * values) / norm(values) < 1.0e-10
+end

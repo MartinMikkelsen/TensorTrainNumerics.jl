@@ -203,3 +203,51 @@ end
         dmrg_eigsolve(A, x0; sweep_schedule = [2], rmax_schedule = [4])
     end
 end
+
+@testset "DMRG preserves nonsymmetric and complex projected operators" begin
+    Random.seed!(9102)
+    # Three sites exercise nontrivial left/right environments; two sites expose
+    # the complete local problem directly. Dense data supply independent oracles.
+    for d in (2, 3), T in (Float64, ComplexF64)
+        dims = ntuple(_ -> 2, d)
+        A_dense = 4I + 0.2 * randn(T, 2^d, 2^d)
+        b_dense = randn(T, 2^d)
+        A = tto_decomp(reshape(A_dense, dims..., dims...))
+        b = ttv_decomp(reshape(b_dense, dims))
+        x0 = ttv_decomp(randn(T, dims))
+        expected = A_dense \ b_dense
+
+        for options in (NamedTuple(), (; it_solver = false, itslv_thresh = typemax(Int)), (; it_solver = false, itslv_thresh = 1))
+            alg = DMRG(; linsolv_tol = 1.0e-12, options...)
+            x = linear_solve(A, b, x0, alg)
+            values = vec(ttv_to_tensor(x))
+            @test norm(A_dense * values - b_dense) / norm(b_dense) < 1.0e-10
+            @test values ≈ expected rtol = 1.0e-10 atol = 1.0e-12
+        end
+    end
+end
+
+@testset "DMRG preserves complex Hermitian eigenvectors and linear solves" begin
+    Random.seed!(9103)
+    for d in (2, 3)
+        dims = ntuple(_ -> 2, d)
+        M = randn(ComplexF64, 2^d, 2^d)
+        A_dense = 8I + M + M'
+        A = tto_decomp(reshape(A_dense, dims..., dims...))
+        x0 = ttv_decomp(randn(ComplexF64, dims))
+        b_dense = randn(ComplexF64, 2^d)
+        b = ttv_decomp(reshape(b_dense, dims))
+        λ_exact = first(eigvals(Hermitian(A_dense)))
+
+        for options in (NamedTuple(), (; it_solver = false, itslv_thresh = typemax(Int)), (; it_solver = false, itslv_thresh = 1))
+            alg = DMRG(; linsolv_tol = 1.0e-12, options...)
+            E, x, _ = eigen_solve(A, x0, alg)
+            values = vec(ttv_to_tensor(x))
+            @test E[end] ≈ λ_exact atol = 1.0e-10
+            @test norm(A_dense * values - E[end] * values) / norm(values) < 1.0e-10
+
+            solution = linear_solve(A, b, x0, alg)
+            @test vec(ttv_to_tensor(solution)) ≈ A_dense \ b_dense rtol = 1.0e-10 atol = 1.0e-12
+        end
+    end
+end

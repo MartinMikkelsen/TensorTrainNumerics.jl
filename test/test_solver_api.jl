@@ -57,32 +57,31 @@ end
     @test qtt_to_vector(x_alg) ≈ qtt_to_vector(x_ref) rtol = 1.0e-10 atol = 1.0e-10
 end
 
-@testset "legacy linear wrappers delegate to linear_solve" begin
-    relres(A, x, b) = norm(A * x - b) / max(norm(b), eps())
+@testset "legacy linear wrappers delegate to linear_solve (seed=$seed)" for seed in (1, 3)
     relvec(x, y) = norm(qtt_to_vector(x) - qtt_to_vector(y)) / max(norm(qtt_to_vector(y)), eps())
 
-    Random.seed!(3)
+    Random.seed!(seed)
     dims = (2, 2, 2)
     ranks = [1, 2, 2, 1]
     A = id_tto(3)
     b = rand_tt(dims, ranks)
     guess = rand_tt(dims, ranks)
 
+    # A is the identity, so the relative residual is the dense distance to b.
+    # Contracting the TT difference can inflate roundoff to O(sqrt(eps())).
     x_als = linear_solve(A, b, guess, ALS(sweep_count = 2))
     x_als_wrapper = als_linsolve(A, b, guess; sweep_count = 2)
-    @test relres(A, x_als, b) < 1.0e-8
+    @test relvec(x_als, b) < 1.0e-8
     @test relvec(x_als_wrapper, x_als) < 1.0e-12
 
     x_mals = linear_solve(A, b, guess, MALS(tol = 1.0e-10, rmax = 4))
     x_mals_wrapper = mals_linsolve(A, b, guess; tol = 1.0e-10, rmax = 4)
-    # MALS performs one adaptive sweep here; the exact residual can vary slightly
-    # across BLAS/Julia builds, while this test primarily checks wrapper parity.
-    @test relres(A, x_mals, b) < 1.0e-7
+    @test relvec(x_mals, b) < 1.0e-8
     @test relvec(x_mals_wrapper, x_mals) < 1.0e-12
 
     x_dmrg = linear_solve(A, b, guess, DMRG(N = 2, sweep_schedule = [2], rmax_schedule = [4]))
     x_dmrg_wrapper = dmrg_linsolve(A, b, guess; N = 2, sweep_schedule = [2], rmax_schedule = [4])
-    @test relres(A, x_dmrg, b) < 1.0e-8
+    @test relvec(x_dmrg, b) < 1.0e-8
     @test relvec(x_dmrg_wrapper, x_dmrg) < 1.0e-12
 end
 
