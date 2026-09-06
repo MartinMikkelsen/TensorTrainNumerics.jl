@@ -1,6 +1,7 @@
 using Test
 using TensorTrainNumerics
 using Zygote   # loads ChainRulesCore, which activates the extension
+using Random
 
 @testset "ChainRulesCore extension loads" begin
     ext = Base.get_extension(TensorTrainNumerics, :TensorTrainNumericsChainRulesCoreExt)
@@ -80,6 +81,84 @@ end
         # Zygote convention for real f of complex z: real(g)=∂f/∂Re, imag(g)=∂f/∂Im.
         @test isapprox(real(ḡ[k][i]), dRe; rtol = 1.0e-4, atol = 1.0e-6)
         @test isapprox(imag(ḡ[k][i]), dIm; rtol = 1.0e-4, atol = 1.0e-6)
+    end
+end
+
+@testset "dot rrule — both complex arguments match dense pullbacks" begin
+    a = ComplexF64[1 + 2im, 3 - 4im]
+    b = ComplexF64[2 + im, -1 + 3im]
+    A = TTvector(1, [reshape(a, 2, 1, 1)], (2,), [1, 1], [0])
+    B = TTvector(1, [reshape(b, 2, 1, 1)], (2,), [1, 1], [0])
+    _, tt_pullback = Zygote.pullback(
+        (ac, bc) -> dot(build_tt(ac, A), build_tt(bc, B)), A.ttv_vec, B.ttv_vec
+    )
+    _, dense_pullback = Zygote.pullback(ladot, a, b)
+
+    for seed in (1.0 + 0im, 1.0im, 0.3 - 0.7im)
+        ga, gb = tt_pullback(seed)
+        expected_a, expected_b = dense_pullback(seed)
+        @test vec(ga[1]) ≈ expected_a
+        @test vec(gb[1]) ≈ expected_b
+    end
+
+    f(bc) = real(dot(A, build_tt(bc, B)))
+    gb = Zygote.gradient(f, B.ttv_vec)[1]
+    direction = [reshape(ComplexF64[im, 0], 2, 1, 1)]
+    @test real(ladot(gb[1], direction[1])) ≈ 2.0
+    @test fd_directional(f, B.ttv_vec, direction) ≈ 2.0 atol = 1.0e-8
+end
+
+@testset "dot rrule — complex cotangents through TT environments" begin
+    rng = Xoshiro(20260906)
+    dims = (2, 3, 2)
+    ranks_a = [1, 2, 2, 1]
+    ranks_b = [1, 1, 2, 1]
+    A = TTvector(
+        3, [randn(rng, ComplexF64, dims[k], ranks_a[k], ranks_a[k + 1]) for k in 1:3],
+        dims, ranks_a, zeros(Int, 3)
+    )
+    B = TTvector(
+        3, [randn(rng, ComplexF64, dims[k], ranks_b[k], ranks_b[k + 1]) for k in 1:3],
+        dims, ranks_b, zeros(Int, 3)
+    )
+    da = [randn(rng, ComplexF64, size(c)) for c in A.ttv_vec]
+    db = [randn(rng, ComplexF64, size(c)) for c in B.ttv_vec]
+    _, pullback = Zygote.pullback(
+        (ac, bc) -> dot(build_tt(ac, A), build_tt(bc, B)), A.ttv_vec, B.ttv_vec
+    )
+    a_dense = vec(ttv_to_tensor(A))
+    b_dense = vec(ttv_to_tensor(B))
+
+    for seed in (1.0 + 0im, 1.0im, 0.3 - 0.7im)
+        # Re(conj(seed) * dot(A, B)) supplies this cotangent: seed=1 and
+        # seed=im are the real and imaginary objectives respectively.
+        ga, gb = pullback(seed)
+        fa(ac) = real(conj(seed) * ladot(vec(ttv_to_tensor(build_tt(ac, A))), b_dense))
+        fb(bc) = real(conj(seed) * ladot(a_dense, vec(ttv_to_tensor(build_tt(bc, B)))))
+        @test sum(real(ladot(ga[k], da[k])) for k in eachindex(da)) ≈ fd_directional(fa, A.ttv_vec, da) rtol = 1.0e-5 atol = 1.0e-7
+        @test sum(real(ladot(gb[k], db[k])) for k in eachindex(db)) ≈ fd_directional(fb, B.ttv_vec, db) rtol = 1.0e-5 atol = 1.0e-7
+    end
+end
+
+@testset "complex dot gradient composes with fixed operator application" begin
+    rng = Xoshiro(20260907)
+    dims = (2, 2, 2)
+    ranks = [1, 2, 2, 1]
+    H = pauli_sum_tto(:y, 3)
+    ψ = TTvector(
+        3, [randn(rng, ComplexF64, dims[k], ranks[k], ranks[k + 1]) for k in 1:3],
+        dims, ranks, zeros(Int, 3)
+    )
+    c = TTvector(
+        3, [randn(rng, ComplexF64, dims[k], ranks[k], ranks[k + 1]) for k in 1:3],
+        dims, ranks, zeros(Int, 3)
+    )
+    dirs = [randn(rng, ComplexF64, size(core)) for core in ψ.ttv_vec]
+    for component in (real, imag)
+        f(cores) = component(dot(c, H * build_tt(cores, ψ)))
+        g = Zygote.gradient(f, ψ.ttv_vec)[1]
+        ad_dd = sum(real(ladot(g[k], dirs[k])) for k in eachindex(dirs))
+        @test ad_dd ≈ fd_directional(f, ψ.ttv_vec, dirs) rtol = 1.0e-5 atol = 1.0e-7
     end
 end
 

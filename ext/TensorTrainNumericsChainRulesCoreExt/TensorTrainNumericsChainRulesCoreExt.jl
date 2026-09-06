@@ -53,7 +53,8 @@ function rrule(
             @tensor EB[z, α, a] := Bk[z, β, b] * Lp[α, β] * Gn[a, b]
             @tensor EA[z, β, b] := conj(Ak[z, α, a]) * Lp[α, β] * Gn[a, b]
             Ā[k] = conj(Δ) .* EB
-            B̄[k] = Δ .* EA
+            # B enters linearly, so its reverse rule conjugates the complete coefficient.
+            B̄[k] = Δ .* conj.(EA)
         end
         return (
             NoTangent(),

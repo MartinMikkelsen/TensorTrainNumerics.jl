@@ -248,6 +248,38 @@ end
     @test A == B
 end
 
+@testset "NN and periodic Laplacians compose with TT operations" begin
+    for (name, build) in ((:NN, Δ_NN), (:periodic, Δ_P)), d in 4:7
+        @testset "$name, $d sites" begin
+            n = 2^d
+            reference = Matrix(SymTridiagonal(fill(2.0, n), fill(-1.0, n - 1)))
+            if name == :NN
+                reference[1, 1] = reference[end, end] = 1.0
+            else
+                reference[1, end] = reference[end, 1] = -1.0
+            end
+
+            A = build(d)
+            @test first(A.tto_rks) == last(A.tto_rks) == 1
+            @test size(first(A.tto_vec), 3) == size(last(A.tto_vec), 4) == 1
+            @test qtto_to_matrix(A) == reference
+            constant = TensorTrainNumerics.ones_tt(ntuple(_ -> 2, d))
+            @test norm(qtt_to_function(A * constant)) < 1.0e-12
+
+            for T in (Float64, ComplexF64)
+                values = T <: Complex ? sin.(1:n) + im * cos.(2 .* (1:n)) : sin.(1:n)
+                x = ttv_decomp(reshape(values, ntuple(_ -> 2, d)))
+                expected = reference * qtt_to_function(x)
+                y = A * x
+                @test first(y.ttv_rks) == last(y.ttv_rks) == 1
+                @test norm(y) ≈ norm(expected) atol = 1.0e-10
+                @test qtt_to_function(orthogonalize(y)) ≈ expected atol = 1.0e-10
+                @test qtt_to_function(tt_round!(copy(y); tol = 1.0e-12)) ≈ expected atol = 1.0e-10
+            end
+        end
+    end
+end
+
 @testset "shift, ∇, Δ" begin
     # Test for d = 3
     d = 3

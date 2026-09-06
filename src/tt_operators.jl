@@ -331,7 +331,7 @@ Constructs a tensor train operator (TTO) representation of the Laplacian with Ne
 """
 function Δ_NN(d)
     @assert d ≥ 4 "Dimension must be at least 4"
-    out = zeros_tto(ntuple(_ -> 2, d), [4; fill(5, d - 1); 4])
+    out = zeros_tto(ntuple(_ -> 2, d), [1; fill(5, d - 1); 1])
     id = [1 0; 0 1]
     J = [0 1; 0 0]
     I₁ = [1 0; 0 0]
@@ -340,7 +340,7 @@ function Δ_NN(d)
         for j in 1:2
             out.tto_vec[1][i, j, 1, :] = [id[i, j]; J[j, i]; J[i, j]; I₂[i, j]; I₁[i, j]]
             for k in 2:(d - 1)
-                out.tto_vec[k][i, j, :, :] = [id[i, j] J[j, i] J[i, j] 0 0; 0 J[i, j] 0 0 0; 0 0 J[j, i] 0 0; 0 0 0 I₂[i, j] 0; 0 0 0 0 -I₁[i, j]]
+                out.tto_vec[k][i, j, :, :] = [id[i, j] J[j, i] J[i, j] 0 0; 0 J[i, j] 0 0 0; 0 0 J[j, i] 0 0; 0 0 0 I₂[i, j] 0; 0 0 0 0 I₁[i, j]]
             end
             out.tto_vec[d][i, j, :, 1] = [2 * id[i, j] - J[i, j] - J[j, i]; -J[i, j]; -J[j, i]; -I₂[i, j]; -I₁[i, j]]
         end
@@ -353,7 +353,7 @@ Constructs a tensor train operator (TTO) representation of the Laplacian with pe
 """
 function Δ_P(d)
     @assert d ≥ 4 "Dimension must be at least 4"
-    out = zeros_tto(ntuple(_ -> 2, d), fill(5, d + 1))
+    out = zeros_tto(ntuple(_ -> 2, d), [1; fill(5, d - 1); 1])
     id = [1 0; 0 1]
     J = [0 1; 0 0]
     for i in 1:2
@@ -649,7 +649,6 @@ function qtt_laplacian(
     @assert ordering ∈ (:interleaved, :serial) "ordering must be :interleaved or :serial"
     @assert n_dims ≥ 1 "n_dims must be at least 1"
     @assert bc ∈ (:DD, :DN, :ND, :NN) "bc must be :DD, :DN, :ND, or :NN"
-    @assert !(bc == :NN && n_dims > 1) "bc=:NN is only supported for n_dims=1 (the Δ_NN MPO has non-unit boundary ranks, which are incompatible with the TToperator Kronecker sum)"
 
     d = bits_per_dim
     h = (b - a) / (2^d - 1)

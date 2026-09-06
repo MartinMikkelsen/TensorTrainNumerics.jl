@@ -299,7 +299,7 @@ function tt_cross(
             break
         end
 
-        if alg.kickrank !== nothing
+        if iter < alg.maxiter && alg.kickrank !== nothing
             newRs = copy(Rs)
             for n in 2:N
                 newRs[n] = min(newRs[n] + alg.kickrank, alg.rmax)

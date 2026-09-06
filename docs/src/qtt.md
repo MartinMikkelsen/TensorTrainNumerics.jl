@@ -193,7 +193,7 @@ Available boundary conditions:
 | `:DD` | Dirichlet–Dirichlet |
 | `:DN` | Dirichlet–Neumann |
 | `:ND` | Neumann–Dirichlet |
-| `:NN` | Neumann–Neumann (1D only) |
+| `:NN` | Neumann–Neumann |
 
 ## QTT operator library
 
@@ -204,7 +204,7 @@ These 1D operators come with explicit rank-2 (or rank-1) QTT representations and
 | `Δ(d)` | Second-difference, Dirichlet–Dirichlet (tridiag(2,−1,−1)) |
 | `Δ_DN(d)` | Second-difference, Dirichlet–Neumann |
 | `Δ_ND(d)` | Second-difference, Neumann–Dirichlet |
-| `Δ_NN(d)` | Second-difference, Neumann–Neumann (1D only) |
+| `Δ_NN(d)` | Second-difference, Neumann–Neumann |
 | `Δ_P(d)` | Second-difference, periodic |
 | `Δ⁻¹_DN(d)` | Inverse Laplacian, Dirichlet–Neumann BC |
 | `∇(d)` | First-difference (forward difference) |
