@@ -99,6 +99,36 @@ import TensorTrainNumerics: MaxVolPivot, RandomPivot, MaxVol, Greedy, DMRGcross,
             @test tt.ttv_rks[end] == 1
         end
 
+        @testset "MaxVol returns usable tensors after iteration exhaustion" begin
+            domain = [collect(range(0.0, 1.0; length = 4)) for _ in 1:3]
+            f(X) = vec(sum(X; dims = 2) .^ 2)
+            exact = [(x + y + z)^2 for x in domain[1], y in domain[2], z in domain[3]]
+
+            for maxiter in (0, 1, 2, 5), kickrank in (nothing, 1)
+                @testset "maxiter=$maxiter, kickrank=$kickrank" begin
+                    Random.seed!(123)
+                    alg = MaxVol(; maxiter, kickrank, tol = 1.0e-12, verbose = false)
+                    tt = tt_cross(f, domain, alg; ranks = 1, val_size = 200)
+                    dense = ttv_to_tensor(tt)
+
+                    @test tt.ttv_rks[1] == tt.ttv_rks[end] == 1
+                    @test all(size(tt.ttv_vec[k]) == (tt.ttv_dims[k], tt.ttv_rks[k], tt.ttv_rks[k + 1]) for k in 1:tt.N)
+                    @test all(isfinite, dense)
+                    @test norm(tt) ≈ norm(dense)
+                    @test ttv_to_tensor(orthogonalize(tt)) ≈ dense
+
+                    if kickrank == 1 && maxiter == 5
+                        # The polynomial has exact TT rank three; reaching it
+                        # requires enrichment before convergence.
+                        @test maximum(tt.ttv_rks) > 1
+                        @test dense ≈ exact atol = 1.0e-11 rtol = 1.0e-11
+                    elseif maxiter in (1, 2)
+                        @test norm(dense - exact) / norm(exact) > alg.tol
+                    end
+                end
+            end
+        end
+
         @testset "DMRGcross uses relative tail-norm truncation" begin
             spectrum = [1.0, 0.08, 0.08]
             f(x) = [x[p, 1] == x[p, 2] ? spectrum[Int(x[p, 1])] : 0.0 for p in axes(x, 1)]

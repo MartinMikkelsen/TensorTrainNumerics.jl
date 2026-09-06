@@ -277,9 +277,8 @@ end
     )
     @test maximum(abs, ev_s .- ev_i) < 1.0e-8
 
-    # BC variants with unit boundary ranks work for n_dims ≥ 2
-    # (:NN has non-unit boundary ranks and is only supported for n_dims=1)
-    for bc in (:DD, :DN, :ND)
+    # Every boundary condition composes into a multidimensional Kronecker sum.
+    for bc in (:DD, :DN, :ND, :NN)
         @test qtt_laplacian(2, d; bc = bc, ordering = :serial) isa QTToperator
     end
 
@@ -291,6 +290,32 @@ end
     @test A3 isa QTToperator
     @test A3.n_dims == 3
     @test A3.N == 9
+end
+
+@testset "NN Laplacian acts on multidimensional QTT states" begin
+    d = 4
+    n = 2^d
+    h = 1.0 / (n - 1)
+    diagonal = fill(2.0, n)
+    diagonal[1] = diagonal[end] = 1.0
+    L = Matrix(SymTridiagonal(diagonal, fill(-1.0, n - 1))) / h^2
+    identity = Matrix{Float64}(I, n, n)
+    reference = kron(L, identity) + kron(identity, L)
+
+    for ordering in (:serial, :interleaved)
+        @testset "$ordering" begin
+            A = qtt_laplacian(2, d; bc = :NN, ordering)
+            x = function_to_qttv(v -> sin(2v[1]) + cos(3v[2]), 2, d; ordering)
+            expected = reshape(reference * vec(qttv_to_array(x)), n, n)
+            y = A * x
+            @test first(A.tto_rks) == last(A.tto_rks) == 1
+            @test qttv_to_array(y) ≈ expected atol = 1.0e-9
+            @test qttv_to_array(orthogonalize(y)) ≈ expected atol = 1.0e-9
+
+            constant = function_to_qttv(_ -> 1.0, 2, d; ordering)
+            @test norm(qttv_to_array(A * constant)) < 1.0e-9
+        end
+    end
 end
 
 @testset "Cross-type dispatch" begin
