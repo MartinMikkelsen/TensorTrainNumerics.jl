@@ -1,4 +1,10 @@
 [deps]
+CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
+InterpolativeQTT = "87f1ea11-1d4d-47cb-b1d1-07788fc25290"
+KrylovKit = "0b1a1467-8014-51b9-945f-bf0ae24f4b77"
 Manifolds = "1cead3c2-87b3-11e9-0ccd-23c62b72b94e"
 ManifoldsBase = "3362f125-f0bb-47a3-aa74-596ffd7ef2fb"
 Manopt = "0fc0a36d-df90-57f3-8f93-d78a9fc72bb5"
+OptimKit = "77e91f04-9b3b-57a6-a776-40b61faaebe0"
+ProgressMeter = "92933f4c-e287-5a05-a399-4b506db050ca"
+TensorTrainNumerics = "304e70ee-b558-420e-aed5-de4d05b6ca2b"
