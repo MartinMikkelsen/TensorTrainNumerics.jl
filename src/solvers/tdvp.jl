@@ -10,7 +10,7 @@ function _sync_ranks_from_lsr!(ψ::AbstractTTvector, A_lsr::Vector{<:AbstractArr
         new_rks[k] = size(A_lsr[k], 1)
     end
     new_rks[N + 1] = size(A_lsr[N], 3)
-    ψ.ttv_rks = new_rks
+    ψ.ttv_rks .= new_rks
     ψ.ttv_ot .= 0
     return ψ
 end
@@ -152,6 +152,38 @@ function tdvp1sweep!(
     return ψ, F
 end
 
+"""
+    tdvp(H, u₀, steps; kwargs...) -> TTvector
+    tdvp(H, u₀, steps; return_error=true, kwargs...) -> (TTvector, rel_error)
+
+Evolve `u₀` with the one-site time-dependent variational principle (Haegeman et
+al. 2016), using a symmetric (second-order) projector splitting. The TT ranks
+stay equal to those of `orthogonalize(u₀)`; use [`tdvp2`](@ref) for adaptive ranks.
+
+The generator is applied as follows:
+
+- real time (default): `du/dt = -i H u`, so each step computes approximately
+  `exp(-i h H) u`. Real `H` and `u₀` are promoted to complex.
+- `imaginary_time = true`: `du/dt = H u`, so each step computes approximately
+  `exp(h H) u` and the element type is kept. To relax toward the ground state of
+  a Hamiltonian `K`, pass `H = -K` together with `normalize = true`.
+
+`steps` is a vector of step sizes `h`, not of time points. Each of the `sweeps`
+sweeps performed per entry of `steps` advances the state by the full step `h`,
+so every entry evolves the state by `sweeps * h`.
+
+# Keyword arguments
+- `normalize::Bool=true`: rescale the state to unit norm after every step.
+- `sweeps::Int=1`: sweeps per step (see above).
+- `carry_env::Bool=true`: reuse environments between the sweeps of one step.
+- `return_error::Bool=false`: also return the relative residual of the last
+  step's finite-difference derivative, `‖(u_{n+1} − u_n)/h − G u_{n+1}‖ / ‖u_{n+1}‖`,
+  where `G` is `H` or `-iH`.
+- `verbose::Bool=false`: log the local energy at every site update.
+- `show_progress::Bool=true`: display a progress bar over the time steps.
+- Remaining keyword arguments are passed to `KrylovKit.exponentiate`
+  (for example `ishermitian=false`, `tol`, or `krylovdim`).
+"""
 function tdvp(
         H::AbstractTToperator,
         u₀::AbstractTTvector,
@@ -304,6 +336,40 @@ function tdvp2sweep!(
     return ψ, F
 end
 
+"""
+    tdvp2(H, u₀, steps; kwargs...) -> TTvector
+    tdvp2(H, u₀, steps; return_error=true, kwargs...) -> (TTvector, rel_error)
+
+Evolve `u₀` with the two-site time-dependent variational principle (Haegeman et
+al. 2016). Each two-site update is split by a truncated SVD, so the TT ranks
+adapt, up to `max_bond`.
+
+The generator is applied as follows:
+
+- real time (default): `du/dt = -i H u`, so each step computes approximately
+  `exp(-i h H) u`. Real `H` and `u₀` are promoted to complex.
+- `imaginary_time = true`: `du/dt = H u`, so each step computes approximately
+  `exp(h H) u` and the element type is kept. To relax toward the ground state of
+  a Hamiltonian `K`, pass `H = -K` together with `normalize = true`.
+
+`steps` is a vector of step sizes `h`, not of time points. Each of the `sweeps`
+sweeps performed per entry of `steps` advances the state by the full step `h`,
+so every entry evolves the state by `sweeps * h`.
+
+# Keyword arguments
+- `max_bond::Int=typemax(Int)`: maximum bond dimension after each two-site update.
+- `truncerr::Real=0.0`: singular values of each two-site SVD smaller than
+  `truncerr` are discarded (an absolute threshold).
+- `normalize::Bool=true`: rescale the state to unit norm after every step.
+- `sweeps::Int=1`: sweeps per step (see above).
+- `carry_env::Bool=true`: reuse environments between the sweeps of one step.
+- `return_error::Bool=false`: also return the relative residual of the last
+  step's finite-difference derivative, `‖(u_{n+1} − u_n)/h − G u_{n+1}‖ / ‖u_{n+1}‖`,
+  where `G` is `H` or `-iH`.
+- `verbose::Bool=false`: log the local energy at every two-site update.
+- `show_progress::Bool=true`: display a progress bar over the time steps.
+- Remaining keyword arguments are passed to `KrylovKit.exponentiate`.
+"""
 function tdvp2(
         H::AbstractTToperator,
         u₀::AbstractTTvector,

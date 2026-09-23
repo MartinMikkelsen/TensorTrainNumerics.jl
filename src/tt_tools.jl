@@ -5,21 +5,40 @@ using TensorOperations
 import Base: isempty, eltype, copy, complex
 import KrylovKit: orthogonalize
 
+"""
+    AbstractTTvector
+
+Supertype of tensor-train vectors: [`TTvector`](@ref) and the QTT wrapper
+[`QTTvector`](@ref).
+"""
 abstract type AbstractTTvector end
 """
-A structure representing a Tensor Train (TT) vector.
+    TTvector{T<:Number, M}
+
+A tensor in tensor-train (TT) format, also called a matrix product state:
+
+    x[i₁, …, i_M] = G₁[i₁, :, :] * G₂[i₂, :, :] * ⋯ * G_M[i_M, :, :]
+
+where core `Gₖ` has size `(nₖ, rₖ₋₁, rₖ)` and `r₀ = r_M = 1`.
 
 # Fields
-- `N::Int64`: The number of elements in the TT vector.
-- `ttv_vec::Vector{Array{T,3}}`: A vector of 3-dimensional arrays representing the TT d.
-- `ttv_dims::NTuple{M,Int64}`: A tuple containing the dimensions of the TT vector.
-- `ttv_rks::Vector{Int64}`: A vector containing the TT ranks.
-- `ttv_ot::Vector{Int64}`: A vector containing the orthogonalization information.
+- `N::Int64`: number of cores (sites); equal to `M`.
+- `ttv_vec::Vector{Array{T,3}}`: the cores, each of size `(ttv_dims[k], ttv_rks[k], ttv_rks[k+1])`.
+- `ttv_dims::NTuple{M,Int64}`: physical dimensions `(n₁, …, n_M)`.
+- `ttv_rks::Vector{Int64}`: TT ranks `(r₀, r₁, …, r_M)`, of length `M + 1`.
+- `ttv_ot::Vector{Int64}`: orthogonality flag of each core: `1` left-orthogonal,
+  `-1` right-orthogonal, `0` neither (or the orthogonality center).
 
-# Type Parameters
-- `T<:Number`: The type of the elements in the TT vector.
+The fields cannot be reassigned, but in-place operations such as
+[`tt_round!`](@ref) and [`add!`](@ref) replace the contents of `ttv_vec`,
+`ttv_rks`, and `ttv_ot`; any other object built on the same vectors (such as a
+[`QTTvector`](@ref) wrapping this `TTvector`) sees the change.
+
+The constructor does not check that these fields are consistent with each other.
+Use constructors such as [`ttv_decomp`](@ref), [`rand_tt`](@ref), or
+[`zeros_tt`](@ref) to build valid instances.
 """
-mutable struct TTvector{T <: Number, M} <: AbstractTTvector
+struct TTvector{T <: Number, M} <: AbstractTTvector
     N::Int64
     ttv_vec::Vector{Array{T, 3}}
     ttv_dims::NTuple{M, Int64}
@@ -30,19 +49,32 @@ end
 Base.eltype(::TTvector{T, N}) where {T <: Number, N} = T
 
 
+"""
+    AbstractTToperator
+
+Supertype of tensor-train operators: [`TToperator`](@ref) and the QTT wrapper
+[`QTToperator`](@ref).
+"""
 abstract type AbstractTToperator end
 """
-A structure representing a Tensor Train (TT) operator.
+    TToperator{T<:Number, M}
+
+A linear operator in tensor-train format, also called a matrix product operator:
+
+    A[(i₁, …, i_M), (j₁, …, j_M)] = A₁[i₁, j₁, :, :] * ⋯ * A_M[i_M, j_M, :, :]
+
+where core `Aₖ` has size `(nₖ, nₖ, rₖ₋₁, rₖ)` (output index, input index, left
+rank, right rank) and `r₀ = r_M = 1`.
 
 # Fields
-- `N::Int64`: The number of dimensions of the TT operator.
-- `tto_vec::Array{Array{T,4},1}`: A vector of 4-dimensional arrays representing the TT d.
-- `tto_dims::NTuple{M,Int64}`: A tuple containing the dimensions of the TT operator.
-- `tto_rks::Array{Int64,1}`: An array containing the TT ranks.
-- `tto_ot::Array{Int64,1}`: An array containing the output dimensions of the TT operator.
+- `N::Int64`: number of cores (sites); equal to `M`.
+- `tto_vec::Vector{Array{T,4}}`: the cores.
+- `tto_dims::NTuple{M,Int64}`: physical dimensions `(n₁, …, n_M)`, shared by input and output.
+- `tto_rks::Vector{Int64}`: TT ranks `(r₀, r₁, …, r_M)`, of length `M + 1`.
+- `tto_ot::Vector{Int64}`: orthogonality flag of each core, with the same
+  convention as `TTvector.ttv_ot`.
 
-# Type Parameters
-- `T<:Number`: The type of the elements in the TT vector.
+The constructor does not check that these fields are consistent with each other.
 """
 struct TToperator{T <: Number, M} <: AbstractTToperator
     N::Int64
@@ -85,38 +117,25 @@ function rand_orthogonal(n, m; T = Float64)
 end
 
 """
-    rand_tt(dims, rks; normalise=false, orthogonal=false)
+    rand_tt([T=Float64,] dims, rks; normalise=false, orthogonal=false)
+    rand_tt(dims, rmax::Int; normalise=false, orthogonal=false)
 
-Generate a random Tensor Train (TT) format tensor with specified dimensions and ranks.
+Generate a random [`TTvector`](@ref) with element type `T`, physical dimensions
+`dims`, and TT ranks `rks` (a vector of length `length(dims) + 1` with
+`rks[1] == rks[end] == 1`). Core entries are drawn from `randn`.
 
-# Arguments
-- `dims::Vector{Int}`: A vector specifying the dimensions of the tensor.
-- `rks::Vector{Int}`: A vector specifying the TT-ranks.
-- `normalise::Bool`: A keyword argument to indicate whether the tensor should be normalised. Default is `false`.
-- `orthogonal::Bool`: A keyword argument to indicate whether the tensor should be orthogonal. Default is `false`.
+With an integer `rmax`, every interior rank is set to `rmax`, reduced where the
+dimensions force a smaller rank (see [`r_and_d_to_rks`](@ref)).
 
-# Returns
-- A random tensor in TT format with the specified properties.
+# Keyword arguments
+- `normalise::Bool=false`: scale core `k` by `1/√(dims[k]·rks[k+1])`.
+- `orthogonal::Bool=false`: when `normalise` is also `true`, replace every core by
+  a right-orthogonal core from a QR factorization. Has no effect otherwise.
 """
 function rand_tt(dims, rks; normalise = false, orthogonal = false)
     return rand_tt(Float64, dims, rks; normalise = normalise, orthogonal = orthogonal)
 end
 
-"""
-    rand_tt(::Type{T}, dims, rks; normalise=false, orthogonal=false) where T
-
-Generate a random Tensor Train (TT) tensor with specified dimensions and ranks.
-
-# Arguments
-- `::Type{T}`: The data type of the tensor elements.
-- `dims`: A vector specifying the dimensions of the tensor.
-- `rks`: A vector specifying the TT-ranks.
-- `normalise`: A boolean flag indicating whether to normalize the TT-d. Default is `false`.
-- `orthogonal`: A boolean flag indicating whether to orthogonalize the TT-d. Default is `false`.
-
-# Returns
-- A TT tensor with random elements of type `T`.
-"""
 function rand_tt(::Type{T}, dims, rks; normalise = false, orthogonal = false) where {T}
     y = zeros_tt(T, dims, rks)
     @inbounds for i in eachindex(y.ttv_vec)
@@ -140,13 +159,13 @@ function rand_tt(dims, rmax::Int; normalise = false, orthogonal = false)
 end
 
 """
-    rand_tt(x_tt::TTvector{T,N}; ε=convert(T,1e-3)) -> TTvector{T,N}
+    rand_tt(x_tt::TTvector{T,N}; ε=convert(T,1e-5)) -> TTvector{T,N}
 
 Generate a random tensor train (TT) vector by adding Gaussian noise to the input TT vector `x_tt`.
 
 # Arguments
 - `x_tt::TTvector{T,N}`: The input TT vector to which noise will be added.
-- `ε`: The standard deviation of the Gaussian noise to be added. Default is `1e-3` converted to type `T`.
+- `ε`: The standard deviation of the Gaussian noise to be added. Default is `1e-5` converted to type `T`.
 
 # Returns
 - `TTvector{T,N}`: A new TT vector with added Gaussian noise and independent mutable storage.
@@ -174,10 +193,18 @@ Base.copy(x_tt::TTvector{T, N}) where {T <: Number, N} =
     TTvector{T, N}(x_tt.N, copy.(x_tt.ttv_vec), x_tt.ttv_dims, copy(x_tt.ttv_rks), copy(x_tt.ttv_ot))
 
 """
-TT decomposition by the Hierarchical SVD algorithm 
-	* Oseledets, I. V. (2011). Tensor-train decomposition. *SIAM Journal on Scientific Computing*, 33(5), 2295-2317.
-	* Schollwöck, U. (2011). The density-matrix renormalization group in the age of matrix product states. *Annals of physics*, 326(1), 96-192.
-The *root* of the TT decomposition is at index *i.e.* ``A_i`` for ``i < index`` are left-orthogonal and ``A_i`` for ``i > index`` are right-orthogonal. Singular values lower than tol are discarded.
+    ttv_decomp(tensor::Array; index=1, tol=1e-12) -> TTvector
+
+Decompose a dense `tensor` into a [`TTvector`](@ref) with the TT-SVD
+(hierarchical SVD) algorithm of Oseledets (2011); see also Schollwöck (2011).
+
+The cores `k < index` are left-orthogonal, the cores `k > index` are
+right-orthogonal, and core `index` carries the norm. At every SVD, singular
+values smaller than `tol` are discarded; `tol` is an absolute threshold, not
+relative to the norm of `tensor`.
+
+* Oseledets, I. V. (2011). Tensor-train decomposition. *SIAM Journal on Scientific Computing*, 33(5), 2295-2317.
+* Schollwöck, U. (2011). The density-matrix renormalization group in the age of matrix product states. *Annals of Physics*, 326(1), 96-192.
 """
 function ttv_decomp(tensor::Array{T, d}; index = 1, tol = 1.0e-12) where {T <: Number, d}
     # Decomposes a tensor into its tensor train with core matrices at i=index
@@ -290,7 +317,7 @@ Convert a `TToperator` to a `TTvector`.
 - `TTvector{T,N}`: The resulting TTvector.
 
 # Details
-This function takes a `TToperator` and converts it into a `TTvector`. It reshapes the internal tensor d of the `TToperator` and constructs a `TTvector` with the appropriate dimensions and ranks.
+This function takes a `TToperator` and converts it into a `TTvector`. It reshapes the cores of the `TToperator` and constructs a `TTvector` with the appropriate dimensions and ranks.
 The result owns its cores, ranks, and orthogonality flags; mutating it does not change `A`.
 
 """
@@ -335,7 +362,13 @@ function ttv_to_tto(x::TTvector{T, N}) where {T <: Number, N}
 end
 
 """
-Returns the TT decomposition of a matrix using the HSVD algorithm
+    tto_decomp(tensor::Array; index=1) -> TToperator
+
+Decompose a dense operator into a [`TToperator`](@ref) with the TT-SVD algorithm.
+`tensor` has `2d` indices ordered `[i₁, …, i_d, j₁, …, j_d]` (output indices
+first, then input indices). The index pairs are interleaved to
+`[(i₁, j₁), …, (i_d, j_d)]` and decomposed with [`ttv_decomp`](@ref) using its
+default tolerance.
 """
 function tto_decomp(tensor::Array{T, N}; index = 1) where {T <: Number, N}
     # Decomposes a tensor operator into its tensor train
@@ -489,7 +522,7 @@ end
 """
     orthogonalize(x_tt::TTvector{T,N}; i=1::Int) where {T<:Number, N}
 
-Orthogonalizes the given Tensor Train (TT) vector `x_tt` with respect to the `i`-th core. The orthogonalization process involves QR and LQ decompositions to ensure that the TT d are orthogonal.
+Orthogonalizes the given Tensor Train (TT) vector `x_tt` with respect to the `i`-th core. The orthogonalization process involves QR and LQ decompositions so that the cores left of `i` are left-orthogonal and the cores right of `i` are right-orthogonal.
 
 # Arguments
 - `x_tt::TTvector{T,N}`: The input TT vector to be orthogonalized.
@@ -706,7 +739,15 @@ function matricize(qtt::TTvector{T}, core::Int)::Vector{T} where {T <: Number}
     return P * v
 end
 
+"""
+    concatenate(tt1::TTvector, tt2::TTvector) -> TTvector
+    concatenate(A1::TToperator, A2::TToperator) -> TToperator
 
+Join two tensor trains into one with `tt1.N + tt2.N` cores: the cores of `tt1`
+followed by the cores of `tt2`. The last rank of the first argument must equal
+the first rank of the second; for standard boundary ranks of 1 the result
+represents the tensor (Kronecker) product.
+"""
 function concatenate(tt1::TTvector, tt2::TTvector)
     if tt1.ttv_rks[end] != tt2.ttv_rks[1]
         throw(ArgumentError("The final rank of the first TTvector must equal the initial rank of the second TTvector."))

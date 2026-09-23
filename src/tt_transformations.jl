@@ -76,6 +76,13 @@ function fourier_qtto(d::Int; sign::Float64 = -1.0, K::Int = 25, normalize::Bool
     return TToperator{ComplexF64, d}(d, cores, dims, rks, ot)
 end
 
+"""
+    reverse_qtt_bits(x::TTvector) -> TTvector
+
+Reverse the order of the sites of `x`. For a binary QTT this reverses the bit
+order of the position index, converting between most-significant-bit-first and
+least-significant-bit-first layouts.
+"""
 function reverse_qtt_bits(x::TTvector{T, d}) where {T, d}
     new_vecs = reverse(copy.(x.ttv_vec))
     new_vecs = map(c -> permutedims(c, (1, 3, 2)), new_vecs)

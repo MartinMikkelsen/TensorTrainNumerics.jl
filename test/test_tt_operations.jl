@@ -257,6 +257,14 @@ end
     @test isapprox(ttv_to_tensor(y), ttv_to_tensor(x) / a; atol = 1.0e-12)
 end
 
+@testset "unary minus" begin
+    x = rand_tt((2, 3, 2), [1, 2, 2, 1])
+    A = rand_tto((2, 3, 2), 2)
+    @test ttv_to_tensor(-x) ≈ -ttv_to_tensor(x)
+    @test tto_to_tensor(-A) ≈ -tto_to_tensor(A)
+    @test ttv_to_tensor(x + (-x)) ≈ zeros(2, 3, 2) atol = 1.0e-14
+end
+
 @testset "Scalar multiplication owns mutable TT storage" begin
     for α in (0.0, 2.0)
         x = rand_tt((2, 3), [1, 2, 1])

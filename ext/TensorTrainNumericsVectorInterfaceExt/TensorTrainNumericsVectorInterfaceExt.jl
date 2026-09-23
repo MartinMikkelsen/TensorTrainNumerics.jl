@@ -16,13 +16,7 @@ function _bound(r::TTvector, max_bond::Int)
     return _RankBoundedTTvector(tt_compress!(r, max_bond), max_bond)
 end
 
-function _overwrite!(destination::TTvector, source::TTvector)
-    destination.ttv_vec = source.ttv_vec
-    destination.ttv_rks = source.ttv_rks
-    destination.ttv_dims = source.ttv_dims
-    destination.ttv_ot = source.ttv_ot
-    return destination
-end
+const _overwrite! = TensorTrainNumerics._overwrite!
 
 function _overwrite_bounded!(destination::_RankBoundedTTvector, source::TTvector)
     bounded = tt_compress!(source, destination.max_bond)
@@ -50,14 +44,12 @@ function VectorInterface.add(a::TTvector, b::TTvector, α::Number, β::Number)
 end
 
 function VectorInterface.add!(y::TTvector, x::TTvector)
-    r = y + x
-    y.ttv_vec = r.ttv_vec; y.ttv_rks = r.ttv_rks; y.ttv_dims = r.ttv_dims; y.ttv_ot = r.ttv_ot
+    _overwrite!(y, y + x)
     return _round(y)
 end
 function VectorInterface.add!(y::TTvector{T, N}, x::TTvector{T, N}, α::Number, β::Number) where {T, N}
     αT = convert(T, α); βT = convert(T, β)
-    r = βT * y + αT * x
-    y.ttv_vec = r.ttv_vec; y.ttv_rks = r.ttv_rks; y.ttv_dims = r.ttv_dims; y.ttv_ot = r.ttv_ot
+    _overwrite!(y, βT * y + αT * x)
     return _round(y)
 end
 

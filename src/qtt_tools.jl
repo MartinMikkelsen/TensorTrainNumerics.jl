@@ -1,5 +1,13 @@
 using LinearAlgebra
 
+"""
+    gauss_chebyshev_lobatto(n; shifted=true) -> (x, w)
+
+Return the `n` Chebyshev–Lobatto nodes `x[j+1] = cos(πj/(n−1))`, `j = 0, …, n−1`
+(in decreasing order), and the Gauss–Chebyshev–Lobatto weights for the weight
+function `1/√(1−x²)`: `π/(n−1)`, halved at both endpoints. With `shifted = true`
+the nodes are mapped from `[−1, 1]` to `[0, 1]` and the weights are halved.
+"""
 function gauss_chebyshev_lobatto(n; shifted = true)
     x = [cos(π * j / (n - 1)) for j in 0:(n - 1)]
     w = π / (n - 1) * ones(n)
@@ -12,16 +20,39 @@ function gauss_chebyshev_lobatto(n; shifted = true)
     return x, w
 end
 
+"""
+    index_to_point(t; L=1.0) -> Float64
+
+Map a tuple of 1-based QTT indices `t = (t₁, …, t_d)`, with `t₁` the most
+significant bit, to the grid point `j/(2^d − 1)` in `[0, 1]`, where
+`j = Σₖ 2^(d−k)(tₖ − 1)`. The keyword `L` is not used.
+"""
 function index_to_point(t; L = 1.0)
     d = length(t)
     return sum(2.0^(d - i) * (t[i] - 1) / (2^d - 1) for i in 1:d)
 end
 
+"""
+    tuple_to_index(t) -> Int
+
+Map a tuple of 1-based QTT indices `t = (t₁, …, t_d)`, with `t₁` the most
+significant bit, to the 1-based linear index `1 + Σₖ 2^(d−k)(tₖ − 1)`.
+"""
 function tuple_to_index(t)
     d = length(t)
     return sum(2^(d - i) * (t[i] - 1) for i in 1:d) + 1
 end
 
+"""
+    function_to_tensor(f, d; a=0.0, b=1.0) -> Array{Float64,d}
+
+Evaluate `f` on the `2^d` grid points `x_j = j/(2^d − 1)`, `j = 0, …, 2^d − 1`,
+and return the values as a `2 × ⋯ × 2` array indexed by the bits of `j` (most
+significant first).
+
+!!! warning
+    The keywords `a` and `b` are not used: the grid is always `[0, 1]`.
+"""
 function function_to_tensor(f, d; a = 0.0, b = 1.0)
     out = zeros(ntuple(x -> 2, d))
     for t in CartesianIndices(out)
@@ -30,6 +61,13 @@ function function_to_tensor(f, d; a = 0.0, b = 1.0)
     return out
 end
 
+"""
+    tensor_to_grid(tensor) -> Vector
+
+Flatten a `2 × ⋯ × 2` array to a vector of length `2^d`, reading the array
+indices as the bits of the position with the first index most significant
+(the ordering of [`tuple_to_index`](@ref)).
+"""
 function tensor_to_grid(tensor)
     T = eltype(tensor)
     out = Vector{T}(undef, length(tensor))
@@ -40,7 +78,15 @@ function tensor_to_grid(tensor)
 end
 
 """
-Converts a univariate function `f` into its Quantized Tensor Train (QTT) representation.
+    function_to_qtt(f, d; a=0.0, b=1.0) -> TTvector
+
+Sample the univariate function `f` on `2^d` points with
+[`function_to_tensor`](@ref) and compress the samples with
+[`ttv_decomp`](@ref). The dense `2^d` samples are formed first, so this is
+practical only for moderate `d`; [`tt_cross`](@ref) avoids that.
+
+!!! warning
+    The keywords `a` and `b` are not used: `f` is sampled at `j/(2^d − 1)` on `[0, 1]`.
 """
 function function_to_qtt(f, d; a = 0.0, b = 1.0)
     tensor = function_to_tensor(f, d; a = a, b = b)
@@ -48,12 +94,22 @@ function function_to_qtt(f, d; a = 0.0, b = 1.0)
 end
 
 """
-Converts a quantized tensor train (QTT) vector `qtt` into a function representation.
+    qtt_to_function(qtt::TTvector) -> Vector
+
+Return the `2^d` entries of the binary QTT `qtt` as a vector; identical to
+[`qtt_to_vector`](@ref).
 """
 function qtt_to_function(qtt::TTvector{T, d}) where {T <: Number, d}
     return qtt_to_vector(qtt)
 end
 
+"""
+    qtt_to_vector(qtt::TTvector) -> Vector
+
+Return the `2^d` entries of the binary QTT `qtt` as a vector, with site 1 the
+most significant bit. The contraction is progressive and never forms the
+`2 × ⋯ × 2` tensor.
+"""
 function qtt_to_vector(qtt::TTvector{T}) where {T}
     d = qtt.N
     P = qtt.ttv_vec[1][:, 1, :]
@@ -70,6 +126,17 @@ function qtt_to_vector(qtt::TTvector{T}) where {T}
     return vec(P)
 end
 
+"""
+    function_to_qtt_uniform(f, d::Int) -> TTvector
+
+Sample `f` at `x_n = n/2^d`, `n = 0, …, 2^d − 1` (the right endpoint `1` is
+excluded), and compress the samples with [`ttv_decomp`](@ref).
+
+!!! warning
+    Site 1 of the result is the *least* significant bit, the reverse of the
+    ordering used by [`qtt_to_vector`](@ref) and the other QTT constructors.
+    Apply [`reverse_qtt_bits`](@ref) to convert.
+"""
 function function_to_qtt_uniform(f, d::Int)
     N = 2^d
     y = [f(n / N) for n in 0:(N - 1)]
@@ -187,6 +254,12 @@ function qtto_to_matrix(Aqtto::TToperator{T, d}) where {T, d}
     return A
 end
 
+"""
+    qtt_basis_vector(d, pos::Int, val=1.0) -> TTvector
+
+Return the rank-1 QTT with `d` sites that is `val` at the 1-based position `pos`
+(site 1 the most significant bit) and zero elsewhere.
+"""
 function qtt_basis_vector(d, pos::Int, val::Number = 1.0)
     out = zeros_tt(2, d, 1)
     bits = reverse(digits(pos - 1, base = 2, pad = d))
@@ -222,6 +295,17 @@ function qtt_chebyshev(n, d)
     return out
 end
 
+"""
+    qtt_trapezoidal(d; a=0.0, b=1.0) -> TTvector
+
+Return a rank-1 QTT whose `2^d` entries all equal `h = (b − a)/(2^d − 1)`, so that
+`dot(qtt_trapezoidal(d; a, b), u)` is `h` times the sum of the entries of `u`.
+
+!!! warning
+    The endpoint weights are not halved, so this is not the trapezoidal rule: it
+    exceeds the trapezoidal rule by `h(u₁ + u_end)/2`, an `O(h)` error for
+    integrands that do not vanish at the endpoints.
+"""
 function qtt_trapezoidal(d; a = 0.0, b = 1.0)
     out = zeros_tt(2, d, 1)
     h = (b - a) / (2^d - 1)
@@ -367,7 +451,7 @@ Identical TT fields as `TTvector` plus:
 - `bits_per_dim`: bits per dimension (total sites = n_dims × bits_per_dim)
 - `ordering`: `:interleaved` or `:serial`
 """
-mutable struct QTTvector{T <: Number, M} <: AbstractTTvector
+struct QTTvector{T <: Number, M} <: AbstractTTvector
     N::Int64
     ttv_vec::Vector{Array{T, 3}}
     ttv_dims::NTuple{M, Int64}

@@ -13,14 +13,7 @@ function TensorTrainNumerics.ttvector_manifold(x::TTvector{T, N}) where {T <: Re
     return TTVectorSpace{T, N}(x.ttv_dims, copy(x.ttv_rks))
 end
 
-function _copy_ttvector!(dst::TTvector, src::TTvector)
-    dst.N = src.N
-    dst.ttv_vec = src.ttv_vec
-    dst.ttv_dims = src.ttv_dims
-    dst.ttv_rks = src.ttv_rks
-    dst.ttv_ot = src.ttv_ot
-    return dst
-end
+_copy_ttvector!(dst::TTvector, src::TTvector) = TensorTrainNumerics._overwrite!(dst, src)
 
 ManifoldsBase.representation_size(M::TTVectorSpace) = M.dims
 ManifoldsBase.default_retraction_method(::TTVectorSpace) = ManifoldsBase.ProjectionRetraction()
