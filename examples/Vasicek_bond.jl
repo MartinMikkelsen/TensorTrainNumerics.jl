@@ -2,23 +2,6 @@ using TensorTrainNumerics
 using CairoMakie
 using Random
 
-# Vasicek model: zero-coupon bond pricing as a Feynman–Kac (discounted backward)
-# equation, in QTT.
-#
-# Short rate follows OU:  dr = θ(μ-r) dt + σ dW.  The zero-coupon bond price
-#   P(r,τ) = E[ exp(-∫₀^τ r_s ds) | r₀ = r ]      (τ = time to maturity, payoff 1)
-# solves the discounted backward equation
-#   ∂P/∂τ = L P - r·P ,    P(r,0) = 1,
-# where L = -θ(r-μ)∂_r + D ∂_rr is the OU generator (D = σ²/2). Compared with the
-# Kolmogorov backward example the only new ingredient is the *potential* term
-# -r·P, i.e. a diagonal multiply by r:
-#   L_FK = -θ (M ∂_r) + D ∂_rr - X ,   M = diag(r-μ),  X = diag(r).
-#
-# Vasicek has an affine closed form  P(r,τ) = exp(A(τ) - B(τ) r)  — exact validation.
-# Solved with Crank–Nicholson + ALS (L_FK non-symmetric); the constant terminal
-# payoff is rank-enriched so ALS can develop the exp(-B r) profile.
-
-# --- model parameters (short rate in absolute units, e.g. 0.05 = 5%) ---------
 θ = 0.5; μ = 0.05; σ = 0.03; D = σ^2 / 2
 
 d = 8; N = 2^d; a, b = -0.1, 0.25          # rate grid (allows mildly negative rates)
@@ -35,7 +18,6 @@ L_FK = -θ * (M * ∂r) + D * ∂rr - X
 Random.seed!(42)                                                  # reproducible enrichment noise
 u₀ = TensorTrainNumerics.increase_ranks(function_to_qtt(t -> 1.0, d), 6; noise = 1.0e-3)
 
-# --- Vasicek closed form  P(r,τ) = exp(A(τ) - B(τ) r) ------------------------
 B(τ) = (1 - exp(-θ * τ)) / θ
 A(τ) = (B(τ) - τ) * (θ^2 * μ - σ^2 / 2) / θ^2 - σ^2 * B(τ)^2 / (4θ)
 Panal(r, τ) = exp(A(τ) - B(τ) * r)
@@ -65,7 +47,6 @@ end
 
 @info "Vasicek bond" rel_err_max = maximum(relerr) P_μ_10y = Pcurves[end][argmin(abs.(rs .- μ))] P_μ_10y_analytic = Panal(μ, T)
 
-# --- Figure 1: bond price P(r,τ) vs short rate, at several maturities --------
 let
     snap = [1.0, 2.0, 5.0, 10.0]
     fig = Figure(size = (760, 480))
@@ -84,7 +65,6 @@ let
     display(fig)
 end
 
-# --- Figure 2: term structure (yields) and accuracy --------------------------
 let
     fig = Figure(size = (1000, 420))
     ax1 = Axis(

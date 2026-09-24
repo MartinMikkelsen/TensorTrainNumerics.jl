@@ -53,6 +53,51 @@ end
     @test isapprox(tensor3[2, 2], 1.0)
 end
 
+@testset "function_to_qtt on a general interval" begin
+    d, a, b = 6, 2.0, 5.0
+    x = range(a, b; length = 2^d)
+    @test qtt_to_vector(function_to_qtt(identity, d; a, b)) ≈ x
+    @test qtt_to_vector(function_to_qtt(t -> sin(3t), d; a, b)) ≈ sin.(3 .* x)
+    @test qtt_to_vector(function_to_qtt(t -> t^2 - 1, d; a, b)) ≈
+        qtt_to_vector(qtt_polynom([-1.0, 0.0, 1.0], d; a, b))
+    @test index_to_point((2, 2); L = 3.0) ≈ 3.0
+    # bits (2, 1) are j = 2 of 0:3, the point -1 + 2·(2/3)
+    @test function_to_tensor(identity, 2; a = -1.0, b = 1.0)[2, 1] ≈ 1 / 3
+end
+
+@testset "qtt_trapezoidal is the trapezoidal rule" begin
+    for (d, a, b) in ((1, 0.0, 1.0), (6, 0.0, 1.0), (8, -1.0, 2.0))
+        N = 2^d
+        h = (b - a) / (N - 1)
+        w = qtt_trapezoidal(d; a, b)
+        weights = qtt_to_vector(w)
+        @test weights ≈ h .* [i == 1 || i == N ? 0.5 : 1.0 for i in 1:N]
+        # exact for constants and linear functions
+        @test sum(weights) ≈ b - a
+        @test dot(weights, range(a, b; length = N)) ≈ (b^2 - a^2) / 2
+        @test dot(w, qtt_polynom([0.0, 1.0], d; a, b)) ≈ (b^2 - a^2) / 2
+    end
+end
+
+@testset "single-site (d = 1) QTT constructors" begin
+    # One site holds the two grid points a and b.
+    a, b = 0.2, 0.7
+    x = [a, b]
+    @test qtt_to_vector(qtt_sin(1; a, b, λ = 1.3)) ≈ sin.(1.3π .* x)
+    @test qtt_to_vector(qtt_cos(1; a, b, λ = 1.3)) ≈ cos.(1.3π .* x)
+    @test qtt_to_vector(qtt_exp(1; a, b, α = 2.0, β = 0.5)) ≈ exp.(2.0 .* x .+ 0.5)
+    @test qtt_to_vector(qtt_polynom([1.0, -2.0, 3.0], 1; a, b)) ≈ [1 - 2t + 3t^2 for t in x]
+    @test qtt_to_vector(qtt_chebyshev(3, 1)) ≈ [1.0, -1.0]       # T₃ at the Lobatto nodes x = 1, 0
+    @test qtto_to_matrix(toeplitz_to_qtto(2.0, 3.0, 5.0, 1)) ≈ [2.0 3.0; 5.0 2.0]
+    @test qtto_to_matrix(shift(1)) ≈ [0.0 1.0; 0.0 0.0]
+    @test eltype(shift(1)) == eltype(shift(2)) == Float64
+    @test qtto_to_matrix(∇(1)) ≈ [1.0 0.0; -1.0 1.0]
+    @test qtto_to_matrix(fourier_qtto(1)) ≈ [1 1; 1 -1] ./ sqrt(2)
+    @test qtto_to_matrix(fourier_qtto(1; sign = 1.0, normalize = false)) ≈ [1 1; 1 -1]
+    # The single-site results agree with restricting the d = 2 constructions.
+    @test qtt_to_vector(qtt_sin(2; a, b = a + 3 * (b - a), λ = 1.3))[1:2] ≈ qtt_to_vector(qtt_sin(1; a, b, λ = 1.3))
+end
+
 # Tests for tensor_to_grid
 @testset "tensor_to_grid" begin
     # 1D
@@ -337,8 +382,7 @@ end
     # Check structure
     @test hasproperty(tt, :ttv_vec)
     @test length(tt.ttv_vec) == d
-    @test size(tt.ttv_vec[1]) == (2, 1, 1)
-    @test size(tt.ttv_vec[d]) == (2, 1, 1)
+    @test maximum(tt.ttv_rks) ≤ 3
     A = qtt_sin(d, λ = 3.0)
     w = qtt_trapezoidal(d)
     I1 = TensorTrainNumerics.dot(w, A)

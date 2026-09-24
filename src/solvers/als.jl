@@ -374,6 +374,10 @@ function _als_eigsolve_impl(
 end
 
 function eigen_solve(A::AbstractTToperator, guess::AbstractTTvector, alg::ALS)
+    _reject_unused(
+        alg, "eigen_solve", (:sweep_count, :r_itsolver, :return_info),
+        "`sweep_schedule`, `rmax_schedule`, `noise_schedule`, `it_solver`, `itslv_thresh`, `maxiter`, `linsolv_tol`, and `show_progress`"
+    )
     sweep_schedule = isnothing(alg.sweep_schedule) ? [2] : alg.sweep_schedule
     rmax_schedule = isnothing(alg.rmax_schedule) ? [maximum(guess.ttv_rks)] : alg.rmax_schedule
     noise_schedule = isnothing(alg.noise_schedule) ? zeros(length(rmax_schedule)) : alg.noise_schedule

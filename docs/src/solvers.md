@@ -94,12 +94,19 @@ println("Rank history: ", r_hist)
 
 ## TDVP — time-dependent variational principle
 
-TDVP evolves a TT-vector under the equation $\dot{u} = A u$ while keeping the state on the TT manifold of fixed (or bounded) rank. Two variants are available:
+TDVP evolves a TT-vector while keeping the state on the TT manifold of fixed (or bounded) rank. Two variants are available:
 
 - **`tdvp`** — single-site TDVP, fixed rank, lower cost per step.
 - **`tdvp2`** — two-site TDVP with SVD truncation, adaptive rank.
 
-Both support **real-time** evolution (default) and **imaginary-time** evolution (`imaginary_time = true`), which acts as a variational ground-state finder by computing $e^{-A\tau} u_0 / \|e^{-A\tau} u_0\|$.
+Both support two modes:
+
+- **real time** (default): $\dot{u} = -iAu$, so the state after time $t$ approximates $e^{-iAt} u_0$;
+- **imaginary time** (`imaginary_time = true`): $\dot{u} = Au$, so the state approximates $e^{A\tau} u_0$.
+
+With `normalize = true` the state is rescaled to unit norm after every step. Imaginary-time evolution with $A = -K$ therefore converges to the ground state of $K$. The operator below is a negative semidefinite discrete Laplacian, so imaginary-time evolution damps all but the smoothest mode.
+
+Each entry of `steps` is a step size. Setting `sweeps` splits every step into that many sweeps of equal duration, which reduces the splitting error without changing the total evolution time.
 
 ```@example tdvp
 using TensorTrainNumerics
@@ -113,8 +120,8 @@ u0 = qtt_sin(d, λ = π)
 dt = 1e-2
 steps = fill(dt, 500)
 
-sol_tdvp  = tdvp(A, u0, steps;  imaginary_time = true, sweeps = 4)
-sol_tdvp2 = tdvp2(A, u0, steps; imaginary_time = true, sweeps = 2, max_bond = 8)
+sol_tdvp  = tdvp(A, u0, steps;  imaginary_time = true, normalize = true, sweeps = 4)
+sol_tdvp2 = tdvp2(A, u0, steps; imaginary_time = true, normalize = true, sweeps = 2, max_bond = 8)
 
 xes = LinRange(0, 1, 2^d)
 fig = Figure()

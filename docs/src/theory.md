@@ -109,6 +109,66 @@ Addition and the Hadamard product grow the TT-ranks. Use `tt_compress!` to trunc
 tt_compress!(w, 4)   # truncate w to max bond dimension 4 in-place
 ```
 
+## Differentiating TT operations
+
+Loading `ChainRulesCore` (for example through Zygote) activates reverse rules for
+
+- `dot(u, v)` and hence `norm(u)`;
+- `H * ψ`, differentiable in both the operator and the state;
+- `hadamard(u, v)` (also written `u ⊕ v`), including repeated inputs such as
+  `hadamard(ψ, ψ)`;
+- `u + v` and `u - v` for TT-vectors and for TT-operators;
+- multiplication of a TT-vector or TT-operator by a scalar, `a * u`, `u * a`, and
+  `u / a`, differentiable in both the scalar and the tensor train.
+
+The rules support real and complex cores. Operands with different element types
+are promoted to a common type first; the gradient of a real input is real. The
+operands must have the same number of TT sites and compatible physical dimensions.
+
+The gradients are with respect to the core entries (and scalars) that the tensor
+trains are built from. Dimensions, ranks, and orthogonality metadata are held
+fixed. They are parameter gradients, not TT representations of the gradient with
+respect to the full dense tensor, and all contractions stay in TT form.
+
+Orthogonalization and rank truncation (`orthogonalize`, `tt_round!`,
+`tt_compress!`) have no rules, so neither do the solvers and time steppers built on
+them; Zygote raises an error when it reaches them.
+
+For example, the Rayleigh quotient of a discrete Laplacian measures diffusion
+energy. Differentiate it with respect to the operator cores while holding the
+state fixed, and with respect to a diffusivity `κ` that scales the operator:
+
+```julia
+using TensorTrainNumerics, LinearAlgebra, Zygote
+
+H = Δ(4)
+ψ = qtt_sin(4)
+
+function energy(cores)
+    A = TToperator(H.N, cores, H.tto_dims, H.tto_rks, H.tto_ot)
+    return real(dot(ψ, A * ψ)) / real(dot(ψ, ψ))
+end
+
+core_gradient = only(Zygote.gradient(energy, H.tto_vec))
+
+diffusion_energy(κ) = real(dot(ψ, (κ * H) * ψ)) / real(dot(ψ, ψ))
+dE_dκ = only(Zygote.gradient(diffusion_energy, 1.0))
+@assert isapprox(dE_dκ, energy(H.tto_vec); rtol = 1.0e-10)
+```
+
+`core_gradient[k]` has the shape of `H.tto_vec[k]`. Sums of operators are
+differentiable too, so the derivatives of an energy with respect to the coupling
+constants of a Hamiltonian are available directly:
+
+```julia
+Hzz = pauli_pair_sum_tto(:z, :z, 6)
+Hx = pauli_sum_tto(:x, 6)
+φ = rand_tt(ntuple(_ -> 2, 6), 3)
+
+ising_energy(J, h) = real(dot(φ, (J * Hzz + h * Hx) * φ)) / real(dot(φ, φ))
+dE_dJ, dE_dh = Zygote.gradient(ising_energy, -1.0, -0.5)
+```
+
 ## Orthogonalization
 
 A TT-vector is *left-canonical up to site k* when each core $A^{(1)},\ldots,A^{(k)}$ has orthonormal columns (viewed as matrices of shape $n_j r_{j-1} \times r_j$). `orthogonalize` computes this decomposition via a sequence of QR factorizations:

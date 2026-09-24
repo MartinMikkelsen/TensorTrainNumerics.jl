@@ -42,7 +42,7 @@ function +(x::TTvector{T, N}, y::TTvector{T, N}) where {T <: Number, N}
         #first core
         ttv_vec[1][:, :, 1:x.ttv_rks[2]] = x.ttv_vec[1]
         ttv_vec[1][:, :, (x.ttv_rks[2] + 1):rks[2]] = y.ttv_vec[1]
-        #2nd to end-1 d
+        #2nd to end-1 cores
         @threads for k in 2:(d - 1)
             ttv_vec[k][:, 1:x.ttv_rks[k], 1:x.ttv_rks[k + 1]] = x.ttv_vec[k]
             ttv_vec[k][:, (x.ttv_rks[k] + 1):rks[k], (x.ttv_rks[k + 1] + 1):rks[k + 1]] = y.ttv_vec[k]
@@ -54,11 +54,25 @@ function +(x::TTvector{T, N}, y::TTvector{T, N}) where {T <: Number, N}
     return TTvector{T, N}(d, ttv_vec, x.ttv_dims, rks, zeros(Int64, d))
 end
 
+"""
+    add!(x::TTvector, y::TTvector) -> x
+
+Overwrite `x` with `x + y`. The ranks of the result are the sums of the ranks
+of `x` and `y`; no truncation is performed (see [`tt_round!`](@ref)).
+"""
 function add!(x::TTvector{T, N}, y::TTvector{T, N}) where {T <: Number, N}
-    r = x + y
-    x.ttv_vec = r.ttv_vec
-    x.ttv_rks = r.ttv_rks
-    x.ttv_ot = r.ttv_ot
+    return _overwrite!(x, x + y)
+end
+
+# Make `x` represent `src` by replacing the contents of its core list, ranks, and
+# orthogonality flags; objects sharing these vectors with `x` see the update. The
+# number of cores is fixed by the type, so only the entries change. The core
+# arrays themselves are shared with `src`.
+function _overwrite!(x::TTvector, src::TTvector)
+    x.ttv_dims == src.ttv_dims || throw(DimensionMismatch("cannot overwrite a TTvector with dimensions $(x.ttv_dims) by one with dimensions $(src.ttv_dims)"))
+    copyto!(x.ttv_vec, src.ttv_vec)
+    copyto!(x.ttv_rks, src.ttv_rks)
+    copyto!(x.ttv_ot, src.ttv_ot)
     return x
 end
 
@@ -83,7 +97,7 @@ function +(x::TToperator{T, N}, y::TToperator{T, N}) where {T <: Number, N}
         #first core
         tto_vec[1][:, :, :, 1:x.tto_rks[1 + 1]] = x.tto_vec[1]
         tto_vec[1][:, :, :, (x.tto_rks[2] + 1):rks[2]] = y.tto_vec[1]
-        #2nd to end-1 d
+        #2nd to end-1 cores
         @threads for k in 2:(d - 1)
             tto_vec[k][:, :, 1:x.tto_rks[k], 1:x.tto_rks[k + 1]] = x.tto_vec[k]
             tto_vec[k][:, :, (x.tto_rks[k] + 1):rks[k], (x.tto_rks[k + 1] + 1):rks[k + 1]] = y.tto_vec[k]
@@ -152,8 +166,20 @@ function (A::TToperator{T, N})(x::TTvector{T, N}) where {T, N}
     return A * x
 end
 
-function (A::TToperator{T, N})(x::TTvector{T, N}, ::Val{S}) where {T, N, S}
-    return A(x)
+# KrylovKit's calling convention for maps that also provide their adjoint.
+(A::TToperator{T, N})(x::TTvector{T, N}, ::Val{false}) where {T, N} = A * x
+(A::TToperator{T, N})(x::TTvector{T, N}, ::Val{true}) where {T, N} = adjoint(A) * x
+
+"""
+    adjoint(A::TToperator) -> TToperator
+    A'
+
+Conjugate transpose of `A`: every core has its output and input indices swapped
+and its entries conjugated. The ranks are unchanged.
+"""
+function Base.adjoint(A::TToperator{T, N}) where {T, N}
+    cores = [conj(permutedims(c, (2, 1, 3, 4))) for c in A.tto_vec]
+    return TToperator{T, N}(A.N, cores, A.tto_dims, copy(A.tto_rks), copy(A.tto_ot))
 end
 
 """
@@ -250,6 +276,9 @@ function dot(A::TTvector{T, N}, B::TTvector{T, N}) where {T <: Number, N}
 end
 
 
+# Core that carries a scalar factor: the orthogonality center, or core 1 if there is none.
+_scale_site(ot) = something(findfirst(==(0), ot), 1)
+
 """
 Multiplies a TTvector by a scalar and returns a new TTvector.
 """
@@ -259,14 +288,14 @@ function *(a::S, A::TTvector{R, N}) where {S <: Number, R <: Number, N}
     if iszero(aT)
         return zeros_tt(T, A.ttv_dims, copy(A.ttv_rks))
     end
-    i = findfirst(==(0), A.ttv_ot); i === nothing && (i = 1)
+    i = _scale_site(A.ttv_ot)
     X = [Array{T, 3}(c) for c in A.ttv_vec]   # promote and copy cores before scaling
     X[i] = aT * X[i]
     return TTvector{T, N}(A.N, X, A.ttv_dims, copy(A.ttv_rks), copy(A.ttv_ot))
 end
 
 """
-Multiplies a TToperator by a scalar and returns a new TTvector.
+Multiplies a TToperator by a scalar and returns a new TToperator.
 """
 function *(a::S, A::TToperator{R, N}) where {S <: Number, R <: Number, N}
     T = promote_type(S, R)
@@ -274,13 +303,16 @@ function *(a::S, A::TToperator{R, N}) where {S <: Number, R <: Number, N}
     if iszero(aT)
         return zeros_tto(T, A.tto_dims, copy(A.tto_rks))
     end
-    i = findfirst(==(0), A.tto_ot); i === nothing && (i = 1)
+    i = _scale_site(A.tto_ot)
     X = [Array{T, 4}(c) for c in A.tto_vec]   # promote and copy cores before scaling
     X[i] = aT * X[i]
     return TToperator{T, N}(A.N, X, A.tto_dims, copy(A.tto_rks), copy(A.tto_ot))
 end
 
 Base.:*(A::TTvector{T, N}, a::S) where {T <: Number, S <: Number, N} = a * A
+
+-(A::TTvector{T, N}) where {T <: Number, N} = (-one(T)) * A
+-(A::TToperator{T, N}) where {T <: Number, N} = (-one(T)) * A
 
 function -(A::TTvector{T, N}, B::TTvector{T, N}) where {T <: Number, N}
     return A + (-one(T)) * B
@@ -330,6 +362,12 @@ function /(A::TTvector, a)
     return 1 / a * A
 end
 
+"""
+    outer_product(x::TTvector, y::TTvector) -> TToperator
+
+Return the rank-one operator `x y†` as a [`TToperator`](@ref), with entries
+`x[i] * conj(y[j])`. Its TT ranks are the products of the ranks of `x` and `y`.
+"""
 function outer_product(x::TTvector{T, N}, y::TTvector{T, N}) where {T <: Number, N}
     Y = [zeros(T, x.ttv_dims[k], x.ttv_dims[k], x.ttv_rks[k] * y.ttv_rks[k], x.ttv_rks[k + 1] * y.ttv_rks[k + 1]) for k in eachindex(x.ttv_dims)]
     @inbounds for k in eachindex(Y)
@@ -396,6 +434,11 @@ function hadamard(x::TTvector{T, N}, y::TTvector{T, N}) where {T <: Number, N}
     return TTvector{T, N}(d, ttv_vec, dims, rks, zeros(Int64, d))
 end
 
+"""
+    x ⊕ y
+
+Elementwise (Hadamard) product of two `TTvector`s; identical to [`hadamard`](@ref).
+"""
 ⊕(x::TTvector{T, N}, y::TTvector{T, N}) where {T <: Number, N} = hadamard(x, y)
 
 # SVD with the absolute singular-value cutoff used by TT operations.
@@ -432,6 +475,18 @@ function _ttm_contract!(cores::Vector{Array{T, 3}}, rks::Vector{Int}, p::Int) wh
     return deleteat!(rks, p + 1)
 end
 
+"""
+    hadamard_ttm(x::TTvector, y::TTvector; tol=1e-14, rmax=typemax(Int)) -> TTvector
+
+Elementwise (Hadamard) product of `x` and `y` computed by moving the cores of
+`y` through those of `x` with a sequence of adjacent-core swaps, truncating
+each swap by SVD. Singular values below the absolute threshold `tol` are
+discarded and every rank is capped at `rmax`.
+
+The cores are not brought into canonical form before each truncation, so the
+truncation error is not controlled by `tol`. For a product with a known
+accuracy, use [`hadamard`](@ref) followed by [`tt_round!`](@ref).
+"""
 function hadamard_ttm(
         x::TTvector{T, N}, y::TTvector{T, N};
         tol::Float64 = 1.0e-14,
@@ -468,6 +523,12 @@ function kron(A::TToperator{T, d1}, B::TToperator{T, d2}) where {T, d1, d2}
     return TToperator{T, d1 + d2}(d1 + d2, d, dims, rks, ot)
 end
 
+"""
+    A ⊗ B
+
+Kronecker product of two `TToperator`s or two `TTvector`s; identical to
+[`kron`](@ref). The result has the cores of `A` followed by the cores of `B`.
+"""
 ⊗(A::TToperator{T, d1}, B::TToperator{T, d2}) where {T, d1, d2} = kron(A, B)
 
 """
@@ -485,11 +546,27 @@ end
 
 ⊗(a::TTvector{T, d1}, b::TTvector{T, d2}) where {T, d1, d2} = kron(a, b)
 
+"""
+    euclidean_distance(a::TTvector, b::TTvector) -> Real
+
+Return `‖a − b‖`, computed from the inner products as
+`√(⟨a,a⟩ − 2 Re⟨b,a⟩ + ⟨b,b⟩)` (clamped at zero) without forming `a − b`.
+Because of cancellation, distances below about `√eps · max(‖a‖, ‖b‖)` are not
+resolved; use `norm(a - b)` when small differences matter.
+"""
 function euclidean_distance(a::TTvector{T, N}, b::TTvector{T, N}) where {T <: Number, N}
     @assert a.ttv_dims == b.ttv_dims "TT dimensions must match"
     return sqrt(max(real(dot(a, a) - 2 * real(dot(b, a)) + dot(b, b)), zero(real(T))))
 end
 
+"""
+    euclidean_distance_normalized(a::TTvector, b::TTvector)
+
+Return the relative distance `‖a − b‖ / ‖b‖`, computed from inner products as
+`√(1 + ⟨a,a⟩/⟨b,b⟩ − 2 Re⟨b,a⟩/⟨b,b⟩)`. For complex element types the result is
+a complex number. The same cancellation limit as [`euclidean_distance`](@ref)
+applies.
+"""
 function euclidean_distance_normalized(a::TTvector{T, N}, b::TTvector{T, N}) where {T <: Number, N}
     @assert a.ttv_dims == b.ttv_dims "TT dimensions must match"
     return sqrt(1.0 + dot(a, a) / dot(b, b) - 2.0 * real(dot(b, a)) / dot(b, b))

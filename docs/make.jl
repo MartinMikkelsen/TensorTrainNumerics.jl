@@ -5,6 +5,8 @@ bib = CitationBibliography(joinpath(@__DIR__, "src", "refs.bib"); style = :numer
 
 makedocs(
     sitename = "TensorTrainNumerics.jl",
+    modules = [TensorTrainNumerics],
+    checkdocs = :exports,
     format = Documenter.HTML(assets = ["assets/favicon.ico", "assets/citations.css"]),
     pages = [
         "Home" => "index.md",
@@ -16,7 +18,11 @@ makedocs(
         "Examples" => "examples.md",
         "Advanced Examples" => "advanced_examples.md",
         "Resources" => "resources.md",
-        "API Reference" => "API.md",
+        "API Reference" => [
+            "Core types and operations" => "api/core.md",
+            "Quantics and operators" => "api/qtt.md",
+            "Solvers and algorithms" => "api/solvers.md",
+        ],
     ],
     plugins = [bib]
 )

@@ -1,7 +1,7 @@
 using ProgressMeter
 
 """
-    euler_method(A, u₀, steps; normalize=true, return_error=false, show_progress=true)
+    euler_method(A, u₀, steps; normalize=false, return_error=false, show_progress=true)
 
 Explicit Euler time stepping `u ← u + h·A·u` in TT format.
 
@@ -11,7 +11,7 @@ orthogonalization (and normalization when `normalize = true`) in that step.
 """
 function euler_method(
         A::AbstractTToperator, u₀::AbstractTTvector, steps::Vector{Float64};
-        normalize::Bool = true, return_error::Bool = false,
+        normalize::Bool = false, return_error::Bool = false,
         show_progress::Bool = true
     )
     solution = (u₀)
@@ -32,7 +32,7 @@ function euler_method(
     if return_error
         isempty(steps) && return solution, 0.0
         h = steps[end]
-        Iop = id_tto(eltype(A), A.N; n_dim = A.tto_dims[1])
+        Iop = _identity_like(A)
         # Orthogonalize before taking the norm: the residual is a difference of
         # nearly equal TT vectors, and the plain dot-based norm has a ~√eps
         # cancellation floor on such inputs.
@@ -45,7 +45,7 @@ function euler_method(
 end
 
 """
-    implicit_euler_method(A, u₀, guess, steps; tt_solver=MALS(), normalize=true, max_bond=0, return_error=false, show_progress=true, kwargs...)
+    implicit_euler_method(A, u₀, guess, steps; tt_solver=MALS(), normalize=false, max_bond=0, return_error=false, show_progress=true, kwargs...)
 
 Implicit Euler time stepping: solve `(I − h·A)·u_{n+1} = u_n` at every step
 with the TT linear solver selected by `tt_solver` (a [`LinearSolverAlgorithm`](@ref)
@@ -57,7 +57,7 @@ function implicit_euler_method(
         u₀::AbstractTTvector,
         guess::AbstractTTvector,
         steps::Vector{Float64};
-        normalize::Bool = true,
+        normalize::Bool = false,
         return_error::Bool = false,
         tt_solver::Union{AbstractString, LinearSolverAlgorithm} = MALS(),
         max_bond::Int = 0,
@@ -67,11 +67,11 @@ function implicit_euler_method(
     solver = tt_solver isa AbstractString ? _linear_solver_algorithm(tt_solver) : tt_solver
     solution = (u₀)
     u_prev = (u₀)
-    I = id_tto(eltype(A), A.N)
+    Id = _identity_like(A)
     progress = _solver_progress(length(steps), show_progress; desc = "Implicit Euler method")
 
     for h in steps
-        M = I - h * A
+        M = Id - h * A
 
         next = _stepper_linear_solve(M, solution, guess, solver; max_bond = max_bond, kwargs...)::AbstractTTvector
 
@@ -87,7 +87,7 @@ function implicit_euler_method(
 
     if return_error
         h = steps[end]
-        M = I - h * A
+        M = Id - h * A
         residual = M * solution - u_prev
         rel_error = norm(residual) / norm(solution)
         return solution, rel_error
@@ -97,7 +97,7 @@ function implicit_euler_method(
 end
 
 """
-    crank_nicholson_method(A, u₀, guess, steps; tt_solver=MALS(), normalize=true, max_bond=0, return_error=false, show_progress=true, kwargs...)
+    crank_nicholson_method(A, u₀, guess, steps; tt_solver=MALS(), normalize=false, max_bond=0, return_error=false, show_progress=true, kwargs...)
 
 Crank–Nicolson time stepping: solve `(I − h/2·A)·u_{n+1} = (I + h/2·A)·u_n` at
 every step with the TT linear solver selected by `tt_solver` (a
@@ -109,7 +109,7 @@ function crank_nicholson_method(
         u₀::AbstractTTvector,
         guess::AbstractTTvector,
         steps::Vector{Float64};
-        normalize::Bool = true,
+        normalize::Bool = false,
         return_error::Bool = false,
         tt_solver::Union{AbstractString, LinearSolverAlgorithm} = MALS(),
         max_bond::Int = 0,
@@ -119,12 +119,12 @@ function crank_nicholson_method(
     solver = tt_solver isa AbstractString ? _linear_solver_algorithm(tt_solver) : tt_solver
     solution = (u₀)
     u_prev = (u₀)
-    I = id_tto(eltype(A), A.N)
+    Id = _identity_like(A)
     progress = _solver_progress(length(steps), show_progress; desc = "Crank-Nicholson method")
 
     for h in steps
-        LHS = I - (h / 2) * A
-        RHS = (I + (h / 2) * A) * solution
+        LHS = Id - (h / 2) * A
+        RHS = (Id + (h / 2) * A) * solution
 
         next = _stepper_linear_solve(LHS, RHS, guess, solver; max_bond = max_bond, kwargs...)::AbstractTTvector
 
@@ -140,8 +140,8 @@ function crank_nicholson_method(
 
     if return_error
         h = steps[end]
-        LHS = I - (h / 2) * A
-        RHS = (I + (h / 2) * A) * u_prev
+        LHS = Id - (h / 2) * A
+        RHS = (Id + (h / 2) * A) * u_prev
         residual = LHS * solution - RHS
         rel_error = norm(residual) / norm(solution)
         return solution, rel_error
@@ -151,7 +151,7 @@ function crank_nicholson_method(
 end
 
 """
-    rk4_method(A, u₀, steps, max_bond; normalize=true, return_error=false, show_progress=true)
+    rk4_method(A, u₀, steps, max_bond; normalize=false, return_error=false, show_progress=true)
 
 Classical fourth-order Runge–Kutta time stepping in TT format, compressing every
 stage and the iterate to bond dimension `max_bond`.
@@ -162,7 +162,7 @@ rank truncation (and normalization when `normalize = true`) in that step.
 """
 function rk4_method(
         A::AbstractTToperator, u₀::AbstractTTvector, steps::Vector{Float64}, max_bond::Int;
-        normalize::Bool = true, return_error::Bool = false,
+        normalize::Bool = false, return_error::Bool = false,
         show_progress::Bool = true
     )
     u = u₀

@@ -29,6 +29,24 @@ function RandomPivot(; nsamples::Int = 1000, seed::Union{Nothing, Int} = nothing
     return RandomPivot(nsamples, seed)
 end
 
+"""
+    MaxVol(; maxiter=50, tol=1e-10, rmax=500, kickrank=5, verbose=true, pivot=MaxVolPivot())
+
+TT-cross interpolation by alternating maximum-volume pivot selection
+(Oseledets & Tyrtyshnikov 2010). Starting from the ranks given to
+[`tt_cross`](@ref), each iteration sweeps over the cores, selects interpolation
+pivots with the maxvol algorithm, and then increases every rank by `kickrank`
+(capped at `rmax`) until the validation error drops below `tol`.
+
+# Keyword arguments
+- `maxiter::Int=50`: maximum number of iterations (sweeps).
+- `tol::Real=1e-10`: target relative error on the validation set (see [`tt_cross`](@ref)).
+- `rmax::Int=500`: maximum TT rank.
+- `verbose::Bool=true`: log the validation error after every iteration.
+- `kickrank::Union{Nothing,Int}=5`: rank increase after each iteration;
+  `nothing` keeps the ranks fixed.
+- `pivot::MaxVolPivot`: maxvol settings (`tol=1.05`, `maxiter=100`).
+"""
 struct MaxVol{T <: Real, P <: MaxVolPivot} <: CrossAlgorithm
     maxiter::Int
     tol::T
@@ -49,6 +67,24 @@ function MaxVol(;
     return MaxVol(maxiter, tol, rmax, kickrank, verbose, pivot)
 end
 
+"""
+    Greedy(; maxiter=50, tol=1e-10, rmax=500, verbose=true, nsamples=1000, pivot=RandomPivot())
+
+Greedy rank-adaptive TT-cross interpolation (Savostyanov 2014). All ranks start
+at 1. At every bond, each sweep searches a random sample of candidate entries for
+the largest interpolation error and adds that entry as a new pivot, raising the
+rank by one, while the error relative to the largest sampled `|f|` exceeds `tol`
+and the rank is below `rmax`.
+
+# Keyword arguments
+- `maxiter::Int=50`: maximum number of iterations (sweeps).
+- `tol::Real=1e-10`: target relative error on the validation set (see [`tt_cross`](@ref)).
+- `rmax::Int=500`: maximum TT rank.
+- `verbose::Bool=true`: log the validation error after every iteration.
+- `nsamples::Int=1000`: number of random candidate entries examined per bond.
+- `pivot::RandomPivot`: sampling settings; set `RandomPivot(seed=…)` for
+  reproducible pivots. The smaller of `nsamples` and `pivot.nsamples` is used.
+"""
 struct Greedy{T <: Real, P <: RandomPivot} <: CrossAlgorithm
     maxiter::Int
     tol::T
@@ -69,6 +105,23 @@ function Greedy(;
     return Greedy(maxiter, tol, rmax, verbose, nsamples, pivot)
 end
 
+"""
+    DMRGcross(; maxiter=50, tol=1e-10, rmax=500, kickrank=5, verbose=true, pivot=MaxVolPivot())
+
+Two-site (DMRG-style) TT-cross interpolation (Savostyanov & Oseledets 2011).
+Each micro-step samples a two-core superblock, splits it with an SVD truncated at
+relative tolerance `tol/√(N−1)` and rank `rmax`, and selects new pivots with the
+maxvol algorithm, so the ranks adapt to the function.
+
+# Keyword arguments
+- `maxiter::Int=50`: maximum number of iterations (sweeps).
+- `tol::Real=1e-10`: target relative error on the validation set (see [`tt_cross`](@ref)).
+- `rmax::Int=500`: maximum TT rank.
+- `verbose::Bool=true`: log the validation error after every iteration.
+- `kickrank::Union{Nothing,Int}=5`: extra rank directions added at every split
+  to explore beyond the truncated rank; `nothing` disables this.
+- `pivot::MaxVolPivot`: maxvol settings (`tol=1.05`, `maxiter=100`).
+"""
 struct DMRGcross{T <: Real, P <: MaxVolPivot} <: CrossAlgorithm
     maxiter::Int
     tol::T
@@ -89,6 +142,39 @@ function DMRGcross(;
     return DMRGcross(maxiter, tol, rmax, kickrank, verbose, pivot)
 end
 
+"""
+    tt_cross(f, domain, alg::CrossAlgorithm=MaxVol(); ranks=2, val_size=1000) -> TTvector
+    tt_cross(f, domain; alg=MaxVol(), kwargs...)
+    tt_cross(f, dims; alg=MaxVol(), kwargs...)
+
+Build a [`TTvector`](@ref) approximation of the function `f` on a tensor-product
+grid by cross interpolation, evaluating `f` only at selected points.
+
+`domain` is a vector of grid-point vectors, one per dimension. With integer
+`dims` (a tuple or vector), the grid is `1.0:dims[k]` in every dimension.
+
+`f` is called with a batch of points: an `n × d` matrix whose rows are points,
+and it must return `n` values (any array that `vec` flattens to length `n`).
+The element type of the result is inferred from one evaluation of `f`.
+
+`alg` is one of [`MaxVol`](@ref), [`DMRGcross`](@ref), or [`Greedy`](@ref).
+
+# Keyword arguments
+- `ranks::Union{Int,Vector{Int}}=2`: initial interior ranks (`MaxVol` and
+  `DMRGcross` only; `Greedy` always starts at rank 1).
+- `val_size::Int=1000`: number of random grid points used to measure the
+  relative error `‖f − f̃‖ / ‖f‖` that is compared with `alg.tol`.
+
+If the tolerance is not reached within `alg.maxiter` iterations, the last
+approximation is returned; a warning is logged only when `alg.verbose` is `true`.
+
+# Example
+```julia
+f(X) = vec(exp.(-sum(X .^ 2, dims = 2)))
+domain = [collect(range(-1.0, 1.0, length = 8)) for _ in 1:4]
+tt = tt_cross(f, domain, MaxVol(verbose = false, tol = 1e-8); ranks = 2)
+```
+"""
 function tt_cross(f::Function, domain; alg::CrossAlgorithm = MaxVol(), kwargs...)
     return tt_cross(f, domain, alg; kwargs...)
 end
@@ -676,6 +762,20 @@ function tt_cross(
     return TTvector{eltype(cores[1]), N}(N, cores, Tuple(Is), copy(Rs), zeros(Int, N))
 end
 
+"""
+    tt_integrate(f, lower::Vector, upper::Vector; alg=MaxVol(), nquad=20, kwargs...)
+    tt_integrate(f, d::Int; lower=0.0, upper=1.0, kwargs...)
+
+Approximate the integral of `f` over the box `[lower[1], upper[1]] × ⋯` with a
+tensor-product Gauss–Legendre rule of `nquad` nodes per dimension. `f` is
+approximated on the quadrature grid by [`tt_cross`](@ref) with algorithm `alg`
+(remaining keyword arguments are passed to `tt_cross`), and the TT is then
+contracted with the quadrature weights. `f` uses the batched calling convention
+of `tt_cross`. The second form integrates over the cube `[lower, upper]^d`.
+
+The values of `f` must have the element type of `lower` and `upper`; complex
+integrands with real bounds raise a `MethodError`.
+"""
 function tt_integrate(
         f::Function,
         lower::Vector{T},

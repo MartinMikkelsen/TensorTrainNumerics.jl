@@ -291,6 +291,12 @@ end
 # Algorithm structs (style of linear_solver.jl) and the sweep driver
 # ---------------------------------------------------------------------------
 
+"""
+    NonLinearSolverAlgorithm
+
+Supertype of algorithm objects accepted by [`non_linear_solve`](@ref):
+[`PenaltyALS`](@ref) and [`MGR`](@ref).
+"""
 abstract type NonLinearSolverAlgorithm end
 
 """

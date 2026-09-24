@@ -1,6 +1,17 @@
 module TensorTrainNumerics
 
 export AbstractTTvector, AbstractTToperator, TTvector, TToperator, eltype, complex, ttv_decomp, tto_decomp, ttv_to_tensor, tto_to_tensor, tto_to_ttv, visualize, matricize, concatenate, orthogonalize, entanglemententropy, copy, r_and_d_to_rks, tt_compress!, tt_round!, tt_round, ttvector_manifold
+"""
+    ttvector_manifold(x::TTvector)
+
+Return a ManifoldsBase.jl manifold whose points are `TTvector`s with the
+physical dimensions of `x`, for use with Manopt.jl solvers. The space is flat:
+the inner product is `real(dot(X, Y))`, and the retraction is
+`orthogonalize(p + t X)`, which does not truncate ranks.
+
+Defined in the extension that loads when ManifoldsBase.jl and Manopt.jl are
+loaded; real element types only.
+"""
 function ttvector_manifold end
 include("tt_tools.jl")
 
@@ -31,6 +42,13 @@ export tdvp, tdvp2
 include("solvers/tdvp.jl")
 
 export to_ttvector
+"""
+    to_ttvector(tt::TensorCrossInterpolation.TensorTrain) -> TTvector
+
+Convert a tensor train from TensorCrossInterpolation.jl to a [`TTvector`](@ref).
+Defined in the extension that loads when InterpolativeQTT.jl and
+TensorCrossInterpolation.jl are loaded.
+"""
 function to_ttvector end
 
 export toeplitz_to_qtto, qtto_prolongation, qtto_constant_prolongation, qtto_linear_prolongation, ∇, Δ_DN, Δ_ND, Δ_NN, Δ_P, Δ, Δ⁻¹_DN, shift, pauli_matrix, pauli_sum_tto, pauli_pair_sum_tto, H_μ, H_μν, heisenberg_xyz_tto, ising_tto, xxz_tto, xxx_tto, xy_tto, zeros_tt, zeros_tto, rand_tt, id_tto, rand_tto, qtt_laplacian

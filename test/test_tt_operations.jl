@@ -129,7 +129,20 @@ end
     A = rand_tto(dims, 2)
     v = rand_tt(dims, [1, 2, 1])
     @test isapprox(ttv_to_tensor(A(v)), ttv_to_tensor(A * v); atol = 1.0e-12)
-    @test isapprox(ttv_to_tensor(A(v, Val(:x))), ttv_to_tensor(A * v); atol = 1.0e-12)
+    @test isapprox(ttv_to_tensor(A(v, Val(false))), ttv_to_tensor(A * v); atol = 1.0e-12)
+    @test_throws MethodError A(v, Val(:x))
+end
+
+@testset "adjoint and the KrylovKit (x, Val) calling convention" begin
+    dims = (2, 3, 2)
+    A = TToperator(3, [randn(ComplexF64, n, n, r1, r2) for (n, r1, r2) in zip(dims, (1, 2, 2), (2, 2, 1))], dims, [1, 2, 2, 1], zeros(Int, 3))
+    x = TTvector(3, [randn(ComplexF64, n, r1, r2) for (n, r1, r2) in zip(dims, (1, 2, 2), (2, 2, 1))], dims, [1, 2, 2, 1], zeros(Int, 3))
+    M = reshape(tto_to_tensor(A), prod(dims), :)
+    v = vec(ttv_to_tensor(x))
+    @test reshape(tto_to_tensor(A'), prod(dims), :) ≈ M'
+    @test tto_to_tensor((A')') ≈ tto_to_tensor(A)
+    @test vec(ttv_to_tensor(A(x, Val(false)))) ≈ M * v
+    @test vec(ttv_to_tensor(A(x, Val(true)))) ≈ M' * v
 end
 
 @testset "TToperator * TToperator" begin
@@ -255,6 +268,14 @@ end
     a = 3.0
     y = x / a
     @test isapprox(ttv_to_tensor(y), ttv_to_tensor(x) / a; atol = 1.0e-12)
+end
+
+@testset "unary minus" begin
+    x = rand_tt((2, 3, 2), [1, 2, 2, 1])
+    A = rand_tto((2, 3, 2), 2)
+    @test ttv_to_tensor(-x) ≈ -ttv_to_tensor(x)
+    @test tto_to_tensor(-A) ≈ -tto_to_tensor(A)
+    @test ttv_to_tensor(x + (-x)) ≈ zeros(2, 3, 2) atol = 1.0e-14
 end
 
 @testset "Scalar multiplication owns mutable TT storage" begin

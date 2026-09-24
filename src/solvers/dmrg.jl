@@ -523,7 +523,11 @@ function _dmrg_eigsolve_impl(
 end
 
 function eigen_solve(A::AbstractTToperator, guess::AbstractTTvector, alg::DMRG)
-    sweep_schedule = isnothing(alg.sweep_schedule) ? [2] : alg.sweep_schedule
+    _reject_unused(
+        alg, "eigen_solve", (:return_info,),
+        "every option except `return_info`"
+    )
+    sweep_schedule = _dmrg_sweep_schedule(alg)
     rmax_schedule = isnothing(alg.rmax_schedule) ? [isqrt(prod(guess.ttv_dims)::Int)] : alg.rmax_schedule
     linsolv_tol = isnothing(alg.linsolv_tol) ? max(sqrt(alg.tol), 1.0e-8) : alg.linsolv_tol
     return _dmrg_eigsolve_impl(

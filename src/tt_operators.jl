@@ -2,6 +2,7 @@
 Constructs a tensor train operator (TTO) representation of a Toeplitz matrix parameterized by `α`, `β`, and `γ` over `d` dimensions.
 """
 function toeplitz_to_qtto(α, β, γ, d)
+    d == 1 && return _single_site_qtto(float.([α β; γ α]))
     out = zeros_tto(2, d, 3)
     id = Matrix{Float64}(I, 2, 2)
     J = zeros(2, 2)
@@ -147,7 +148,18 @@ function pauli_pair_sum_tto(μ, ν, d::Int)
     return TToperator{T, d}(d, cores, dims, rks, zeros(Int64, d))
 end
 
+"""
+    H_μ(μ, d)
+
+Alias for [`pauli_sum_tto`](@ref)`(μ, d)`.
+"""
 H_μ(μ, d::Int) = pauli_sum_tto(μ, d)
+
+"""
+    H_μν(μ, ν, d)
+
+Alias for [`pauli_pair_sum_tto`](@ref)`(μ, ν, d)`.
+"""
 H_μν(μ, ν, d::Int) = pauli_pair_sum_tto(μ, ν, d)
 
 """
@@ -531,6 +543,22 @@ function id_tto(::Type{T}, d; n_dim::Int = 2) where {T}
     return TToperator{T, d}(d, A, dims, ones(Int64, d + 1), zeros(Int64, d))
 end
 
+# Identity operator with the element type and physical dimensions of `A`.
+function _identity_like(A::AbstractTToperator)
+    T = eltype(A)
+    dims = A.tto_dims
+    d = length(dims)
+    cores = [reshape(Matrix{T}(I, n, n), n, n, 1, 1) for n in dims]
+    return TToperator{T, d}(d, cores, dims, ones(Int, d + 1), zeros(Int, d))
+end
+
+"""
+    rand_tto(dims, rmax::Int; T=Float64) -> TToperator
+
+Return a random [`TToperator`](@ref) with physical dimensions `dims` and entries
+drawn from `randn`. Every interior rank is `rmax`, reduced where the dimensions
+force a smaller rank.
+"""
 function rand_tto(dims, rmax::Int; T = Float64)
     d = length(dims)
     tt_vec = Vector{Array{T, 4}}(undef, d)
@@ -544,7 +572,18 @@ function rand_tto(dims, rmax::Int; T = Float64)
     return TToperator{T, d}(d, tt_vec, dims, rks, zeros(Int, d))
 end
 
+"""
+    zeros_tt([T=Float64,] dims, rks; ot=zeros(Int, length(dims))) -> TTvector
+    zeros_tt(n::Integer, d::Integer, r; ot, r_and_d=true) -> TTvector
 
+Return a [`TTvector`](@ref) with element type `T`, physical dimensions `dims`,
+TT ranks `rks` (length `length(dims) + 1`), and all cores zero. `ot` sets the
+orthogonality flags.
+
+The second form uses `d` sites of dimension `n` and interior ranks `r`. With
+`r_and_d = true`, ranks are reduced where the dimensions force a smaller rank
+(see [`r_and_d_to_rks`](@ref)); otherwise every interior rank is `r`.
+"""
 function zeros_tt(dims, rks; ot = zeros(Int64, length(dims)))
     return zeros_tt(Float64, dims, rks; ot = ot)
 end
@@ -597,7 +636,14 @@ function ones_tt(n::Integer, d::Integer)
     return ones_tt(dims)
 end
 
+"""
+    zeros_tto([T=Float64,] dims, rks) -> TToperator
+    zeros_tto(n, d, r) -> TToperator
 
+Return a [`TToperator`](@ref) with element type `T`, physical dimensions `dims`,
+TT ranks `rks`, and all cores zero. The second form uses `d` sites of dimension
+`n` and interior ranks `r`, reduced where the dimensions force a smaller rank.
+"""
 function zeros_tto(dims, rks)
     return zeros_tto(Float64, dims, rks)
 end
