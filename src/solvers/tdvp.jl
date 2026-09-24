@@ -168,13 +168,13 @@ The generator is applied as follows:
   `exp(h H) u` and the element type is kept. To relax toward the ground state of
   a Hamiltonian `K`, pass `H = -K` together with `normalize = true`.
 
-`steps` is a vector of step sizes `h`, not of time points. Each of the `sweeps`
-sweeps performed per entry of `steps` advances the state by the full step `h`,
-so every entry evolves the state by `sweeps * h`.
+`steps` is a vector of step sizes `h`, not of time points. Every entry of
+`steps` evolves the state by `h`, split into `sweeps` sweeps of `h / sweeps`
+each; more sweeps reduce the splitting error of a step.
 
 # Keyword arguments
-- `normalize::Bool=true`: rescale the state to unit norm after every step.
-- `sweeps::Int=1`: sweeps per step (see above).
+- `normalize::Bool=false`: rescale the state to unit norm after every step.
+- `sweeps::Int=1`: number of sweeps each step is split into (see above).
 - `carry_env::Bool=true`: reuse environments between the sweeps of one step.
 - `return_error::Bool=false`: also return the relative residual of the last
   step's finite-difference derivative, `‖(u_{n+1} − u_n)/h − G u_{n+1}‖ / ‖u_{n+1}‖`,
@@ -188,7 +188,7 @@ function tdvp(
         H::AbstractTToperator,
         u₀::AbstractTTvector,
         steps::Vector{Float64};
-        normalize::Bool = true,
+        normalize::Bool = false,
         return_error::Bool = false,
         sweeps::Int = 1,
         carry_env::Bool = true,
@@ -211,7 +211,8 @@ function tdvp(
 
     for h in steps
         ψ_prev_step = deepcopy(ψ)
-        dt_eff = imaginary_time ? (+im * h) : (complex(1.0) * h)
+        # Each sweep integrates an equal part of the step.
+        dt_eff = (imaginary_time ? (+im * h) : (complex(1.0) * h)) / sweeps
         for s in 1:sweeps
             F_in = carry_env ? F : nothing
             ψ, F = tdvp1sweep!(dt_eff, ψ, Hc, F_in; verbose = verbose, kwargs...)
@@ -352,16 +353,16 @@ The generator is applied as follows:
   `exp(h H) u` and the element type is kept. To relax toward the ground state of
   a Hamiltonian `K`, pass `H = -K` together with `normalize = true`.
 
-`steps` is a vector of step sizes `h`, not of time points. Each of the `sweeps`
-sweeps performed per entry of `steps` advances the state by the full step `h`,
-so every entry evolves the state by `sweeps * h`.
+`steps` is a vector of step sizes `h`, not of time points. Every entry of
+`steps` evolves the state by `h`, split into `sweeps` sweeps of `h / sweeps`
+each; more sweeps reduce the splitting error of a step.
 
 # Keyword arguments
 - `max_bond::Int=typemax(Int)`: maximum bond dimension after each two-site update.
 - `truncerr::Real=0.0`: singular values of each two-site SVD smaller than
   `truncerr` are discarded (an absolute threshold).
-- `normalize::Bool=true`: rescale the state to unit norm after every step.
-- `sweeps::Int=1`: sweeps per step (see above).
+- `normalize::Bool=false`: rescale the state to unit norm after every step.
+- `sweeps::Int=1`: number of sweeps each step is split into (see above).
 - `carry_env::Bool=true`: reuse environments between the sweeps of one step.
 - `return_error::Bool=false`: also return the relative residual of the last
   step's finite-difference derivative, `‖(u_{n+1} − u_n)/h − G u_{n+1}‖ / ‖u_{n+1}‖`,
@@ -374,7 +375,7 @@ function tdvp2(
         H::AbstractTToperator,
         u₀::AbstractTTvector,
         steps::Vector{Float64};
-        normalize::Bool = true,
+        normalize::Bool = false,
         return_error::Bool = false,
         sweeps::Int = 1,
         carry_env::Bool = true,
@@ -399,7 +400,8 @@ function tdvp2(
 
     for h in steps
         ψ_prev_step = deepcopy(ψ)
-        dt_eff = imaginary_time ? (+im * h) : (complex(1.0) * h)
+        # Each sweep integrates an equal part of the step.
+        dt_eff = (imaginary_time ? (+im * h) : (complex(1.0) * h)) / sweeps
         for s in 1:sweeps
             F_in = carry_env ? F : nothing
             ψ, F = tdvp2sweep!(

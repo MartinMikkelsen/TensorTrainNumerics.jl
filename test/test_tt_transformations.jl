@@ -5,17 +5,6 @@ import TensorTrainNumerics: cheb_lobatto_grid, lagrange_eval, qft_core_entry
 
 @testset "Spikes" begin
 
-    function function_to_qtt_uniform_msb(f, d::Int)
-        N = 2^d
-        y = [f(n / N) for n in 0:(N - 1)]
-        A = zeros(eltype(y), ntuple(_ -> 2, d)...)
-        @inbounds for n in 0:(N - 1)
-            bits = (digits(n, base = 2, pad = d)) .+ 1
-            A[CartesianIndex(Tuple(bits))] = y[n + 1]
-        end
-        return ttv_decomp(A)
-    end
-
     d = 10
     N = 2^d
     K = 50
@@ -29,7 +18,7 @@ import TensorTrainNumerics: cheb_lobatto_grid, lagrange_eval, qft_core_entry
     f(x) = sum(coeffs .* cispi.(2 .* (0:(r - 1)) .* x))
 
     F = fourier_qtto(d; K = K, sign = -1.0, normalize = true)
-    x_qtt = function_to_qtt_uniform_msb(f, d)
+    x_qtt = function_to_qtt_uniform(f, d)
     y_qtt = F * x_qtt
 
     spec = matricize((y_qtt), d)

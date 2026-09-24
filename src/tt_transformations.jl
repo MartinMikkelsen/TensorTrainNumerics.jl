@@ -33,10 +33,24 @@ end
 end
 
 """
-Reference: https://arxiv.org/pdf/2404.03182
+    fourier_qtto(d; sign=-1.0, K=25, normalize=true) -> TToperator{ComplexF64}
+
+Discrete Fourier transform on `2^d` points as a QTT operator, built with the
+interpolative construction of Chen and Lindsey (arXiv:2404.03182):
+
+    y_k = s · Σₙ x_n exp(sign · 2πi · k n / 2^d),   s = 2^(−d/2) if `normalize`, else 1.
+
+The operator reverses the bit order: the input must have its *least*
+significant bit of `n` on site 1 (as produced by
+[`function_to_qtt_uniform`](@ref)), and the output has the *most* significant
+bit of `k` on site 1 (as read by [`qtt_to_vector`](@ref) and
+[`matricize`](@ref)). Every interior bond has rank `K + 1`; larger `K` gives a
+more accurate transform.
 """
 function fourier_qtto(d::Int; sign::Float64 = -1.0, K::Int = 25, normalize::Bool = true)
     @assert d ≥ 1
+    # On one bit the transform is exactly [1 1; 1 −1] for either sign.
+    d == 1 && return _single_site_qtto(ComplexF64[1 1; 1 -1] .* (normalize ? inv(sqrt(2.0)) : 1.0))
     P = cheb_lobatto_grid(K)
     r = K + 1
 

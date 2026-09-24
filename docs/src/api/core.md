@@ -45,6 +45,7 @@ Base.:*(::S, ::TToperator{R, N}) where {S <: Number, R <: Number, N}
 Base.:*(::TToperator{T, N}, ::TTvector{T, N}) where {T <: Number, N}
 Base.:*(::TToperator{T, M}, ::TTvector{T, N}) where {T <: Number, M, N}
 Base.:*(::TToperator{T, N}, ::TToperator{T, N}) where {T <: Number, N}
+Base.adjoint(::TToperator{T, N}) where {T, N}
 add!
 dot(::TTvector{T, N}, ::TTvector{T, N}) where {T <: Number, N}
 norm(::TTvector{T, N}) where {T <: Number, N}

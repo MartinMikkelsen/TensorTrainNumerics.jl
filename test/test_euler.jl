@@ -428,3 +428,41 @@ end
     @test crank_nicholson_method(A, u₀, guess, steps; normalize = false, show_progress = false, tt_solver = MALS()) isa TTvector
     @test rk4_method(A, u₀, steps, 4; normalize = false, show_progress = false) isa TTvector
 end
+
+@testset "time steppers do not normalize by default" begin
+    d = 4
+    A = -1.0 * Δ(d)          # dissipative: the norm of the solution decays
+    u₀ = qtt_sin(d)
+    steps = fill(0.01, 3)
+    for f in (
+            kw -> euler_method(A, u₀, steps; show_progress = false, kw...),
+            kw -> implicit_euler_method(A, u₀, u₀, steps; tt_solver = ALS(), show_progress = false, kw...),
+            kw -> crank_nicholson_method(A, u₀, u₀, steps; tt_solver = ALS(), show_progress = false, kw...),
+            kw -> rk4_method(A, u₀, steps, 4; show_progress = false, kw...),
+            kw -> tdvp(A, u₀, steps; imaginary_time = true, show_progress = false, kw...),
+            kw -> tdvp2(A, u₀, steps; imaginary_time = true, show_progress = false, kw...),
+        )
+        default = f((;))
+        @test norm(default) ≈ norm(f((; normalize = false)))
+        @test norm(default) < norm(u₀)
+    end
+end
+
+@testset "time steppers accept non-binary physical dimensions" begin
+    Random.seed!(3)
+    dims = (3, 2, 3)
+    B = rand_tto(dims, 2)
+    A = -1.0 * (B' * B)                       # symmetric negative semidefinite
+    Ad = reshape(tto_to_tensor(A), prod(dims), :)
+    u₀ = rand_tt(dims, [1, 3, 3, 1])          # full TT ranks: ALS solves exactly
+    v₀ = vec(ttv_to_tensor(u₀))
+    h = 0.1
+    Id = Matrix(1.0I, prod(dims), prod(dims))
+    ie = implicit_euler_method(A, u₀, u₀, [h]; tt_solver = ALS(sweep_count = 6), show_progress = false)
+    @test vec(ttv_to_tensor(ie)) ≈ (Id - h * Ad) \ v₀
+    cn = crank_nicholson_method(A, u₀, u₀, [h]; tt_solver = ALS(sweep_count = 6), show_progress = false)
+    @test vec(ttv_to_tensor(cn)) ≈ (Id - (h / 2) * Ad) \ ((Id + (h / 2) * Ad) * v₀)
+    ee, err = euler_method(A, u₀, [h]; return_error = true, show_progress = false)
+    @test vec(ttv_to_tensor(ee)) ≈ (Id + h * Ad) * v₀
+    @test err < 1.0e-12
+end

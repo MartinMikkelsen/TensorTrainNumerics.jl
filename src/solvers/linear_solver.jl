@@ -32,7 +32,8 @@ to those of the initial guess during a linear solve.
 
 Pass to [`linear_solve`](@ref) to solve `A x = b`, or to [`eigen_solve`](@ref)
 to find the smallest eigenpair by minimizing the Rayleigh quotient. The two
-problems read different fields:
+problems read different fields; setting a field that the chosen problem does not
+read throws an `ArgumentError`.
 
 # Keyword arguments used by `linear_solve`
 - `sweep_count::Int=2`: number of half-sweeps, alternating left-to-right and
@@ -101,9 +102,11 @@ Modified Alternating Linear Scheme (Holtz, Rohwedder & Schneider 2012). Each
 micro-step optimizes two neighboring cores jointly and splits them with a
 truncated SVD, so the TT ranks adapt during the solve.
 
-Pass to [`linear_solve`](@ref) or [`eigen_solve`](@ref).
+Pass to [`linear_solve`](@ref) or [`eigen_solve`](@ref). Setting a field that
+the chosen problem does not read throws an `ArgumentError`.
 
 # Keyword arguments used by `linear_solve`
+A linear solve performs one left-to-right and one right-to-left sweep.
 - `tol::Float64=1e-12`: relative SVD truncation threshold for rank adaptation.
 - `rmax::Union{Nothing,Int}=nothing`: maximum bond dimension; `nothing` means
   `round(Int, √prod(dims))`.
@@ -113,8 +116,9 @@ Pass to [`linear_solve`](@ref) or [`eigen_solve`](@ref).
 # Keyword arguments used by `eigen_solve`
 - `tol::Float64=1e-12`: relative SVD truncation threshold for rank adaptation.
 - `sweep_schedule::Vector{Int}=[2]`: sweep numbers at which each rank stage ends.
-- `rmax_schedule::Vector{Int}`: maximum bond dimension for each stage (defaults
-  to `round(Int, √prod(dims))`).
+- `rmax_schedule::Vector{Int}`: maximum bond dimension for each stage. If it is
+  not given, every stage uses `rmax`, or `round(Int, √prod(dims))` when `rmax`
+  is also not given; setting both is an error.
 - `it_solver::Bool=false`: solve local eigenproblems iteratively.
 - `linsolv_maxiter::Int=200`: maximum iterations of the local iterative solver.
 - `linsolv_tol`: tolerance of the local iterative solver; `nothing` means
@@ -162,13 +166,16 @@ DMRG-style alternating scheme (White 1992; Oseledets & Dolgov 2012) that
 optimizes `N` neighboring cores jointly at each micro-step. With `N ≥ 2` the
 ranks adapt through truncated SVDs.
 
-Pass to [`linear_solve`](@ref) or [`eigen_solve`](@ref). Both read the same fields:
+Pass to [`linear_solve`](@ref) or [`eigen_solve`](@ref). Both read the same
+fields, except that `eigen_solve` rejects `return_info = true`:
 
 # Keyword arguments
 - `N::Int=2`: number of cores optimized per micro-step.
 - `tol::Float64=1e-12`: relative SVD truncation threshold (used when `N ≥ 2`).
-- `sweep_schedule::Vector{Int}=[2]`: sweep numbers at which each rank stage ends;
-  the solve stops after `sweep_schedule[end]` sweeps.
+- `sweep_schedule::Vector{Int}=[sweep_count]`: sweep numbers at which each rank
+  stage ends; the solve stops after `sweep_schedule[end]` sweeps.
+- `sweep_count::Int=2`: shorthand for the one-stage schedule `[sweep_count]`;
+  setting both `sweep_count` and `sweep_schedule` is an error.
 - `rmax_schedule::Vector{Int}`: maximum bond dimension for each stage (defaults
   to `isqrt(prod(dims))`).
 - `it_solver::Bool=true`: solve local problems iteratively.
@@ -180,8 +187,6 @@ Pass to [`linear_solve`](@ref) or [`eigen_solve`](@ref). Both read the same fiel
   instead of `x`.
 - `verbose::Bool=false`: log ranks and discarded weight at every core move.
 - `show_progress::Bool=false`: display a progress bar.
-- `sweep_count::Int=2`: stored but not read by either solve; the number of
-  sweeps is set by `sweep_schedule`.
 
 `eigen_solve` returns `(E, x, r_hist)`: the eigenvalue history, the eigenvector
 approximation, and the maximum bond dimension after each micro-step.
@@ -243,11 +248,13 @@ every iteration.
 - `tol=nothing`: absolute stopping tolerance, overriding `rtol` and `atol`.
 - `orth`: orthogonalization method passed to KrylovKit's GMRES.
 - `issymmetric`, `ishermitian`, `isposdef`: properties of `A` used by `:auto`.
-- `verbosity::Int=0`: KrylovKit verbosity level.
+- `verbosity::Int=1`: KrylovKit verbosity level. At the default level KrylovKit
+  warns when the solve stops without reaching the tolerance; `0` silences it.
+- `return_info::Bool=false`: return `(x, info)` instead of `x`, where
+  `info = (; converged, residual, numiter)` holds whether the tolerance was
+  reached, the relative residual `‖A x − b‖ / ‖b‖` reported by KrylovKit (for the
+  rank-truncated vectors when `max_bond > 0`), and the number of iterations.
 - `show_progress::Bool=false`: display a progress bar.
-
-KrylovKit's convergence information is not returned; the solve does not report
-when the tolerance is not reached.
 """
 struct Krylov <: LinearSolverAlgorithm
     max_bond::Int
@@ -262,6 +269,7 @@ struct Krylov <: LinearSolverAlgorithm
     ishermitian::Bool
     isposdef::Bool
     verbosity::Int
+    return_info::Bool
     show_progress::Bool
 end
 
@@ -277,12 +285,13 @@ function Krylov(;
         issymmetric::Bool = false,
         ishermitian::Union{Nothing, Bool} = nothing,
         isposdef::Bool = false,
-        verbosity::Int = 0,
+        verbosity::Int = 1,
+        return_info::Bool = false,
         show_progress::Bool = false
     )
     tol_value = isnothing(tol) ? nothing : Float64(tol)
     hermitian_value = isnothing(ishermitian) ? issymmetric : ishermitian
-    return Krylov(max_bond, krylov_solver, krylovdim, maxiter, Float64(rtol), Float64(atol), tol_value, orth, issymmetric, hermitian_value, isposdef, verbosity, show_progress)
+    return Krylov(max_bond, krylov_solver, krylovdim, maxiter, Float64(rtol), Float64(atol), tol_value, orth, issymmetric, hermitian_value, isposdef, verbosity, return_info, show_progress)
 end
 
 "Alias for [`LinearSolverAlgorithm`](@ref)."
@@ -295,6 +304,36 @@ const MALSSolver = MALS
 const DMRGSolver = DMRG
 "Alias for [`Krylov`](@ref)."
 const KrylovSolver = Krylov
+
+# Throw if any of `fields` of `alg` differs from its default: `problem` does not
+# read those options, and `used` lists the ones it does.
+function _reject_unused(alg, problem::AbstractString, fields, used::AbstractString)
+    default = typeof(alg)()
+    for f in fields
+        isequal(getfield(alg, f), getfield(default, f)) && continue
+        throw(ArgumentError("`$f` is not used by $problem with $(nameof(typeof(alg))); it uses $used"))
+    end
+    return nothing
+end
+
+_check_linear_options(::LinearSolverAlgorithm) = nothing
+_check_linear_options(alg::ALS) = _reject_unused(
+    alg, "linear_solve", (:sweep_schedule, :rmax_schedule, :noise_schedule, :itslv_thresh),
+    "`sweep_count`, `it_solver`, `r_itsolver`, `maxiter`, `linsolv_tol`, `return_info`, and `show_progress`"
+)
+_check_linear_options(alg::MALS) = _reject_unused(
+    alg, "linear_solve", (:sweep_schedule, :rmax_schedule, :it_solver, :linsolv_maxiter, :linsolv_tol, :itslv_thresh),
+    "`tol`, `rmax`, `return_info`, and `show_progress`"
+)
+_check_linear_options(alg::DMRG) = (_dmrg_sweep_schedule(alg); nothing)
+
+# `sweep_count` is shorthand for the one-stage schedule `[sweep_count]`.
+function _dmrg_sweep_schedule(alg::DMRG)
+    isnothing(alg.sweep_schedule) && return [alg.sweep_count]
+    alg.sweep_count == DMRG().sweep_count ||
+        throw(ArgumentError("DMRG: give either `sweep_count` or `sweep_schedule`, not both"))
+    return alg.sweep_schedule
+end
 
 function _linear_solver_algorithm(name::AbstractString)
     name == "als" && return ALS()
@@ -329,11 +368,13 @@ function linear_solve(A, b, guess, alg::Krylov)
         ishermitian = alg.ishermitian,
         isposdef = alg.isposdef,
         verbosity = alg.verbosity,
+        return_info = alg.return_info,
         show_progress = alg.show_progress
     )
 end
 
 function linear_solve(A, b, guess, alg::ALS)
+    _check_linear_options(alg)
     return _als_linsolve_impl(
         A, b, guess;
         sweep_count = alg.sweep_count,
@@ -356,6 +397,7 @@ function als_linsolve(A, b, guess; kwargs...)
 end
 
 function linear_solve(A, b, guess, alg::MALS)
+    _check_linear_options(alg)
     rmax = isnothing(alg.rmax) ? round(Int, sqrt(prod(guess.ttv_dims)::Int)) : alg.rmax
     return _mals_linsolve_impl(A, b, guess; tol = alg.tol, rmax = rmax, return_info = alg.return_info, show_progress = alg.show_progress)
 end
@@ -370,12 +412,11 @@ function mals_linsolve(A, b, guess; kwargs...)
 end
 
 function linear_solve(A, b, guess, alg::DMRG)
-    sweep_schedule = isnothing(alg.sweep_schedule) ? [2] : alg.sweep_schedule
+    sweep_schedule = _dmrg_sweep_schedule(alg)
     rmax_schedule = isnothing(alg.rmax_schedule) ? [isqrt(prod(guess.ttv_dims)::Int)] : alg.rmax_schedule
     linsolv_tol = isnothing(alg.linsolv_tol) ? max(sqrt(alg.tol), 1.0e-8) : alg.linsolv_tol
     return _dmrg_linsolve_impl(
         A, b, guess;
-        sweep_count = alg.sweep_count,
         N = alg.N,
         tol = alg.tol,
         sweep_schedule = sweep_schedule,
@@ -495,8 +536,15 @@ function _stepper_algorithm(
     )
 end
 
-_stepper_linear_solve(A, b, guess, solver::Krylov; max_bond::Int, kwargs...) = linear_solve(A, b, guess, _stepper_algorithm(solver; max_bond = max_bond, kwargs...))
-_stepper_linear_solve(A, b, guess, solver::LinearSolverAlgorithm; max_bond::Int, kwargs...) = linear_solve(A, b, guess, _stepper_algorithm(solver; kwargs...))
+# The steppers rebuild `solver` without the options that `linear_solve` does not read,
+# so those options are checked on the caller's object first.
+function _stepper_linear_solve(A, b, guess, solver::Krylov; max_bond::Int, kwargs...)
+    return linear_solve(A, b, guess, _stepper_algorithm(solver; max_bond = max_bond, kwargs...))
+end
+function _stepper_linear_solve(A, b, guess, solver::LinearSolverAlgorithm; max_bond::Int, kwargs...)
+    _check_linear_options(solver)
+    return linear_solve(A, b, guess, _stepper_algorithm(solver; kwargs...))
+end
 
 function _krylov_algorithm(
         krylov_solver::Symbol, max_bond::Int;
@@ -536,7 +584,8 @@ function krylov_linsolve(
         issymmetric::Bool = false,
         ishermitian::Bool = issymmetric,
         isposdef::Bool = false,
-        verbosity::Int = 0,
+        verbosity::Int = 1,
+        return_info::Bool = false,
         show_progress::Bool = false,
         kwargs...
     )
@@ -556,17 +605,18 @@ function krylov_linsolve(
             y = tt_compress!(A * x.tt, x.max_bond)
             return _RankBoundedTTvector(y, x.max_bond)
         end
-        x, _ = linsolve(
+        xb, info = linsolve(
             op,
             _RankBoundedTTvector(b, max_bond),
             _RankBoundedTTvector(guess, max_bond),
             alg;
             kwargs...
         )
-        next!(progress)
-        return tt_compress!(x.tt, max_bond)
+        x = tt_compress!(xb.tt, max_bond)
+    else
+        x, info = linsolve(x -> A * x, b, guess, alg; kwargs...)
     end
-    x, _ = linsolve(x -> A * x, b, guess, alg; kwargs...)
     next!(progress)
-    return x
+    return_info || return x
+    return x, (; converged = info.converged > 0, residual = info.normres / norm(b), numiter = info.numiter)
 end

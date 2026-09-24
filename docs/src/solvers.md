@@ -104,9 +104,9 @@ Both support two modes:
 - **real time** (default): $\dot{u} = -iAu$, so the state after time $t$ approximates $e^{-iAt} u_0$;
 - **imaginary time** (`imaginary_time = true`): $\dot{u} = Au$, so the state approximates $e^{A\tau} u_0$.
 
-With `normalize = true` (the default) the state is rescaled to unit norm after every step. Imaginary-time evolution with $A = -K$ therefore converges to the ground state of $K$. The operator below is a negative semidefinite discrete Laplacian, so imaginary-time evolution damps all but the smoothest mode.
+With `normalize = true` the state is rescaled to unit norm after every step. Imaginary-time evolution with $A = -K$ therefore converges to the ground state of $K$. The operator below is a negative semidefinite discrete Laplacian, so imaginary-time evolution damps all but the smoothest mode.
 
-Each entry of `steps` is a step size. Every one of the `sweeps` sweeps per step advances the state by that full step, so a step evolves the state by `sweeps` times its size.
+Each entry of `steps` is a step size. Setting `sweeps` splits every step into that many sweeps of equal duration, which reduces the splitting error without changing the total evolution time.
 
 ```@example tdvp
 using TensorTrainNumerics
@@ -120,8 +120,8 @@ u0 = qtt_sin(d, λ = π)
 dt = 1e-2
 steps = fill(dt, 500)
 
-sol_tdvp  = tdvp(A, u0, steps;  imaginary_time = true, sweeps = 4)
-sol_tdvp2 = tdvp2(A, u0, steps; imaginary_time = true, sweeps = 2, max_bond = 8)
+sol_tdvp  = tdvp(A, u0, steps;  imaginary_time = true, normalize = true, sweeps = 4)
+sol_tdvp2 = tdvp2(A, u0, steps; imaginary_time = true, normalize = true, sweeps = 2, max_bond = 8)
 
 xes = LinRange(0, 1, 2^d)
 fig = Figure()

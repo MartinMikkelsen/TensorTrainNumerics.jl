@@ -2,6 +2,7 @@
 Constructs a tensor train operator (TTO) representation of a Toeplitz matrix parameterized by `α`, `β`, and `γ` over `d` dimensions.
 """
 function toeplitz_to_qtto(α, β, γ, d)
+    d == 1 && return _single_site_qtto(float.([α β; γ α]))
     out = zeros_tto(2, d, 3)
     id = Matrix{Float64}(I, 2, 2)
     J = zeros(2, 2)
@@ -540,6 +541,15 @@ function id_tto(::Type{T}, d; n_dim::Int = 2) where {T}
         A[j][:, :, 1, 1] = Matrix{T}(I, n_dim, n_dim)
     end
     return TToperator{T, d}(d, A, dims, ones(Int64, d + 1), zeros(Int64, d))
+end
+
+# Identity operator with the element type and physical dimensions of `A`.
+function _identity_like(A::AbstractTToperator)
+    T = eltype(A)
+    dims = A.tto_dims
+    d = length(dims)
+    cores = [reshape(Matrix{T}(I, n, n), n, n, 1, 1) for n in dims]
+    return TToperator{T, d}(d, cores, dims, ones(Int, d + 1), zeros(Int, d))
 end
 
 """

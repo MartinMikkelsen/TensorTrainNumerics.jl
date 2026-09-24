@@ -15,8 +15,8 @@ dt = 1.0e-2
 nsteps = 1000
 steps = fill(dt, nsteps)
 
-solution_tdvp = tdvp(A, u₀, steps; imaginary_time = true, sweeps = 4, verbose = false)
-solution_tdvp2 = tdvp2(A, u₀, steps; imaginary_time = true, sweeps = 2, verbose = false, max_bond = 10)
+solution_tdvp = tdvp(A, u₀, steps; imaginary_time = true, normalize = true, sweeps = 4, verbose = false)
+solution_tdvp2 = tdvp2(A, u₀, steps; imaginary_time = true, normalize = true, sweeps = 2, verbose = false, max_bond = 10)
 
 let
     fig = Figure()

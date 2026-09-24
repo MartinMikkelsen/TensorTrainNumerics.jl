@@ -454,3 +454,21 @@ end
         @test e2 < 1.0e-3
     end
 end
+
+@testset "tdvp and tdvp2 evolve each step by its size for any number of sweeps" begin
+    # With full TT ranks the TDVP projector is the identity, so both variants are
+    # exact up to the splitting and Krylov errors and a dense exponential is a reference.
+    d = 4
+    A = -0.1 * Δ(d)
+    Ad = qtto_to_matrix(A)
+    u0 = rand_tt((2, 2, 2, 2), [1, 2, 4, 2, 1])
+    v0 = qtt_to_vector(u0)
+    steps = fill(0.05, 20)
+    t = sum(steps)
+    for sweeps in (1, 2, 3), (solver, kw) in ((tdvp, (;)), (tdvp2, (; max_bond = 4)))
+        ψ = solver(A, u0, steps; imaginary_time = true, normalize = false, sweeps, show_progress = false, kw...)
+        @test norm(qtt_to_vector(ψ) - exp(t * Ad) * v0) / norm(v0) < 1.0e-6
+        ψr = solver(A, u0, steps; imaginary_time = false, normalize = false, sweeps, show_progress = false, kw...)
+        @test norm(qtt_to_vector(ψr) - exp(-im * t * Ad) * v0) / norm(v0) < 1.0e-6
+    end
+end

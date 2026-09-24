@@ -166,8 +166,20 @@ function (A::TToperator{T, N})(x::TTvector{T, N}) where {T, N}
     return A * x
 end
 
-function (A::TToperator{T, N})(x::TTvector{T, N}, ::Val{S}) where {T, N, S}
-    return A(x)
+# KrylovKit's calling convention for maps that also provide their adjoint.
+(A::TToperator{T, N})(x::TTvector{T, N}, ::Val{false}) where {T, N} = A * x
+(A::TToperator{T, N})(x::TTvector{T, N}, ::Val{true}) where {T, N} = adjoint(A) * x
+
+"""
+    adjoint(A::TToperator) -> TToperator
+    A'
+
+Conjugate transpose of `A`: every core has its output and input indices swapped
+and its entries conjugated. The ranks are unchanged.
+"""
+function Base.adjoint(A::TToperator{T, N}) where {T, N}
+    cores = [conj(permutedims(c, (2, 1, 3, 4))) for c in A.tto_vec]
+    return TToperator{T, N}(A.N, cores, A.tto_dims, copy(A.tto_rks), copy(A.tto_ot))
 end
 
 """

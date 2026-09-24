@@ -432,8 +432,18 @@ function _mals_eigsolve_impl(
 end
 
 function eigen_solve(A::AbstractTToperator, guess::AbstractTTvector, alg::MALS)
+    _reject_unused(
+        alg, "eigen_solve", (:return_info,),
+        "`tol`, `rmax` or `rmax_schedule`, `sweep_schedule`, `it_solver`, `linsolv_maxiter`, `linsolv_tol`, `itslv_thresh`, and `show_progress`"
+    )
     sweep_schedule = isnothing(alg.sweep_schedule) ? [2] : alg.sweep_schedule
-    rmax_schedule = isnothing(alg.rmax_schedule) ? [round(Int, sqrt(prod(guess.ttv_dims)::Int))] : alg.rmax_schedule
+    # `rmax` is shorthand for a constant `rmax_schedule`.
+    rmax_schedule = if isnothing(alg.rmax_schedule)
+        fill(something(alg.rmax, round(Int, sqrt(prod(guess.ttv_dims)::Int))), length(sweep_schedule))
+    else
+        isnothing(alg.rmax) || throw(ArgumentError("MALS: give either `rmax` or `rmax_schedule`, not both"))
+        alg.rmax_schedule
+    end
     linsolv_tol = isnothing(alg.linsolv_tol) ? max(sqrt(alg.tol), 1.0e-8) : alg.linsolv_tol
     return _mals_eigsolve_impl(
         A, guess;
