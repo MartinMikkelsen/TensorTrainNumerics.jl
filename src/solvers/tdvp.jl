@@ -152,6 +152,20 @@ function tdvp1sweep!(
     return ψ, F
 end
 
+# Keywords that `tdvp` and `tdvp2` pass through to `KrylovKit.exponentiate`.
+const _EXPONENTIATE_KEYWORDS = (:krylovdim, :maxiter, :tol, :orth, :eager, :ishermitian)
+
+function _check_exponentiate_kwargs(caller::AbstractString, kwargs)
+    bad = setdiff(keys(kwargs), _EXPONENTIATE_KEYWORDS)
+    isempty(bad) || throw(
+        ArgumentError(
+            "$caller got unsupported keyword argument(s) $(join(bad, ", ")); remaining keywords are passed to " *
+                "KrylovKit.exponentiate, which accepts $(join(_EXPONENTIATE_KEYWORDS, ", "))"
+        )
+    )
+    return nothing
+end
+
 """
     tdvp(H, u₀, steps; kwargs...) -> TTvector
     tdvp(H, u₀, steps; return_info=true, kwargs...) -> (TTvector, info)
@@ -184,20 +198,6 @@ The generator is applied as follows:
 - Remaining keyword arguments are passed to `KrylovKit.exponentiate`
   (for example `ishermitian=false`, `tol`, or `krylovdim`).
 """
-# Keywords that `tdvp` and `tdvp2` pass through to `KrylovKit.exponentiate`.
-const _EXPONENTIATE_KEYWORDS = (:krylovdim, :maxiter, :tol, :orth, :eager, :ishermitian)
-
-function _check_exponentiate_kwargs(caller::AbstractString, kwargs)
-    bad = setdiff(keys(kwargs), _EXPONENTIATE_KEYWORDS)
-    isempty(bad) || throw(
-        ArgumentError(
-            "$caller got unsupported keyword argument(s) $(join(bad, ", ")); remaining keywords are passed to " *
-                "KrylovKit.exponentiate, which accepts $(join(_EXPONENTIATE_KEYWORDS, ", "))"
-        )
-    )
-    return nothing
-end
-
 function tdvp(
         H::AbstractTToperator,
         u₀::AbstractTTvector,

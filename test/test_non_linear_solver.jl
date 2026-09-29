@@ -28,10 +28,10 @@ end
 fd_jac(gfun, x; h = 1.0e-6) = reduce(
     hcat, [
         begin
-                xp = copy(x); xm = copy(x)
-                xp[i] += h; xm[i] -= h
-                (gfun(xp) - gfun(xm)) ./ (2h)
-            end for i in eachindex(x)
+            xp = copy(x); xm = copy(x)
+            xp[i] += h; xm[i] -= h
+            (gfun(xp) - gfun(xm)) ./ (2h)
+        end for i in eachindex(x)
     ]
 )
 

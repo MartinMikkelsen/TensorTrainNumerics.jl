@@ -268,10 +268,10 @@ import TensorTrainNumerics: MaxVolPivot, RandomPivot, MaxVol, Greedy, DMRGcross,
             approx = TensorTrainNumerics.ttv_to_tensor(tt)
             exact = [
                 scale * TensorTrainNumerics._evaluate_tt(
-                        exact_cores,
-                        reshape(collect(Tuple(I)), 1, :),
-                        d,
-                    )[1] for I in CartesianIndices(ntuple(_ -> n, d))
+                    exact_cores,
+                    reshape(collect(Tuple(I)), 1, :),
+                    d,
+                )[1] for I in CartesianIndices(ntuple(_ -> n, d))
             ]
 
             @test norm(approx - exact) / norm(exact) < 1.0e-7
