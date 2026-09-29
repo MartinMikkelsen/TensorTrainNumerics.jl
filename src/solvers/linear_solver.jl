@@ -6,6 +6,36 @@ struct _RankBoundedTTvector{V <: AbstractTTvector}
     max_bond::Int
 end
 
+# `x` as a `Vector{T}` if it is a vector of stage values, otherwise as a `T`.
+_as_stage(x::AbstractVector, ::Type{T}) where {T} = collect(T, x)
+_as_stage(x, ::Type{T}) where {T} = convert(T, x)
+
+# Per-stage solver settings expanded to vectors of equal length; a scalar
+# applies to every stage.
+function _stages(; kwargs...)
+    lens = [k => length(v) for (k, v) in pairs(kwargs) if v isa AbstractVector]
+    n = isempty(lens) ? 1 : last(first(lens))
+    n ≥ 1 || throw(ArgumentError("per-stage vectors must not be empty"))
+    if !all(p -> last(p) == n, lens)
+        throw(ArgumentError(join(("`$k` has length $l" for (k, l) in lens), " and ")))
+    end
+    stages = map(v -> v isa AbstractVector ? collect(v) : fill(v, n), values(kwargs))
+    if haskey(stages, :max_sweeps) && any(<(1), stages.max_sweeps)
+        throw(ArgumentError("`max_sweeps` entries must be ≥ 1; got $(stages.max_sweeps)"))
+    end
+    return stages
+end
+
+# Whether a local problem with `n` unknowns is solved iteratively.
+_use_iterative(local_solver::Symbol, n::Integer, local_threshold::Integer) =
+    local_solver === :iterative || (local_solver === :auto && n > local_threshold)
+
+function _check_local_solver(local_solver::Symbol)
+    local_solver in (:auto, :direct, :iterative) ||
+        throw(ArgumentError("`local_solver` must be :auto, :direct, or :iterative; got :$local_solver"))
+    return local_solver
+end
+
 """
     LinearSolverAlgorithm
 
@@ -27,71 +57,65 @@ abstract type EigenSolverAlgorithm <: LinearSolverAlgorithm end
     ALS(; kwargs...)
 
 Alternating Linear Scheme (Holtz, Rohwedder & Schneider 2012). Each micro-step
-optimizes a single core with all other cores fixed, so the TT ranks stay equal
-to those of the initial guess during a linear solve.
+optimizes a single core with all other cores fixed. One sweep optimizes the
+cores left to right and then right to left.
 
 Pass to [`linear_solve`](@ref) to solve `A x = b`, or to [`eigen_solve`](@ref)
-to find the smallest eigenpair by minimizing the Rayleigh quotient. The two
-problems read different fields; setting a field that the chosen problem does not
-read throws an `ArgumentError`.
+to find the smallest eigenpair by minimizing the Rayleigh quotient. Setting a
+field that the chosen problem does not read throws an `ArgumentError`.
 
-# Keyword arguments used by `linear_solve`
-- `sweep_count::Int=2`: number of half-sweeps, alternating left-to-right and
-  right-to-left; the default is one full back-and-forth sweep.
-- `it_solver::Bool=false`: solve local systems iteratively instead of densely.
-- `r_itsolver::Int=5000`: local system size above which `it_solver` takes effect.
-- `return_info::Bool=false`: return `(x, (; residual))`, where `residual` is
-  `‖A x − b‖ / ‖b‖`, instead of `x`.
-
-# Keyword arguments used by `eigen_solve`
-- `sweep_schedule::Vector{Int}=[2]`: sweep numbers at which each rank stage ends;
-  the solve stops after `sweep_schedule[end]` sweeps.
-- `rmax_schedule::Vector{Int}`: maximum bond dimension for each stage (defaults
-  to the largest rank of the initial guess).
-- `noise_schedule::Vector{Float64}`: noise amplitude used to pad new rank
-  directions at each stage (defaults to zero).
-- `it_solver::Bool=false`: solve local eigenproblems iteratively.
-- `itslv_thresh::Int=1024`: local problem size above which `it_solver` takes effect.
+# Keyword arguments
+- `max_sweeps=1`: number of sweeps; ALS has no convergence test and runs all of
+  them. For `eigen_solve`, a vector gives the sweeps of each rank stage.
+- `max_bond=nothing` (`eigen_solve` only): largest bond dimension of each stage,
+  an integer or a vector with one entry per stage; `nothing` keeps the largest
+  rank of the initial guess. When a stage's `max_bond` exceeds the current
+  largest rank, the ranks are raised with `increase_ranks`; a smaller
+  value is an error because ALS cannot lower ranks. In `linear_solve` the ranks
+  of the initial guess are kept.
+- `noise=0.0` (`eigen_solve` only): noise amplitude for the new rank directions
+  of each stage, a number or a per-stage vector.
+- `local_solver=:auto`: `:direct`, `:iterative`, or `:auto` (direct up to
+  `local_threshold` unknowns, iterative above).
+- `local_threshold=nothing`: `nothing` means never iterative under `:auto`.
+- `local_maxiter::Int=200`, `local_tol=1e-8`: limits of the local iterative solver.
+- `return_info::Bool=false` (`linear_solve` only): return `(x, (; residual))`,
+  where `residual` is `‖A x − b‖ / ‖b‖`, instead of `x`.
+- `verbosity::Int=1`: `2` logs one line per sweep.
+- `show_progress::Bool=true`: display a progress bar over the sweeps.
 
 `eigen_solve` returns `(E, x)`, where `E` is the history of eigenvalue estimates
 (one entry per micro-step) and `x` is the eigenvector approximation.
-
-# Keyword arguments used by both
-- `maxiter::Int=200`: maximum iterations of the local iterative solver.
-- `linsolv_tol::Float64=1e-8`: tolerance of the local iterative solver.
-- `show_progress::Bool=false`: display a progress bar.
 """
 struct ALS <: EigenSolverAlgorithm
-    sweep_count::Int
-    it_solver::Bool
-    r_itsolver::Int
+    max_sweeps::Union{Int, Vector{Int}}
+    max_bond::Union{Nothing, Int, Vector{Int}}
+    noise::Union{Float64, Vector{Float64}}
+    local_solver::Symbol
+    local_threshold::Union{Nothing, Int}
+    local_maxiter::Int
+    local_tol::Float64
     return_info::Bool
-    sweep_schedule::Union{Nothing, Vector{Int}}
-    rmax_schedule::Union{Nothing, Vector{Int}}
-    noise_schedule::Union{Nothing, Vector{Float64}}
-    itslv_thresh::Int
-    maxiter::Int
-    linsolv_tol::Float64
+    verbosity::Int
     show_progress::Bool
 end
 
 function ALS(;
-        sweep_count::Int = 2,
-        it_solver::Bool = false,
-        r_itsolver::Int = 5000,
+        max_sweeps = 1,
+        max_bond = nothing,
+        noise = 0.0,
+        local_solver::Symbol = :auto,
+        local_threshold = nothing,
+        local_maxiter::Int = 200,
+        local_tol::Real = 1.0e-8,
         return_info::Bool = false,
-        sweep_schedule::Union{Nothing, Vector{Int}} = nothing,
-        rmax_schedule::Union{Nothing, Vector{Int}} = nothing,
-        noise_schedule::Union{Nothing, Vector{Float64}} = nothing,
-        itslv_thresh::Int = 1024,
-        maxiter::Int = 200,
-        linsolv_tol::Float64 = 1.0e-8,
-        show_progress::Bool = false
+        verbosity::Int = 1,
+        show_progress::Bool = true
     )
     return ALS(
-        sweep_count, it_solver, r_itsolver, return_info,
-        sweep_schedule, rmax_schedule, noise_schedule,
-        itslv_thresh, maxiter, linsolv_tol, show_progress
+        _as_stage(max_sweeps, Int), isnothing(max_bond) ? nothing : _as_stage(max_bond, Int),
+        _as_stage(noise, Float64), _check_local_solver(local_solver), local_threshold,
+        local_maxiter, local_tol, return_info, verbosity, show_progress
     )
 end
 
@@ -100,128 +124,128 @@ end
 
 Modified Alternating Linear Scheme (Holtz, Rohwedder & Schneider 2012). Each
 micro-step optimizes two neighboring cores jointly and splits them with a
-truncated SVD, so the TT ranks adapt during the solve.
+truncated SVD, so the TT ranks adapt during the solve. One sweep moves left to
+right and then right to left.
 
 Pass to [`linear_solve`](@ref) or [`eigen_solve`](@ref). Setting a field that
 the chosen problem does not read throws an `ArgumentError`.
 
-# Keyword arguments used by `linear_solve`
-A linear solve performs one left-to-right and one right-to-left sweep.
-- `tol::Float64=1e-12`: relative SVD truncation threshold for rank adaptation.
-- `rmax::Union{Nothing,Int}=nothing`: maximum bond dimension; `nothing` means
-  `round(Int, √prod(dims))`.
-- `return_info::Bool=false`: return `(x, (; residual))`, where `residual` is
-  `‖A x − b‖ / ‖b‖`, instead of `x`.
+# Keyword arguments
+- `max_sweeps=1`: number of sweeps; MALS has no convergence test and runs all of
+  them. For `eigen_solve`, a vector gives the sweeps of each rank stage.
+- `max_bond=nothing`: largest bond dimension, an integer or (for `eigen_solve`)
+  a per-stage vector; `nothing` means `round(Int, √prod(dims))`.
+- `trunc_tol=1e-6`: relative truncation tolerance of the two-core SVDs, with
+  the rule of [`tt_round!`](@ref).
+- `local_solver=:auto`, `local_threshold=nothing` (256 unknowns),
+  `local_maxiter=200`, `local_tol=1e-6` (`eigen_solve` only): local
+  eigensolver settings; see [`ALS`](@ref). `linear_solve` solves local systems
+  with a dense direct solve.
+- `return_info::Bool=false` (`linear_solve` only): return `(x, (; residual))`,
+  where `residual` is `‖A x − b‖ / ‖b‖`, instead of `x`.
+- `verbosity::Int=1`: `2` logs one line per sweep.
+- `show_progress::Bool=true`: display a progress bar over the sweeps.
 
-# Keyword arguments used by `eigen_solve`
-- `tol::Float64=1e-12`: relative SVD truncation threshold for rank adaptation.
-- `sweep_schedule::Vector{Int}=[2]`: sweep numbers at which each rank stage ends.
-- `rmax_schedule::Vector{Int}`: maximum bond dimension for each stage. If it is
-  not given, every stage uses `rmax`, or `round(Int, √prod(dims))` when `rmax`
-  is also not given; setting both is an error.
-- `it_solver::Bool=false`: solve local eigenproblems iteratively.
-- `linsolv_maxiter::Int=200`: maximum iterations of the local iterative solver.
-- `linsolv_tol`: tolerance of the local iterative solver; `nothing` means
-  `max(√tol, 1e-8)`.
-- `itslv_thresh::Int=256`: local problem size above which `it_solver` takes effect.
-
-`eigen_solve` returns `(E, x, r_hist)`: the eigenvalue history, the eigenvector
-approximation, and the maximum bond dimension after each micro-step.
-
-`show_progress::Bool=false` displays a progress bar for either problem.
+`eigen_solve` returns `(E, x, r_hist)`: the eigenvalue history (one entry per
+micro-step), the eigenvector approximation, and the largest bond dimension
+after each micro-step.
 """
 struct MALS <: EigenSolverAlgorithm
-    tol::Float64
-    rmax::Union{Nothing, Int}
+    max_sweeps::Union{Int, Vector{Int}}
+    max_bond::Union{Nothing, Int, Vector{Int}}
+    trunc_tol::Float64
+    local_solver::Symbol
+    local_threshold::Union{Nothing, Int}
+    local_maxiter::Int
+    local_tol::Float64
     return_info::Bool
-    sweep_schedule::Union{Nothing, Vector{Int}}
-    rmax_schedule::Union{Nothing, Vector{Int}}
-    it_solver::Bool
-    linsolv_maxiter::Int
-    linsolv_tol::Union{Nothing, Float64}
-    itslv_thresh::Int
+    verbosity::Int
     show_progress::Bool
 end
 
 function MALS(;
-        tol::Float64 = 1.0e-12,
-        rmax::Union{Nothing, Int} = nothing,
+        max_sweeps = 1,
+        max_bond = nothing,
+        trunc_tol::Real = 1.0e-6,
+        local_solver::Symbol = :auto,
+        local_threshold = nothing,
+        local_maxiter::Int = 200,
+        local_tol::Real = 1.0e-6,
         return_info::Bool = false,
-        sweep_schedule::Union{Nothing, Vector{Int}} = nothing,
-        rmax_schedule::Union{Nothing, Vector{Int}} = nothing,
-        it_solver::Bool = false,
-        linsolv_maxiter::Int = 200,
-        linsolv_tol::Union{Nothing, Real} = nothing,
-        itslv_thresh::Int = 256,
-        show_progress::Bool = false
+        verbosity::Int = 1,
+        show_progress::Bool = true
     )
-    linsolv_tol_value = isnothing(linsolv_tol) ? nothing : Float64(linsolv_tol)
-    return MALS(tol, rmax, return_info, sweep_schedule, rmax_schedule, it_solver, linsolv_maxiter, linsolv_tol_value, itslv_thresh, show_progress)
+    return MALS(
+        _as_stage(max_sweeps, Int), isnothing(max_bond) ? nothing : _as_stage(max_bond, Int),
+        trunc_tol, _check_local_solver(local_solver), local_threshold, local_maxiter,
+        local_tol, return_info, verbosity, show_progress
+    )
 end
 
 """
     DMRG(; kwargs...)
 
 DMRG-style alternating scheme (White 1992; Oseledets & Dolgov 2012) that
-optimizes `N` neighboring cores jointly at each micro-step. With `N ≥ 2` the
-ranks adapt through truncated SVDs.
+optimizes `nsites` neighboring cores jointly at each micro-step. With
+`nsites ≥ 2` the ranks adapt through truncated SVDs. One sweep moves left to
+right and then right to left; a final micro-step on the first cores follows the
+last sweep.
 
 Pass to [`linear_solve`](@ref) or [`eigen_solve`](@ref). Both read the same
-fields, except that `eigen_solve` rejects `return_info = true`:
+fields, except that `eigen_solve` rejects `return_info = true`.
 
 # Keyword arguments
-- `N::Int=2`: number of cores optimized per micro-step.
-- `tol::Float64=1e-12`: relative SVD truncation threshold (used when `N ≥ 2`).
-- `sweep_schedule::Vector{Int}=[sweep_count]`: sweep numbers at which each rank
-  stage ends; the solve stops after `sweep_schedule[end]` sweeps.
-- `sweep_count::Int=2`: shorthand for the one-stage schedule `[sweep_count]`;
-  setting both `sweep_count` and `sweep_schedule` is an error.
-- `rmax_schedule::Vector{Int}`: maximum bond dimension for each stage (defaults
-  to `isqrt(prod(dims))`).
-- `it_solver::Bool=true`: solve local problems iteratively.
-- `linsolv_maxiter::Int=200`: maximum iterations of the local iterative solver.
-- `linsolv_tol`: tolerance of the local iterative solver; `nothing` means
-  `max(√tol, 1e-8)`.
-- `itslv_thresh::Int=256`: local problem size above which `it_solver` takes effect.
-- `return_info::Bool=false`: for `linear_solve`, return `(x, (; residual))`
-  instead of `x`.
-- `verbose::Bool=false`: log ranks and discarded weight at every core move.
-- `show_progress::Bool=false`: display a progress bar.
+- `nsites::Int=2`: number of cores optimized per micro-step.
+- `max_sweeps=1`: number of sweeps, or a vector with the sweeps of each rank
+  stage; DMRG has no convergence test and runs all of them.
+- `max_bond=nothing`: largest bond dimension, an integer or a per-stage vector;
+  `nothing` means `isqrt(prod(dims))`.
+- `trunc_tol=1e-12`: relative truncation tolerance of the SVDs, with the rule
+  of [`tt_round!`](@ref) (used when `nsites ≥ 2`).
+- `local_solver=:iterative`, `local_threshold=nothing` (256 unknowns),
+  `local_maxiter=200`, `local_tol=1e-6`: local solver settings; see [`ALS`](@ref).
+- `return_info::Bool=false`: for `linear_solve`, return `(x, (; residual))`,
+  where `residual` is `‖A x − b‖ / ‖b‖`, instead of `x`.
+- `verbosity::Int=1`: `2` logs one line per sweep, `3` also the rank and
+  discarded weight at every core move.
+- `show_progress::Bool=true`: display a progress bar over the sweeps.
 
-`eigen_solve` returns `(E, x, r_hist)`: the eigenvalue history, the eigenvector
-approximation, and the maximum bond dimension after each micro-step.
+`eigen_solve` returns `(E, x, r_hist)`: the eigenvalue history (one entry per
+micro-step), the eigenvector approximation, and the largest bond dimension
+after each micro-step.
 """
 struct DMRG <: EigenSolverAlgorithm
-    sweep_count::Int
-    N::Int
-    tol::Float64
-    sweep_schedule::Union{Nothing, Vector{Int}}
-    rmax_schedule::Union{Nothing, Vector{Int}}
-    it_solver::Bool
-    linsolv_maxiter::Int
-    linsolv_tol::Union{Nothing, Float64}
-    itslv_thresh::Int
+    nsites::Int
+    max_sweeps::Union{Int, Vector{Int}}
+    max_bond::Union{Nothing, Int, Vector{Int}}
+    trunc_tol::Float64
+    local_solver::Symbol
+    local_threshold::Union{Nothing, Int}
+    local_maxiter::Int
+    local_tol::Float64
     return_info::Bool
-    verbose::Bool
+    verbosity::Int
     show_progress::Bool
 end
 
 function DMRG(;
-        sweep_count::Int = 2,
-        N::Int = 2,
-        tol::Float64 = 1.0e-12,
-        sweep_schedule::Union{Nothing, Vector{Int}} = nothing,
-        rmax_schedule::Union{Nothing, Vector{Int}} = nothing,
-        it_solver::Bool = true,
-        linsolv_maxiter::Int = 200,
-        linsolv_tol::Union{Nothing, Real} = nothing,
-        itslv_thresh::Int = 256,
+        nsites::Int = 2,
+        max_sweeps = 1,
+        max_bond = nothing,
+        trunc_tol::Real = 1.0e-12,
+        local_solver::Symbol = :iterative,
+        local_threshold = nothing,
+        local_maxiter::Int = 200,
+        local_tol::Real = 1.0e-6,
         return_info::Bool = false,
-        verbose::Bool = false,
-        show_progress::Bool = false
+        verbosity::Int = 1,
+        show_progress::Bool = true
     )
-    linsolv_tol_value = isnothing(linsolv_tol) ? nothing : Float64(linsolv_tol)
-    return DMRG(sweep_count, N, tol, sweep_schedule, rmax_schedule, it_solver, linsolv_maxiter, linsolv_tol_value, itslv_thresh, return_info, verbose, show_progress)
+    return DMRG(
+        nsites, _as_stage(max_sweeps, Int), isnothing(max_bond) ? nothing : _as_stage(max_bond, Int),
+        trunc_tol, _check_local_solver(local_solver), local_threshold, local_maxiter,
+        local_tol, return_info, verbosity, show_progress
+    )
 end
 
 """
@@ -254,7 +278,7 @@ every iteration.
   `info = (; converged, residual, numiter)` holds whether the tolerance was
   reached, the relative residual `‖A x − b‖ / ‖b‖` reported by KrylovKit (for the
   rank-truncated vectors when `max_bond > 0`), and the number of iterations.
-- `show_progress::Bool=false`: display a progress bar.
+- `show_progress::Bool=true`: display a progress bar.
 """
 struct Krylov <: LinearSolverAlgorithm
     max_bond::Int
@@ -287,7 +311,7 @@ function Krylov(;
         isposdef::Bool = false,
         verbosity::Int = 1,
         return_info::Bool = false,
-        show_progress::Bool = false
+        show_progress::Bool = true
     )
     tol_value = isnothing(tol) ? nothing : Float64(tol)
     hermitian_value = isnothing(ishermitian) ? issymmetric : ishermitian
@@ -317,33 +341,30 @@ function _reject_unused(alg, problem::AbstractString, fields, used::AbstractStri
 end
 
 _check_linear_options(::LinearSolverAlgorithm) = nothing
-_check_linear_options(alg::ALS) = _reject_unused(
-    alg, "linear_solve", (:sweep_schedule, :rmax_schedule, :noise_schedule, :itslv_thresh),
-    "`sweep_count`, `it_solver`, `r_itsolver`, `maxiter`, `linsolv_tol`, `return_info`, and `show_progress`"
-)
-_check_linear_options(alg::MALS) = _reject_unused(
-    alg, "linear_solve", (:sweep_schedule, :rmax_schedule, :it_solver, :linsolv_maxiter, :linsolv_tol, :itslv_thresh),
-    "`tol`, `rmax`, `return_info`, and `show_progress`"
-)
-_check_linear_options(alg::DMRG) = (_dmrg_sweep_schedule(alg); nothing)
-
-# `sweep_count` is shorthand for the one-stage schedule `[sweep_count]`.
-function _dmrg_sweep_schedule(alg::DMRG)
-    isnothing(alg.sweep_schedule) && return [alg.sweep_count]
-    alg.sweep_count == DMRG().sweep_count ||
-        throw(ArgumentError("DMRG: give either `sweep_count` or `sweep_schedule`, not both"))
-    return alg.sweep_schedule
+function _check_linear_options(alg::ALS)
+    _reject_unused(
+        alg, "linear_solve", (:max_bond, :noise),
+        "`max_sweeps`, `local_solver`, `local_threshold`, `local_maxiter`, `local_tol`, `return_info`, `verbosity`, and `show_progress`"
+    )
+    alg.max_sweeps isa Int ||
+        throw(ArgumentError("ALS linear_solve runs a single stage; `max_sweeps` must be an integer, got $(alg.max_sweeps)"))
+    return nothing
+end
+function _check_linear_options(alg::MALS)
+    _reject_unused(
+        alg, "linear_solve", (:local_solver, :local_threshold, :local_maxiter, :local_tol),
+        "`max_sweeps`, `max_bond`, `trunc_tol`, `return_info`, `verbosity`, and `show_progress`"
+    )
+    alg.max_sweeps isa Int && !(alg.max_bond isa Vector) ||
+        throw(ArgumentError("MALS linear_solve runs a single stage; `max_sweeps` and `max_bond` must be integers"))
+    return nothing
 end
 
-function _linear_solver_algorithm(name::AbstractString)
-    name == "als" && return ALS()
-    name == "mals" && return MALS()
-    name == "dmrg" && return DMRG()
-    name == "krylov" && return Krylov()
-    throw(ArgumentError("Unknown TT solver: $name. Use \"als\", \"mals\", \"dmrg\", \"krylov\", or a LinearSolverAlgorithm instance."))
-end
+# Seconds between redraws of the solver progress bars; a run shorter than this prints no bar.
+const PROGRESS_DT = Ref(0.1)
 
-_solver_progress(total::Integer, show_progress::Bool; desc::AbstractString = "") = Progress(max(total, 1); desc = desc, enabled = show_progress)
+_solver_progress(total::Integer, show_progress::Bool; desc::AbstractString = "") =
+    Progress(max(total, 1); desc, enabled = show_progress, dt = PROGRESS_DT[])
 
 """
     linear_solve(A, b, guess; alg=MALS())
@@ -377,12 +398,13 @@ function linear_solve(A, b, guess, alg::ALS)
     _check_linear_options(alg)
     return _als_linsolve_impl(
         A, b, guess;
-        sweep_count = alg.sweep_count,
-        it_solver = alg.it_solver,
-        r_itsolver = alg.r_itsolver,
-        maxiter = alg.maxiter,
-        linsolv_tol = alg.linsolv_tol,
+        max_sweeps = alg.max_sweeps,
+        local_solver = alg.local_solver,
+        local_threshold = something(alg.local_threshold, typemax(Int)),
+        local_maxiter = alg.local_maxiter,
+        local_tol = alg.local_tol,
         return_info = alg.return_info,
+        verbosity = alg.verbosity,
         show_progress = alg.show_progress
     )
 end
@@ -398,8 +420,15 @@ end
 
 function linear_solve(A, b, guess, alg::MALS)
     _check_linear_options(alg)
-    rmax = isnothing(alg.rmax) ? round(Int, sqrt(prod(guess.ttv_dims)::Int)) : alg.rmax
-    return _mals_linsolve_impl(A, b, guess; tol = alg.tol, rmax = rmax, return_info = alg.return_info, show_progress = alg.show_progress)
+    return _mals_linsolve_impl(
+        A, b, guess;
+        max_sweeps = alg.max_sweeps,
+        max_bond = something(alg.max_bond, round(Int, sqrt(prod(guess.ttv_dims)::Int))),
+        trunc_tol = alg.trunc_tol,
+        return_info = alg.return_info,
+        verbosity = alg.verbosity,
+        show_progress = alg.show_progress
+    )
 end
 
 """
@@ -411,25 +440,19 @@ function mals_linsolve(A, b, guess; kwargs...)
     return linear_solve(A, b, guess, MALS(; kwargs...))
 end
 
-function linear_solve(A, b, guess, alg::DMRG)
-    sweep_schedule = _dmrg_sweep_schedule(alg)
-    rmax_schedule = isnothing(alg.rmax_schedule) ? [isqrt(prod(guess.ttv_dims)::Int)] : alg.rmax_schedule
-    linsolv_tol = isnothing(alg.linsolv_tol) ? max(sqrt(alg.tol), 1.0e-8) : alg.linsolv_tol
-    return _dmrg_linsolve_impl(
-        A, b, guess;
-        N = alg.N,
-        tol = alg.tol,
-        sweep_schedule = sweep_schedule,
-        rmax_schedule = rmax_schedule,
-        it_solver = alg.it_solver,
-        linsolv_maxiter = alg.linsolv_maxiter,
-        linsolv_tol = linsolv_tol,
-        itslv_thresh = alg.itslv_thresh,
-        return_info = alg.return_info,
-        verbose = alg.verbose,
-        show_progress = alg.show_progress
+# Keyword arguments of `_dmrg_linsolve_impl` and `_dmrg_eigsolve_impl` for `alg`.
+function _dmrg_options(alg::DMRG, guess)
+    st = _stages(; max_sweeps = alg.max_sweeps, max_bond = something(alg.max_bond, isqrt(prod(guess.ttv_dims)::Int)))
+    return (;
+        st..., nsites = alg.nsites, trunc_tol = alg.trunc_tol,
+        local_solver = alg.local_solver, local_threshold = something(alg.local_threshold, 256),
+        local_maxiter = alg.local_maxiter, local_tol = alg.local_tol,
+        verbosity = alg.verbosity, show_progress = alg.show_progress,
     )
 end
+
+linear_solve(A, b, guess, alg::DMRG) =
+    _dmrg_linsolve_impl(A, b, guess; _dmrg_options(alg, guess)..., return_info = alg.return_info)
 
 """
     dmrg_linsolve(A, b, guess; kwargs...)
@@ -440,111 +463,18 @@ function dmrg_linsolve(A, b, guess; kwargs...)
     return linear_solve(A, b, guess, DMRG(; kwargs...))
 end
 
-function _stepper_algorithm(
-        alg::ALS;
-        sweep_count::Int = alg.sweep_count,
-        it_solver::Bool = alg.it_solver,
-        r_itsolver::Int = alg.r_itsolver,
-        maxiter::Int = alg.maxiter,
-        linsolv_tol::Float64 = alg.linsolv_tol,
-        return_info::Bool = alg.return_info
-    )
-    return ALS(;
-        sweep_count = sweep_count,
-        it_solver = it_solver,
-        r_itsolver = r_itsolver,
-        maxiter = maxiter,
-        linsolv_tol = linsolv_tol,
-        return_info = return_info,
-        show_progress = false
-    )
+# Copy of `alg` for the linear solves inside a time stepper: the fields in
+# `overrides` are replaced, and the copy returns a bare TTvector without a
+# progress bar of its own.
+function _stepper_algorithm(alg::LinearSolverAlgorithm; overrides...)
+    fields = (f => getfield(alg, f) for f in fieldnames(typeof(alg)))
+    return typeof(alg)(; fields..., overrides..., return_info = false, show_progress = false)
 end
 
-function _stepper_algorithm(
-        alg::MALS;
-        tol::Float64 = alg.tol,
-        rmax::Union{Nothing, Int} = alg.rmax,
-        return_info::Bool = alg.return_info
-    )
-    return MALS(;
-        tol = tol,
-        rmax = rmax,
-        return_info = return_info,
-        show_progress = false
-    )
-end
-
-function _stepper_algorithm(
-        alg::DMRG;
-        sweep_count::Int = alg.sweep_count,
-        N::Int = alg.N,
-        tol::Float64 = alg.tol,
-        sweep_schedule::Union{Nothing, Vector{Int}} = alg.sweep_schedule,
-        rmax_schedule::Union{Nothing, Vector{Int}} = alg.rmax_schedule,
-        it_solver::Bool = alg.it_solver,
-        linsolv_maxiter::Int = alg.linsolv_maxiter,
-        linsolv_tol::Union{Nothing, Real} = alg.linsolv_tol,
-        itslv_thresh::Int = alg.itslv_thresh,
-        return_info::Bool = alg.return_info,
-        verbose::Bool = alg.verbose
-    )
-    return DMRG(;
-        sweep_count = sweep_count,
-        N = N,
-        tol = tol,
-        sweep_schedule = sweep_schedule,
-        rmax_schedule = rmax_schedule,
-        it_solver = it_solver,
-        linsolv_maxiter = linsolv_maxiter,
-        linsolv_tol = linsolv_tol,
-        itslv_thresh = itslv_thresh,
-        return_info = return_info,
-        verbose = verbose,
-        show_progress = false
-    )
-end
-
-function _stepper_algorithm(
-        alg::Krylov;
-        max_bond::Int,
-        krylov_solver::Symbol = alg.krylov_solver,
-        krylovdim::Int = alg.krylovdim,
-        maxiter::Int = alg.maxiter,
-        rtol::Float64 = alg.rtol,
-        atol::Float64 = alg.atol,
-        tol::Union{Nothing, Real} = alg.tol,
-        orth = alg.orth,
-        issymmetric::Bool = alg.issymmetric,
-        ishermitian::Union{Nothing, Bool} = alg.ishermitian,
-        isposdef::Bool = alg.isposdef,
-        verbosity::Int = alg.verbosity
-    )
-    return Krylov(;
-        max_bond = max_bond,
-        krylov_solver = krylov_solver,
-        krylovdim = krylovdim,
-        maxiter = maxiter,
-        rtol = rtol,
-        atol = atol,
-        tol = tol,
-        orth = orth,
-        issymmetric = issymmetric,
-        ishermitian = ishermitian,
-        isposdef = isposdef,
-        verbosity = verbosity,
-        show_progress = false
-    )
-end
-
-# The steppers rebuild `solver` without the options that `linear_solve` does not read,
-# so those options are checked on the caller's object first.
-function _stepper_linear_solve(A, b, guess, solver::Krylov; max_bond::Int, kwargs...)
-    return linear_solve(A, b, guess, _stepper_algorithm(solver; max_bond = max_bond, kwargs...))
-end
-function _stepper_linear_solve(A, b, guess, solver::LinearSolverAlgorithm; max_bond::Int, kwargs...)
-    _check_linear_options(solver)
-    return linear_solve(A, b, guess, _stepper_algorithm(solver; kwargs...))
-end
+# A positive stepper `max_bond` also caps Krylov's operator applications;
+# otherwise the algorithm object keeps its own rank cap.
+_stepper_overrides(::Krylov, max_bond) = max_bond > 0 ? (; max_bond) : (;)
+_stepper_overrides(::LinearSolverAlgorithm, max_bond) = (;)
 
 function _krylov_algorithm(
         krylov_solver::Symbol, max_bond::Int;
@@ -586,7 +516,7 @@ function krylov_linsolve(
         isposdef::Bool = false,
         verbosity::Int = 1,
         return_info::Bool = false,
-        show_progress::Bool = false,
+        show_progress::Bool = true,
         kwargs...
     )
     solver = krylov_solver == :auto && isposdef && (issymmetric || ishermitian) ? :cg : krylov_solver

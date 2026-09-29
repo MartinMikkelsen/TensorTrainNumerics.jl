@@ -24,7 +24,7 @@ end
 # and re-solve level by level up to 2^L points.
 function ground_state(ω, g)
     seed = function_to_qtt(x -> sin(π * x), L0)
-    alg = MGR(; inner = PenaltyALS(; tol = 1.0e-10), max_rank = χ)
+    alg = MGR(; inner = PenaltyALS(; tol = 1.0e-10), max_bond = χ)
     return non_linear_solve(
         d -> kinetic(d) + (ω^2 / 2) * trap(d), seed / norm(seed), alg;
         g_builder = d -> g * 2.0^d, target_sites = L
@@ -78,7 +78,7 @@ println("g = 0: dE*/dω = $(sens[1][1]) (oscillator: 0.5),  dE*/dg = $(sens[1][2
 gs_fd = 0.0:100.0:300.0
 fd_sens = [
     ((Estar(ω + δ, γ) - Estar(ω - δ, γ)) / 2δ, (Estar(ω, γ + δ) - Estar(ω, γ - δ)) / 2δ)
-    for γ in gs_fd
+        for γ in gs_fd
 ]
 h = 2.0^-L
 x = h .* (1:(2^L))

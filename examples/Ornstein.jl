@@ -13,7 +13,7 @@ a, b = -6.0, 8.0
 h = (b - a) / (N - 1)
 xes = collect(range(a, b, N))
 
-# --- QTT operators -----------------------------------------------------------
+# QTT operators
 # ∂/∂x  : central difference (P_{i+1}-P_{i-1})/2h, assembled from the package
 #         shifts —  shift(d) = forward shift,  id_tto(d) - ∇(d) = backward shift.
 ∇₁ = (1 / (2h)) * (shift(d) - (id_tto(d) - ∇(d)))
@@ -24,12 +24,12 @@ M = ttv_to_diag_tto(qtt_polynom([-μ, 1.0], d; a = a, b = b))
 
 A = θ * (∇₁ * M) + D * Δ₁
 
-# --- initial condition: unit-mass Gaussian centred at 0 ----------------------
+# Initial condition: unit-mass Gaussian centered at 0
 mass(v) = sum(v) * h
 u₀ = function_to_qtt(t -> exp(-(a + (b - a) * t)^2 / 2), d)   # samples on [0,1]
 u₀ = (1 / mass(qtt_to_function(u₀))) * u₀
 
-# --- analytic stationary distribution  N(μ, σ²/2θ) ---------------------------
+# Analytic stationary distribution  N(μ, σ²/2θ)
 var∞ = D / θ
 P∞ = @. exp(-(xes - μ)^2 / (2var∞)) / sqrt(2π * var∞)
 
@@ -55,7 +55,7 @@ end
 P = u₀
 record!(P)
 for _ in 1:n_blocks
-    global P = crank_nicholson_method(A, P, P, fill(τ, block); normalize = false, tt_solver = ALS())
+    global P = crank_nicholson_method(A, P, P, fill(τ, block); normalize = false, alg = ALS())
     record!(P)
 end
 

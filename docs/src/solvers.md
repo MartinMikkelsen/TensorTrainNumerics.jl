@@ -4,9 +4,25 @@ TensorTrainNumerics.jl provides four families of iterative solvers for problems 
 
 All solvers operate on `AbstractTTvector` and `AbstractTToperator` inputs, so they accept both plain `TTvector`/`TToperator` and the `QTTvector`/`QTToperator` wrappers transparently.
 
-Use `linear_solve(A, b, x0, MALS(tol = 1e-10))` for linear systems and `eigen_solve(A, x0, DMRG(tol = 1e-12))` for eigenvalue problems. The older `*_linsolve` and `*_eigsolve` names are kept as compatibility wrappers.
+Use `linear_solve(A, b, x0, MALS(trunc_tol = 1e-5))` for linear systems and `eigen_solve(A, x0, DMRG(trunc_tol = 1e-12))` for eigenvalue problems. The older `*_linsolve` and `*_eigsolve` names are kept as compatibility wrappers.
 
-Progress meters are controlled at the outer solver level. Use `ALS(show_progress = true)`, `MALS(show_progress = true)`, `DMRG(show_progress = true)`, or `Krylov(show_progress = true)` to show a single bar for the full linear or eigen solve. Time-evolution routines (`euler_method`, `implicit_euler_method`, `crank_nicholson_method`, `rk4_method`, `tdvp`, and `tdvp2`) show one bar over time steps by default; pass `show_progress = false` to silence it.
+### Solver options
+
+The solvers use the same keyword name for the same setting:
+
+| Keyword | Meaning |
+|---|---|
+| `max_bond` | Largest bond dimension. Sweep solvers accept a vector with one entry per rank stage. |
+| `max_sweeps` | Number of sweeps (one sweep is a left-to-right and a right-to-left pass). A vector gives the sweeps of each rank stage; stage `k` runs `max_sweeps[k]` sweeps with bond dimension at most `max_bond[k]`. |
+| `trunc_tol` | Relative truncation tolerance of SVD rank truncation: truncating all `d − 1` bonds changes the tensor train by at most `trunc_tol·‖x‖` (the rule of `tt_round!`). |
+| `tol` | Convergence tolerance of the outer iteration (Krylov, PenaltyALS, cross interpolation). |
+| `local_solver`, `local_threshold`, `local_maxiter`, `local_tol` | How the small local problems of ALS, MALS, and DMRG are solved: `:direct`, `:iterative`, or `:auto` (direct up to `local_threshold` unknowns). |
+| `verbosity` | `0` silent, `1` warnings, `2` one line per sweep or iteration, `3` one line per micro-step. |
+| `show_progress` | Display a progress bar (on by default). Below the bar it shows the sweep, step, or iteration count and one quantity: the latest eigenvalue, the largest bond dimension, the penalty, or the validation error. Two-site updates (MALS, DMRG, `tdvp2`) also show the largest relative truncation error of the latest sweep or step. Solvers called inside another solver do not show their own bar. |
+| `return_info` | Also return a named tuple with diagnostics (residual or error estimate). |
+| `alg` | The algorithm object, for example `ALS()`, `MALS()`, `DMRG()`, or `Krylov()`. |
+
+Every solver and time-evolution routine shows a progress bar by default; pass `show_progress = false` to silence it.
 
 ---
 
@@ -36,13 +52,13 @@ A = rand_tto(dims, 3)
 b = rand_tt(dims, [1; fill(3, d - 1); 1])
 x0 = rand_tt(dims, [1; fill(2, d - 1); 1])
 
-x_als = linear_solve(A, b, x0, ALS(sweep_count = 4))
+x_als = linear_solve(A, b, x0, ALS(max_sweeps = 2))
 ```
 
 For eigenvalue problems use `eigen_solve` with `ALS`:
 
 ```@example als
-E, x_eig = eigen_solve(A, x0, ALS(sweep_schedule = [4]))
+E, x_eig = eigen_solve(A, x0, ALS(max_sweeps = 3))
 println("Lowest eigenvalue: ", E[end])
 ```
 
@@ -59,13 +75,13 @@ A = rand_tto(dims, 3)
 b = rand_tt(dims, [1; fill(3, d - 1); 1])
 x0 = rand_tt(dims, [1; fill(2, d - 1); 1])
 
-x_mals = linear_solve(A, b, x0, MALS(tol = 1e-10))
-E_mals, x_eig_mals = eigen_solve(A, x0, MALS(sweep_schedule = [4]))
+x_mals = linear_solve(A, b, x0, MALS(trunc_tol = 1e-5))
+E_mals, x_eig_mals = eigen_solve(A, x0, MALS(max_sweeps = 3))
 ```
 
 ### DMRG
 
-DMRG uses the same two-site update as MALS but includes richer local subspace expansion strategies that accelerate convergence, especially for eigenvalue problems. The `rmax_schedule` controls the maximum bond dimension at each sweep stage.
+DMRG uses the same two-site update as MALS but includes richer local subspace expansion strategies that accelerate convergence, especially for eigenvalue problems. `max_bond` and `max_sweeps` accept per-stage vectors: stage `k` runs `max_sweeps[k]` sweeps with bond dimension at most `max_bond[k]`.
 
 ```@example dmrg
 using TensorTrainNumerics
@@ -76,14 +92,12 @@ A = rand_tto(dims, 3)
 b = rand_tt(dims, [1; fill(2, d - 1); 1])
 x0 = rand_tt(dims, [1; fill(2, d - 1); 1])
 
-x_dmrg = linear_solve(A, b, x0, DMRG(sweep_count = 20, tol = 1e-12))
+x_dmrg = linear_solve(A, b, x0, DMRG(max_sweeps = 19, trunc_tol = 1e-12))
 
-sweep_schedule = [2, 4, 8]
-rmax_schedule  = [2, 3, 4]
 E_dmrg, x_eig, r_hist = eigen_solve(A, x0, DMRG(
-    sweep_schedule = sweep_schedule,
-    rmax_schedule  = rmax_schedule,
-    tol = 1e-12,
+    max_sweeps = [1, 2, 4],
+    max_bond   = [2, 3, 4],
+    trunc_tol  = 1e-12,
 ))
 
 println("Lowest eigenvalue: ", E_dmrg[end])
@@ -106,7 +120,7 @@ Both support two modes:
 
 With `normalize = true` the state is rescaled to unit norm after every step. Imaginary-time evolution with $A = -K$ therefore converges to the ground state of $K$. The operator below is a negative semidefinite discrete Laplacian, so imaginary-time evolution damps all but the smoothest mode.
 
-Each entry of `steps` is a step size. Setting `sweeps` splits every step into that many sweeps of equal duration, which reduces the splitting error without changing the total evolution time.
+Each entry of `steps` is a step size. Setting `substeps` splits every step into that many substeps of equal duration, which reduces the splitting error without changing the total evolution time.
 
 ```@example tdvp
 using TensorTrainNumerics
@@ -120,8 +134,8 @@ u0 = qtt_sin(d, λ = π)
 dt = 1e-2
 steps = fill(dt, 500)
 
-sol_tdvp  = tdvp(A, u0, steps;  imaginary_time = true, normalize = true, sweeps = 4)
-sol_tdvp2 = tdvp2(A, u0, steps; imaginary_time = true, normalize = true, sweeps = 2, max_bond = 8)
+sol_tdvp  = tdvp(A, u0, steps;  imaginary_time = true, normalize = true, substeps = 4)
+sol_tdvp2 = tdvp2(A, u0, steps; imaginary_time = true, normalize = true, substeps = 2, max_bond = 8)
 
 xes = LinRange(0, 1, 2^d)
 fig = Figure()
@@ -136,7 +150,7 @@ fig
 
 ## Time-stepping methods
 
-For the parabolic problem $u_t = A u$, $u(0) = u_0$, three classical time-stepping schemes are provided. Each returns the evolved TT-vector and optionally a relative-error history.
+For the parabolic problem $u_t = A u$, $u(0) = u_0$, three classical time-stepping schemes are provided. Each returns the evolved TT-vector and, with `return_info = true`, a named tuple whose `error` field is the relative defect of the last step.
 
 | Function | Scheme | Stability |
 |---|---|---|
@@ -161,10 +175,10 @@ init = rand_tt(u0.ttv_dims, u0.ttv_rks)
 
 steps = collect(range(0.0, 5.0, 500))
 
-sol_impl, err_impl  = implicit_euler_method(A, u0, init, steps;
-    return_error = true, normalize = false)
-sol_cn, err_cn      = crank_nicholson_method(A, u0, init, steps;
-    return_error = true, tt_solver = MALS(), normalize = false)
+sol_impl, info_impl = implicit_euler_method(A, u0, init, steps;
+    return_info = true, normalize = false)
+sol_cn, info_cn     = crank_nicholson_method(A, u0, init, steps;
+    return_info = true, alg = MALS(), normalize = false)
 sol_krylov, _       = expintegrator(A, last(steps), u0)
 
 fig = Figure()

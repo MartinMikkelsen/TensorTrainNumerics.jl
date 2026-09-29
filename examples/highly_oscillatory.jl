@@ -32,7 +32,7 @@ let
 end
 
 A = copy(qtt)
-Q = tt_compress!(A, 10; truncerr = 1.0e-8, sweeps = 10, verbose = true)
+Q = tt_compress!(A, 10; trunc_tol = 1.0e-8, sweeps = 10, verbosity = 2)
 
 let
     fig = Figure()

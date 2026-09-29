@@ -13,7 +13,7 @@ domain = [base .+ im .* imag_axis for _ in 1:d]
 f(X::AbstractMatrix{<:Number}) = vec(exp.(X[:, 1] .+ 0.6 .* X[:, 2] .- 0.2 .* X[:, 3]))
 
 Random.seed!(20260)
-alg = MaxVol(verbose = true, tol = 1.0e-8, maxiter = 20, rmax = 40, kickrank = 2)
+alg = MaxVol(verbosity = 2, tol = 1.0e-8, max_sweeps = 20, max_bond = 40, kickrank = 2)
 tt = tt_cross(f, domain, alg; ranks = 2, val_size = 1200)
 println("TT ranks: ", tt.ttv_rks)
 

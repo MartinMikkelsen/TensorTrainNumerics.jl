@@ -2,6 +2,7 @@ using Test
 using TensorTrainNumerics
 import TensorTrainNumerics: rand_orthogonal, tto_to_ttv, ttv_to_tto
 using LinearAlgebra
+using Random
 
 @testset "Complex TT conversion is idempotent and owns metadata" begin
     x = rand_tt((2, 3), [1, 2, 1])
@@ -497,7 +498,7 @@ end
         @test ttv_to_tensor(t1) ≈ expected
 
         # tolerance-based rounding detects the zero singular value on its own
-        t2 = tt_round!(copy(tt); tol = 1.0e-13)
+        t2 = tt_round!(copy(tt); trunc_tol = 1.0e-13)
         @test t2.ttv_rks[2] == 1
         @test ttv_to_tensor(t2) ≈ expected
     end
@@ -551,7 +552,7 @@ end
         vec = [randn(dims[1], rks[1], rks[2]), randn(dims[2], rks[2], rks[3]), randn(dims[3], rks[3], rks[4])]
         tt = TTvector{Float64, N}(N, vec, dims, rks, ot)
 
-        @test_throws AssertionError TensorTrainNumerics.tt_compress!(tt, 2; sweeps = 0)
+        @test_throws "`sweeps` must be ≥ 1; got 0" TensorTrainNumerics.tt_compress!(tt, 2; sweeps = 0)
     end
 
     @testset "multiple sweeps return and type" begin
@@ -562,12 +563,12 @@ end
         vec = [randn(dims[1], rks[1], rks[2]), randn(dims[2], rks[2], rks[3]), randn(dims[3], rks[3], rks[4])]
         tt = TTvector{Float64, N}(N, vec, dims, rks, ot)
 
-        y = TensorTrainNumerics.tt_compress!(tt, 3; sweeps = 2, truncerr = 0.0)
+        y = TensorTrainNumerics.tt_compress!(tt, 3; sweeps = 2, trunc_tol = 0.0)
         @test typeof(y) == typeof(tt)
         @test y === tt
     end
 
-    @testset "verbose mode logs each rounding pass" begin
+    @testset "verbosity 2 logs each rounding pass" begin
         N = 3
         dims = (2, 2, 2)
         rks = [1, 2, 2, 1]
@@ -575,7 +576,7 @@ end
         vec = [randn(dims[1], rks[1], rks[2]), randn(dims[2], rks[2], rks[3]), randn(dims[3], rks[3], rks[4])]
         tt = TTvector{Float64, N}(N, vec, dims, rks, ot)
 
-        @test_logs (:info, r"TT compress: sweep 1") TensorTrainNumerics.tt_compress!(tt, 2; verbose = true)
+        @test_logs (:info, r"TT compress: sweep 1") TensorTrainNumerics.tt_compress!(tt, 2; verbosity = 2)
     end
 end
 
@@ -1172,7 +1173,7 @@ end
     x = y + pad                          # same vector, inflated ranks
     before = qtt_to_vector(x)
     @test maximum(x.ttv_rks) > 4
-    r = tt_round!(x; tol = 1.0e-12)
+    r = tt_round!(x; trunc_tol = 1.0e-12)
     @test r === x
     @test maximum(x.ttv_rks) ≤ 2
     @test qtt_to_vector(x) ≈ before
@@ -1192,7 +1193,7 @@ end
     # non-mutating variant leaves the input untouched
     v = qtt_sin(d) + 0.0 * rand_tt(y.ttv_dims, 5)
     rks_before = copy(v.ttv_rks)
-    v2 = tt_round(v; tol = 1.0e-12)
+    v2 = tt_round(v; trunc_tol = 1.0e-12)
     @test maximum(v2.ttv_rks) ≤ 2
     @test v.ttv_rks == rks_before
 end
@@ -1203,7 +1204,7 @@ end
     q = QTTvector(x, 1, d, :serial)
     tt_compress!(q, 3)
     @test maximum(q.ttv_rks) ≤ 3
-    tt_round!(q; tol = 1.0e-12)
+    tt_round!(q; trunc_tol = 1.0e-12)
     @test maximum(q.ttv_rks) ≤ 2
 end
 
@@ -1241,4 +1242,24 @@ end
         @test ok
     end
     @test matricize(x, d) ≈ qtt_to_vector(x)
+end
+
+@testset "trunc_tol is shared by tt_round! and tt_compress!" begin
+    Random.seed!(2024)
+    x = rand_tt((2, 2, 2, 2, 2, 2), 6; normalise = true)
+    for ε in (1.0e-1, 1.0e-2)
+        a = tt_round!(copy(x); trunc_tol = ε)
+        b = tt_compress!(copy(x), typemax(Int); trunc_tol = ε)
+        @test a.ttv_rks == b.ttv_rks
+        @test norm(orthogonalize(a - x)) ≤ ε * norm(x) * (1 + 1.0e-8)
+    end
+    @test_throws MethodError tt_round!(copy(x); tol = 1.0e-2)
+    @test_throws MethodError tt_compress!(copy(x), 4; truncerr = 1.0e-2)
+    @test_throws MethodError tt_compress!(copy(x), 4; verbose = true)
+end
+
+@testset "tt_compress! verbosity" begin
+    x = rand_tt((2, 2, 2, 2), 3)
+    @test_logs tt_compress!(copy(x), 2)
+    @test_logs (:info, "TT compress: sweep 1") (:info, "TT compress: sweep 2") tt_compress!(copy(x), 2; sweeps = 2, verbosity = 2)
 end

@@ -52,9 +52,9 @@ function ground_state(H, initial_state; max_bond)
         H,
         initial_state,
         DMRG(
-            sweep_schedule = [2, 4],
-            rmax_schedule = [max_bond, max_bond],
-            tol = 1.0e-10,
+            max_sweeps = [1, 2],
+            max_bond = [max_bond, max_bond],
+            trunc_tol = 1.0e-10,
         ),
     )
     return energies[end], state, rank_history[end]
@@ -93,9 +93,6 @@ ylims!(ax, -0.03, 1.05)
 
 display(fig)
 
-# ---------------------------------------------------------------------------
-# Variational ground state with OptimKit (analytic gradient)
-# ---------------------------------------------------------------------------
 # This mirrors the ITensors + OptimKit pattern, but with TensorTrainNumerics
 # types. There is no Zygote AD here: `dot` writes in place, so reverse-mode AD
 # cannot trace through it. Instead, TTvectors implement the VectorInterface
@@ -159,7 +156,6 @@ println("Variational (LBFGS) vs DMRG ground state: sites=$n J=$J h=$h E_lbfgs=$E
 @show report(ψ_ad)
 @show report(ψ_dmrg)
 
-# ---------------------------------------------------------------------------
 # Same variational ground state, but with Zygote autodiff instead of the
 # analytic gradient. We optimise over the *cores* (flattened), exactly like the
 # ITensorMPS example optimises over its Vector{ITensor}. Loading Zygote activates

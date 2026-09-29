@@ -441,10 +441,11 @@ Elementwise (Hadamard) product of two `TTvector`s; identical to [`hadamard`](@re
 """
 ⊕(x::TTvector{T, N}, y::TTvector{T, N}) where {T <: Number, N} = hadamard(x, y)
 
-# SVD with the absolute singular-value cutoff used by TT operations.
+# Swap cores j and j + 1 through a truncated SVD (rule of `_trunc_rank` for a
+# TT with d cores, applied to the local spectrum).
 function _ttm_swap!(
         cores::Vector{Array{T, 3}}, rks::Vector{Int}, j::Int;
-        tol::Float64 = 0.0, rmax::Int = typemax(Int)
+        trunc_tol::Real = 0.0, max_bond::Int = typemax(Int), d::Int
     ) where {T}
     A = cores[j]         # (dA, rL, rM)
     B = cores[j + 1]     # (dB, rM, rR)
@@ -454,7 +455,7 @@ function _ttm_swap!(
     @tensor C[sA, sB, m, n] := A[sA, m, a] * B[sB, a, n]
     # Permute to (rL, dB, dA, rR) and flatten: rows=(m,σB), cols=(σA,n)
     mat = reshape(permutedims(C, (3, 2, 1, 4)), rL * dB, dA * rR)
-    U, S, Vt = _svdtrunc(mat; max_bond = rmax, truncerr = tol)
+    U, S, Vt = _truncated_svd(mat, trunc_tol, d, max_bond)
     r = size(U, 2)
     cores[j] = permutedims(reshape(U, rL, dB, r), (2, 1, 3))        # (dB, rL, r)
     cores[j + 1] = permutedims(reshape(S * Vt, r, dA, rR), (2, 1, 3))  # (dA, r, rR)
@@ -476,21 +477,21 @@ function _ttm_contract!(cores::Vector{Array{T, 3}}, rks::Vector{Int}, p::Int) wh
 end
 
 """
-    hadamard_ttm(x::TTvector, y::TTvector; tol=1e-14, rmax=typemax(Int)) -> TTvector
+    hadamard_ttm(x::TTvector, y::TTvector; trunc_tol=1e-14, max_bond=typemax(Int)) -> TTvector
 
 Elementwise (Hadamard) product of `x` and `y` computed by moving the cores of
 `y` through those of `x` with a sequence of adjacent-core swaps, truncating
-each swap by SVD. Singular values below the absolute threshold `tol` are
-discarded and every rank is capped at `rmax`.
+each swap by SVD. `trunc_tol` and `max_bond` are applied to the spectrum of
+each local SVD with the rule of [`tt_round!`](@ref).
 
-The cores are not brought into canonical form before each truncation, so the
-truncation error is not controlled by `tol`. For a product with a known
+The cores are not brought into canonical form before those SVDs, so the bound
+`‖x∘y − z‖ ≤ trunc_tol·‖x∘y‖` is not guaranteed. For a product with a known
 accuracy, use [`hadamard`](@ref) followed by [`tt_round!`](@ref).
 """
 function hadamard_ttm(
         x::TTvector{T, N}, y::TTvector{T, N};
-        tol::Float64 = 1.0e-14,
-        rmax::Int = typemax(Int)
+        trunc_tol::Real = 1.0e-14,
+        max_bond::Int = typemax(Int)
     ) where {T <: Number, N}
     @assert x.ttv_dims == y.ttv_dims "Incompatible TT dimensions"
     d = x.N
@@ -505,7 +506,7 @@ function hadamard_ttm(
     rks = vcat(collect(x.ttv_rks), reverse(collect(y.ttv_rks))[2:end])
     for iter in 1:d
         for j in d:-1:(d - iter + 2)
-            _ttm_swap!(cores, rks, j; tol = tol, rmax = rmax)
+            _ttm_swap!(cores, rks, j; trunc_tol, max_bond, d)
         end
         _ttm_contract!(cores, rks, d - iter + 1)
     end

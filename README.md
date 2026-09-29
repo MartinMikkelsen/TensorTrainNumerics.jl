@@ -62,7 +62,7 @@ using TensorTrainNumerics
 f(X) = vec(exp.(-sum(X .^ 2, dims = 2)))
 domain = [collect(range(-1.0, 1.0, length = 8)) for _ in 1:4]
 
-tt = tt_cross(f, domain, MaxVol(verbose = false, tol = 1.0e-8); ranks = 2)
+tt = tt_cross(f, domain, MaxVol(verbosity = 0, tol = 1.0e-8); ranks = 2)
 
 approx = ttv_to_tensor(tt)
 exact = similar(approx)
@@ -90,7 +90,7 @@ A = id_tto(d)
 b = qtt_sin(d, λ = π)
 x0 = rand_tt(b.ttv_dims, b.ttv_rks)
 
-x = linear_solve(A, b, x0, ALS(sweep_count = 4))
+x = linear_solve(A, b, x0, ALS(max_sweeps = 2))
 
 rhs = qtt_to_function(b)
 sol = qtt_to_function(x)

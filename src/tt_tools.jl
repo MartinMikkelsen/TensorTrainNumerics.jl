@@ -777,12 +777,6 @@ function concatenate(tt1::TToperator, tt2::TToperator)
     return TToperator{eltype(tt1), length(tto_dims)}(N, tto_vec, tto_dims, tto_rks, tto_ot)
 end
 
-function _svdtrunc(A; max_bond = max(size(A)...), truncerr = 0.0)
-    F = svd(A)
-    d = min(max_bond, count(F.S .>= truncerr))
-    return F.U[:, 1:d], diagm(0 => F.S[1:d]), F.Vt[1:d, :]
-end
-
 # Smallest rank whose discarded singular-value tail has Frobenius norm ≤ δ,
 # capped at max_bond and floored at 1.
 function _frob_trunc_rank(s::AbstractVector{<:Real}, δ::Real, max_bond::Int)
@@ -797,10 +791,23 @@ function _frob_trunc_rank(s::AbstractVector{<:Real}, δ::Real, max_bond::Int)
     return max(min(r, max_bond), 1)
 end
 
-# Per-bond relative criterion: discard the tail whose Frobenius norm is
-# ≤ truncerr·‖s‖ (the historical `tt_compress!` semantics).
-function _relnorm_trunc_rank(s::AbstractVector{<:Real}, truncerr::Real, max_bond::Int)
-    return _frob_trunc_rank(s, truncerr > 0 ? truncerr * norm(s) : 0.0, max_bond)
+# Rank kept on one of the d − 1 bonds of a TT whose orthogonality center holds
+# the singular values `s` (so ‖s‖ is the norm of the TT). Truncating every bond
+# this way changes the TT by at most trunc_tol·‖s‖ in Frobenius norm.
+function _trunc_rank(s::AbstractVector{<:Real}, trunc_tol::Real, d::Integer, max_bond::Integer)
+    δ = trunc_tol > 0 ? trunc_tol * norm(s) / sqrt(max(d - 1, 1)) : 0.0
+    return _frob_trunc_rank(s, δ, Int(min(max_bond, typemax(Int))))
+end
+
+# Relative Frobenius norm ‖s[r+1:end]‖ / ‖s‖ of the singular values a rank-r truncation discards.
+_discarded_weight(s::AbstractVector{<:Real}, r::Integer) =
+    r < length(s) ? norm(view(s, (r + 1):length(s))) / norm(s) : zero(float(eltype(s)))
+
+# SVD of `A` truncated with `_trunc_rank`; the fourth value is the discarded weight.
+function _truncated_svd(A::AbstractMatrix, trunc_tol::Real, d::Integer, max_bond::Integer)
+    F = svd(A)
+    r = _trunc_rank(F.S, trunc_tol, d, max_bond)
+    return F.U[:, 1:r], Diagonal(F.S[1:r]), F.Vt[1:r, :], _discarded_weight(F.S, r)
 end
 
 # One TT-rounding pass (Oseledets 2011): a right-to-left orthogonalization via
@@ -839,43 +846,42 @@ function _tt_truncate_sweep!(x::TTvector{T, N}, select::F) where {T <: Number, N
 end
 
 """
-    tt_round!(x::TTvector; tol=0.0, max_bond=typemax(Int))
+    tt_round!(x::TTvector; trunc_tol=0.0, max_bond=typemax(Int))
 
 Truncate the TT ranks of `x` in place with the TT-rounding algorithm of
 Oseledets (2011): one right-to-left orthogonalization sweep followed by one
 left-to-right truncating SVD sweep, O(d·n·r³) in total.
 
-`tol` is a relative Frobenius tolerance for the whole tensor: the result
-satisfies `‖x − round(x)‖ ≤ tol·‖x‖` (the budget is split evenly over the
-`d − 1` bonds). `max_bond` additionally caps every bond dimension. The result
-is left-canonical with the orthogonality center on the last core.
+`trunc_tol` is a relative Frobenius tolerance for the whole tensor: each of the
+`d − 1` bonds discards a singular-value tail of norm at most
+`trunc_tol·‖x‖/√(d−1)`, so `‖x − round(x)‖ ≤ trunc_tol·‖x‖`. `max_bond`
+additionally caps every bond dimension. The result is left-canonical with the
+orthogonality center on the last core.
 """
-function tt_round!(x::TTvector{T, N}; tol::Real = 0.0, max_bond::Int = typemax(Int)) where {T <: Number, N}
-    δ = tol > 0 ? tol * norm(x) / sqrt(max(x.N - 1, 1)) : 0.0
-    return _tt_truncate_sweep!(x, s -> _frob_trunc_rank(s, δ, max_bond))
+function tt_round!(x::TTvector{T, N}; trunc_tol::Real = 0.0, max_bond::Int = typemax(Int)) where {T <: Number, N}
+    return _tt_truncate_sweep!(x, s -> _trunc_rank(s, trunc_tol, x.N, max_bond))
 end
 
 """
-    tt_round(x::TTvector; tol=0.0, max_bond=typemax(Int))
+    tt_round(x::TTvector; trunc_tol=0.0, max_bond=typemax(Int))
 
 Non-mutating variant of [`tt_round!`](@ref).
 """
 tt_round(x::TTvector; kwargs...) = tt_round!(copy(x); kwargs...)
 
 """
-    tt_compress!(ψ::TTvector, max_bond::Int; truncerr=0.0, sweeps=1, verbose=false)
+    tt_compress!(ψ::TTvector, max_bond::Int; trunc_tol=0.0, sweeps=1, verbosity=1)
 
-Compress `ψ` in place to bond dimension at most `max_bond` via TT rounding
-(see [`tt_round!`](@ref)). `truncerr` is a per-bond relative truncation
-tolerance: at every bond the discarded singular-value tail has Frobenius norm
-at most `truncerr` times that bond's spectrum norm. A single `sweep` already
-yields the quasi-optimal rounding; additional sweeps re-run the pass.
+Compress `ψ` in place to bond dimension at most `max_bond` with TT rounding
+(see [`tt_round!`](@ref)); `trunc_tol` has the same meaning as there. A single
+sweep already gives the quasi-optimal rounding; `sweeps > 1` repeats the pass.
+`verbosity ≥ 2` logs one line per pass.
 """
-function tt_compress!(ψ::TTvector{T, N}, max_bond::Int; truncerr::Real = 0.0, sweeps::Int = 1, verbose::Bool = false) where {T <: Number, N}
-    @assert(sweeps ≥ 1, "sweeps must be >= 1")
+function tt_compress!(ψ::TTvector{T, N}, max_bond::Int; trunc_tol::Real = 0.0, sweeps::Int = 1, verbosity::Int = 1) where {T <: Number, N}
+    sweeps ≥ 1 || throw(ArgumentError("`sweeps` must be ≥ 1; got $sweeps"))
     for sw in 1:sweeps
-        verbose && @info "TT compress: sweep $sw"
-        _tt_truncate_sweep!(ψ, s -> _relnorm_trunc_rank(s, truncerr, max_bond))
+        verbosity ≥ 2 && @info "TT compress: sweep $sw"
+        _tt_truncate_sweep!(ψ, s -> _trunc_rank(s, trunc_tol, ψ.N, max_bond))
     end
     return ψ
 end

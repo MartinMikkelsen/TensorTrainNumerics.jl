@@ -22,7 +22,7 @@ exact3 = imag((exp(im) - 1)^6 / im^6)
 println("4. High-dimensional Gaussian: ∫[-5,5]^d exp(-||x||²) dx")
 for d in [10, 20, 50]
     f(x) = exp.(-sum(x .^ 2, dims = 2))
-    result = tt_integrate(f, d, lower = -5.0, upper = 5.0, alg = MaxVol(tol = 1.0e-8, verbose = false))
+    result = tt_integrate(f, d, lower = -5.0, upper = 5.0, alg = MaxVol(tol = 1.0e-8, verbosity = 0))
     exact = π^(d / 2)
     println("RelErr=$(abs(result - exact) / exact)")
 end
@@ -44,11 +44,11 @@ d = 6
 
 domain = [collect(range(0.0, π, length = n)) for _ in 1:d]
 
-tt_maxvol = tt_cross(sin_6d, domain, MaxVol(tol = 1.0e-12, verbose = true); ranks = 25);
+tt_maxvol = tt_cross(sin_6d, domain, MaxVol(tol = 1.0e-12, verbosity = 2); ranks = 25);
 
-tt_dmrg = tt_cross(sin_6d, domain, DMRGcross(tol = 1.0e-8, maxiter = 25, verbose = true); ranks = 4);
+tt_dmrg = tt_cross(sin_6d, domain, DMRGcross(tol = 1.0e-8, max_sweeps = 25, verbosity = 2); ranks = 4);
 
-tt_greedy = tt_cross(sin_6d, domain, Greedy(tol = 1.0e-12, verbose = true));
+tt_greedy = tt_cross(sin_6d, domain, Greedy(tol = 1.0e-12, verbosity = 2));
 
 println("\nResulting TT ranks: $(tt_greedy.ttv_rks)")
 

@@ -5,9 +5,9 @@ using Maxvol
 abstract type CrossAlgorithm end
 abstract type PivotAlgorithm end
 
-const CROSS_MAXITER = Ref{Int}(50)
+const CROSS_MAX_SWEEPS = Ref{Int}(50)
 const CROSS_TOL = Ref{Float64}(1.0e-10)
-const CROSS_RMAX = Ref{Int}(500)
+const CROSS_MAX_BOND = Ref{Int}(500)
 const CROSS_KICKRANK = Ref{Int}(5)
 const MAXVOL_TOL = Ref{Float64}(1.05)
 
@@ -30,116 +30,131 @@ function RandomPivot(; nsamples::Int = 1000, seed::Union{Nothing, Int} = nothing
 end
 
 """
-    MaxVol(; maxiter=50, tol=1e-10, rmax=500, kickrank=5, verbose=true, pivot=MaxVolPivot())
+    MaxVol(; max_sweeps=50, tol=1e-10, max_bond=500, kickrank=5, verbosity=1, show_progress=true, pivot=MaxVolPivot())
 
 TT-cross interpolation by alternating maximum-volume pivot selection
 (Oseledets & Tyrtyshnikov 2010). Starting from the ranks given to
 [`tt_cross`](@ref), each iteration sweeps over the cores, selects interpolation
 pivots with the maxvol algorithm, and then increases every rank by `kickrank`
-(capped at `rmax`) until the validation error drops below `tol`.
+(capped at `max_bond`) until the validation error drops below `tol`.
 
 # Keyword arguments
-- `maxiter::Int=50`: maximum number of iterations (sweeps).
+- `max_sweeps::Int=50`: maximum number of iterations; each iteration is one
+  left-to-right pass.
 - `tol::Real=1e-10`: target relative error on the validation set (see [`tt_cross`](@ref)).
-- `rmax::Int=500`: maximum TT rank.
-- `verbose::Bool=true`: log the validation error after every iteration.
+- `max_bond::Int=500`: maximum TT rank.
+- `verbosity::Int=1`: `1` warns when `tol` is not reached, `2` logs the
+  validation error after every iteration.
+- `show_progress::Bool=true`: display a progress bar over the iterations.
 - `kickrank::Union{Nothing,Int}=5`: rank increase after each iteration;
   `nothing` keeps the ranks fixed.
 - `pivot::MaxVolPivot`: maxvol settings (`tol=1.05`, `maxiter=100`).
 """
 struct MaxVol{T <: Real, P <: MaxVolPivot} <: CrossAlgorithm
-    maxiter::Int
+    max_sweeps::Int
     tol::T
-    rmax::Int
+    max_bond::Int
     kickrank::Union{Nothing, Int}
-    verbose::Bool
+    verbosity::Int
+    show_progress::Bool
     pivot::P
 end
 
 function MaxVol(;
-        maxiter::Int = CROSS_MAXITER[],
+        max_sweeps::Int = CROSS_MAX_SWEEPS[],
         tol::Real = CROSS_TOL[],
-        rmax::Int = CROSS_RMAX[],
+        max_bond::Int = CROSS_MAX_BOND[],
         kickrank::Union{Nothing, Int} = CROSS_KICKRANK[],
-        verbose::Bool = true,
+        verbosity::Int = 1,
+        show_progress::Bool = true,
         pivot::MaxVolPivot = MaxVolPivot()
     )
-    return MaxVol(maxiter, tol, rmax, kickrank, verbose, pivot)
+    return MaxVol(max_sweeps, tol, max_bond, kickrank, verbosity, show_progress, pivot)
 end
 
 """
-    Greedy(; maxiter=50, tol=1e-10, rmax=500, verbose=true, nsamples=1000, pivot=RandomPivot())
+    Greedy(; max_sweeps=50, tol=1e-10, max_bond=500, verbosity=1, show_progress=true, nsamples=1000, pivot=RandomPivot())
 
 Greedy rank-adaptive TT-cross interpolation (Savostyanov 2014). All ranks start
 at 1. At every bond, each sweep searches a random sample of candidate entries for
 the largest interpolation error and adds that entry as a new pivot, raising the
 rank by one, while the error relative to the largest sampled `|f|` exceeds `tol`
-and the rank is below `rmax`.
+and the rank is below `max_bond`.
 
 # Keyword arguments
-- `maxiter::Int=50`: maximum number of iterations (sweeps).
+- `max_sweeps::Int=50`: maximum number of iterations; each iteration is one
+  sweep over the bonds.
 - `tol::Real=1e-10`: target relative error on the validation set (see [`tt_cross`](@ref)).
-- `rmax::Int=500`: maximum TT rank.
-- `verbose::Bool=true`: log the validation error after every iteration.
+- `max_bond::Int=500`: maximum TT rank.
+- `verbosity::Int=1`: `1` warns when `tol` is not reached, `2` logs the
+  validation error after every iteration.
+- `show_progress::Bool=true`: display a progress bar over the iterations.
 - `nsamples::Int=1000`: number of random candidate entries examined per bond.
 - `pivot::RandomPivot`: sampling settings; set `RandomPivot(seed=…)` for
   reproducible pivots. The smaller of `nsamples` and `pivot.nsamples` is used.
 """
 struct Greedy{T <: Real, P <: RandomPivot} <: CrossAlgorithm
-    maxiter::Int
+    max_sweeps::Int
     tol::T
-    rmax::Int
-    verbose::Bool
+    max_bond::Int
+    verbosity::Int
+    show_progress::Bool
     nsamples::Int
     pivot::P
 end
 
 function Greedy(;
-        maxiter::Int = CROSS_MAXITER[],
+        max_sweeps::Int = CROSS_MAX_SWEEPS[],
         tol::Real = CROSS_TOL[],
-        rmax::Int = CROSS_RMAX[],
-        verbose::Bool = true,
+        max_bond::Int = CROSS_MAX_BOND[],
+        verbosity::Int = 1,
+        show_progress::Bool = true,
         nsamples::Int = 1000,
         pivot::RandomPivot = RandomPivot()
     )
-    return Greedy(maxiter, tol, rmax, verbose, nsamples, pivot)
+    return Greedy(max_sweeps, tol, max_bond, verbosity, show_progress, nsamples, pivot)
 end
 
 """
-    DMRGcross(; maxiter=50, tol=1e-10, rmax=500, kickrank=5, verbose=true, pivot=MaxVolPivot())
+    DMRGcross(; max_sweeps=50, tol=1e-10, max_bond=500, kickrank=5, verbosity=1, show_progress=true, pivot=MaxVolPivot())
 
 Two-site (DMRG-style) TT-cross interpolation (Savostyanov & Oseledets 2011).
-Each micro-step samples a two-core superblock, splits it with an SVD truncated at
-relative tolerance `tol/√(N−1)` and rank `rmax`, and selects new pivots with the
-maxvol algorithm, so the ranks adapt to the function.
+Each micro-step samples a two-core superblock, splits it with an SVD truncated
+with the rule of [`tt_round!`](@ref) at `trunc_tol = tol` and rank `max_bond`, and
+selects new pivots with the maxvol algorithm, so the ranks adapt to the function.
 
 # Keyword arguments
-- `maxiter::Int=50`: maximum number of iterations (sweeps).
+- `max_sweeps::Int=50`: maximum number of iterations; each iteration is a
+  left-to-right and a right-to-left pass.
 - `tol::Real=1e-10`: target relative error on the validation set (see [`tt_cross`](@ref)).
-- `rmax::Int=500`: maximum TT rank.
-- `verbose::Bool=true`: log the validation error after every iteration.
+- `max_bond::Int=500`: maximum TT rank.
+- `verbosity::Int=1`: `1` warns when `tol` is not reached, `2` logs the
+  validation error after every pass.
+- `show_progress::Bool=true`: display a progress bar over the iterations.
 - `kickrank::Union{Nothing,Int}=5`: extra rank directions added at every split
   to explore beyond the truncated rank; `nothing` disables this.
 - `pivot::MaxVolPivot`: maxvol settings (`tol=1.05`, `maxiter=100`).
 """
 struct DMRGcross{T <: Real, P <: MaxVolPivot} <: CrossAlgorithm
-    maxiter::Int
+    max_sweeps::Int
     tol::T
-    rmax::Int
+    max_bond::Int
     kickrank::Union{Nothing, Int}
-    verbose::Bool
+    verbosity::Int
+    show_progress::Bool
     pivot::P
 end
 
 function DMRGcross(;
-        maxiter::Int = CROSS_MAXITER[],
+        max_sweeps::Int = CROSS_MAX_SWEEPS[],
         tol::Real = CROSS_TOL[],
-        rmax::Int = CROSS_RMAX[],
+        max_bond::Int = CROSS_MAX_BOND[],
         kickrank::Union{Nothing, Int} = CROSS_KICKRANK[],
-        verbose::Bool = true,
+        verbosity::Int = 1,
+        show_progress::Bool = true,
         pivot::MaxVolPivot = MaxVolPivot()
     )
-    return DMRGcross(maxiter, tol, rmax, kickrank, verbose, pivot)
+    return DMRGcross(max_sweeps, tol, max_bond, kickrank, verbosity, show_progress, pivot)
 end
 
 """
@@ -165,14 +180,14 @@ The element type of the result is inferred from one evaluation of `f`.
 - `val_size::Int=1000`: number of random grid points used to measure the
   relative error `‖f − f̃‖ / ‖f‖` that is compared with `alg.tol`.
 
-If the tolerance is not reached within `alg.maxiter` iterations, the last
-approximation is returned; a warning is logged only when `alg.verbose` is `true`.
+If the tolerance is not reached within `alg.max_sweeps` iterations, the last
+approximation is returned, and a warning is logged when `alg.verbosity ≥ 1`.
 
 # Example
 ```julia
 f(X) = vec(exp.(-sum(X .^ 2, dims = 2)))
 domain = [collect(range(-1.0, 1.0, length = 8)) for _ in 1:4]
-tt = tt_cross(f, domain, MaxVol(verbose = false, tol = 1e-8); ranks = 2)
+tt = tt_cross(f, domain, MaxVol(verbosity = 0, tol = 1e-8); ranks = 2)
 ```
 """
 function tt_cross(f::Function, domain; alg::CrossAlgorithm = MaxVol(), kwargs...)
@@ -233,30 +248,6 @@ function _relative_residual(y, y_approx)
     return iszero(y_norm) ? residual : residual / y_norm
 end
 
-# Local SVD truncation for cross interpolation: uses relative-norm truncation
-# (keeps singular values until the cumulative tail norm exceeds truncerr * ‖s‖).
-# tt_tools.jl has a separate _svdtrunc with absolute-threshold truncation
-# (count(s .>= truncerr)). The two strategies are intentionally different and
-# should not be consolidated.
-function _cross_svdtrunc(A::AbstractMatrix{T}; max_bond::Int = typemax(Int), truncerr::Real = 0.0) where {T}
-    F = svd(A)
-    s = F.S
-    r = length(s)
-    if truncerr > 0
-        nrm = norm(s)
-        cum = zero(eltype(s))
-        for i in r:-1:1
-            cum += abs2(s[i])
-            if sqrt(cum) > truncerr * nrm
-                r = i
-                break
-            end
-        end
-    end
-    r = min(r, max_bond)
-    return F.U[:, 1:r], Diagonal(s[1:r]), F.Vt[1:r, :]
-end
-
 function _build_fiber_indices(lsets, rsets, j, Is, Rs, N)
     n_fibers = Rs[j] * Is[j] * Rs[j + 1]
     indices = Matrix{Int}(undef, n_fibers, N)
@@ -291,7 +282,7 @@ function tt_cross(
     Tv = _infer_value_type(f, domain)
 
     Rs = isa(ranks, Int) ? vcat([1], fill(ranks, N - 1), [1]) : vcat([1], ranks, [1])
-    _cap_ranks!(Rs, Is, alg.rmax)
+    _cap_ranks!(Rs, Is, alg.max_bond)
 
     cores = [randn(Tv, Is[n], Rs[n], Rs[n + 1]) for n in 1:N]
 
@@ -312,12 +303,13 @@ function tt_cross(
     Xs_val = hcat([rand(1:Is[d], val_size) for d in 1:N]...)::Matrix{Int}
     ys_val = _evaluate_on_domain(f, domain, Xs_val)
 
-    alg.verbose && @info "MaxVol cross-interpolation over $(N)D domain with $(prod(Is)) grid points"
+    alg.verbosity ≥ 2 && @info "MaxVol cross-interpolation over $(N)D domain with $(prod(Is)) grid points"
 
     converged = false
     val_eps = Inf
 
-    for iter in 1:alg.maxiter
+    progress = _solver_progress(alg.max_sweeps, alg.show_progress; desc = "MaxVol cross")
+    for iter in 1:alg.max_sweeps
         for j in 1:(N - 1)
             indices = _build_fiber_indices(lsets, rsets, j, Is, Rs, N)
             V = reshape(_evaluate_on_domain(f, domain, indices), Rs[j] * Is[j], Rs[j + 1])
@@ -378,19 +370,20 @@ function tt_cross(
         y_approx = _evaluate_tt(cores, Xs_val, N)
         val_eps = _relative_residual(ys_val, y_approx)
 
-        alg.verbose && @info "Iteration $iter: ε = $(val_eps), max rank = $(maximum(Rs))"
+        alg.verbosity ≥ 2 && @info "Iteration $iter: ε = $(val_eps), max rank = $(maximum(Rs))"
+        next!(progress; showvalues = [("iteration", "$iter/$(alg.max_sweeps)"), ("validation error", val_eps)])
 
         if val_eps < alg.tol
             converged = true
             break
         end
 
-        if iter < alg.maxiter && alg.kickrank !== nothing
+        if iter < alg.max_sweeps && alg.kickrank !== nothing
             newRs = copy(Rs)
             for n in 2:N
-                newRs[n] = min(newRs[n] + alg.kickrank, alg.rmax)
+                newRs[n] = min(newRs[n] + alg.kickrank, alg.max_bond)
             end
-            _cap_ranks!(newRs, Is, alg.rmax)
+            _cap_ranks!(newRs, Is, alg.max_bond)
             for n in 1:(N - 1)
                 if newRs[n + 1] > Rs[n + 1]
                     extra = [rand(1:Is[n + col]) for _ in 1:(newRs[n + 1] - Rs[n + 1]), col in 1:(N - n)]
@@ -401,8 +394,9 @@ function tt_cross(
         end
     end
 
-    converged && alg.verbose && @info "Converged: ε = $(val_eps) < $(alg.tol)"
-    !converged && alg.verbose && @warn "Max iterations reached: ε = $(val_eps)"
+    finish!(progress)
+    converged && alg.verbosity ≥ 2 && @info "Converged: ε = $(val_eps) < $(alg.tol)"
+    !converged && alg.verbosity ≥ 1 && @warn "Max iterations reached: ε = $(val_eps)"
 
     return TTvector{eltype(cores[1]), N}(N, cores, Tuple(Is), copy(Rs), zeros(Int, N))
 end
@@ -512,13 +506,14 @@ function tt_cross(
     Xs_val = hcat([rand(1:Is[d], val_size) for d in 1:N]...)::Matrix{Int}
     ys_val = _evaluate_on_domain(f, domain, Xs_val)
 
-    alg.verbose && @info "Greedy cross-interpolation over $(N)D domain with $(prod(Is)) grid points"
+    alg.verbosity ≥ 2 && @info "Greedy cross-interpolation over $(N)D domain with $(prod(Is)) grid points"
 
     converged = false
     val_eps = Inf
     maxy = maximum(maximum(abs, y_i) for y_i in y)
 
-    for swp in 1:alg.maxiter
+    progress = _solver_progress(alg.max_sweeps, alg.show_progress; desc = "Greedy cross")
+    for swp in 1:alg.max_sweeps
         max_dx = 0.0
 
         for i in 1:(N - 1)
@@ -555,7 +550,7 @@ function tt_cross(
             dx = iszero(maxy) ? (iszero(emax) ? zero(emax) : Inf) : emax / maxy
             max_dx = max(max_dx, dx)
 
-            if dx > alg.tol && Rs[i + 1] < alg.rmax
+            if dx > alg.tol && Rs[i + 1] < alg.max_bond
                 J1m, J2m = J1[imax1:imax1, :], J2[j_g_best:j_g_best, :]
                 cre1_new = reshape(_evaluate_on_domain(f, domain, hcat(J1, repeat(J2m, size(J1, 1), 1))), Rs[i] * Is[i], 1)
                 cre2_new = reshape(_evaluate_on_domain(f, domain, hcat(repeat(J1m, size(J2, 1), 1), J2)), 1, Is[i + 1] * Rs[i + 2])
@@ -597,7 +592,8 @@ function tt_cross(
         cores_out = _form_tensor(y, mid_inv_L, mid_inv_U, N, Rs, Is)
         val_eps = _relative_residual(ys_val, _evaluate_tt(cores_out, Xs_val, N))
 
-        alg.verbose && @info "Sweep $swp: ε = $(val_eps), max_dx = $(max_dx), max rank = $(maximum(Rs))"
+        alg.verbosity ≥ 2 && @info "Sweep $swp: ε = $(val_eps), max_dx = $(max_dx), max rank = $(maximum(Rs))"
+        next!(progress; showvalues = [("iteration", "$swp/$(alg.max_sweeps)"), ("validation error", val_eps)])
 
         if val_eps < alg.tol
             converged = true
@@ -605,8 +601,9 @@ function tt_cross(
         end
     end
 
-    converged && alg.verbose && @info "Converged: ε = $(val_eps) < $(alg.tol)"
-    !converged && alg.verbose && @warn "Max iterations reached"
+    finish!(progress)
+    converged && alg.verbosity ≥ 2 && @info "Converged: ε = $(val_eps) < $(alg.tol)"
+    !converged && alg.verbosity ≥ 1 && @warn "Max iterations reached"
 
     return TTvector{eltype(y[1]), N}(N, _form_tensor(y, mid_inv_L, mid_inv_U, N, Rs, Is), Tuple(Is), copy(Rs), zeros(Int, N))
 end
@@ -669,7 +666,7 @@ function tt_cross(
     end
 
     Rs = isa(ranks, Int) ? vcat([1], fill(ranks, N - 1), [1]) : vcat([1], ranks, [1])
-    _cap_ranks!(Rs, Is, alg.rmax)
+    _cap_ranks!(Rs, Is, alg.max_bond)
 
     I_l = Vector{Matrix{Int}}(undef, N)
     I_g = Vector{Matrix{Int}}(undef, N)
@@ -688,22 +685,22 @@ function tt_cross(
     Xs_val = hcat([rand(1:Is[d], val_size) for d in 1:N]...)::Matrix{Int}
     ys_val = _evaluate_on_domain(f, domain, Xs_val)
 
-    alg.verbose && @info "DMRGcross cross-interpolation over $(N)D domain with $(prod(Is)) grid points"
+    alg.verbosity ≥ 2 && @info "DMRGcross cross-interpolation over $(N)D domain with $(prod(Is)) grid points"
 
     converged = false
     val_eps = Inf
-    local_tol = alg.tol / sqrt(N - 1)
 
-    for iter in 1:alg.maxiter
+    progress = _solver_progress(alg.max_sweeps, alg.show_progress; desc = "DMRGcross")
+    for iter in 1:alg.max_sweeps
         for k in 1:(N - 1)
             superblock = _sample_superblock(f, domain, I_l, I_g, k, Is, N)
             r_l, s1, s2, r_g = size(superblock)
-            U, S, Vt = _cross_svdtrunc(reshape(superblock, r_l * s1, s2 * r_g); max_bond = alg.rmax, truncerr = local_tol)
+            U, S, Vt = _truncated_svd(reshape(superblock, r_l * s1, s2 * r_g), alg.tol, N, alg.max_bond)
             r = size(S, 1)
 
             if k < N - 1
                 if alg.kickrank !== nothing
-                    r_kick = min(r + alg.kickrank, alg.rmax, r_l * s1)
+                    r_kick = min(r + alg.kickrank, alg.max_bond, r_l * s1)
                     Q_mat = r_kick > r ?
                         Matrix(first(qr(hcat(U, randn(Tv, r_l * s1, r_kick - r)))))[:, 1:r_kick] :
                         Matrix(first(qr(U)))
@@ -722,18 +719,18 @@ function tt_cross(
         end
 
         val_eps = _relative_residual(ys_val, _evaluate_tt(cores, Xs_val, N))
-        alg.verbose && @info "Sweep $(2 * iter - 1) (L→R): ε = $(val_eps), max rank = $(maximum(Rs))"
+        alg.verbosity ≥ 2 && @info "Sweep $(2 * iter - 1) (L→R): ε = $(val_eps), max rank = $(maximum(Rs))"
         val_eps < alg.tol && (converged = true; break)
 
         for k in (N - 1):-1:1
             superblock = _sample_superblock(f, domain, I_l, I_g, k, Is, N)
             r_l, s1, s2, r_g = size(superblock)
-            U, S, Vt = _cross_svdtrunc(reshape(superblock, r_l * s1, s2 * r_g); max_bond = alg.rmax, truncerr = local_tol)
+            U, S, Vt = _truncated_svd(reshape(superblock, r_l * s1, s2 * r_g), alg.tol, N, alg.max_bond)
             r = size(S, 1)
 
             if k > 1
                 if alg.kickrank !== nothing
-                    r_kick = min(r + alg.kickrank, alg.rmax, s2 * r_g)
+                    r_kick = min(r + alg.kickrank, alg.max_bond, s2 * r_g)
                     Q_mat = r_kick > r ?
                         Matrix(first(qr(hcat(Vt', randn(Tv, s2 * r_g, r_kick - r)))))[:, 1:r_kick] :
                         Matrix(first(qr(Vt')))
@@ -752,12 +749,14 @@ function tt_cross(
         end
 
         val_eps = _relative_residual(ys_val, _evaluate_tt(cores, Xs_val, N))
-        alg.verbose && @info "Sweep $(2 * iter) (R→L): ε = $(val_eps), max rank = $(maximum(Rs))"
+        alg.verbosity ≥ 2 && @info "Sweep $(2 * iter) (R→L): ε = $(val_eps), max rank = $(maximum(Rs))"
+        next!(progress; showvalues = [("iteration", "$iter/$(alg.max_sweeps)"), ("validation error", val_eps)])
         val_eps < alg.tol && (converged = true; break)
     end
 
-    converged && alg.verbose && @info "Converged: ε = $(val_eps) < $(alg.tol)"
-    !converged && alg.verbose && @warn "Max iterations reached: ε = $(val_eps)"
+    finish!(progress)
+    converged && alg.verbosity ≥ 2 && @info "Converged: ε = $(val_eps) < $(alg.tol)"
+    !converged && alg.verbosity ≥ 1 && @warn "Max iterations reached: ε = $(val_eps)"
 
     return TTvector{eltype(cores[1]), N}(N, cores, Tuple(Is), copy(Rs), zeros(Int, N))
 end

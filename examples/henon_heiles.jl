@@ -1,4 +1,3 @@
-
 using LinearAlgebra
 using TensorTrainNumerics
 using CairoMakie
@@ -44,8 +43,8 @@ function henon_heiles_trajectory(stepper, H, initial, reference, times, eigensys
     for k in eachindex(times)
         if k > 1
             ψ = stepper(
-                H, ψ, [dt]; normalize = false, sweeps = 1,
-                verbose = false, show_progress = false, tol = 1.0e-12, kwargs...
+                H, ψ, [dt]; normalize = false, substeps = 1,
+                verbosity = 0, show_progress = false, tol = 1.0e-12, kwargs...
             )
         end
         # Dense diagnostics are affordable here (only n² amplitudes).
@@ -82,7 +81,7 @@ function henon_heiles_example(; n = 16, λ = 0.111803, q0 = 0.7, fixed_rank = mi
     fixed = henon_heiles_trajectory(tdvp, H, fixed_initial, ψ0, times, eigensystem)
     # With only two TT sites, tdvp2 evolves the whole pair; its remaining errors
     # come from Krylov exponentiation and SVD truncation, rather than splitting.
-    adaptive = henon_heiles_trajectory(tdvp2, H, ψ0, ψ0, times, eigensystem; max_bond = n, truncerr = 1.0e-12)
+    adaptive = henon_heiles_trajectory(tdvp2, H, ψ0, ψ0, times, eigensystem; max_bond = n, trunc_tol = 1.0e-12)
     weights = abs2.(eigensystem.vectors' * vec(ttv_to_tensor(ψ0)))
     energies = eigensystem.values
     exact_correlation = [sum(weights .* cis.(-t .* energies)) for t in times]

@@ -64,14 +64,14 @@ end
 
 function Ksolve(
         Gi::Array{T, 5}, G_bi::Array{T, 3}, Hi::Array{T, 3}, H_bi::Array{T, 2};
-        it_solver::Bool = false,
-        r_itsolver::Int = 5000,
-        maxiter::Int = 200,
-        tol::Real = 1.0e-8
+        local_solver::Symbol = :direct,
+        local_threshold::Int = typemax(Int),
+        local_maxiter::Int = 200,
+        local_tol::Real = 1.0e-8
     ) where {T <: Number}
     K_dims = (size(Gi, 1), size(Gi, 2), size(Hi, 2))
     @tensor Pb[i, α1, α2] := G_bi[i, α1, β] * H_bi[α2, β] #size (ni,rim,ri)
-    if it_solver && prod(K_dims) > r_itsolver
+    if _use_iterative(local_solver, prod(K_dims), local_threshold)
         function K_matfree!(y::AbstractVector{T}, x::AbstractVector{T})
             Yr = reshape(y, K_dims)
             Xr = reshape(x, K_dims)
@@ -88,8 +88,8 @@ function Ksolve(
             zeros(T, prod(K_dims));
             issymmetric = true,
             isposdef = true,
-            tol = tol,
-            maxiter = maxiter,
+            tol = local_tol,
+            maxiter = local_maxiter,
         )
         return reshape(sol, K_dims)
     end
@@ -97,16 +97,16 @@ function Ksolve(
     return reshape(K \ Pb[:], K_dims)
 end
 
-function K_eigmin(Gi::Array{T, 5}, Hi::Array{T, 3}, ttv_vec::Array{T, 3}; it_solver = false, itslv_thresh = 256::Int64, maxiter = 200::Int64, tol = 1.0e-6::Float64) where {T <: Number}
+function K_eigmin(Gi::Array{T, 5}, Hi::Array{T, 3}, ttv_vec::Array{T, 3}; local_solver::Symbol = :direct, local_threshold::Int = typemax(Int), local_maxiter::Int = 200, local_tol::Real = 1.0e-6) where {T <: Number}
     K_dims = (size(Gi, 1), size(Gi, 2), size(Hi, 2))
-    if it_solver && prod(K_dims) > itslv_thresh
+    if _use_iterative(local_solver, prod(K_dims), local_threshold)
         H = zeros(T, prod(K_dims))
         function K_matfree(V::AbstractArray{T, 1}; Gi = Gi::Array{T, 5}, Hi = Hi::Array{T, 3}, K_dims = K_dims, H = H::AbstractArray{T, 1})
             Hrshp = reshape(H, K_dims)
             @tensoropt((b, c, e, f), Hrshp[a, b, c] = Gi[a, b, d, e, z] * reshape(V, K_dims)[d, e, f] * Hi[z, c, f])
             return H::AbstractArray{T, 1}
         end
-        r = lobpcg(LinearMap(K_matfree, prod(K_dims); ishermitian = true), false, ttv_vec[:], 1; maxiter = maxiter, tol = tol)
+        r = lobpcg(LinearMap(K_matfree, prod(K_dims); ishermitian = true), false, ttv_vec[:], 1; maxiter = local_maxiter, tol = local_tol)
         return r.λ[1]::Real, reshape(r.X[:, 1], K_dims)::Array{T, 3}
     else
         K = K_full(Gi, Hi, K_dims)
@@ -164,232 +164,120 @@ function right_core_move(x_tt::AbstractTTvector, V::Array{T, 3}, i::Int, x_rks) 
 end
 
 
-"""
-    als_linsolve(A, b, tt_start; sweep_count=2, it_solver=false, r_itsolver=5000, return_info=false)
-
-Solve `Ax = b` using the Alternating Linear Scheme (ALS). The TT-ranks of the solution are
-fixed to those of `tt_start`.
-
-# Arguments
-- `A::TToperator{T}`: system operator in TT format.
-- `b::TTvector{T}`: right-hand side in TT format.
-- `tt_start::TTvector{T}`: initial guess; its ranks determine the solution ranks.
-
-# Keyword arguments
-- `sweep_count::Int=2`: total ALS sweeps; each sweep is one forward + one backward half-sweep.
-  An odd value stops after the forward half-sweep.
-- `it_solver::Bool=false`: use an iterative solver for the local subproblem.
-- `r_itsolver::Int=5000`: local problem size above which the enabled iterative solver activates.
-- `maxiter::Int=200`: maximum iterations for the local iterative solver.
-- `linsolv_tol::Float64=1e-8`: tolerance for the local iterative solver.
-- `return_info::Bool=false`: when `true`, return `(tt_opt, info)` where `info = (; residual)`
-  holds the final relative residual `‖A tt_opt − b‖ / ‖b‖`.
-
-# Returns
-- `TTvector{T}`, or `(TTvector{T}, NamedTuple)` when `return_info=true`.
-"""
+# Implementation of `linear_solve(A, b, tt_start, ::ALS)`; see [`ALS`](@ref).
 function _als_linsolve_impl(
         A::AbstractTToperator, b::AbstractTTvector, tt_start::AbstractTTvector;
-        sweep_count = 2, it_solver = false, r_itsolver = 5000,
-        maxiter = 200, linsolv_tol = 1.0e-8,
-        return_info = false, show_progress::Bool = false
+        max_sweeps::Int, local_solver::Symbol, local_threshold::Int,
+        local_maxiter::Int, local_tol::Real,
+        return_info::Bool, verbosity::Int, show_progress::Bool
     )
-    # als finds the minimum of the operator J:1/2*<Ax,Ax> - <x,b>
-    # input:
-    # 	A: the tensor operator in its tensor train format
-    #   b: the tensor in its tensor train format
-    #	tt_start: start value in its tensor train format
-    #	opt_rks: rank vector considered to be optimal enough
-    # output:
-    #	tt_opt: stationary point of J up to tolerated rank opt_rks
-    # 			in its tensor train format
-
     T = eltype(tt_start)
     d = A.N
-    # Initialize the to be returned tensor in its tensor train format
     tt_opt = orthogonalize(tt_start)
     dims = tt_start.ttv_dims
-    # Define the array of ranks of tt_opt [r_0=1,r_1,...,r_d]
     rks = copy(tt_start.ttv_rks)
 
-    # Initialize the arrays of G and G_b
     G = Array{Array{T}}(undef, d)
     G_b = Array{Array{T}}(undef, d)
-
-    # Initialize G[1], G_b[1], H[d] and H_b[d]
     for i in 1:d
         G[i] = zeros(T, dims[i], rks[i], dims[i], rks[i], A.tto_rks[i + 1])
         G_b[i] = zeros(dims[i], rks[i], b.ttv_rks[i + 1])
     end
     G[1] = reshape(A.tto_vec[1][:, :, 1, :], dims[1], 1, dims[1], 1, :)
     G_b[1] = reshape(b.ttv_vec[1], dims[1], 1, :)
-
-    #Initialize H and H_b
     H = init_H(tt_opt, A)
     H_b = init_Hb(tt_opt, b)
 
-    nsweeps = 0 #sweeps counter
-    progress = _solver_progress(sweep_count, show_progress; desc = "ALS linear solve")
-
-    while nsweeps < sweep_count
-        nsweeps += 1
-        # First half sweep
+    local_opts = (; local_solver, local_threshold, local_maxiter, local_tol)
+    progress = _solver_progress(max_sweeps, show_progress; desc = "ALS linear solve")
+    for sweep in 1:max_sweeps
         for i in 1:(d - 1)
-            # Define V as solution of K*x=Pb in x
-            V = Ksolve(
-                G[i], G_b[i], H[i], H_b[i];
-                it_solver = it_solver,
-                r_itsolver = r_itsolver,
-                maxiter = maxiter,
-                tol = linsolv_tol,
-            )
+            V = Ksolve(G[i], G_b[i], H[i], H_b[i]; local_opts...)
             tt_opt = right_core_move(tt_opt, V, i, rks)
-            #update G,G_b
             update_G!(tt_opt.ttv_vec[i], A.tto_vec[i + 1], G[i], G[i + 1])
             update_Gb!(tt_opt.ttv_vec[i], b.ttv_vec[i + 1], G_b[i], G_b[i + 1])
         end
-        next!(progress)
-
-        if nsweeps == sweep_count
-            break
-        else
-            nsweeps += 1
-            # Second half sweep
-            for i in d:(-1):2
-                # Define V as solution of K*x=Pb in x
-                V = Ksolve(
-                    G[i], G_b[i], H[i], H_b[i];
-                    it_solver = it_solver,
-                    r_itsolver = r_itsolver,
-                    maxiter = maxiter,
-                    tol = linsolv_tol,
-                )
-                tt_opt = left_core_move(tt_opt, V, i, rks)
-                update_H!(tt_opt.ttv_vec[i], A.tto_vec[i], H[i], H[i - 1])
-                update_Hb!(tt_opt.ttv_vec[i], b.ttv_vec[i], H_b[i], H_b[i - 1])
-            end
-            next!(progress)
+        for i in d:(-1):2
+            V = Ksolve(G[i], G_b[i], H[i], H_b[i]; local_opts...)
+            tt_opt = left_core_move(tt_opt, V, i, rks)
+            update_H!(tt_opt.ttv_vec[i], A.tto_vec[i], H[i], H[i - 1])
+            update_Hb!(tt_opt.ttv_vec[i], b.ttv_vec[i], H_b[i], H_b[i - 1])
         end
+        max_rank = maximum(tt_opt.ttv_rks)
+        verbosity ≥ 2 && @info "ALS linear solve" sweep max_rank
+        next!(progress; showvalues = [("sweep", "$sweep/$max_sweeps"), ("largest rank", max_rank)])
     end
     return return_info ? (tt_opt, (; residual = norm(A * tt_opt - b) / max(norm(b), eps(real(T))))) : tt_opt
 end
 
-"""
-    als_eigsolve(A, tt_start; sweep_schedule, rmax_schedule, noise_schedule, it_solver, itslv_thresh, maxiter, linsolv_tol)
-
-Find the lowest eigenvalue and eigenvector of `A` by minimizing the Rayleigh quotient
-via the Alternating Linear Scheme.
-
-# Arguments
-- `A::TToperator{T}`: the operator whose smallest eigenvalue is sought.
-- `tt_start::TTvector{T}`: initial guess for the eigenvector.
-
-# Keyword arguments
-- `sweep_schedule::Vector{Int}=[2]`: each entry gives the sweep number at which the rank
-  is increased; the algorithm terminates after `sweep_schedule[end]` sweeps.
-- `rmax_schedule::Vector{Int}`: maximum bond dimension at each stage.
-- `noise_schedule::Vector{Float64}`: white-noise amplitude added when increasing ranks.
-- `it_solver::Bool=false`: use an iterative eigensolver for local subproblems.
-- `itslv_thresh::Int=1024`: local problem size above which iterative solve activates.
-- `maxiter::Int=200`: maximum iterations for the iterative eigensolver.
-- `linsolv_tol::Float64=1e-8`: tolerance for the iterative eigensolver.
-
-# Returns
-`(E, tt_opt)` where `E::Vector{Float64}` is the eigenvalue history (one entry per
-micro-step) and `tt_opt::TTvector{T}` is the approximate eigenvector at termination.
-"""
+# Implementation of `eigen_solve(A, tt_start, ::ALS)`; see [`ALS`](@ref).
 function _als_eigsolve_impl(
-        A::AbstractTToperator,
-        tt_start::AbstractTTvector; #TT initial guess
-        sweep_schedule = [2]::Array{Int64, 1}, #Number of sweeps for each bond dimension in rmax_schedule
-        rmax_schedule = [maximum(tt_start.ttv_rks)]::Array{Int64, 1}, #bond dimension at each sweep
-        noise_schedule = zeros(length(rmax_schedule))::Array{Float64, 1}, #noise at each bond dimension increase
-        it_solver = false::Bool, #linear solver for the microstep
-        itslv_thresh = 1024::Int64, #switch from full to iterative
-        maxiter = 200::Int64, #maximum of iterations for the iterative solver
-        linsolv_tol = 1.0e-8::Float64,
-        show_progress::Bool = false
-    ) #tolerance of the iterative linear solver
+        A::AbstractTToperator, tt_start::AbstractTTvector;
+        max_sweeps::Vector{Int}, max_bond::Vector{Int}, noise::Vector{Float64},
+        local_solver::Symbol, local_threshold::Int, local_maxiter::Int, local_tol::Real,
+        verbosity::Int, show_progress::Bool
+    )
     T = eltype(tt_start)
-    @assert(length(rmax_schedule) == length(sweep_schedule) == length(noise_schedule), "Sweep schedule error")
     d = A.N
-    # Initialize the to be returned tensor in its tensor train format
-    tt_opt = orthogonalize(tt_start)
     dims = tt_start.ttv_dims
-    E = zeros(Float64, 2d * (sweep_schedule[end] + 1)) #output eigenvalue
-    # Define the array of ranks of tt_opt [r_0=1,r_1,...,r_d]
-    rks = copy(tt_start.ttv_rks)
-
-    # Initialize the array G
-    G = Array{Array{T}}(undef, d)
-    for i in 1:d
-        G[i] = zeros(T, dims[i], rks[i], dims[i], rks[i], A.tto_rks[i + 1])
-    end
-    G[1] = reshape(A.tto_vec[1][:, :, 1, :], dims[1], 1, dims[1], 1, :)
-
-    #Initialize H and H_b
-    H = init_H(tt_opt, A)
-
-    nsweeps = 0 #sweeps counter
-    i_schedule, i_μit = 1, 0
-    progress = _solver_progress(max(sweep_schedule[end] - 1, 1), show_progress; desc = "ALS eigen solve")
-    while i_schedule <= length(sweep_schedule)
-        nsweeps += 1
-        if nsweeps == sweep_schedule[i_schedule]
-            i_schedule += 1
-            if i_schedule > length(sweep_schedule)
-                return E[1:i_μit]::Array{Float64, 1}, tt_opt::AbstractTTvector
-            else
-                tt_opt = increase_ranks(tt_opt, rmax_schedule[i_schedule]; noise = noise_schedule[i_schedule])
-                tt_opt = orthogonalize(tt_opt)
-                H = init_H(tt_opt, A)
-                for i in 1:(d - 1)
-                    Gtemp = zeros(dims[i + 1], tt_opt.ttv_rks[i + 1], dims[i + 1], tt_opt.ttv_rks[i + 1], A.tto_rks[i + 2])
-                    Gtemp[1:size(G[i + 1], 1), 1:size(G[i + 1], 2), 1:size(G[i + 1], 3), 1:size(G[i + 1], 4), 1:size(G[i + 1], 5)] = G[i + 1]
-                    G[i + 1] = Gtemp
-                end
+    tt_opt = orthogonalize(tt_start)
+    E = Float64[]
+    local_opts = (; local_solver, local_threshold, local_maxiter, local_tol)
+    progress = _solver_progress(sum(max_sweeps), show_progress; desc = "ALS eigen solve")
+    sweep = 0
+    for (stage, nsweeps) in enumerate(max_sweeps)
+        r = maximum(tt_opt.ttv_rks)
+        max_bond[stage] < r && throw(
+            ArgumentError(
+                "ALS cannot lower ranks: stage $stage has max_bond = $(max_bond[stage]) but the current largest rank is $r"
+            )
+        )
+        if max_bond[stage] > r
+            tt_opt = orthogonalize(increase_ranks(tt_opt, max_bond[stage]; noise = noise[stage]))
+        end
+        # G[i] for i > 1 is overwritten during each left-to-right pass before use.
+        G = Array{Array{T}}(undef, d)
+        for i in 1:d
+            G[i] = zeros(T, dims[i], tt_opt.ttv_rks[i], dims[i], tt_opt.ttv_rks[i], A.tto_rks[i + 1])
+        end
+        G[1] = reshape(A.tto_vec[1][:, :, 1, :], dims[1], 1, dims[1], 1, :)
+        H = init_H(tt_opt, A)
+        for _ in 1:nsweeps
+            sweep += 1
+            for i in 1:(d - 1)
+                λ, V = K_eigmin(G[i], H[i], tt_opt.ttv_vec[i]; local_opts...)
+                push!(E, λ)
+                tt_opt = right_core_move(tt_opt, V, i, tt_opt.ttv_rks)
+                update_G!(tt_opt.ttv_vec[i], A.tto_vec[i + 1], G[i], G[i + 1])
             end
+            for i in d:(-1):2
+                λ, V = K_eigmin(G[i], H[i], tt_opt.ttv_vec[i]; local_opts...)
+                push!(E, λ)
+                tt_opt = left_core_move(tt_opt, V, i, tt_opt.ttv_rks)
+                update_H!(tt_opt.ttv_vec[i], A.tto_vec[i], H[i], H[i - 1])
+            end
+            eigenvalue = E[end]
+            verbosity ≥ 2 && @info "ALS eigen solve" sweep max_rank = maximum(tt_opt.ttv_rks) eigenvalue
+            next!(progress; showvalues = [("sweep", "$sweep/$(sum(max_sweeps))"), ("eigenvalue", eigenvalue)])
         end
-        # First half sweep
-        for i in 1:(d - 1)
-            # Define V as solution of K*x=Pb in x
-            i_μit += 1
-            E[i_μit], V = K_eigmin(G[i], H[i], tt_opt.ttv_vec[i]; it_solver = it_solver, itslv_thresh = itslv_thresh, maxiter = maxiter, tol = linsolv_tol)
-            tt_opt = right_core_move(tt_opt, V, i, tt_opt.ttv_rks)
-            #update G
-            update_G!(tt_opt.ttv_vec[i], A.tto_vec[i + 1], G[i], G[i + 1])
-        end
-
-        # Second half sweep
-        for i in d:(-1):2
-            # Define V as solution of K*x=Pb in x
-            i_μit += 1
-            E[i_μit], V = K_eigmin(G[i], H[i], tt_opt.ttv_vec[i]; it_solver = it_solver, itslv_thresh = itslv_thresh, maxiter = maxiter, tol = linsolv_tol)
-            tt_opt = left_core_move(tt_opt, V, i, tt_opt.ttv_rks)
-            update_H!(tt_opt.ttv_vec[i], A.tto_vec[i], H[i], H[i - 1])
-        end
-        next!(progress)
     end
-    return E[1:i_μit]::Array{Float64, 1}, tt_opt::AbstractTTvector
+    return E, tt_opt
 end
 
 function eigen_solve(A::AbstractTToperator, guess::AbstractTTvector, alg::ALS)
-    _reject_unused(
-        alg, "eigen_solve", (:sweep_count, :r_itsolver, :return_info),
-        "`sweep_schedule`, `rmax_schedule`, `noise_schedule`, `it_solver`, `itslv_thresh`, `maxiter`, `linsolv_tol`, and `show_progress`"
+    _reject_unused(alg, "eigen_solve", (:return_info,), "every option except `return_info`")
+    st = _stages(;
+        max_sweeps = alg.max_sweeps,
+        max_bond = something(alg.max_bond, maximum(guess.ttv_rks)),
+        noise = alg.noise
     )
-    sweep_schedule = isnothing(alg.sweep_schedule) ? [2] : alg.sweep_schedule
-    rmax_schedule = isnothing(alg.rmax_schedule) ? [maximum(guess.ttv_rks)] : alg.rmax_schedule
-    noise_schedule = isnothing(alg.noise_schedule) ? zeros(length(rmax_schedule)) : alg.noise_schedule
     return _als_eigsolve_impl(
-        A, guess;
-        sweep_schedule = sweep_schedule,
-        rmax_schedule = rmax_schedule,
-        noise_schedule = noise_schedule,
-        it_solver = alg.it_solver,
-        itslv_thresh = alg.itslv_thresh,
-        maxiter = alg.maxiter,
-        linsolv_tol = alg.linsolv_tol,
+        A, guess; st...,
+        local_solver = alg.local_solver,
+        local_threshold = something(alg.local_threshold, typemax(Int)),
+        local_maxiter = alg.local_maxiter,
+        local_tol = alg.local_tol,
+        verbosity = alg.verbosity,
         show_progress = alg.show_progress
     )
 end

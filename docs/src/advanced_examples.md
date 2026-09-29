@@ -195,7 +195,7 @@ record!(ψ)
 for _ in 1:n_blocks
     global ψ = crank_nicholson_method(
         A, ψ, ψ, fill(τ, block);
-        normalize = false, tt_solver = ALS()
+        normalize = false, alg = ALS()
     )
     record!(ψ)
 end

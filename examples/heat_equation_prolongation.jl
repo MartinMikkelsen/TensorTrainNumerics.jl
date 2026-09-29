@@ -15,7 +15,7 @@ function heat_problem(d::Int; κ::Float64 = 0.1)
     return A, u0, xes
 end
 
-function prolong_serial_2d(u::QTTvector; max_bond::Int = 16, truncerr::Float64 = 1.0e-12)
+function prolong_serial_2d(u::QTTvector; max_bond::Int = 16, trunc_tol::Float64 = 1.0e-12)
     @assert u.n_dims == 2 "Only 2D QTTvectors are supported"
     @assert u.ordering == :serial "Only serial QTT ordering is supported"
 
@@ -25,7 +25,7 @@ function prolong_serial_2d(u::QTTvector; max_bond::Int = 16, truncerr::Float64 =
 
     Px = qtto_constant_prolongation(d) ⊗ id_tto(d + 1)
     uf = QTTvector(Px * uy, 2, d + 1, :serial)
-    return tt_compress!(uf, max_bond; truncerr = truncerr, sweeps = 2)
+    return tt_compress!(uf, max_bond; trunc_tol, sweeps = 2)
 end
 
 function exact_heat_mode(xes, κ::Float64, T::Float64)
@@ -50,14 +50,14 @@ coarse_solution = tdvp2(
     imaginary_time = true,
     normalize = false,
     max_bond = 12,
-    truncerr = 1.0e-12,
-    verbose = false
+    trunc_tol = 1.0e-12,
+    verbosity = 0
 )
 
-prolonged = prolong_serial_2d(coarse_solution; max_bond = 16, truncerr = 1.0e-12)
+prolonged = prolong_serial_2d(coarse_solution; max_bond = 16, trunc_tol = 1.0e-12)
 # The interior Dirichlet grids i/(2^d+1) are not nested across d.
 # This diagnostic separates grid-transfer error from TDVP continuation error.
-prolonged_initial = prolong_serial_2d(u0_coarse; max_bond = 16, truncerr = 1.0e-12)
+prolonged_initial = prolong_serial_2d(u0_coarse; max_bond = 16, trunc_tol = 1.0e-12)
 
 multilevel_solution = tdvp2(
     A_fine,
@@ -66,8 +66,8 @@ multilevel_solution = tdvp2(
     imaginary_time = true,
     normalize = false,
     max_bond = 16,
-    truncerr = 1.0e-12,
-    verbose = false
+    trunc_tol = 1.0e-12,
+    verbosity = 0
 )
 
 direct_solution = tdvp2(
@@ -77,8 +77,8 @@ direct_solution = tdvp2(
     imaginary_time = true,
     normalize = false,
     max_bond = 16,
-    truncerr = 1.0e-12,
-    verbose = false
+    trunc_tol = 1.0e-12,
+    verbosity = 0
 )
 
 u_multilevel = qttv_to_array(multilevel_solution)

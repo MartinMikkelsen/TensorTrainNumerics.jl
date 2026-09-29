@@ -18,7 +18,7 @@ u0 = (1 / norm(seed)) * seed
 
 alg = MGR(;
     inner = PenaltyALS(; local_solver = :newton),
-    max_rank = χ,
+    max_bond = χ,
     return_info = true,
     show_progress = true,
 )

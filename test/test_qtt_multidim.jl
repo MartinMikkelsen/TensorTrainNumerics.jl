@@ -417,14 +417,11 @@ end
     @test xc.ordering == :interleaved
 
     # als_eigsolve accepts QTTvector/QTToperator and returns AbstractTTvector
-    E, tt_opt = als_eigsolve(A, x0; sweep_schedule = [2])
+    E, tt_opt = als_eigsolve(A, x0; max_sweeps = 1)
     @test E isa Vector{Float64}
     @test tt_opt isa AbstractTTvector
 end
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Multidimensional — extensive tests for serial and interleaved orderings
-# ─────────────────────────────────────────────────────────────────────────────
 
 @testset "function_to_qttv — 3D value accuracy, both orderings" begin
     f = x -> sin(π * x[1]) * sin(π * x[2]) * sin(π * x[3])
@@ -617,7 +614,7 @@ end
     bits = 6
     q = function_to_qttv(f_sep, 2, bits; ordering = :serial)
     q_c = copy(q)
-    tt_compress!(q_c, 10; truncerr = 1.0e-12)
+    tt_compress!(q_c, 10; trunc_tol = 1.0e-12)
 
     # The cross-dimension bond (site `bits` → `bits+1`) should be rank 1
     @test q_c.ttv_rks[bits + 1] == 1
@@ -639,7 +636,7 @@ end
     arr_ref = qttv_to_array(q)
 
     q_c = copy(q)
-    tt_compress!(q_c, 8; truncerr = 1.0e-12)
+    tt_compress!(q_c, 8; trunc_tol = 1.0e-12)
 
     @test q_c isa QTTvector
     @test q_c.ordering == :interleaved

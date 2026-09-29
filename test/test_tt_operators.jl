@@ -274,7 +274,7 @@ end
                 @test first(y.ttv_rks) == last(y.ttv_rks) == 1
                 @test norm(y) ≈ norm(expected) atol = 1.0e-10
                 @test qtt_to_function(orthogonalize(y)) ≈ expected atol = 1.0e-10
-                @test qtt_to_function(tt_round!(copy(y); tol = 1.0e-12)) ≈ expected atol = 1.0e-10
+                @test qtt_to_function(tt_round!(copy(y); trunc_tol = 1.0e-12)) ≈ expected atol = 1.0e-10
             end
         end
     end

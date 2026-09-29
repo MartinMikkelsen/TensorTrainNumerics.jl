@@ -154,7 +154,7 @@ end
 
 """
     tdvp(H, u₀, steps; kwargs...) -> TTvector
-    tdvp(H, u₀, steps; return_error=true, kwargs...) -> (TTvector, rel_error)
+    tdvp(H, u₀, steps; return_info=true, kwargs...) -> (TTvector, info)
 
 Evolve `u₀` with the one-site time-dependent variational principle (Haegeman et
 al. 2016), using a symmetric (second-order) projector splitting. The TT ranks
@@ -169,34 +169,49 @@ The generator is applied as follows:
   a Hamiltonian `K`, pass `H = -K` together with `normalize = true`.
 
 `steps` is a vector of step sizes `h`, not of time points. Every entry of
-`steps` evolves the state by `h`, split into `sweeps` sweeps of `h / sweeps`
-each; more sweeps reduce the splitting error of a step.
+`steps` evolves the state by `h`, split into `substeps` substeps of
+`h / substeps` each; more substeps reduce the splitting error of a step.
 
 # Keyword arguments
 - `normalize::Bool=false`: rescale the state to unit norm after every step.
-- `sweeps::Int=1`: number of sweeps each step is split into (see above).
-- `carry_env::Bool=true`: reuse environments between the sweeps of one step.
-- `return_error::Bool=false`: also return the relative residual of the last
-  step's finite-difference derivative, `‖(u_{n+1} − u_n)/h − G u_{n+1}‖ / ‖u_{n+1}‖`,
-  where `G` is `H` or `-iH`.
-- `verbose::Bool=false`: log the local energy at every site update.
+- `substeps::Int=1`: number of substeps each step is split into (see above).
+- `carry_env::Bool=true`: reuse environments between the substeps of one step.
+- `return_info::Bool=false`: return `(ψ, (; error))`, where `error` is the
+  relative residual of the last step's finite-difference derivative,
+  `‖(u_{n+1} − u_n)/h − G u_{n+1}‖ / ‖u_{n+1}‖`, and `G` is `H` or `-iH`.
+- `verbosity::Int=1`: `3` logs the local energy at every site update.
 - `show_progress::Bool=true`: display a progress bar over the time steps.
 - Remaining keyword arguments are passed to `KrylovKit.exponentiate`
   (for example `ishermitian=false`, `tol`, or `krylovdim`).
 """
+# Keywords that `tdvp` and `tdvp2` pass through to `KrylovKit.exponentiate`.
+const _EXPONENTIATE_KEYWORDS = (:krylovdim, :maxiter, :tol, :orth, :eager, :ishermitian)
+
+function _check_exponentiate_kwargs(caller::AbstractString, kwargs)
+    bad = setdiff(keys(kwargs), _EXPONENTIATE_KEYWORDS)
+    isempty(bad) || throw(
+        ArgumentError(
+            "$caller got unsupported keyword argument(s) $(join(bad, ", ")); remaining keywords are passed to " *
+                "KrylovKit.exponentiate, which accepts $(join(_EXPONENTIATE_KEYWORDS, ", "))"
+        )
+    )
+    return nothing
+end
+
 function tdvp(
         H::AbstractTToperator,
         u₀::AbstractTTvector,
         steps::Vector{Float64};
         normalize::Bool = false,
-        return_error::Bool = false,
-        sweeps::Int = 1,
+        return_info::Bool = false,
+        substeps::Int = 1,
         carry_env::Bool = true,
-        verbose::Bool = false,
+        verbosity::Int = 1,
         imaginary_time::Bool = false,
         show_progress::Bool = true,
         kwargs...
     )
+    _check_exponentiate_kwargs("tdvp", kwargs)
     ψ = orthogonalize(u₀)
 
     wants_complex = !imaginary_time
@@ -209,13 +224,14 @@ function tdvp(
     F = nothing
     progress = _solver_progress(length(steps), show_progress; desc = "TDVP")
 
-    for h in steps
+    t = 0.0
+    for (step, h) in enumerate(steps)
         ψ_prev_step = deepcopy(ψ)
-        # Each sweep integrates an equal part of the step.
-        dt_eff = (imaginary_time ? (+im * h) : (complex(1.0) * h)) / sweeps
-        for s in 1:sweeps
+        # Each substep integrates an equal part of the step.
+        dt_eff = (imaginary_time ? (+im * h) : (complex(1.0) * h)) / substeps
+        for s in 1:substeps
             F_in = carry_env ? F : nothing
-            ψ, F = tdvp1sweep!(dt_eff, ψ, Hc, F_in; verbose = verbose, kwargs...)
+            ψ, F = tdvp1sweep!(dt_eff, ψ, Hc, F_in; verbose = verbosity ≥ 3, kwargs...)
         end
         if normalize
             ψ = (1 / norm(ψ)) * ψ
@@ -223,18 +239,18 @@ function tdvp(
         ψ = orthogonalize(ψ)
         F = nothing
         ψ_prev = ψ_prev_step
-        next!(progress)
+        t += h
+        next!(progress; showvalues = [("step", "$step/$(length(steps))"), ("time", t), ("largest rank", maximum(ψ.ttv_rks))])
     end
 
-    if return_error
+    if return_info
         h = steps[end]
         if imaginary_time
             residual = (ψ - ψ_prev) * (1 / h) - (Hc * ψ)
         else
             residual = (ψ - ψ_prev) * (1 / h) + im * (Hc * ψ)
         end
-        rel_error = norm(residual) / norm(ψ)
-        return ψ, rel_error
+        return ψ, (; error = norm(residual) / norm(ψ))
     end
     return ψ
 end
@@ -246,7 +262,7 @@ end
 
 function tdvp2sweep!(
         dt, ψ::AbstractTTvector, H::AbstractTToperator, F::Union{Nothing, Vector{Any}} = nothing;
-        verbose::Bool = true, max_bond::Int = typemax(Int), truncerr::Real = 0.0,
+        verbose::Bool = true, max_bond::Int = typemax(Int), trunc_tol::Real = 0.0, trunc_err = nothing,
         ishermitian::Bool = true, kwargs...
     )
 
@@ -284,10 +300,8 @@ function tdvp2sweep!(
         end
 
         Dl, d1, d2, Dr = size(AAC)
-        U, S, Vt = _svdtrunc(
-            reshape(AAC, Dl * d1, d2 * Dr);
-            max_bond = max_bond, truncerr = truncerr
-        )
+        U, S, Vt, δ = _truncated_svd(reshape(AAC, Dl * d1, d2 * Dr), trunc_tol, Nsites, max_bond)
+        isnothing(trunc_err) || (trunc_err[] = max(trunc_err[], δ))
 
         AL = reshape(U, Dl, d1, size(U, 2))
         A_lsr[k] = AL
@@ -312,10 +326,8 @@ function tdvp2sweep!(
         end
 
         Dl, d1, d2, Dr = size(AAC)
-        U, S, Vt = _svdtrunc(
-            reshape(AAC, Dl * d1, d2 * Dr);
-            max_bond = max_bond, truncerr = truncerr
-        )
+        U, S, Vt, δ = _truncated_svd(reshape(AAC, Dl * d1, d2 * Dr), trunc_tol, Nsites, max_bond)
+        isnothing(trunc_err) || (trunc_err[] = max(trunc_err[], δ))
 
         AR = reshape(Vt, size(Vt, 1), d2, Dr)
         A_lsr[k + 1] = AR
@@ -339,7 +351,7 @@ end
 
 """
     tdvp2(H, u₀, steps; kwargs...) -> TTvector
-    tdvp2(H, u₀, steps; return_error=true, kwargs...) -> (TTvector, rel_error)
+    tdvp2(H, u₀, steps; return_info=true, kwargs...) -> (TTvector, info)
 
 Evolve `u₀` with the two-site time-dependent variational principle (Haegeman et
 al. 2016). Each two-site update is split by a truncated SVD, so the TT ranks
@@ -354,20 +366,20 @@ The generator is applied as follows:
   a Hamiltonian `K`, pass `H = -K` together with `normalize = true`.
 
 `steps` is a vector of step sizes `h`, not of time points. Every entry of
-`steps` evolves the state by `h`, split into `sweeps` sweeps of `h / sweeps`
-each; more sweeps reduce the splitting error of a step.
+`steps` evolves the state by `h`, split into `substeps` substeps of
+`h / substeps` each; more substeps reduce the splitting error of a step.
 
 # Keyword arguments
 - `max_bond::Int=typemax(Int)`: maximum bond dimension after each two-site update.
-- `truncerr::Real=0.0`: singular values of each two-site SVD smaller than
-  `truncerr` are discarded (an absolute threshold).
+- `trunc_tol::Real=0.0`: relative truncation tolerance of the two-site SVDs,
+  with the rule of [`tt_round!`](@ref).
 - `normalize::Bool=false`: rescale the state to unit norm after every step.
-- `sweeps::Int=1`: number of sweeps each step is split into (see above).
-- `carry_env::Bool=true`: reuse environments between the sweeps of one step.
-- `return_error::Bool=false`: also return the relative residual of the last
-  step's finite-difference derivative, `‖(u_{n+1} − u_n)/h − G u_{n+1}‖ / ‖u_{n+1}‖`,
-  where `G` is `H` or `-iH`.
-- `verbose::Bool=false`: log the local energy at every two-site update.
+- `substeps::Int=1`: number of substeps each step is split into (see above).
+- `carry_env::Bool=true`: reuse environments between the substeps of one step.
+- `return_info::Bool=false`: return `(ψ, (; error))`, where `error` is the
+  relative residual of the last step's finite-difference derivative,
+  `‖(u_{n+1} − u_n)/h − G u_{n+1}‖ / ‖u_{n+1}‖`, and `G` is `H` or `-iH`.
+- `verbosity::Int=1`: `3` logs the local energy at every two-site update.
 - `show_progress::Bool=true`: display a progress bar over the time steps.
 - Remaining keyword arguments are passed to `KrylovKit.exponentiate`.
 """
@@ -376,16 +388,17 @@ function tdvp2(
         u₀::AbstractTTvector,
         steps::Vector{Float64};
         normalize::Bool = false,
-        return_error::Bool = false,
-        sweeps::Int = 1,
+        return_info::Bool = false,
+        substeps::Int = 1,
         carry_env::Bool = true,
-        verbose::Bool = false,
+        verbosity::Int = 1,
         max_bond::Int = typemax(Int),
-        truncerr::Real = 0.0,
+        trunc_tol::Real = 0.0,
         imaginary_time::Bool = false,
         show_progress::Bool = true,
         kwargs...
     )
+    _check_exponentiate_kwargs("tdvp2", kwargs)
     ψ = orthogonalize(u₀)
 
     wants_complex = !imaginary_time
@@ -398,15 +411,18 @@ function tdvp2(
     F = nothing
     progress = _solver_progress(length(steps), show_progress; desc = "2TDVP")
 
-    for h in steps
+    t = 0.0
+    trunc_err = Ref(0.0)
+    for (step, h) in enumerate(steps)
+        trunc_err[] = 0.0
         ψ_prev_step = deepcopy(ψ)
-        # Each sweep integrates an equal part of the step.
-        dt_eff = (imaginary_time ? (+im * h) : (complex(1.0) * h)) / sweeps
-        for s in 1:sweeps
+        # Each substep integrates an equal part of the step.
+        dt_eff = (imaginary_time ? (+im * h) : (complex(1.0) * h)) / substeps
+        for s in 1:substeps
             F_in = carry_env ? F : nothing
             ψ, F = tdvp2sweep!(
                 dt_eff, ψ, Hc, F_in;
-                verbose = verbose, max_bond = max_bond, truncerr = truncerr, kwargs...
+                verbose = verbosity ≥ 3, max_bond, trunc_tol, trunc_err, kwargs...
             )
         end
         if normalize
@@ -415,18 +431,23 @@ function tdvp2(
         ψ = orthogonalize(ψ)
         F = nothing
         ψ_prev = ψ_prev_step
-        next!(progress)
+        t += h
+        next!(
+            progress; showvalues = [
+                ("step", "$step/$(length(steps))"), ("time", t), ("largest rank", maximum(ψ.ttv_rks)),
+                ("truncation error", trunc_err[]),
+            ]
+        )
     end
 
-    if return_error
+    if return_info
         h = steps[end]
         if imaginary_time
             residual = (ψ - ψ_prev) * (1 / h) - (Hc * ψ)
         else
             residual = (ψ - ψ_prev) * (1 / h) + im * (Hc * ψ)
         end
-        rel_error = norm(residual) / norm(ψ)
-        return ψ, rel_error
+        return ψ, (; error = norm(residual) / norm(ψ))
     end
     return ψ
 end

@@ -26,22 +26,22 @@ gauss() = (g = function_to_qtt(t -> exp(-0.5 * (a + (b - a) * t)^2), d); (1 / nr
 blk = round(Int, record_dt / τstep); nblk = round(Int, T / record_dt)
 times = collect(0.0:record_dt:T)
 
-# --- method 1: Crank–Nicolson + ALS (fixed rank → rank-enrich the IC) --------
+# Method 1: Crank–Nicolson + ALS (fixed rank → rank-enrich the IC)
 Random.seed!(42)                                              # reproducible enrichment noise
 ψ_cn = TensorTrainNumerics.increase_ranks(gauss(), 12; noise = 1.0e-3); ψ_cn = (1 / nrm(ψ_cn)) * ψ_cn
 E_cn = Float64[Energy(ψ_cn)]
 for _ in 1:nblk
-    global ψ_cn = crank_nicholson_method(A, ψ_cn, ψ_cn, fill(τstep, blk); normalize = true, tt_solver = ALS())
+    global ψ_cn = crank_nicholson_method(A, ψ_cn, ψ_cn, fill(τstep, blk); normalize = true, alg = ALS())
     push!(E_cn, Energy(ψ_cn))
 end
 
-# --- method 2: TDVP2 (two-site, rank-adaptive → plain low-rank IC) -----------
+# Method 2: TDVP2 (two-site, rank-adaptive → plain low-rank IC)
 ψ_td = gauss()
 E_td = Float64[Energy(ψ_td)]
 for _ in 1:nblk
     global ψ_td = tdvp2(
         A, ψ_td, fill(τstep, blk); imaginary_time = true, normalize = true,
-        max_bond = 24, truncerr = 1.0e-12
+        max_bond = 24, trunc_tol = 1.0e-12
     )
     push!(E_td, Energy(ψ_td))
 end
@@ -49,7 +49,7 @@ end
 ψ0 = qtt_to_function(ψ_cn); ψ0 ./= sqrt(sum(abs2, ψ0) * h)   # ground-state wavefunction on the grid
 @info "ground state" E0_dense = E0_dense E0_CN = E_cn[end] E0_TDVP2 = E_td[end] overlap_CN = abs(sum(ψ0 .* ψ0_dense) * h) rank_CN = maximum(ψ_cn.ttv_rks) rank_TDVP2 = maximum(ψ_td.ttv_rks)
 
-# --- Figure 1: potential, ground-state energy and density --------------------
+# Figure 1: potential, ground-state energy and density
 let
     sc = 3.0
     fig = Figure(size = (760, 480))
@@ -66,7 +66,7 @@ let
     display(fig)
 end
 
-# --- Figure 2: convergence of both methods to the dense ground state --------
+# Figure 2: convergence of both methods to the dense ground state
 let
     fig = Figure(size = (760, 480))
     ax = Axis(
