@@ -12,7 +12,6 @@ end
 import TensorTrainNumerics: dot
 using LinearAlgebra: dot as ladot   # array dot, for the directional pairing
 
-# --- shared helpers (used by later tasks too) ---
 # Rebuild a TTvector from its cores, holding metadata fixed from a template.
 build_tt(cores, tmpl::TTvector{T, M}) where {T, M} =
     TTvector{eltype(cores[1]), M}(tmpl.N, cores, tmpl.ttv_dims, tmpl.ttv_rks, tmpl.ttv_ot)
@@ -454,7 +453,7 @@ end
     )
 
     # DMRG reference energy (essentially exact for this low-rank ground state).
-    energies, ψ_dmrg, _ = dmrg_eigsolve(H, qtt_basis_vector(n, 1); sweep_schedule = [2, 4], rmax_schedule = [16, 16], tol = 1.0e-10)
+    energies, ψ_dmrg, _ = dmrg_eigsolve(H, qtt_basis_vector(n, 1); max_sweeps = [1, 2], max_bond = [16, 16], trunc_tol = 1.0e-10)
 
     E_dmrg = energies[end]
 

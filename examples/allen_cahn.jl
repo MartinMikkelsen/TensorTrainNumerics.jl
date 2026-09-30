@@ -9,7 +9,7 @@ g_ac = 1 / (2 * ε^2)
 
 A_builder(d) = (4.0^d / 2) * Δ(d) - g_ac * id_tto(d)
 
-alg = PenaltyALS(; local_solver = :newton, η_schedule = [0.0], tol = 1.0e-10, max_sweeps = 60)
+alg = PenaltyALS(; local_solver = :newton, penalty_schedule = [0.0], tol = 1.0e-10, max_sweeps = 60)
 
 # discrete φ⁴ energy readout: E = h·(uᵀAu + (g/2)Σu⁴) + N·h/(4ε²)
 function phi4_energy(u::TTvector, d::Int)

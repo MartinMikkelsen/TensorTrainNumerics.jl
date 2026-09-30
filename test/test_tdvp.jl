@@ -1,9 +1,10 @@
 using Test
 using Random
 using LinearAlgebra
+using Logging
 using TensorOperations
 using TensorTrainNumerics
-import TensorTrainNumerics: _sync_ranks_from_lsr!, _real_or_complex_t, _svdtrunc, _to_lsr, _to_slr, _mpo_to_asbs, _dot3, _applyH1_lsr, _applyH0, _update_left_env, _update_right_env, tdvp1sweep!, tdvp2sweep!, _applyH2_lsr
+import TensorTrainNumerics: _sync_ranks_from_lsr!, _real_or_complex_t, _truncated_svd, _to_lsr, _to_slr, _mpo_to_asbs, _dot3, _applyH1_lsr, _applyH0, _update_left_env, _update_right_env, tdvp1sweep!, tdvp2sweep!, _applyH2_lsr
 Random.seed!(42)
 
 @testset "tdvp evolves nonstationary product states for the requested time" begin
@@ -71,27 +72,26 @@ end
     @test _real_or_complex_t(z) === z
 end
 
-@testset "_svdtrunc" begin
+@testset "_truncated_svd" begin
     A = randn(6, 4)
-    U, S, Vt = _svdtrunc(A; max_bond = 100, truncerr = 0.0)
+    U, S, Vt = _truncated_svd(A, 0.0, 2, 100)
     @test size(U, 1) == 6 && size(Vt, 2) == 4
     @test size(S, 1) == size(S, 2) == size(U, 2) == size(Vt, 1)
 
-    U2, S2, Vt2 = _svdtrunc(A; max_bond = 2, truncerr = 0.0)
+    U2, S2, Vt2 = _truncated_svd(A, 0.0, 2, 2)
     @test size(S2, 1) == 2
     F = svd(A)
     @test isapprox(diag(S2), F.S[1:2]; rtol = 1.0e-12, atol = 1.0e-12)
 
     A2 = randn(5, 5)
     F2 = svd(A2)
-    thr = (F2.S[2] + F2.S[3]) / 2
-    U4, S4, Vt4 = _svdtrunc(A2; max_bond = 1, truncerr = 0.0)
+    U4, S4, Vt4 = _truncated_svd(A2, 0.0, 2, 1)
     @test size(S4, 1) == 1
 
     A3 = Matrix(Diagonal([1.0, 0.08, 0.08]))
-    _, S5, _ = _svdtrunc(A3; truncerr = 0.1)
+    _, S5, _ = _truncated_svd(A3, 0.12, 2, typemax(Int))   # tail norm 0.113 ≤ 0.12·‖s‖
     @test size(S5, 1) == 1
-    @test :_svdtrunc ∉ names(TensorTrainNumerics)
+    @test :_truncated_svd ∉ names(TensorTrainNumerics)
 end
 
 @testset "_to_lsr/_to_slr" begin
@@ -226,40 +226,40 @@ end
 
     ψ_rt = tdvp(
         H0c, complex(u0), [0.1];
-        normalize = false, sweeps = 1, carry_env = false, verbose = false, imaginary_time = false,
+        normalize = false, substeps = 1, carry_env = false, verbosity = 0, imaginary_time = false,
         show_progress = false
     )
     @test eltype(ψ_rt) <: Complex
 
     ψ_it = tdvp(
         H0r, u0, [0.1];
-        normalize = false, sweeps = 1, carry_env = false, verbose = false, imaginary_time = true
+        normalize = false, substeps = 1, carry_env = false, verbosity = 0, imaginary_time = true
     )
     @test eltype(ψ_it) <: Real
 
-    ψ_err, err = tdvp(
+    ψ_err, info_err = tdvp(
         H0c, complex(u0), [0.1];
-        normalize = false, return_error = true,
-        sweeps = 1, carry_env = false, verbose = false, imaginary_time = false
+        normalize = false, return_info = true,
+        substeps = 1, carry_env = false, verbosity = 0, imaginary_time = false
     )
-    @test isa(err, Number)
-    @test abs(real(err)) ≤ 1.0e-6
+    @test isa(info_err.error, Number)
+    @test abs(real(info_err.error)) ≤ 1.0e-6
 
     ψ0 = complex(orthogonalize(u0))
     ψ_id = tdvp(
         H0c, ψ0, [0.1];
-        normalize = false, sweeps = 1, carry_env = false, verbose = false, imaginary_time = false
+        normalize = false, substeps = 1, carry_env = false, verbosity = 0, imaginary_time = false
     )
     rel = dense_relerr(ψ_id, ψ0)
     @test rel ≤ 1.0e-10
 
     ψ_carryT = tdvp(
         H0c, complex(u0), [0.1, 0.1];
-        normalize = false, sweeps = 2, carry_env = true, verbose = false, imaginary_time = false
+        normalize = false, substeps = 2, carry_env = true, verbosity = 0, imaginary_time = false
     )
     ψ_carryF = tdvp(
         H0c, complex(u0), [0.1, 0.1];
-        normalize = false, sweeps = 2, carry_env = false, verbose = false, imaginary_time = false
+        normalize = false, substeps = 2, carry_env = false, verbosity = 0, imaginary_time = false
     )
     rel_c = dense_relerr(ψ_carryT, ψ_carryF)
     @test rel_c ≤ 1.0e-10
@@ -322,16 +322,16 @@ end
     ψ0 = complex(orthogonalize(qtt_sin(d, λ = π) + qtt_sin(d, λ = 2π)))
     H0 = (0.0 + 0.0im) * complex(id_tto(d))
     mb = 2
-    ψ2, _ = tdvp2sweep!(0.1im, deepcopy(ψ0), H0, nothing; verbose = false, max_bond = mb, truncerr = 0.0)
+    ψ2, _ = tdvp2sweep!(0.1im, deepcopy(ψ0), H0, nothing; verbose = false, max_bond = mb, trunc_tol = 0.0)
     @test maximum(ψ2.ttv_rks) ≤ mb
 end
 
-@testset "tdvp2sweep! uses absolute singular-value truncation" begin
+@testset "tdvp2sweep! truncates with trunc_tol" begin
     spectrum = [1.0, 0.08, 0.08, 0.08]
     ψ0 = ttv_decomp(Matrix(Diagonal(spectrum)))
     H0 = zeros_tto(Float64, (4, 4), [1, 1, 1])
 
-    ψ2, _ = tdvp2sweep!(0.1im, ψ0, H0, nothing; verbose = false, truncerr = 0.1)
+    ψ2, _ = tdvp2sweep!(0.1im, ψ0, H0, nothing; verbose = false, trunc_tol = 0.14)   # tail norm 0.139 ≤ 0.14·‖s‖
 
     @test ψ2.ttv_rks == [1, 1, 1]
 end
@@ -345,39 +345,39 @@ end
 
     ψ_rt = tdvp2(
         H0c, complex(u0), [0.1];
-        normalize = false, sweeps = 1, carry_env = false, verbose = false, imaginary_time = false
+        normalize = false, substeps = 1, carry_env = false, verbosity = 0, imaginary_time = false
     )
     @test eltype(ψ_rt) <: Complex
 
     ψ_it = tdvp2(
         H0r, u0, [0.1];
-        normalize = false, sweeps = 1, carry_env = false, verbose = false, imaginary_time = true
+        normalize = false, substeps = 1, carry_env = false, verbosity = 0, imaginary_time = true
     )
     @test eltype(ψ_it) <: Real
 
-    ψ_err, err = tdvp2(
+    ψ_err, info_err = tdvp2(
         H0c, complex(u0), [0.1];
-        normalize = false, return_error = true,
-        sweeps = 1, carry_env = false, verbose = false, imaginary_time = false
+        normalize = false, return_info = true,
+        substeps = 1, carry_env = false, verbosity = 0, imaginary_time = false
     )
-    @test isa(err, Number)
-    @test abs(real(err)) ≤ 1.0e-6
+    @test isa(info_err.error, Number)
+    @test abs(real(info_err.error)) ≤ 1.0e-6
 
     ψ0 = complex(orthogonalize(u0))
     ψ_id = tdvp2(
         H0c, ψ0, [0.1];
-        normalize = false, sweeps = 1, carry_env = false, verbose = false, imaginary_time = false
+        normalize = false, substeps = 1, carry_env = false, verbosity = 0, imaginary_time = false
     )
     rel = dense_relerr(ψ_id, ψ0)
     @test rel ≤ 1.0e-7
 
     ψ_carryT = tdvp2(
         H0c, complex(u0), [0.1, 0.1];
-        normalize = false, sweeps = 2, carry_env = true, verbose = false, imaginary_time = false
+        normalize = false, substeps = 2, carry_env = true, verbosity = 0, imaginary_time = false
     )
     ψ_carryF = tdvp2(
         H0c, complex(u0), [0.1, 0.1];
-        normalize = false, sweeps = 2, carry_env = false, verbose = false, imaginary_time = false
+        normalize = false, substeps = 2, carry_env = false, verbosity = 0, imaginary_time = false
     )
     rel_c = dense_relerr(ψ_carryT, ψ_carryF)
     @test rel_c ≤ 1.0e-10
@@ -388,8 +388,8 @@ end
     u0 = QTTvector(qtt_sin(d), 1, d, :serial)
     H0 = QTToperator(0.0 * id_tto(d), 1, d, :serial)
 
-    ψ1 = tdvp(H0, u0, [0.01]; normalize = false, verbose = false, show_progress = false)
-    ψ2 = tdvp2(H0, u0, [0.01]; normalize = false, verbose = false, show_progress = false)
+    ψ1 = tdvp(H0, u0, [0.01]; normalize = false, verbosity = 0, show_progress = false)
+    ψ2 = tdvp2(H0, u0, [0.01]; normalize = false, verbosity = 0, show_progress = false)
 
     @test ψ1 isa QTTvector{ComplexF64}
     @test ψ2 isa QTTvector{ComplexF64}
@@ -401,8 +401,8 @@ end
     H0 = (0.0 + 0.0im) * complex(id_tto(d))
     steps = [0.02, 0.02]
 
-    ψ_it = tdvp2(H0, ψ0, steps; normalize = false, sweeps = 2, carry_env = true, verbose = false, imaginary_time = true)
-    ψ_it_quiet = tdvp2(H0, ψ0, steps; normalize = false, sweeps = 2, carry_env = true, verbose = false, imaginary_time = true, show_progress = false)
+    ψ_it = tdvp2(H0, ψ0, steps; normalize = false, substeps = 2, carry_env = true, verbosity = 0, imaginary_time = true)
+    ψ_it_quiet = tdvp2(H0, ψ0, steps; normalize = false, substeps = 2, carry_env = true, verbosity = 0, imaginary_time = true, show_progress = false)
     @test dense_relerr(ψ_it_quiet, ψ0) < 1.0e-12
     @test dense_relerr(ψ_it, ψ0) < 1.0e-12
 end
@@ -424,19 +424,19 @@ end
     steps = fill(1.0e-3, 5)
     target = exp(λ * sum(steps)) .* qttv_to_array(u0)
 
-    sol_tdvp = tdvp(A, u0, steps; imaginary_time = true, normalize = false, verbose = false)
+    sol_tdvp = tdvp(A, u0, steps; imaginary_time = true, normalize = false, verbosity = 0)
     err_tdvp = norm(vec(qttv_to_array(sol_tdvp) .- target)) / norm(vec(target))
     @test err_tdvp < 1.0e-8
 
     sol_tdvp2 = tdvp2(
         A, u0, steps; imaginary_time = true, normalize = false,
-        verbose = false, max_bond = 8, truncerr = 1.0e-12
+        verbosity = 0, max_bond = 8, trunc_tol = 1.0e-12
     )
     err_tdvp2 = norm(vec(qttv_to_array(sol_tdvp2) .- target)) / norm(vec(target))
     @test err_tdvp2 < 1.0e-8
 end
 
-@testset "tdvp/tdvp2: return_error residual for λ≠0 (both time directions)" begin
+@testset "tdvp/tdvp2: return_info residual for λ≠0 (both time directions)" begin
     # A = 0.5·I ⇒ every state is an eigenvector (λ=0.5) and evolves exactly, so the
     # reported residual must be ≈0. Guards against (i) ψ_prev aliasing the in-place
     # sweep output and (ii) the imaginary-time residual sign.
@@ -445,17 +445,17 @@ end
     u0 = qtt_sin(d, λ = π)
     steps = fill(1.0e-3, 5)
     for it in (false, true)
-        _, e1 = tdvp(A, u0, steps; imaginary_time = it, return_error = true, normalize = false, verbose = false)
-        @test e1 < 1.0e-3
-        _, e2 = tdvp2(
-            A, u0, steps; imaginary_time = it, return_error = true, normalize = false,
-            verbose = false, max_bond = 8, truncerr = 1.0e-12
+        _, i1 = tdvp(A, u0, steps; imaginary_time = it, return_info = true, normalize = false, verbosity = 0)
+        @test i1.error < 1.0e-3
+        _, i2 = tdvp2(
+            A, u0, steps; imaginary_time = it, return_info = true, normalize = false,
+            verbosity = 0, max_bond = 8, trunc_tol = 1.0e-12
         )
-        @test e2 < 1.0e-3
+        @test i2.error < 1.0e-3
     end
 end
 
-@testset "tdvp and tdvp2 evolve each step by its size for any number of sweeps" begin
+@testset "tdvp and tdvp2 evolve each step by its size for any number of substeps" begin
     # With full TT ranks the TDVP projector is the identity, so both variants are
     # exact up to the splitting and Krylov errors and a dense exponential is a reference.
     d = 4
@@ -465,10 +465,40 @@ end
     v0 = qtt_to_vector(u0)
     steps = fill(0.05, 20)
     t = sum(steps)
-    for sweeps in (1, 2, 3), (solver, kw) in ((tdvp, (;)), (tdvp2, (; max_bond = 4)))
-        ψ = solver(A, u0, steps; imaginary_time = true, normalize = false, sweeps, show_progress = false, kw...)
+    for substeps in (1, 2, 3), (solver, kw) in ((tdvp, (;)), (tdvp2, (; max_bond = 4)))
+        ψ = solver(A, u0, steps; imaginary_time = true, normalize = false, substeps, show_progress = false, kw...)
         @test norm(qtt_to_vector(ψ) - exp(t * Ad) * v0) / norm(v0) < 1.0e-6
-        ψr = solver(A, u0, steps; imaginary_time = false, normalize = false, sweeps, show_progress = false, kw...)
+        ψr = solver(A, u0, steps; imaginary_time = false, normalize = false, substeps, show_progress = false, kw...)
         @test norm(qtt_to_vector(ψr) - exp(-im * t * Ad) * v0) / norm(v0) < 1.0e-6
     end
+end
+
+@testset "TDVP keyword names" begin
+    Random.seed!(31)
+    d = 4
+    H = Δ(d)
+    u0 = rand_tt(ntuple(_ -> 2, d), 2; normalise = true)
+    steps = [0.01, 0.01]
+
+    ψ, info = tdvp(H, u0, steps; substeps = 2, return_info = true, show_progress = false)
+    @test info.error isa Real
+    ψ2, info2 = tdvp2(H, u0, steps; substeps = 2, max_bond = 4, return_info = true, show_progress = false)
+    @test info2.error isa Real
+    @test maximum(ψ2.ttv_rks) ≤ 4
+
+    # trunc_tol = √(d − 1) makes δ ≥ ‖s‖ at every bond, so every rank drops to 1.
+    ψ1 = tdvp2(H, u0, [0.01]; trunc_tol = sqrt(d - 1), show_progress = false)
+    @test all(==(1), ψ1.ttv_rks)
+
+    @test_logs tdvp(H, u0, [0.01]; show_progress = false)
+    @test_logs (:info, "TDVP sweep:") match_mode = :any tdvp(H, u0, [0.01]; verbosity = 3, show_progress = false)
+end
+
+@testset "TDVP rejects keywords that KrylovKit.exponentiate does not take" begin
+    d = 4
+    H = Δ(d)
+    u0 = rand_tt(ntuple(_ -> 2, d), 2; normalise = true)
+    @test_throws "unsupported keyword argument(s) verbose" tdvp(H, u0, [0.01]; verbose = true, show_progress = false)
+    @test_throws "unsupported keyword argument(s) truncerr" tdvp2(H, u0, [0.01]; truncerr = 1.0e-8, show_progress = false)
+    @test tdvp(H, u0, [0.01]; tol = 1.0e-12, krylovdim = 10, show_progress = false) isa TTvector
 end

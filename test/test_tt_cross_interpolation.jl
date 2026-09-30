@@ -27,48 +27,48 @@ import TensorTrainNumerics: MaxVolPivot, RandomPivot, MaxVol, Greedy, DMRGcross,
 
     @testset "MaxVol" begin
         alg = MaxVol()
-        @test alg.maxiter == 50
+        @test alg.max_sweeps == 50
         @test alg.tol ≈ 1.0e-10
-        @test alg.rmax == 500
+        @test alg.max_bond == 500
         @test alg.kickrank == 5
-        @test alg.verbose == true
+        @test alg.verbosity == 1
         @test alg.pivot isa MaxVolPivot
 
-        alg = MaxVol(maxiter = 50, tol = 1.0e-6, rmax = 100, kickrank = nothing, verbose = false)
-        @test alg.maxiter == 50
+        alg = MaxVol(max_sweeps = 50, tol = 1.0e-6, max_bond = 100, kickrank = nothing, verbosity = 0, show_progress = false)
+        @test alg.max_sweeps == 50
         @test alg.tol ≈ 1.0e-6
-        @test alg.rmax == 100
+        @test alg.max_bond == 100
         @test alg.kickrank === nothing
-        @test alg.verbose == false
+        @test alg.verbosity == 0
     end
 
     @testset "Greedy" begin
         alg = Greedy()
         @test typeof(alg) === Greedy{Float64, RandomPivot}
-        @test alg.maxiter == 50
+        @test alg.max_sweeps == 50
         @test alg.tol ≈ 1.0e-10
-        @test alg.rmax == 500
-        @test alg.verbose == true
+        @test alg.max_bond == 500
+        @test alg.verbosity == 1
         @test alg.nsamples == 1000
         @test alg.pivot isa RandomPivot
 
-        alg = Greedy(maxiter = 100, tol = 1.0e-8, nsamples = 500, verbose = false)
-        @test alg.maxiter == 100
+        alg = Greedy(max_sweeps = 100, tol = 1.0e-8, nsamples = 500, verbosity = 0, show_progress = false)
+        @test alg.max_sweeps == 100
         @test alg.tol ≈ 1.0e-8
         @test alg.nsamples == 500
-        @test alg.verbose == false
+        @test alg.verbosity == 0
     end
 
     @testset "DMRGcross" begin
         alg = DMRGcross()
-        @test alg.maxiter == 50
+        @test alg.max_sweeps == 50
         @test alg.tol ≈ 1.0e-10
-        @test alg.rmax == 500
-        @test alg.verbose == true
+        @test alg.max_bond == 500
+        @test alg.verbosity == 1
         @test alg.pivot isa MaxVolPivot
 
-        alg = DMRGcross(maxiter = 30, tol = 1.0e-12, kickrank = 5)
-        @test alg.maxiter == 30
+        alg = DMRGcross(max_sweeps = 30, tol = 1.0e-12, kickrank = 5)
+        @test alg.max_sweeps == 30
         @test alg.tol ≈ 1.0e-12
     end
 
@@ -91,7 +91,7 @@ import TensorTrainNumerics: MaxVolPivot, RandomPivot, MaxVol, Greedy, DMRGcross,
             f(x) = sin.(sum(x, dims = 2))
             domain = [range(0, 1, length = 10) |> collect for _ in 1:4]
 
-            tt = tt_cross(f, domain, MaxVol(verbose = false, tol = 1.0e-6))
+            tt = tt_cross(f, domain, MaxVol(verbosity = 0, show_progress = false, tol = 1.0e-6))
             @test tt isa TTvector
             @test tt.N == 4
             @test all(tt.ttv_dims .== 10)
@@ -104,10 +104,10 @@ import TensorTrainNumerics: MaxVolPivot, RandomPivot, MaxVol, Greedy, DMRGcross,
             f(X) = vec(sum(X; dims = 2) .^ 2)
             exact = [(x + y + z)^2 for x in domain[1], y in domain[2], z in domain[3]]
 
-            for maxiter in (0, 1, 2, 5), kickrank in (nothing, 1)
-                @testset "maxiter=$maxiter, kickrank=$kickrank" begin
+            for max_sweeps in (0, 1, 2, 5), kickrank in (nothing, 1)
+                @testset "max_sweeps=$max_sweeps, kickrank=$kickrank" begin
                     Random.seed!(123)
-                    alg = MaxVol(; maxiter, kickrank, tol = 1.0e-12, verbose = false)
+                    alg = MaxVol(; max_sweeps, kickrank, tol = 1.0e-12, verbosity = 0, show_progress = false)
                     tt = tt_cross(f, domain, alg; ranks = 1, val_size = 200)
                     dense = ttv_to_tensor(tt)
 
@@ -117,12 +117,12 @@ import TensorTrainNumerics: MaxVolPivot, RandomPivot, MaxVol, Greedy, DMRGcross,
                     @test norm(tt) ≈ norm(dense)
                     @test ttv_to_tensor(orthogonalize(tt)) ≈ dense
 
-                    if kickrank == 1 && maxiter == 5
+                    if kickrank == 1 && max_sweeps == 5
                         # The polynomial has exact TT rank three; reaching it
                         # requires enrichment before convergence.
                         @test maximum(tt.ttv_rks) > 1
                         @test dense ≈ exact atol = 1.0e-11 rtol = 1.0e-11
-                    elseif maxiter in (1, 2)
+                    elseif max_sweeps in (1, 2)
                         @test norm(dense - exact) / norm(exact) > alg.tol
                     end
                 end
@@ -133,7 +133,7 @@ import TensorTrainNumerics: MaxVolPivot, RandomPivot, MaxVol, Greedy, DMRGcross,
             spectrum = [1.0, 0.08, 0.08]
             f(x) = [x[p, 1] == x[p, 2] ? spectrum[Int(x[p, 1])] : 0.0 for p in axes(x, 1)]
             domain = [collect(1.0:3.0), collect(1.0:3.0)]
-            alg = DMRGcross(maxiter = 1, tol = 0.1, rmax = 3, kickrank = nothing, verbose = false)
+            alg = DMRGcross(max_sweeps = 1, tol = 0.1, max_bond = 3, kickrank = nothing, verbosity = 0, show_progress = false)
 
             tt = tt_cross(f, domain, alg; ranks = 3, val_size = 20)
 
@@ -144,7 +144,7 @@ import TensorTrainNumerics: MaxVolPivot, RandomPivot, MaxVol, Greedy, DMRGcross,
             f(x) = prod(x, dims = 2)
             domain = [range(0, 1, length = 8) |> collect for _ in 1:3]
 
-            tt = tt_cross(f, domain, Greedy(verbose = false, tol = 1.0e-6, maxiter = 50))
+            tt = tt_cross(f, domain, Greedy(verbosity = 0, show_progress = false, tol = 1.0e-6, max_sweeps = 50))
             @test tt isa TTvector
             @test tt.N == 3
         end
@@ -153,9 +153,9 @@ import TensorTrainNumerics: MaxVolPivot, RandomPivot, MaxVol, Greedy, DMRGcross,
             f(x) = vec(prod(x, dims = 2))
             domain = [collect(range(0.0, 1.0, length = 5)) for _ in 1:3]
             alg = Greedy(
-                verbose = false,
+                verbosity = 0, show_progress = false,
                 tol = 1.0e-8,
-                maxiter = 20,
+                max_sweeps = 20,
                 nsamples = 300,
                 pivot = RandomPivot(seed = 7, nsamples = 300),
             )
@@ -174,9 +174,9 @@ import TensorTrainNumerics: MaxVolPivot, RandomPivot, MaxVol, Greedy, DMRGcross,
             f(x) = vec(cos.(8 .* sum(x .^ 2, dims = 2)) .* exp.(-(sum(x, dims = 2)) .^ 2))
             domain = [collect(range(-1.0, 1.0, length = 6)) for _ in 1:4]
             alg = Greedy(
-                verbose = false,
+                verbosity = 0, show_progress = false,
                 tol = 1.0e-6,
-                maxiter = 30,
+                max_sweeps = 30,
                 nsamples = 400,
                 pivot = RandomPivot(seed = 11, nsamples = 400),
             )
@@ -199,10 +199,10 @@ import TensorTrainNumerics: MaxVolPivot, RandomPivot, MaxVol, Greedy, DMRGcross,
                 f,
                 domain,
                 Greedy(
-                    verbose = false,
+                    verbosity = 0, show_progress = false,
                     tol = 1.0e-8,
-                    maxiter = 30,
-                    rmax = 10,
+                    max_sweeps = 30,
+                    max_bond = 10,
                     nsamples = 500,
                     pivot = RandomPivot(seed = 43, nsamples = 500),
                 );
@@ -224,10 +224,10 @@ import TensorTrainNumerics: MaxVolPivot, RandomPivot, MaxVol, Greedy, DMRGcross,
                 f,
                 domain,
                 Greedy(
-                    verbose = false,
+                    verbosity = 0, show_progress = false,
                     tol = 1.0e-8,
-                    maxiter = 30,
-                    rmax = 10,
+                    max_sweeps = 30,
+                    max_bond = 10,
                     nsamples = 500,
                     pivot = RandomPivot(seed = 71, nsamples = 500),
                 );
@@ -243,7 +243,7 @@ import TensorTrainNumerics: MaxVolPivot, RandomPivot, MaxVol, Greedy, DMRGcross,
             f(x) = exp.(-sum(x .^ 2, dims = 2))
             domain = [range(-1, 1, length = 12) |> collect for _ in 1:4]
 
-            tt = tt_cross(f, domain, DMRGcross(verbose = false, tol = 1.0e-6))
+            tt = tt_cross(f, domain, DMRGcross(verbosity = 0, show_progress = false, tol = 1.0e-6))
             @test tt isa TTvector
             @test tt.N == 4
         end
@@ -261,17 +261,17 @@ import TensorTrainNumerics: MaxVolPivot, RandomPivot, MaxVol, Greedy, DMRGcross,
             tt = tt_cross(
                 f,
                 domain,
-                DMRGcross(verbose = false, tol = 1.0e-8, maxiter = 20, rmax = 12, kickrank = nothing);
+                DMRGcross(verbosity = 0, show_progress = false, tol = 1.0e-8, max_sweeps = 20, max_bond = 12, kickrank = nothing);
                 ranks = 1,
                 val_size = 1000,
             )
             approx = TensorTrainNumerics.ttv_to_tensor(tt)
             exact = [
                 scale * TensorTrainNumerics._evaluate_tt(
-                        exact_cores,
-                        reshape(collect(Tuple(I)), 1, :),
-                        d,
-                    )[1] for I in CartesianIndices(ntuple(_ -> n, d))
+                    exact_cores,
+                    reshape(collect(Tuple(I)), 1, :),
+                    d,
+                )[1] for I in CartesianIndices(ntuple(_ -> n, d))
             ]
 
             @test norm(approx - exact) / norm(exact) < 1.0e-7
@@ -286,14 +286,14 @@ import TensorTrainNumerics: MaxVolPivot, RandomPivot, MaxVol, Greedy, DMRGcross,
             tt_no_kick = tt_cross(
                 f,
                 domain,
-                DMRGcross(verbose = false, tol = 1.0e-14, maxiter = 3, kickrank = nothing, rmax = 30);
+                DMRGcross(verbosity = 0, show_progress = false, tol = 1.0e-14, max_sweeps = 3, kickrank = nothing, max_bond = 30);
                 ranks = 1,
             )
             Random.seed!(42)
             tt_kick = tt_cross(
                 f,
                 domain,
-                DMRGcross(verbose = false, tol = 1.0e-14, maxiter = 3, kickrank = 4, rmax = 30);
+                DMRGcross(verbosity = 0, show_progress = false, tol = 1.0e-14, max_sweeps = 3, kickrank = 4, max_bond = 30);
                 ranks = 1,
             )
 
@@ -326,7 +326,7 @@ import TensorTrainNumerics: MaxVolPivot, RandomPivot, MaxVol, Greedy, DMRGcross,
             tt = tt_cross(
                 f_tt,
                 domain,
-                MaxVol(verbose = false, tol = 1.0e-6, maxiter = 25, rmax = 60, kickrank = 2);
+                MaxVol(verbosity = 0, show_progress = false, tol = 1.0e-6, max_sweeps = 25, max_bond = 60, kickrank = 2);
                 ranks = 2,
                 val_size = 1500,
             )
@@ -345,7 +345,7 @@ import TensorTrainNumerics: MaxVolPivot, RandomPivot, MaxVol, Greedy, DMRGcross,
             f(x) = sum(x, dims = 2)
             domain = [collect(1.0:5.0) for _ in 1:3]
 
-            tt = tt_cross(f, domain; alg = MaxVol(verbose = false))
+            tt = tt_cross(f, domain; alg = MaxVol(verbosity = 0, show_progress = false))
             @test tt isa TTvector
         end
 
@@ -353,7 +353,7 @@ import TensorTrainNumerics: MaxVolPivot, RandomPivot, MaxVol, Greedy, DMRGcross,
             f(x) = ones(size(x, 1))
             dims = (4, 5, 6)
 
-            tt = tt_cross(f, dims; alg = MaxVol(verbose = false))
+            tt = tt_cross(f, dims; alg = MaxVol(verbosity = 0, show_progress = false))
             @test tt isa TTvector
             @test tt.ttv_dims == dims
         end
@@ -362,7 +362,7 @@ import TensorTrainNumerics: MaxVolPivot, RandomPivot, MaxVol, Greedy, DMRGcross,
             f(x) = sum(x, dims = 2)
             dims = [4, 5, 6, 7]
 
-            tt = tt_cross(f, dims; alg = MaxVol(verbose = false))
+            tt = tt_cross(f, dims; alg = MaxVol(verbosity = 0, show_progress = false))
             @test tt isa TTvector
             @test tt.N == 4
         end
@@ -381,16 +381,16 @@ import TensorTrainNumerics: MaxVolPivot, RandomPivot, MaxVol, Greedy, DMRGcross,
                 return norm(y .- yhat) / max(norm(y), eps())
             end
 
-            tt_maxvol = tt_cross(f, domain, MaxVol(verbose = false, tol = 1.0e-8, maxiter = 20, rmax = 30); ranks = 2, val_size = 600)
+            tt_maxvol = tt_cross(f, domain, MaxVol(verbosity = 0, show_progress = false, tol = 1.0e-8, max_sweeps = 20, max_bond = 30); ranks = 2, val_size = 600)
             @test rel_sample_err(tt_maxvol, f, domain; seed = 91) < 1.0e-6
 
-            tt_dmrg = tt_cross(f, domain, DMRGcross(verbose = false, tol = 1.0e-8, maxiter = 15, rmax = 30); ranks = 2, val_size = 600)
+            tt_dmrg = tt_cross(f, domain, DMRGcross(verbosity = 0, show_progress = false, tol = 1.0e-8, max_sweeps = 15, max_bond = 30); ranks = 2, val_size = 600)
             @test rel_sample_err(tt_dmrg, f, domain; seed = 92) < 1.0e-6
 
             tt_greedy = tt_cross(
                 f,
                 domain,
-                Greedy(verbose = false, tol = 1.0e-8, maxiter = 30, nsamples = 300, pivot = RandomPivot(seed = 13, nsamples = 300));
+                Greedy(verbosity = 0, show_progress = false, tol = 1.0e-8, max_sweeps = 30, nsamples = 300, pivot = RandomPivot(seed = 13, nsamples = 300));
                 val_size = 600,
             )
             @test rel_sample_err(tt_greedy, f, domain; seed = 93) < 1.0e-6
@@ -409,9 +409,9 @@ import TensorTrainNumerics: MaxVolPivot, RandomPivot, MaxVol, Greedy, DMRGcross,
 
             tol = 1.0e-8
             for (alg_name, alg) in [
-                    ("MaxVol", MaxVol(verbose = false, tol = 1.0e-10, maxiter = 30)),
-                    ("Greedy", Greedy(verbose = false, tol = 1.0e-10, maxiter = 30, nsamples = 500, pivot = RandomPivot(seed = 42))),
-                    ("DMRGcross", DMRGcross(verbose = false, tol = 1.0e-10, maxiter = 30)),
+                    ("MaxVol", MaxVol(verbosity = 0, show_progress = false, tol = 1.0e-10, max_sweeps = 30)),
+                    ("Greedy", Greedy(verbosity = 0, show_progress = false, tol = 1.0e-10, max_sweeps = 30, nsamples = 500, pivot = RandomPivot(seed = 42))),
+                    ("DMRGcross", DMRGcross(verbosity = 0, show_progress = false, tol = 1.0e-10, max_sweeps = 30)),
                 ]
                 @testset "$alg_name" begin
                     tt = tt_cross(f, domain, alg)
@@ -435,9 +435,9 @@ import TensorTrainNumerics: MaxVolPivot, RandomPivot, MaxVol, Greedy, DMRGcross,
 
             tol = 1.0e-6
             for (alg_name, alg) in [
-                    ("MaxVol", MaxVol(verbose = false, tol = 1.0e-8, maxiter = 30, rmax = 10)),
-                    ("Greedy", Greedy(verbose = false, tol = 1.0e-8, maxiter = 30, nsamples = 500, pivot = RandomPivot(seed = 43))),
-                    ("DMRGcross", DMRGcross(verbose = false, tol = 1.0e-8, maxiter = 30, rmax = 10)),
+                    ("MaxVol", MaxVol(verbosity = 0, show_progress = false, tol = 1.0e-8, max_sweeps = 30, max_bond = 10)),
+                    ("Greedy", Greedy(verbosity = 0, show_progress = false, tol = 1.0e-8, max_sweeps = 30, nsamples = 500, pivot = RandomPivot(seed = 43))),
+                    ("DMRGcross", DMRGcross(verbosity = 0, show_progress = false, tol = 1.0e-8, max_sweeps = 30, max_bond = 10)),
                 ]
                 @testset "$alg_name" begin
                     tt = tt_cross(f, domain, alg)
@@ -461,9 +461,9 @@ import TensorTrainNumerics: MaxVolPivot, RandomPivot, MaxVol, Greedy, DMRGcross,
 
             tol = 1.0e-4
             for (alg_name, alg) in [
-                    ("MaxVol", MaxVol(verbose = false, tol = 1.0e-6, maxiter = 50, rmax = 20)),
-                    ("Greedy", Greedy(verbose = false, tol = 1.0e-6, maxiter = 50, nsamples = 500, pivot = RandomPivot(seed = 44))),
-                    ("DMRGcross", DMRGcross(verbose = false, tol = 1.0e-6, maxiter = 50, rmax = 20)),
+                    ("MaxVol", MaxVol(verbosity = 0, show_progress = false, tol = 1.0e-6, max_sweeps = 50, max_bond = 20)),
+                    ("Greedy", Greedy(verbosity = 0, show_progress = false, tol = 1.0e-6, max_sweeps = 50, nsamples = 500, pivot = RandomPivot(seed = 44))),
+                    ("DMRGcross", DMRGcross(verbosity = 0, show_progress = false, tol = 1.0e-6, max_sweeps = 50, max_bond = 20)),
                 ]
                 @testset "$alg_name" begin
                     tt = tt_cross(f, domain, alg)
@@ -487,9 +487,9 @@ import TensorTrainNumerics: MaxVolPivot, RandomPivot, MaxVol, Greedy, DMRGcross,
 
             tol = 1.0e-8
             for (alg_name, alg) in [
-                    ("MaxVol", MaxVol(verbose = false, tol = 1.0e-10, maxiter = 30)),
-                    ("Greedy", Greedy(verbose = false, tol = 1.0e-10, maxiter = 30, nsamples = 500, pivot = RandomPivot(seed = 55))),
-                    ("DMRGcross", DMRGcross(verbose = false, tol = 1.0e-10, maxiter = 30)),
+                    ("MaxVol", MaxVol(verbosity = 0, show_progress = false, tol = 1.0e-10, max_sweeps = 30)),
+                    ("Greedy", Greedy(verbosity = 0, show_progress = false, tol = 1.0e-10, max_sweeps = 30, nsamples = 500, pivot = RandomPivot(seed = 55))),
+                    ("DMRGcross", DMRGcross(verbosity = 0, show_progress = false, tol = 1.0e-10, max_sweeps = 30)),
                 ]
                 @testset "$alg_name" begin
                     tt = tt_cross(f, domain, alg)
@@ -513,9 +513,9 @@ import TensorTrainNumerics: MaxVolPivot, RandomPivot, MaxVol, Greedy, DMRGcross,
 
             tol = 1.0e-8
             for (alg_name, alg) in [
-                    ("MaxVol", MaxVol(verbose = false, tol = 1.0e-10, maxiter = 30)),
-                    ("Greedy", Greedy(verbose = false, tol = 1.0e-10, maxiter = 30, nsamples = 500, pivot = RandomPivot(seed = 66))),
-                    ("DMRGcross", DMRGcross(verbose = false, tol = 1.0e-10, maxiter = 30)),
+                    ("MaxVol", MaxVol(verbosity = 0, show_progress = false, tol = 1.0e-10, max_sweeps = 30)),
+                    ("Greedy", Greedy(verbosity = 0, show_progress = false, tol = 1.0e-10, max_sweeps = 30, nsamples = 500, pivot = RandomPivot(seed = 66))),
+                    ("DMRGcross", DMRGcross(verbosity = 0, show_progress = false, tol = 1.0e-10, max_sweeps = 30)),
                 ]
                 @testset "$alg_name" begin
                     tt = tt_cross(f, domain, alg)
@@ -539,9 +539,9 @@ import TensorTrainNumerics: MaxVolPivot, RandomPivot, MaxVol, Greedy, DMRGcross,
 
             tol = 1.0e-4
             for (alg_name, alg) in [
-                    ("MaxVol", MaxVol(verbose = false, tol = 1.0e-6, maxiter = 50, rmax = 20)),
-                    ("Greedy", Greedy(verbose = false, tol = 1.0e-6, maxiter = 50, nsamples = 500, pivot = RandomPivot(seed = 77))),
-                    ("DMRGcross", DMRGcross(verbose = false, tol = 1.0e-6, maxiter = 50, rmax = 20)),
+                    ("MaxVol", MaxVol(verbosity = 0, show_progress = false, tol = 1.0e-6, max_sweeps = 50, max_bond = 20)),
+                    ("Greedy", Greedy(verbosity = 0, show_progress = false, tol = 1.0e-6, max_sweeps = 50, nsamples = 500, pivot = RandomPivot(seed = 77))),
+                    ("DMRGcross", DMRGcross(verbosity = 0, show_progress = false, tol = 1.0e-6, max_sweeps = 50, max_bond = 20)),
                 ]
                 @testset "$alg_name" begin
                     tt = tt_cross(f, domain, alg)
@@ -566,9 +566,9 @@ import TensorTrainNumerics: MaxVolPivot, RandomPivot, MaxVol, Greedy, DMRGcross,
 
             tol = 1.0e-8
             for (alg_name, alg) in [
-                    ("MaxVol", MaxVol(verbose = false, tol = 1.0e-10, maxiter = 30, rmax = 4)),
-                    ("Greedy", Greedy(verbose = false, tol = 1.0e-10, maxiter = 30, nsamples = 500, pivot = RandomPivot(seed = 11))),
-                    ("DMRGcross", DMRGcross(verbose = false, tol = 1.0e-10, maxiter = 30, rmax = 4)),
+                    ("MaxVol", MaxVol(verbosity = 0, show_progress = false, tol = 1.0e-10, max_sweeps = 30, max_bond = 4)),
+                    ("Greedy", Greedy(verbosity = 0, show_progress = false, tol = 1.0e-10, max_sweeps = 30, nsamples = 500, pivot = RandomPivot(seed = 11))),
+                    ("DMRGcross", DMRGcross(verbosity = 0, show_progress = false, tol = 1.0e-10, max_sweeps = 30, max_bond = 4)),
                 ]
                 @testset "$alg_name" begin
                     tt = tt_cross(f, domain, alg)
@@ -594,9 +594,9 @@ import TensorTrainNumerics: MaxVolPivot, RandomPivot, MaxVol, Greedy, DMRGcross,
 
             tol = 1.0e-4
             for (alg_name, alg) in [
-                    ("MaxVol", MaxVol(verbose = false, tol = 1.0e-6, maxiter = 40, rmax = 20)),
-                    ("Greedy", Greedy(verbose = false, tol = 1.0e-6, maxiter = 40, nsamples = 500, pivot = RandomPivot(seed = 22))),
-                    ("DMRGcross", DMRGcross(verbose = false, tol = 1.0e-6, maxiter = 40, rmax = 20)),
+                    ("MaxVol", MaxVol(verbosity = 0, show_progress = false, tol = 1.0e-6, max_sweeps = 40, max_bond = 20)),
+                    ("Greedy", Greedy(verbosity = 0, show_progress = false, tol = 1.0e-6, max_sweeps = 40, nsamples = 500, pivot = RandomPivot(seed = 22))),
+                    ("DMRGcross", DMRGcross(verbosity = 0, show_progress = false, tol = 1.0e-6, max_sweeps = 40, max_bond = 20)),
                 ]
                 @testset "$alg_name" begin
                     tt = tt_cross(f, domain, alg)
@@ -620,9 +620,9 @@ import TensorTrainNumerics: MaxVolPivot, RandomPivot, MaxVol, Greedy, DMRGcross,
 
             tol = 1.0e-8
             for (alg_name, alg) in [
-                    ("MaxVol", MaxVol(verbose = false, tol = 1.0e-10, maxiter = 20)),
-                    ("Greedy", Greedy(verbose = false, tol = 1.0e-10, maxiter = 20, nsamples = 500, pivot = RandomPivot(seed = 33))),
-                    ("DMRGcross", DMRGcross(verbose = false, tol = 1.0e-10, maxiter = 20)),
+                    ("MaxVol", MaxVol(verbosity = 0, show_progress = false, tol = 1.0e-10, max_sweeps = 20)),
+                    ("Greedy", Greedy(verbosity = 0, show_progress = false, tol = 1.0e-10, max_sweeps = 20, nsamples = 500, pivot = RandomPivot(seed = 33))),
+                    ("DMRGcross", DMRGcross(verbosity = 0, show_progress = false, tol = 1.0e-10, max_sweeps = 20)),
                 ]
                 @testset "$alg_name" begin
                     tt = tt_cross(f, domain, alg)
@@ -787,7 +787,7 @@ end
     @testset "tt_integrate simple" begin
         f(x) = ones(size(x, 1))
 
-        result = tt_integrate(f, 3; alg = DMRGcross(verbose = false))
+        result = tt_integrate(f, 3; alg = DMRGcross(verbosity = 0, show_progress = false))
         @test result ≈ 1.0 atol = 1.0e-6
     end
 
@@ -796,15 +796,31 @@ end
         lower = [0.0, 0.0]
         upper = [2.0, 3.0]
 
-        result = tt_integrate(f, lower, upper; alg = DMRGcross(verbose = false))
+        result = tt_integrate(f, lower, upper; alg = DMRGcross(verbosity = 0, show_progress = false))
         @test result ≈ 6.0 atol = 1.0e-6
     end
 
     @testset "tt_integrate polynomial" begin
         f(x) = x[:, 1] .^ 2
 
-        result = tt_integrate(f, 1; alg = DMRGcross(verbose = false), nquad = 10)
+        result = tt_integrate(f, 1; alg = DMRGcross(verbosity = 0, show_progress = false), nquad = 10)
         @test result ≈ 1 / 3 atol = 1.0e-6
     end
 
+end
+
+@testset "cross keyword names" begin
+    f(X) = vec(1 ./ (1 .+ sum(X, dims = 2)))              # not separable: needs rank > 1
+    domain = [collect(range(0.0, 1.0, length = 8)) for _ in 1:3]
+    for Alg in (MaxVol, DMRGcross, Greedy)
+        tt = tt_cross(f, domain, Alg(; tol = 1.0e-8, max_bond = 8, verbosity = 0, show_progress = false))
+        @test maximum(tt.ttv_rks) ≤ 8
+        @test_logs (:warn, r"Max iterations reached") match_mode = :any tt_cross(
+            f, domain, Alg(; max_sweeps = 1, max_bond = 2, tol = 1.0e-15, show_progress = false)
+        )
+        @test_logs tt_cross(f, domain, Alg(; max_sweeps = 1, max_bond = 2, tol = 1.0e-15, verbosity = 0, show_progress = false))
+        @test_throws MethodError Alg(; maxiter = 5)
+        @test_throws MethodError Alg(; rmax = 5)
+        @test_throws MethodError Alg(; verbose = false)
+    end
 end

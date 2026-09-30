@@ -100,16 +100,16 @@ end
     @test euclidean_distance(hadamard_ttm(A4, A2), hadamard(A4, A2)) / norm(hadamard(A4, A2)) < 1.0e-5
     @test euclidean_distance(hadamard_ttm(A4, A3), hadamard(A4, A3)) / norm(hadamard(A4, A3)) < 1.0e-5
 
-    ttm_loose = hadamard_ttm(A1, A2; tol = 1.0e-8)
+    ttm_loose = hadamard_ttm(A1, A2; trunc_tol = 1.0e-8)
     @test isapprox(qtt_to_function(ttm_loose), expected2; atol = 1.0e-3)
 end
 
-@testset "Hadamard TTM uses absolute singular-value truncation" begin
+@testset "Hadamard TTM truncates each local spectrum with trunc_tol" begin
     spectrum = [1.0, 0.08, 0.08]
     x = ttv_decomp(ones(3, 3))
     y = ttv_decomp(Matrix(Diagonal(spectrum)))
 
-    result = hadamard_ttm(x, y; tol = 0.1)
+    result = hadamard_ttm(x, y; trunc_tol = 0.12)   # tail norm 0.113 ≤ 0.12·‖s‖
 
     @test result.ttv_rks == [1, 1, 1]
 end
@@ -428,4 +428,14 @@ end
     x = rand_tt((2, 3, 2), [1, 2, 2, 1])
     y = complex(rand_tt((2, 3, 2), [1, 2, 2, 1]))
     @test LinearAlgebra.dot(x, y) ≈ sum(conj(ttv_to_tensor(x)) .* ttv_to_tensor(y))
+end
+
+@testset "hadamard_ttm keyword names" begin
+    Random.seed!(7)
+    x = rand_tt((2, 2, 2, 2), 3)
+    y = rand_tt((2, 2, 2, 2), 3)
+    z = hadamard_ttm(x, y; max_bond = 2)
+    @test maximum(z.ttv_rks) ≤ 2
+    @test_throws MethodError hadamard_ttm(x, y; rmax = 2)
+    @test_throws MethodError hadamard_ttm(x, y; tol = 1.0e-3)
 end

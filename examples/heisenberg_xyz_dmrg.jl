@@ -14,7 +14,7 @@ x0 = rand_tt(eltype(H), H.tto_dims, x0_ranks; normalise = true)
 energies, ground_state, rank_history = eigen_solve(
     H,
     x0,
-    DMRG(sweep_schedule = [4, 8], rmax_schedule = [4, 8]),
+    DMRG(max_sweeps = [3, 4], max_bond = [4, 8]),
 )
 
 H_dense = qtto_to_matrix(H)
@@ -39,7 +39,7 @@ dt = 0.005
 nsteps = 100
 times = collect(0:dt:(nsteps * dt))
 
-function entropy_trajectory(H, initial_state, dt, nsteps; max_bond = 8, truncerr = 1.0e-10)
+function entropy_trajectory(H, initial_state, dt, nsteps; max_bond = 8, trunc_tol = 1.0e-10)
     d = initial_state.N
     state = initial_state
     entropy_history = zeros(Float64, nsteps + 1, d - 1)
@@ -48,7 +48,7 @@ function entropy_trajectory(H, initial_state, dt, nsteps; max_bond = 8, truncerr
     rank_history[1] = maximum(state.ttv_rks)
 
     for step in 1:nsteps
-        state = tdvp2(H, state, [dt]; normalize = true, sweeps = 1, max_bond = max_bond, truncerr = truncerr, verbose = false)
+        state = tdvp2(H, state, [dt]; normalize = true, substeps = 1, max_bond = max_bond, trunc_tol, verbosity = 0)
         entropy_history[step + 1, :] .= entanglemententropy(state; base = 2)
         rank_history[step + 1] = maximum(state.ttv_rks)
     end

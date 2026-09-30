@@ -39,7 +39,7 @@ im_axis = collect(range(-0.35, 0.35, length = n))
 domain = [re_axis .+ im .* im_axis for _ in 1:d]
 
 Random.seed!(40260)
-alg = MaxVol(verbose = true, tol = 6.0e-6, maxiter = 25, rmax = 70, kickrank = 2)
+alg = MaxVol(verbosity = 2, tol = 6.0e-6, max_sweeps = 25, max_bond = 70, kickrank = 2)
 tt = tt_cross(f_tilde_tt, domain, alg; ranks = 2, val_size = 2000)
 println("TT ranks: ", tt.ttv_rks)
 

@@ -1,18 +1,17 @@
 using Test
 using Random
 using LinearAlgebra
+using Logging
 using TensorTrainNumerics
 
 import TensorTrainNumerics: Ksolve, update_H!
 
 Random.seed!(9999)
 
-# ── helpers ───────────────────────────────────────────────────────────────────
 
 als_rel_residual(A, x, b) = norm(A * x - b) / max(norm(b), eps())
 als_spd_op(d, shift = 3.0) = Δ(d) + shift * id_tto(d)
 
-# ── internal: update_H! ───────────────────────────────────────────────────────
 
 @testset "update_H!" begin
     n, r1, r2, r3 = 2, 1, 1, 1
@@ -25,7 +24,6 @@ als_spd_op(d, shift = 3.0) = Δ(d) + shift * id_tto(d)
     @test eltype(Him) <: Number
 end
 
-# ── als_linsolve ──────────────────────────────────────────────────────────────
 
 @testset "als_linsolve: return type and structure" begin
     dims = (2, 2, 2)
@@ -47,7 +45,7 @@ end
     b = rand_tt(ntuple(_ -> 2, d), [1, 2, 2, 2, 1])
     x0 = rand_tt(ntuple(_ -> 2, d), [1, 2, 2, 2, 1])
 
-    x = als_linsolve(A, b, x0; sweep_count = 4)
+    x = als_linsolve(A, b, x0; max_sweeps = 2)
 
     @test als_rel_residual(A, x, b) < 0.5
 end
@@ -58,18 +56,18 @@ end
     b = rand_tt(ntuple(_ -> 2, d), [1, 1, 1, 1, 1])
     x0 = rand_tt(ntuple(_ -> 2, d), [1, 1, 1, 1, 1])
 
-    x = als_linsolve(A, b, x0; sweep_count = 4)
+    x = als_linsolve(A, b, x0; max_sweeps = 2)
 
     @test als_rel_residual(A, x, b) < 0.05
 end
 
-@testset "als_linsolve: sweep_count=1 (single forward half-sweep)" begin
+@testset "als_linsolve: max_sweeps = 1" begin
     d = 3
     A = als_spd_op(d, 5.0)
     b = rand_tt(ntuple(_ -> 2, d), [1, 2, 2, 1])
     x0 = rand_tt(ntuple(_ -> 2, d), [1, 2, 2, 1])
 
-    x = als_linsolve(A, b, x0; sweep_count = 1)
+    x = als_linsolve(A, b, x0; max_sweeps = 1)
 
     @test x isa TTvector{Float64}
     @test x.ttv_dims == b.ttv_dims
@@ -86,10 +84,10 @@ end
     dense = Ksolve(Gi, G_bi, Hi, H_bi)
     iterative = Ksolve(
         Gi, G_bi, Hi, H_bi;
-        it_solver = true,
-        r_itsolver = 1,
-        maxiter = 20,
-        tol = 1.0e-12,
+        local_solver = :auto,
+        local_threshold = 1,
+        local_maxiter = 20,
+        local_tol = 1.0e-12,
     )
 
     @test vec(dense) ≈ [2.0, 3.0]
@@ -97,21 +95,21 @@ end
 
     disabled = Ksolve(
         Gi, G_bi, Hi, H_bi;
-        it_solver = false,
-        r_itsolver = 0,
-        tol = Inf,
+        local_solver = :direct,
+        local_threshold = 0,
+        local_tol = Inf,
     )
     at_threshold = Ksolve(
         Gi, G_bi, Hi, H_bi;
-        it_solver = true,
-        r_itsolver = 2,
-        tol = Inf,
+        local_solver = :auto,
+        local_threshold = 2,
+        local_tol = Inf,
     )
     forced_iterative = Ksolve(
         Gi, G_bi, Hi, H_bi;
-        it_solver = true,
-        r_itsolver = 1,
-        tol = Inf,
+        local_solver = :auto,
+        local_threshold = 1,
+        local_tol = Inf,
     )
 
     @test disabled == dense
@@ -127,14 +125,14 @@ end
     b = rand_tt(dims, ranks)
     x0 = rand_tt(dims, ranks)
 
-    dense = als_linsolve(A, b, x0; sweep_count = 2)
+    dense = als_linsolve(A, b, x0; max_sweeps = 1)
     iterative = als_linsolve(
         A, b, x0;
-        sweep_count = 2,
-        it_solver = true,
-        r_itsolver = 1,
-        maxiter = 50,
-        linsolv_tol = 1.0e-12,
+        max_sweeps = 1,
+        local_solver = :auto,
+        local_threshold = 1,
+        local_maxiter = 50,
+        local_tol = 1.0e-12,
     )
 
     dense_values = vec(ttv_to_tensor(dense))
@@ -142,14 +140,13 @@ end
     @test norm(iterative_values - dense_values) / norm(dense_values) < 1.0e-10
 end
 
-# ── als_eigsolve ──────────────────────────────────────────────────────────────
 
 @testset "als_eigsolve: return type and structure" begin
     d = 4
     A = als_spd_op(d)
     x0 = rand_tt(ntuple(_ -> 2, d), [1, 2, 2, 2, 1]; normalise = true)
 
-    E, x_opt = als_eigsolve(A, x0; sweep_schedule = [2], rmax_schedule = [2], noise_schedule = [0.0])
+    E, x_opt = als_eigsolve(A, x0; max_sweeps = 1, max_bond = 2, noise = 0.0)
 
     @test E isa Vector{Float64}
     @test x_opt isa TTvector{Float64}
@@ -165,7 +162,7 @@ end
     A = als_spd_op(d, shift)
     x0 = rand_tt(ntuple(_ -> 2, d), [1, 2, 2, 2, 1]; normalise = true)
 
-    E, x_opt = als_eigsolve(A, x0; sweep_schedule = [4], rmax_schedule = [2])
+    E, x_opt = als_eigsolve(A, x0; max_sweeps = 3, max_bond = 2)
 
     λ = E[end]
     @test λ > 0.0
@@ -178,7 +175,7 @@ end
     A = als_spd_op(d, 2.0)
     x0 = rand_tt(ntuple(_ -> 2, d), [1, 2, 2, 2, 1]; normalise = true)
 
-    E, _ = als_eigsolve(A, x0; sweep_schedule = [4], rmax_schedule = [2])
+    E, _ = als_eigsolve(A, x0; max_sweeps = 3, max_bond = 2)
 
     @test E[end] ≤ E[1] + 1.0e-8
 end
@@ -190,9 +187,9 @@ end
 
     E, x_opt = als_eigsolve(
         A, x0;
-        sweep_schedule = [2, 4],
-        rmax_schedule = [1, 2],
-        noise_schedule = [0.0, 1.0e-3]
+        max_sweeps = [1, 2],
+        max_bond = [1, 2],
+        noise = [0.0, 1.0e-3]
     )
 
     @test x_opt isa TTvector{Float64}
@@ -207,15 +204,14 @@ end
 
     E, x_opt = als_eigsolve(
         A, x0;
-        sweep_schedule = [2], rmax_schedule = [2],
-        it_solver = true, itslv_thresh = 1
+        max_sweeps = 1, max_bond = 2,
+        local_solver = :auto, local_threshold = 1
     )
 
     @test x_opt isa TTvector{Float64}
     @test isfinite(E[end])
 end
 
-# ── als_gen_eigsolv ───────────────────────────────────────────────────────────
 
 @testset "als_gen_eigsolv: return type and structure (S = I)" begin
     d = 4
@@ -243,7 +239,7 @@ end
     @test result !== nothing
     E_gen, _ = result
 
-    E_std, _ = als_eigsolve(A, x0; sweep_schedule = [2], rmax_schedule = [2])
+    E_std, _ = als_eigsolve(A, x0; max_sweeps = 1, max_bond = 2)
 
     @test isapprox(E_gen[end], E_std[end]; rtol = 0.05)
 end
@@ -283,14 +279,50 @@ end
     @test isfinite(E[end])
 end
 
-@testset "als_linsolve return_info for odd and even sweep counts" begin
+@testset "als_linsolve return_info for one and two sweeps" begin
     Random.seed!(1)
     d = 5
     A = id_tto(d) + 0.1 * Δ(d)
     b = qtt_sin(d)
     x0 = rand_tt(b.ttv_dims, 4)
-    x1, info1 = als_linsolve(A, b, x0; sweep_count = 1, return_info = true)
+    x1, info1 = als_linsolve(A, b, x0; max_sweeps = 1, return_info = true)
     @test info1.residual ≥ 0
-    x2, info2 = als_linsolve(A, b, x0; sweep_count = 2, return_info = true)
+    x2, info2 = als_linsolve(A, b, x0; max_sweeps = 2, return_info = true)
     @test info2.residual < 1.0e-6
+end
+
+@testset "ALS keyword names" begin
+    Random.seed!(41)
+    d = 6
+    dims = ntuple(_ -> 2, d)
+    A = Δ(d) + 3.0 * id_tto(d)
+    b = A * rand_tt(dims, 2; normalise = true)          # exact solution has rank 2
+    x0 = rand_tt(dims, 2; normalise = true)
+
+    logs, x = Test.collect_test_logs() do
+        linear_solve(A, b, x0, ALS(; max_sweeps = 3, verbosity = 2, show_progress = false))
+    end
+    @test count(l -> l.level == Logging.Info, logs) == 3
+    @test norm(A * x - b) / norm(b) < 1.0e-4
+
+    @test_throws "`max_bond` is not used by linear_solve with ALS" linear_solve(A, b, x0, ALS(; max_bond = 4))
+    @test_throws "ALS linear_solve runs a single stage" linear_solve(A, b, x0, ALS(; max_sweeps = [1, 1]))
+    @test_throws MethodError ALS(; sweep_count = 2)
+    @test_throws MethodError ALS(; it_solver = true)
+    @test_throws "`local_solver` must be" ALS(; local_solver = :gmres)
+
+    E, x = eigen_solve(A, x0, ALS(; max_sweeps = 3, show_progress = false))
+    @test length(E) == 3 * 2 * (d - 1)
+
+    # Stage 1 applies max_bond from the start; a scalar max_bond with two stages
+    # raises the ranks once.
+    g1 = rand_tt(dims, 1; normalise = true)
+    E, x = eigen_solve(A, g1, ALS(; max_bond = 4, max_sweeps = [1, 1], noise = 1.0e-3, show_progress = false))
+    @test maximum(x.ttv_rks) == 4
+    @test length(E) == 2 * 2 * (d - 1)
+    Ad = reshape(tto_to_tensor(A), 2^d, 2^d)
+    @test E[end] ≈ eigmin(Symmetric(Ad)) rtol = 1.0e-6
+
+    @test_throws "ALS cannot lower ranks" eigen_solve(A, x0, ALS(; max_bond = 1))
+    @test_throws "`max_sweeps` has length 2 and `max_bond` has length 3" eigen_solve(A, x0, ALS(; max_sweeps = [1, 1], max_bond = [3, 4, 5]))
 end

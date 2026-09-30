@@ -11,7 +11,7 @@ D = σ^2 / 2
 Θ = [θ -k; -k θ]
 Σ∞ = D * inv(Θ)         # analytic stationary covariance (Lyapunov: ΘΣ + ΣΘᵀ = 2D·I)
 
-# --- grid: 2^d points per axis on [a, b]² ------------------------------------
+# Grid: 2^d points per axis on [a, b]²
 d = 8
 N = 2^d
 a, b = -6.0, 6.0
@@ -73,7 +73,7 @@ record!(u₀_clean)                       # t = 0: clean product Gaussian
 for _ in 1:n_blocks
     global ψ = crank_nicholson_method(
         A, ψ, ψ, fill(τ, block);
-        normalize = false, tt_solver = ALS()
+        normalize = false, alg = ALS()
     )
     record!(ψ)
 end

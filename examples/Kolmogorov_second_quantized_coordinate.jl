@@ -4,7 +4,7 @@ using LinearAlgebra: opnorm, eigvals, Hermitian
 
 bits = 8; N = 2^bits; lo, hi = -4.0, 4.0
 h = (hi - lo) / (N - 1); q = 1.0
-max_bond = 8; truncerr = 1.0e-8
+max_bond = 8; trunc_tol = 1.0e-8
 
 X = ttv_to_diag_tto(qtt_polynom([0.0, 1.0], bits; a = lo, b = hi))   # diag(x)
 D = (1 / (2h)) * (shift(bits) - (id_tto(bits) - ∇(bits)))            # central ∂ₓ
@@ -23,10 +23,10 @@ G = (-1.0) * A + C                                                   # generator
 nrm(ψ) = TensorTrainNumerics.norm(ψ); ip(x, y) = TensorTrainNumerics.dot(x, y)
 gaussian(c) = (g = function_to_qtt(t -> exp(-0.5 * (lo + (hi - lo) * t - c)^2), bits); (1 / nrm(g)) * g)
 
-ground = tt_compress!(gaussian(0.0), max_bond; truncerr = truncerr)             # vacuum |0⟩
-excited = tt_compress!(sqrt(q / 2) * (adag * ground), max_bond; truncerr = truncerr)  # ∝ |1⟩
-ψ0 = tt_compress!(excited ⊗ ground ⊗ ground, max_bond; truncerr = truncerr)
-readout = tt_compress!(gaussian(0.8) ⊗ gaussian(-0.4) ⊗ gaussian(0.2), max_bond; truncerr = truncerr)
+ground = tt_compress!(gaussian(0.0), max_bond; trunc_tol)             # vacuum |0⟩
+excited = tt_compress!(sqrt(q / 2) * (adag * ground), max_bond; trunc_tol)  # ∝ |1⟩
+ψ0 = tt_compress!(excited ⊗ ground ⊗ ground, max_bond; trunc_tol)
+readout = tt_compress!(gaussian(0.8) ⊗ gaussian(-0.4) ⊗ gaussian(0.2), max_bond; trunc_tol)
 
 let
     Am, Adm = qtto_to_matrix(a), qtto_to_matrix(adag)
@@ -53,8 +53,8 @@ end
 
 ψ = ψ0; record!(ψ)
 for _ in 1:nblk
-    global ψ = crank_nicholson_method(G, ψ, ψ, fill(τstep, blk); normalize = false, tt_solver = ALS(sweep_count = 5), max_bond = max_bond)
-    global ψ = tt_compress!(ψ, max_bond; truncerr = truncerr)
+    global ψ = crank_nicholson_method(G, ψ, ψ, fill(τstep, blk); normalize = false, alg = ALS(max_sweeps = 3), max_bond = max_bond)
+    global ψ = tt_compress!(ψ, max_bond; trunc_tol)
     record!(ψ)
 end
 

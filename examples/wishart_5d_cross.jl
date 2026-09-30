@@ -39,7 +39,7 @@ n = 12
 domain = [collect(range(0.0, 10.0, length = n)) for _ in 1:d]
 
 Random.seed!(2026)
-alg = DMRGcross(verbose = true, tol = 1.0e-12)
+alg = DMRGcross(verbosity = 2, tol = 1.0e-12)
 tt = tt_cross(f_tilde_tt, domain, alg)
 
 println("TT ranks: ", tt.ttv_rks)

@@ -208,8 +208,8 @@ n = 8
 d = 6
 domain = [collect(range(0.0, π, length = n)) for _ in 1:d]
 
-tt_mv = tt_cross(f, domain, MaxVol(tol = 1.0e-8, maxiter = 20); ranks = 4)
-tt_dg = tt_cross(f, domain, DMRGcross(tol = 1.0e-8, maxiter = 25))
+tt_mv = tt_cross(f, domain, MaxVol(tol = 1.0e-8, max_sweeps = 20); ranks = 4)
+tt_dg = tt_cross(f, domain, DMRGcross(tol = 1.0e-8, max_sweeps = 25))
 ```
 
 ### Numerical integration

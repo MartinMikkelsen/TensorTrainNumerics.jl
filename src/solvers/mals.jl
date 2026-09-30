@@ -39,22 +39,6 @@ function init_H_mals(x_tt::AbstractTTvector, A::AbstractTToperator, rmax::Int)
     return H
 end
 
-function sv_trunc(s::Array{Float64}, tol::Float64)
-    if tol == 0.0
-        return s
-    else
-        d = length(s)
-        i = 0
-        weight = 0.0
-        norm2 = sum(abs2, s)
-        while (i < d) && (weight < tol * norm2)
-            weight += s[d - i]^2
-            i += 1
-        end
-        return s[1:(d - i + 1)]
-    end
-end
-
 # —— Corrected updateHb_mals! ——
 
 function updateHb_mals!(
@@ -93,12 +77,11 @@ end
 
 function left_core_move_mals(
         xtt::AbstractTTvector, i::Integer, V::Array{T, 4},
-        tol::Float64, rmax::Integer
+        trunc_tol::Real, max_bond::Integer; trunc_err = nothing
     ) where {T <: Number}
-    # Perform the truncated SVD on the 2-core block V
     u_V, s_V, v_V = svd(reshape(V, prod(size(V)[1:2]), :))
-    s_trunc = sv_trunc(s_V, tol)
-    xtt.ttv_rks[i + 1] = min(length(s_trunc), rmax)
+    xtt.ttv_rks[i + 1] = _trunc_rank(s_V, trunc_tol, xtt.N, max_bond)
+    isnothing(trunc_err) || (trunc_err[] = max(trunc_err[], _discarded_weight(s_V, xtt.ttv_rks[i + 1])))
 
     # Update the (i+1)-th core from truncated V-matrix
     xtt.ttv_vec[i + 1] = permutedims(
@@ -110,7 +93,7 @@ function left_core_move_mals(
 
     # Update the i-th core from truncated U * diag(s_trunc)
     xtt.ttv_vec[i] = reshape(
-        u_V[:, 1:xtt.ttv_rks[i + 1]] * Diagonal(s_trunc[1:xtt.ttv_rks[i + 1]]),
+        u_V[:, 1:xtt.ttv_rks[i + 1]] * Diagonal(s_V[1:xtt.ttv_rks[i + 1]]),
         size(V, 1), size(V, 2), :
     )
     xtt.ttv_ot[i + 1] = 1
@@ -120,12 +103,11 @@ end
 
 function right_core_move_mals(
         xtt::AbstractTTvector, i::Integer, V::Array{T, 4},
-        tol::Float64, rmax::Integer
+        trunc_tol::Real, max_bond::Integer; trunc_err = nothing
     ) where {T <: Number}
-    # Perform the truncated SVD on the 2-core block V
     u_V, s_V, v_V = svd(reshape(V, prod(size(V)[1:2]), :))
-    s_trunc = sv_trunc(s_V, tol)
-    xtt.ttv_rks[i + 1] = min(length(s_trunc), rmax)
+    xtt.ttv_rks[i + 1] = _trunc_rank(s_V, trunc_tol, xtt.N, max_bond)
+    isnothing(trunc_err) || (trunc_err[] = max(trunc_err[], _discarded_weight(s_V, xtt.ttv_rks[i + 1])))
 
     # Update the i-th core from truncated U
     xtt.ttv_vec[i] = reshape(
@@ -137,7 +119,7 @@ function right_core_move_mals(
     # Update the (i+1)-th core from diag(s_trunc) * V^T
     xtt.ttv_vec[i + 1] = permutedims(
         reshape(
-            Diagonal(s_trunc[1:xtt.ttv_rks[i + 1]]) * v_V'[1:xtt.ttv_rks[i + 1], :],
+            Diagonal(s_V[1:xtt.ttv_rks[i + 1]]) * v_V'[1:xtt.ttv_rks[i + 1], :],
             xtt.ttv_rks[i + 1], size(V, 3), size(V, 4)
         ), [2, 1, 3]
     )
@@ -172,8 +154,8 @@ end
 function K_eigmin_mals(
         Gi::Array{T, 5}, Hi::Array{T, 5},
         ttv_vec_i::Array{T, 3}, ttv_vec_ip::Array{T, 3};
-        it_solver::Bool = false, itslv_thresh::Int = 256,
-        maxiter::Int = 200, tol::Float64 = 1.0e-6
+        local_solver::Symbol = :auto, local_threshold::Int = 256,
+        local_maxiter::Int = 200, local_tol::Real = 1.0e-6
     ) where {T <: Number}
     K_dims = (
         size(ttv_vec_i, 1), size(ttv_vec_i, 2),
@@ -181,7 +163,7 @@ function K_eigmin_mals(
     )
     Gtemp = @view(Gi[:, 1:K_dims[2], :, 1:K_dims[2], :])
     Htemp = @view(Hi[:, :, 1:K_dims[4], :, 1:K_dims[4]])
-    if it_solver || prod(K_dims) > itslv_thresh
+    if _use_iterative(local_solver, prod(K_dims), local_threshold)
         H = zeros(T, prod(K_dims))
         function K_matfree(
                 V::AbstractArray{S, 1};
@@ -207,7 +189,7 @@ function K_eigmin_mals(
                 K_matfree, prod(K_dims);
                 ishermitian = true
             ),
-            false, X0, 1; maxiter = maxiter, tol = tol
+            false, X0, 1; maxiter = local_maxiter, tol = local_tol
         )
         return r.λ[1]::Float64, reshape(r.X[:, 1], K_dims)::Array{T, 4}
     else
@@ -218,185 +200,110 @@ function K_eigmin_mals(
     end
 end
 
-"""
-    mals_linsolve(A, b, tt_start; tol=1e-12, rmax, return_info=false)
-
-Solve `Ax = b` using the Modified Alternating Linear Scheme (MALS). Unlike ALS,
-the bond dimensions adapt at each micro-step by discarding singular values below `tol`.
-
-# Arguments
-- `A::TToperator{T}`: system operator in TT format.
-- `b::TTvector{T}`: right-hand side in TT format.
-- `tt_start::TTvector{T}`: initial guess.
-
-# Keyword arguments
-- `tol::Float64=1e-12`: relative SVD truncation threshold for rank adaptation.
-- `rmax::Int`: maximum allowed bond dimension (defaults to `√(∏ dims)`).
-- `return_info::Bool=false`: when `true`, return `(tt_opt, info)` where
-  `info = (; residual)` holds the final relative residual `‖A tt_opt − b‖ / ‖b‖`.
-
-# Returns
-`TTvector{T}`, or `(TTvector{T}, NamedTuple)` when `return_info=true`.
-"""
+# Implementation of `linear_solve(A, b, tt_start, ::MALS)`; see [`MALS`](@ref).
 function _mals_linsolve_impl(
-        A::AbstractTToperator, b::AbstractTTvector,
-        tt_start::AbstractTTvector;
-        tol::Float64 = 1.0e-12,
-        rmax::Int = round(Int, sqrt(prod(tt_start.ttv_dims)::Int)),
-        return_info::Bool = false,
-        show_progress::Bool = false
+        A::AbstractTToperator, b::AbstractTTvector, tt_start::AbstractTTvector;
+        max_sweeps::Int, max_bond::Int, trunc_tol::Real,
+        return_info::Bool, verbosity::Int, show_progress::Bool
     )
     T = eltype(tt_start)
     d = b.N
 
-    # Initialize the TT iterate
     tt_opt = orthogonalize(tt_start)
     dims = tt_start.ttv_dims
     A_rks = A.tto_rks
     b_rks = b.ttv_rks
 
-    # Allocate G, G_b
     G = Array{Array{T, 5}}(undef, d)
     G_b = Array{Array{T, 3}}(undef, d)
     for i in 1:d
-        rmax_i = min(rmax, prod(dims[1:(i - 1)]), prod(dims[i:end]))
+        rmax_i = min(max_bond, prod(dims[1:(i - 1)]), prod(dims[i:end]))
         G[i] = zeros(dims[i], rmax_i, dims[i], rmax_i, A_rks[i + 1])
         G_b[i] = zeros(dims[i], rmax_i, b_rks[i + 1])
     end
     G[1][:, 1:1, :, 1:1, :] = reshape(A.tto_vec[1][:, :, 1, :], dims[1], 1, dims[1], 1, :)
     G_b[1] = reshape(b.ttv_vec[1], dims[1], 1, :)
 
-    H = init_H_mals(tt_opt, A, rmax)
-    H_b = init_Hb_mals(tt_opt, b, rmax)
-    progress = _solver_progress(1, show_progress; desc = "MALS linear solve")
+    H = init_H_mals(tt_opt, A, max_bond)
+    H_b = init_Hb_mals(tt_opt, b, max_bond)
+    progress = _solver_progress(max_sweeps, show_progress; desc = "MALS linear solve")
 
-    # One sweep: can be wrapped in a loop if repeats > 1
-    # First half sweep
-    for i in 1:(d - 1)
-        Gi = @view(G[i][:, 1:tt_opt.ttv_rks[i], :, 1:tt_opt.ttv_rks[i], :])
-        Hi = @view(H[i][:, :, 1:tt_opt.ttv_rks[i + 2], :, 1:tt_opt.ttv_rks[i + 2]])
-        G_bi = @view(G_b[i][:, 1:tt_opt.ttv_rks[i], :])
-        H_bi = @view(H_b[i][:, :, 1:tt_opt.ttv_rks[i + 2]])
+    trunc_err = Ref(0.0)
+    for sweep in 1:max_sweeps
+        trunc_err[] = 0.0
+        for i in 1:(d - 1)
+            Gi = @view(G[i][:, 1:tt_opt.ttv_rks[i], :, 1:tt_opt.ttv_rks[i], :])
+            Hi = @view(H[i][:, :, 1:tt_opt.ttv_rks[i + 2], :, 1:tt_opt.ttv_rks[i + 2]])
+            G_bi = @view(G_b[i][:, 1:tt_opt.ttv_rks[i], :])
+            H_bi = @view(H_b[i][:, :, 1:tt_opt.ttv_rks[i + 2]])
 
-        # Solve local 2-core system
-        V = Ksolve_mals(Gi, Hi, G_bi, H_bi)
-        tt_opt = right_core_move_mals(tt_opt, i, V, tol, rmax)
+            V = Ksolve_mals(Gi, Hi, G_bi, H_bi)
+            tt_opt = right_core_move_mals(tt_opt, i, V, trunc_tol, max_bond; trunc_err)
 
-        # Update G[i+1], G_b[i+1]
-        Gip = @view(G[i + 1][:, 1:tt_opt.ttv_rks[i + 1], :, 1:tt_opt.ttv_rks[i + 1], :])
-        G_bip = @view(G_b[i + 1][:, 1:tt_opt.ttv_rks[i + 1], :])
-        update_G!(tt_opt.ttv_vec[i], A.tto_vec[i + 1], Gi, Gip)
-        update_Gb!(tt_opt.ttv_vec[i], b.ttv_vec[i + 1], G_bi, G_bip)
-    end
-
-    # Second half sweep
-    for i in (d - 1):-1:1
-        Gi = @view(G[i][:, 1:tt_opt.ttv_rks[i], :, 1:tt_opt.ttv_rks[i], :])
-        Hi = @view(H[i][:, :, 1:tt_opt.ttv_rks[i + 2], :, 1:tt_opt.ttv_rks[i + 2]])
-        G_bi = @view(G_b[i][:, 1:tt_opt.ttv_rks[i], :])
-        H_bi = @view(H_b[i][:, :, 1:tt_opt.ttv_rks[i + 2]])
-
-        V = Ksolve_mals(Gi, Hi, G_bi, H_bi)
-        tt_opt = left_core_move_mals(tt_opt, i, V, tol, rmax)
-
-        if i > 1
-            Him = @view(H[i - 1][:, :, 1:tt_opt.ttv_rks[i + 1], :, 1:tt_opt.ttv_rks[i + 1]])
-            updateH_mals!(tt_opt.ttv_vec[i + 1], A.tto_vec[i], Hi, Him)
-
-            H_bim = @view(H_b[i - 1][:, :, 1:tt_opt.ttv_rks[i + 1]])
-            updateHb_mals!(tt_opt.ttv_vec[i + 1], b.ttv_vec[i], H_bi, H_bim)
+            Gip = @view(G[i + 1][:, 1:tt_opt.ttv_rks[i + 1], :, 1:tt_opt.ttv_rks[i + 1], :])
+            G_bip = @view(G_b[i + 1][:, 1:tt_opt.ttv_rks[i + 1], :])
+            update_G!(tt_opt.ttv_vec[i], A.tto_vec[i + 1], Gi, Gip)
+            update_Gb!(tt_opt.ttv_vec[i], b.ttv_vec[i + 1], G_bi, G_bip)
         end
-    end
 
-    next!(progress)
+        for i in (d - 1):-1:1
+            Gi = @view(G[i][:, 1:tt_opt.ttv_rks[i], :, 1:tt_opt.ttv_rks[i], :])
+            Hi = @view(H[i][:, :, 1:tt_opt.ttv_rks[i + 2], :, 1:tt_opt.ttv_rks[i + 2]])
+            G_bi = @view(G_b[i][:, 1:tt_opt.ttv_rks[i], :])
+            H_bi = @view(H_b[i][:, :, 1:tt_opt.ttv_rks[i + 2]])
+
+            V = Ksolve_mals(Gi, Hi, G_bi, H_bi)
+            tt_opt = left_core_move_mals(tt_opt, i, V, trunc_tol, max_bond; trunc_err)
+
+            if i > 1
+                Him = @view(H[i - 1][:, :, 1:tt_opt.ttv_rks[i + 1], :, 1:tt_opt.ttv_rks[i + 1]])
+                updateH_mals!(tt_opt.ttv_vec[i + 1], A.tto_vec[i], Hi, Him)
+
+                H_bim = @view(H_b[i - 1][:, :, 1:tt_opt.ttv_rks[i + 1]])
+                updateHb_mals!(tt_opt.ttv_vec[i + 1], b.ttv_vec[i], H_bi, H_bim)
+            end
+        end
+        max_rank = maximum(tt_opt.ttv_rks)
+        verbosity ≥ 2 && @info "MALS linear solve" sweep max_rank truncation_error = trunc_err[]
+        next!(progress; showvalues = [("sweep", "$sweep/$max_sweeps"), ("largest rank", max_rank), ("truncation error", trunc_err[])])
+    end
     return return_info ? (tt_opt, (; residual = norm(A * tt_opt - b) / max(norm(b), eps(real(T))))) : tt_opt
 end
 
-"""
-    mals_eigsolve(A, tt_start; tol, sweep_schedule, rmax_schedule, it_solver, linsolv_maxiter, linsolv_tol, itslv_thresh)
-
-Find the lowest eigenvalue and eigenvector of `A` using the Modified Alternating Linear
-Scheme with bond-adaptive rank growth.
-
-# Arguments
-- `A::TToperator{T}`: the operator whose smallest eigenvalue is sought.
-- `tt_start::TTvector{T}`: initial guess for the eigenvector.
-
-# Keyword arguments
-- `tol::Float64=1e-12`: relative SVD truncation threshold for rank adaptation.
-- `sweep_schedule::Vector{Int}=[2]`: sweep count at which each rank stage ends.
-- `rmax_schedule::Vector{Int}`: maximum bond dimension at each stage.
-- `it_solver::Bool=false`: use an iterative eigensolver for local subproblems.
-- `linsolv_maxiter::Int=200`: maximum iterations for the iterative eigensolver.
-- `linsolv_tol::Float64`: tolerance for the iterative eigensolver (default `√tol`).
-- `itslv_thresh::Int=256`: local problem size above which iterative solve activates.
-
-# Returns
-`(E, tt_opt, r_hist)` where `E::Vector{Float64}` is the eigenvalue history,
-`tt_opt::TTvector{T}` is the approximate eigenvector, and `r_hist::Vector{Int}`
-records the maximum bond dimension after each micro-step.
-"""
+# Implementation of `eigen_solve(A, tt_start, ::MALS)`; see [`MALS`](@ref).
 function _mals_eigsolve_impl(
         A::AbstractTToperator, tt_start::AbstractTTvector;
-        tol::Float64 = 1.0e-12,
-        sweep_schedule::Vector{Int} = [2],
-        rmax_schedule::Vector{Int} = [round(Int, sqrt(prod(tt_start.ttv_dims)::Int))],
-        it_solver::Bool = false,
-        linsolv_maxiter::Int = 200,
-        linsolv_tol::Float64 = max(sqrt(tol), 1.0e-8),
-        itslv_thresh::Int = 256,
-        show_progress::Bool = false
+        max_sweeps::Vector{Int}, max_bond::Vector{Int}, trunc_tol::Real,
+        local_solver::Symbol, local_threshold::Int, local_maxiter::Int, local_tol::Real,
+        verbosity::Int, show_progress::Bool
     )
     T = eltype(tt_start)
     d = A.N
-    @assert(
-        length(rmax_schedule) == length(sweep_schedule),
-        "Sweep schedule error"
-    )
-
     tt_opt = orthogonalize(tt_start)
     dims = tt_start.ttv_dims
-
     E = Float64[]
     r_hist = Int[]
 
-    # Allocate G
     G = Array{Array{T, 5}}(undef, d)
-    rmax = maximum(rmax_schedule)
+    rmax = maximum(max_bond)
     for i in 1:d
         rmax_i = min(rmax, prod(dims[1:(i - 1)]), prod(dims[i:end]))
         G[i] = zeros(dims[i], rmax_i, dims[i], rmax_i, A.tto_rks[i + 1])
     end
     G[1][:, 1:1, :, 1:1, :] = reshape(A.tto_vec[1][:, :, 1, :], dims[1], 1, dims[1], 1, :)
-
     H = init_H_mals(tt_opt, A, rmax)
 
-    nsweeps = 0
-    i_schedule = 1
-    progress = _solver_progress(max(sweep_schedule[end] - 1, 1), show_progress; desc = "MALS eigen solve")
-    while i_schedule <= length(sweep_schedule)
-        nsweeps += 1
-
-        if nsweeps == sweep_schedule[i_schedule]
-            i_schedule += 1
-            if i_schedule > length(sweep_schedule)
-                return E, tt_opt, r_hist
-            end
-        end
-
-        # First half sweep
+    local_opts = (; local_solver, local_threshold, local_maxiter, local_tol)
+    progress = _solver_progress(sum(max_sweeps), show_progress; desc = "MALS eigen solve")
+    sweep = 0
+    trunc_err = Ref(0.0)
+    for (stage, nsweeps) in enumerate(max_sweeps), _ in 1:nsweeps
+        sweep += 1
+        trunc_err[] = 0.0
         for i in 1:(d - 1)
-            λ, V = K_eigmin_mals(
-                G[i], H[i],
-                tt_opt.ttv_vec[i],
-                tt_opt.ttv_vec[i + 1];
-                it_solver = it_solver,
-                maxiter = linsolv_maxiter,
-                tol = linsolv_tol
-            )
+            λ, V = K_eigmin_mals(G[i], H[i], tt_opt.ttv_vec[i], tt_opt.ttv_vec[i + 1]; local_opts...)
             push!(E, λ)
-
-            tt_opt = right_core_move_mals(tt_opt, i, V, tol, rmax_schedule[i_schedule])
+            tt_opt = right_core_move_mals(tt_opt, i, V, trunc_tol, max_bond[stage]; trunc_err)
             push!(r_hist, maximum(tt_opt.ttv_rks))
 
             Gi = @view(G[i][:, 1:tt_opt.ttv_rks[i], :, 1:tt_opt.ttv_rks[i], :])
@@ -404,19 +311,10 @@ function _mals_eigsolve_impl(
             update_G!(tt_opt.ttv_vec[i], A.tto_vec[i + 1], Gi, Gip)
         end
 
-        # Second half sweep
         for i in (d - 1):-1:1
-            λ, V = K_eigmin_mals(
-                G[i], H[i],
-                tt_opt.ttv_vec[i],
-                tt_opt.ttv_vec[i + 1];
-                it_solver = it_solver,
-                maxiter = linsolv_maxiter,
-                tol = linsolv_tol
-            )
+            λ, V = K_eigmin_mals(G[i], H[i], tt_opt.ttv_vec[i], tt_opt.ttv_vec[i + 1]; local_opts...)
             push!(E, λ)
-
-            tt_opt = left_core_move_mals(tt_opt, i, V, tol, rmax_schedule[i_schedule])
+            tt_opt = left_core_move_mals(tt_opt, i, V, trunc_tol, max_bond[stage]; trunc_err)
             push!(r_hist, maximum(tt_opt.ttv_rks))
 
             if i > 1
@@ -425,35 +323,27 @@ function _mals_eigsolve_impl(
                 updateH_mals!(tt_opt.ttv_vec[i + 1], A.tto_vec[i], Hi, Him)
             end
         end
-        next!(progress)
+        eigenvalue = E[end]
+        verbosity ≥ 2 && @info "MALS eigen solve" sweep max_rank = maximum(tt_opt.ttv_rks) eigenvalue truncation_error = trunc_err[]
+        next!(progress; showvalues = [("sweep", "$sweep/$(sum(max_sweeps))"), ("eigenvalue", eigenvalue), ("truncation error", trunc_err[])])
     end
-
     return E, tt_opt, r_hist
 end
 
 function eigen_solve(A::AbstractTToperator, guess::AbstractTTvector, alg::MALS)
-    _reject_unused(
-        alg, "eigen_solve", (:return_info,),
-        "`tol`, `rmax` or `rmax_schedule`, `sweep_schedule`, `it_solver`, `linsolv_maxiter`, `linsolv_tol`, `itslv_thresh`, and `show_progress`"
+    _reject_unused(alg, "eigen_solve", (:return_info,), "every option except `return_info`")
+    st = _stages(;
+        max_sweeps = alg.max_sweeps,
+        max_bond = something(alg.max_bond, round(Int, sqrt(prod(guess.ttv_dims)::Int)))
     )
-    sweep_schedule = isnothing(alg.sweep_schedule) ? [2] : alg.sweep_schedule
-    # `rmax` is shorthand for a constant `rmax_schedule`.
-    rmax_schedule = if isnothing(alg.rmax_schedule)
-        fill(something(alg.rmax, round(Int, sqrt(prod(guess.ttv_dims)::Int))), length(sweep_schedule))
-    else
-        isnothing(alg.rmax) || throw(ArgumentError("MALS: give either `rmax` or `rmax_schedule`, not both"))
-        alg.rmax_schedule
-    end
-    linsolv_tol = isnothing(alg.linsolv_tol) ? max(sqrt(alg.tol), 1.0e-8) : alg.linsolv_tol
     return _mals_eigsolve_impl(
-        A, guess;
-        tol = alg.tol,
-        sweep_schedule = sweep_schedule,
-        rmax_schedule = rmax_schedule,
-        it_solver = alg.it_solver,
-        linsolv_maxiter = alg.linsolv_maxiter,
-        linsolv_tol = linsolv_tol,
-        itslv_thresh = alg.itslv_thresh,
+        A, guess; st...,
+        trunc_tol = alg.trunc_tol,
+        local_solver = alg.local_solver,
+        local_threshold = something(alg.local_threshold, 256),
+        local_maxiter = alg.local_maxiter,
+        local_tol = alg.local_tol,
+        verbosity = alg.verbosity,
         show_progress = alg.show_progress
     )
 end

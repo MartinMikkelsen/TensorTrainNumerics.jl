@@ -2,13 +2,12 @@ using Test
 using TensorTrainNumerics
 using LinearAlgebra
 using Random
+using Logging
 
 const TTN = TensorTrainNumerics
 
-# ---------------------------------------------------------------------------
 # Dense adapters: the local objective with an explicit isometry Φ (real path).
 # P(y) = yᵀAy + (g/2)Σ(Φy)⁴ + η(yᵀy−1)²
-# ---------------------------------------------------------------------------
 rand_iso(m, n) = Matrix(qr(randn(m, n)).Q)[:, 1:n]
 rand_sym(n) = (B = randn(n, n); (B + B') / 2)
 dense_Q(Φ) = y -> sum(x -> x^4, Φ * y)
@@ -29,10 +28,10 @@ end
 fd_jac(gfun, x; h = 1.0e-6) = reduce(
     hcat, [
         begin
-                xp = copy(x); xm = copy(x)
-                xp[i] += h; xm[i] -= h
-                (gfun(xp) - gfun(xm)) ./ (2h)
-            end for i in eachindex(x)
+            xp = copy(x); xm = copy(x)
+            xp[i] += h; xm[i] -= h
+            (gfun(xp) - gfun(xm)) ./ (2h)
+        end for i in eachindex(x)
     ]
 )
 
@@ -205,13 +204,11 @@ end
     end
 end
 
-# ---------------------------------------------------------------------------
 # Dense GPE oracle (LinearAlgebra only). Discrete convention: N = 2^L points,
 # h = 2^{-L}, A = (1/(2h²))·tridiag(−1,2,−1) (Dirichlet), g_eff = g·2^L,
 # E = fᵀAf + g_eff·Σf⁴ on unit-2-norm f (== continuum energy, full g readout).
 # Imaginary time descends the GPE functional Ê = fᵀAf + (g_eff/2)·Σf⁴ (the
 # Lyapunov functional of the flow, fixed point H(f)f = μf); E is the readout.
-# ---------------------------------------------------------------------------
 dense_A(L) = SymTridiagonal(fill(4.0^L, 2^L), fill(-(4.0^L) / 2, 2^L - 1))
 
 box_energy(L) = 4.0^L * 2 * sin(π / (2 * (2^L + 1)))^2   # == 4^L(1−cos(π/(2^L+1))), cancellation-free
@@ -328,11 +325,11 @@ end
     @test_throws ArgumentError non_linear_solve(complex(A), complex(u0), PenaltyALS())
 
     # constructor validation: degenerate configs are rejected
-    @test_throws ArgumentError PenaltyALS(η_schedule = Float64[])
+    @test_throws ArgumentError PenaltyALS(penalty_schedule = Float64[])
     @test_throws ArgumentError PenaltyALS(max_sweeps = 0)
-    @test_throws ArgumentError PenaltyALS(ν_local = 0)
+    @test_throws ArgumentError PenaltyALS(local_steps = 0)
 
-    # unconstrained mode (η_schedule = [0.0]): Allen–Cahn / φ⁴ domain-wall state.
+    # unconstrained mode (penalty_schedule = [0.0]): Allen–Cahn / φ⁴ domain-wall state.
     # Minimize uᵀAu + (g/2)Σu⁴ with A = (1/(2h²))·tridiag(−1,2,−1) − (1/(2ε²))I and
     # g = 1/(2ε²) (the discrete φ⁴ energy up to a constant, Dirichlet walls). No norm
     # constraint — the solver must not warn about ⟨u|u⟩ ≠ 1. Oracle: dense damped Newton
@@ -351,7 +348,7 @@ end
         Aac = (4.0^Lac / 2) * Δ(Lac) - g_ac * id_tto(Lac)
         seed = function_to_qtt(x -> tanh(x / (sqrt(2) * ε)) * tanh((1 - x) / (sqrt(2) * ε)), Lac)
         u0ac = orthogonalize(seed + (1.0e-3 * norm(seed)) * rand_tt(ntuple(_ -> 2, Lac), 4; normalise = true))
-        alg_ac = PenaltyALS(; η_schedule = [0.0], tol = 1.0e-10, max_sweeps = 50, return_info = true)
+        alg_ac = PenaltyALS(; penalty_schedule = [0.0], tol = 1.0e-10, max_sweeps = 50, return_info = true)
         local uac, iac
         @test_logs match_mode = :all begin
             uac, iac = non_linear_solve(Aac, u0ac, alg_ac; g = g_ac)
@@ -368,7 +365,7 @@ end
     u03 = (1 / norm(seed3)) * seed3
 
     # g = 0: MGR L=3→6 == analytic box GS to machine precision
-    mgr0 = MGR(; max_rank = 8, return_info = true)
+    mgr0 = MGR(; max_bond = 8, return_info = true)
     u, info = non_linear_solve(A_builder, u03, mgr0; g_builder = d -> 0.0, target_sites = 6)
     fbox = [sin(π * m / (2^6 + 1)) for m in 1:(2^6)]
     @test abs(info.energy - box_energy(6)) / box_energy(6) < 1.0e-9
@@ -398,12 +395,43 @@ end
 
     # MUTATION (§norm-penalty): minimizing with bare g instead of g_eff = g·2^L must land
     # > 1% off the oracle energy when read out at full g_eff.
-    ubad = non_linear_solve(A_builder, u03, MGR(; max_rank = 8); g_builder = d -> g, target_sites = 6)
+    ubad = non_linear_solve(A_builder, u03, MGR(; max_bond = 8); g_builder = d -> g, target_sites = 6)
     @test abs(gpe_energy((4.0^6 / 2) * Δ(6), ubad; g = g * 2.0^6) - E6) / abs(E6) > 0.01
 
     # χ-convergence mechanism (Figs 8/9): richer bond ⇒ smaller infidelity
-    u2, _ = non_linear_solve(A_builder, u03, MGR(; max_rank = 2, return_info = true); g_builder = d -> g * 2.0^d, target_sites = 6)
-    u6b, _ = non_linear_solve(A_builder, u03, MGR(; max_rank = 6, return_info = true); g_builder = d -> g * 2.0^d, target_sites = 6)
+    u2, _ = non_linear_solve(A_builder, u03, MGR(; max_bond = 2, return_info = true); g_builder = d -> g * 2.0^d, target_sites = 6)
+    u6b, _ = non_linear_solve(A_builder, u03, MGR(; max_bond = 6, return_info = true); g_builder = d -> g * 2.0^d, target_sites = 6)
     @test infidelity(u6b, f6) < 1.0e-11
     @test infidelity(u2, f6) > infidelity(u6b, f6)
+end
+
+@testset "nonlinear solver keyword names" begin
+    d = 4
+    A = (4.0^d / 2) * Δ(d)
+    u0 = function_to_qtt(x -> sin(π * x), d)
+    u0 = u0 / norm(u0)
+    alg = PenaltyALS(; penalty_schedule = [1.0e2, 1.0e4], local_steps = 2, max_sweeps = 5, return_info = true, show_progress = false)
+    u, info = non_linear_solve(A, u0, alg; g = 1.0)
+    @test info.penalty_history == [1.0e2, 1.0e4]
+    logs, _ = Test.collect_test_logs() do
+        non_linear_solve(A, u0, PenaltyALS(; penalty_schedule = [1.0e2], max_sweeps = 2, tol = 0.0, verbosity = 2, show_progress = false); g = 1.0)
+    end
+    @test count(l -> l.message == "PenaltyALS sweep", logs) == 2
+
+    @test_throws MethodError PenaltyALS(; η_schedule = [1.0])
+    @test_throws MethodError PenaltyALS(; ν_local = 2)
+    @test_throws MethodError MGR(; max_rank = 4)
+    @test MGR(; max_bond = 4).max_bond == 4
+    @test PenaltyALS().show_progress && MGR().show_progress
+    @test !TensorTrainNumerics._mgr_inner(PenaltyALS(; show_progress = true)).show_progress
+end
+
+@testset "PenaltyALS verbosity = 0 is silent" begin
+    d = 4
+    A = (4.0^d / 2) * Δ(d)
+    u0 = function_to_qtt(x -> sin(π * x), d)
+    u0 = 2.0 * u0 / norm(u0)                      # far from unit norm: one weak stage cannot enforce it
+    alg(v) = PenaltyALS(; penalty_schedule = [1.0], max_sweeps = 1, verbosity = v, show_progress = false)
+    @test_logs (:warn, r"penalty did not enforce") non_linear_solve(A, u0, alg(1); g = 1.0)
+    @test_logs non_linear_solve(A, u0, alg(0); g = 1.0)
 end

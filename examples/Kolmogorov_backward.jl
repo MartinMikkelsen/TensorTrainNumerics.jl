@@ -38,7 +38,7 @@ end
 
 ψ = u₀; record!(ψ)
 for _ in 1:nblk
-    global ψ = crank_nicholson_method(L, ψ, ψ, fill(τstep, blk); normalize = false, tt_solver = ALS())
+    global ψ = crank_nicholson_method(L, ψ, ψ, fill(τstep, blk); normalize = false, alg = ALS())
     record!(ψ)
 end
 

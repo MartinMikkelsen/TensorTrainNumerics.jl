@@ -21,7 +21,7 @@ steps = fill(dt, round(Int, T / dt))
 sol_tdvp = tdvp(A, u0, steps; imaginary_time = true, normalize = false)
 sol_tdvp2 = tdvp2(
     A, u0, steps; imaginary_time = true, normalize = false,
-    max_bond = 12, truncerr = 1.0e-12
+    max_bond = 12, trunc_tol = 1.0e-12
 )
 
 u_tdvp = qttv_to_array(sol_tdvp)

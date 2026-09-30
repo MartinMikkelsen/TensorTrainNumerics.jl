@@ -4,24 +4,22 @@ using Random
 using TensorTrainNumerics
 
 @testset "solver algorithm constructors" begin
-    @test ALS(sweep_count = 3).sweep_count == 3
-    @test !ALS().show_progress
-    @test ALS(show_progress = true).show_progress
-    @test MALS(tol = 1.0e-9, rmax = 4).tol == 1.0e-9
-    @test MALS(tol = 1.0e-9, rmax = 4).rmax == 4
-    @test !MALS().show_progress
-    @test MALS(show_progress = true).show_progress
-    @test isnothing(MALS().linsolv_tol)
-    @test DMRG(N = 2, tol = 1.0e-8, rmax_schedule = [4]).N == 2
-    @test DMRG(N = 2, tol = 1.0e-8, rmax_schedule = [4]).rmax_schedule == [4]
-    @test DMRG().it_solver
-    @test !DMRG().show_progress
-    @test DMRG(show_progress = true).show_progress
-    @test isnothing(DMRG().linsolv_tol)
+    @test ALS(max_sweeps = 3).max_sweeps == 3
+    @test ALS().show_progress
+    @test !ALS(show_progress = false).show_progress
+    @test MALS(trunc_tol = 1.0e-9, max_bond = 4).trunc_tol == 1.0e-9
+    @test MALS(trunc_tol = 1.0e-9, max_bond = 4).max_bond == 4
+    @test MALS().show_progress
+    @test MALS().local_tol == 1.0e-6
+    @test DMRG(nsites = 2, trunc_tol = 1.0e-8, max_bond = [4]).nsites == 2
+    @test DMRG(nsites = 2, trunc_tol = 1.0e-8, max_bond = [4]).max_bond == [4]
+    @test DMRG().local_solver === :iterative
+    @test DMRG().show_progress
+    @test DMRG().local_tol == 1.0e-6
     @test Krylov(max_bond = 3, krylov_solver = :gmres).max_bond == 3
     @test Krylov(max_bond = 3, krylov_solver = :gmres).krylov_solver == :gmres
-    @test !Krylov().show_progress
-    @test Krylov(show_progress = true).show_progress
+    @test Krylov().show_progress
+    @test !Krylov(show_progress = false).show_progress
     @test ALSSolver === ALS
     @test MALSSolver === MALS
     @test DMRGSolver === DMRG
@@ -35,8 +33,8 @@ end
     b = rand_tt(dims, [1, 2, 2, 1])
     guess = rand_tt(dims, [1, 2, 2, 1])
 
-    x = linear_solve(A, b, guess, ALS(sweep_count = 2))
-    x_ref = als_linsolve(A, b, guess; sweep_count = 2)
+    x = linear_solve(A, b, guess, ALS(max_sweeps = 1))
+    x_ref = als_linsolve(A, b, guess; max_sweeps = 1)
     @test x isa TensorTrainNumerics.AbstractTTvector
     @test qtt_to_vector(x) ≈ qtt_to_vector(x_ref) rtol = 1.0e-12 atol = 1.0e-12
 end
@@ -69,18 +67,18 @@ end
 
     # A is the identity, so the relative residual is the dense distance to b.
     # Contracting the TT difference can inflate roundoff to O(sqrt(eps())).
-    x_als = linear_solve(A, b, guess, ALS(sweep_count = 2))
-    x_als_wrapper = als_linsolve(A, b, guess; sweep_count = 2)
+    x_als = linear_solve(A, b, guess, ALS(max_sweeps = 1))
+    x_als_wrapper = als_linsolve(A, b, guess; max_sweeps = 1)
     @test relvec(x_als, b) < 1.0e-8
     @test relvec(x_als_wrapper, x_als) < 1.0e-12
 
-    x_mals = linear_solve(A, b, guess, MALS(tol = 1.0e-10, rmax = 4))
-    x_mals_wrapper = mals_linsolve(A, b, guess; tol = 1.0e-10, rmax = 4)
+    x_mals = linear_solve(A, b, guess, MALS(trunc_tol = 1.0e-5, max_bond = 4))
+    x_mals_wrapper = mals_linsolve(A, b, guess; trunc_tol = 1.0e-5, max_bond = 4)
     @test relvec(x_mals, b) < 1.0e-8
     @test relvec(x_mals_wrapper, x_mals) < 1.0e-12
 
-    x_dmrg = linear_solve(A, b, guess, DMRG(N = 2, sweep_schedule = [2], rmax_schedule = [4]))
-    x_dmrg_wrapper = dmrg_linsolve(A, b, guess; N = 2, sweep_schedule = [2], rmax_schedule = [4])
+    x_dmrg = linear_solve(A, b, guess, DMRG(nsites = 2, max_sweeps = 1, max_bond = 4))
+    x_dmrg_wrapper = dmrg_linsolve(A, b, guess; nsites = 2, max_sweeps = 1, max_bond = 4)
     @test relvec(x_dmrg, b) < 1.0e-8
     @test relvec(x_dmrg_wrapper, x_dmrg) < 1.0e-12
 end
@@ -93,18 +91,18 @@ end
 
     E_als, x_als = eigen_solve(
         A, guess,
-        ALS(sweep_schedule = [2], rmax_schedule = [2], noise_schedule = [0.0])
+        ALS(max_sweeps = 1, max_bond = 2, noise = 0.0)
     )
     @test !isempty(E_als)
     @test x_als isa TensorTrainNumerics.AbstractTTvector
     @test abs(last(E_als) - 1.0) < 1.0e-8
 
-    E_mals, x_mals, r_hist_mals = eigen_solve(A, guess, MALS(sweep_schedule = [2], rmax_schedule = [4]))
+    E_mals, x_mals, r_hist_mals = eigen_solve(A, guess, MALS(max_sweeps = 1, max_bond = 4))
     @test !isempty(E_mals)
     @test !isempty(r_hist_mals)
     @test x_mals isa TensorTrainNumerics.AbstractTTvector
 
-    E_dmrg, x_dmrg, r_hist_dmrg = eigen_solve(A, guess, DMRG(N = 2, sweep_schedule = [2], rmax_schedule = [4]))
+    E_dmrg, x_dmrg, r_hist_dmrg = eigen_solve(A, guess, DMRG(nsites = 2, max_sweeps = 1, max_bond = 4))
     @test !isempty(E_dmrg)
     @test !isempty(r_hist_dmrg)
     @test x_dmrg isa TensorTrainNumerics.AbstractTTvector
@@ -119,23 +117,23 @@ end
 
     E_als, x_als = eigen_solve(
         A, guess,
-        ALS(sweep_schedule = [2], rmax_schedule = [2], noise_schedule = [0.0])
+        ALS(max_sweeps = 1, max_bond = 2, noise = 0.0)
     )
     E_als_wrapper, x_als_wrapper = als_eigsolve(
         A, guess;
-        sweep_schedule = [2], rmax_schedule = [2], noise_schedule = [0.0]
+        max_sweeps = 1, max_bond = 2, noise = 0.0
     )
     @test E_als_wrapper ≈ E_als
     @test qtt_to_vector(x_als_wrapper) ≈ qtt_to_vector(x_als) rtol = 1.0e-12 atol = 1.0e-12
 
-    E_mals, x_mals, r_hist_mals = eigen_solve(A, guess, MALS(tol = 1.0e-10, sweep_schedule = [2], rmax_schedule = [4]))
-    E_mals_wrapper, x_mals_wrapper, r_hist_mals_wrapper = mals_eigsolve(A, guess; tol = 1.0e-10, sweep_schedule = [2], rmax_schedule = [4])
+    E_mals, x_mals, r_hist_mals = eigen_solve(A, guess, MALS(trunc_tol = 1.0e-5, max_sweeps = 1, max_bond = 4))
+    E_mals_wrapper, x_mals_wrapper, r_hist_mals_wrapper = mals_eigsolve(A, guess; trunc_tol = 1.0e-5, max_sweeps = 1, max_bond = 4)
     @test E_mals_wrapper ≈ E_mals
     @test r_hist_mals_wrapper == r_hist_mals
     @test qtt_to_vector(x_mals_wrapper) ≈ qtt_to_vector(x_mals) rtol = 1.0e-12 atol = 1.0e-12
 
-    E_dmrg, x_dmrg, r_hist_dmrg = eigen_solve(A, guess, DMRG(N = 2, tol = 1.0e-10, sweep_schedule = [2], rmax_schedule = [4]))
-    E_dmrg_wrapper, x_dmrg_wrapper, r_hist_dmrg_wrapper = dmrg_eigsolve(A, guess; N = 2, tol = 1.0e-10, sweep_schedule = [2], rmax_schedule = [4])
+    E_dmrg, x_dmrg, r_hist_dmrg = eigen_solve(A, guess, DMRG(nsites = 2, trunc_tol = 1.0e-10, max_sweeps = 1, max_bond = 4))
+    E_dmrg_wrapper, x_dmrg_wrapper, r_hist_dmrg_wrapper = dmrg_eigsolve(A, guess; nsites = 2, trunc_tol = 1.0e-10, max_sweeps = 1, max_bond = 4)
     @test E_dmrg_wrapper ≈ E_dmrg
     @test r_hist_dmrg_wrapper == r_hist_dmrg
     @test qtt_to_vector(x_dmrg_wrapper) ≈ qtt_to_vector(x_dmrg) rtol = 1.0e-12 atol = 1.0e-12
@@ -150,30 +148,19 @@ end
     x0 = rand_tt(dims, [1, 2, 2, 2, 1])
 
     for alg in (
-            ALS(sweep_schedule = [4]), ALS(rmax_schedule = [3]), ALS(noise_schedule = [0.1]), ALS(itslv_thresh = 10),
-            MALS(sweep_schedule = [4]), MALS(rmax_schedule = [3]), MALS(it_solver = true),
-            MALS(linsolv_maxiter = 5), MALS(linsolv_tol = 1.0e-3), MALS(itslv_thresh = 10),
+            ALS(max_bond = 3), ALS(noise = 0.1), ALS(max_sweeps = [1, 1]),
+            MALS(local_solver = :iterative), MALS(local_maxiter = 5), MALS(local_tol = 1.0e-3), MALS(local_threshold = 10),
+            MALS(max_bond = [2, 3]),
         )
-        @test_throws "not used by linear_solve" linear_solve(A, b, x0, alg)
-        # The implicit time steppers rebuild the algorithm, so they check first.
-        @test_throws "not used by linear_solve" implicit_euler_method(A, x0, x0, [0.1]; tt_solver = alg, show_progress = false)
+        @test_throws ArgumentError linear_solve(A, b, x0, alg)
+        @test_throws ArgumentError implicit_euler_method(A, x0, x0, [0.1]; alg, show_progress = false)
     end
-    for alg in (ALS(sweep_count = 6), ALS(r_itsolver = 10), ALS(return_info = true), MALS(return_info = true), DMRG(return_info = true))
+    for alg in (ALS(return_info = true), MALS(return_info = true), DMRG(return_info = true))
         @test_throws "not used by eigen_solve" eigen_solve(A, x0, alg)
     end
 
-    # `sweep_count` is shorthand for a one-stage `sweep_schedule` in DMRG.
-    @test qtt_to_vector(linear_solve(A, b, x0, DMRG(sweep_count = 5))) ≈
-        qtt_to_vector(linear_solve(A, b, x0, DMRG(sweep_schedule = [5])))
-    E1, _, _ = eigen_solve(A, x0, DMRG(sweep_count = 5))
-    E2, _, _ = eigen_solve(A, x0, DMRG(sweep_schedule = [5]))
-    @test E1 ≈ E2
-    @test_throws "either `sweep_count` or `sweep_schedule`" linear_solve(A, b, x0, DMRG(sweep_count = 5, sweep_schedule = [3]))
-
-    # `rmax` is shorthand for a constant `rmax_schedule` in MALS eigenvalue problems.
-    _, _, r_hist = eigen_solve(A, x0, MALS(rmax = 2))
+    _, _, r_hist = eigen_solve(A, x0, MALS(max_bond = 2))
     @test maximum(r_hist) ≤ 2
-    @test_throws "either `rmax` or `rmax_schedule`" eigen_solve(A, x0, MALS(rmax = 2, rmax_schedule = [3]))
 end
 
 @testset "Krylov reports whether the solve converged" begin
@@ -197,4 +184,93 @@ end
     bv = vec(ttv_to_tensor(b))
     @test info.residual ≈ norm(M * vec(ttv_to_tensor(x)) - bv) / norm(bv) rtol = 1.0e-3
     @test info.residual < 1.0e-9
+end
+
+@testset "shared solver option helpers" begin
+    TTN = TensorTrainNumerics
+
+    s = [1.0, 0.1, 0.01, 0.001]
+    ε = 0.05 / norm(s)                                   # δ = 0.05 for d = 2
+    @test TTN._trunc_rank(s, 0.0, 2, typemax(Int)) == 4
+    @test TTN._trunc_rank(s, ε, 2, typemax(Int)) == 2     # drops 0.01 and 0.001
+    @test TTN._trunc_rank(s, ε, 101, typemax(Int)) == 3   # δ = 0.005 drops only 0.001
+    @test TTN._trunc_rank(s, ε, 2, 1) == 1
+    @test TTN._trunc_rank(s, 10.0, 2, typemax(Int)) == 1  # never below rank 1
+
+    M = randn(6, 5)
+    U, S, Vt = TTN._truncated_svd(M, 0.0, 2, 3)
+    @test size(U, 2) == size(S, 1) == size(Vt, 1) == 3
+    F = svd(M)
+    @test norm(M - U * S * Vt) ≈ norm(F.S[4:end])
+
+    st = TTN._stages(; max_sweeps = [2, 3], max_bond = 8)
+    @test st.max_sweeps == [2, 3]
+    @test st.max_bond == [8, 8]
+    @test TTN._stages(; max_sweeps = 4, max_bond = 5) == (; max_sweeps = [4], max_bond = [5])
+    @test_throws "`max_sweeps` has length 2 and `max_bond` has length 3" TTN._stages(; max_sweeps = [1, 1], max_bond = [2, 3, 4])
+    @test_throws "`max_sweeps` entries must be ≥ 1" TTN._stages(; max_sweeps = [0], max_bond = 4)
+    @test_throws "per-stage vectors must not be empty" TTN._stages(; max_sweeps = Int[], max_bond = 4)
+
+    @test TTN._as_stage(1:3, Int) == [1, 2, 3]
+    @test TTN._as_stage(2, Float64) === 2.0
+
+    @test TTN._use_iterative(:auto, 300, 256)
+    @test !TTN._use_iterative(:auto, 256, 256)
+    @test TTN._use_iterative(:iterative, 1, 256)
+    @test !TTN._use_iterative(:direct, 10^6, 256)
+    @test TTN._check_local_solver(:direct) === :direct
+    @test_throws "`local_solver` must be :auto, :direct, or :iterative; got :gmres" TTN._check_local_solver(:gmres)
+end
+
+# Text that the solver progress bars print while `f` runs, redrawing on every update.
+function progress_output(f)
+    TTN = TensorTrainNumerics
+    old = TTN.PROGRESS_DT[]
+    TTN.PROGRESS_DT[] = 0.0
+    try
+        return mktemp() do path, io
+            redirect_stderr(f, io)
+            flush(io)
+            read(path, String)
+        end
+    finally
+        TTN.PROGRESS_DT[] = old
+    end
+end
+
+@testset "progress bars show sweep information" begin
+    TTN = TensorTrainNumerics
+    Random.seed!(81)
+    d = 5
+    dims = ntuple(_ -> 2, d)
+    A = Δ(d) + 3.0 * id_tto(d)
+    b = A * rand_tt(dims, 2; normalise = true)
+    x0 = rand_tt(dims, 2; normalise = true)
+
+    out = progress_output(() -> linear_solve(A, b, x0, ALS(; max_sweeps = 3)))
+    @test occursin(r"sweep: 3/3", out) && occursin("largest rank:", out)
+    out = progress_output(() -> eigen_solve(A, x0, ALS(; max_sweeps = 3)))
+    @test occursin(r"sweep: 3/3", out) && occursin("eigenvalue:", out)
+    out = progress_output(() -> eigen_solve(A, x0, MALS(; max_sweeps = 3)))
+    @test occursin("eigenvalue:", out) && occursin("truncation error:", out)
+    out = progress_output(() -> linear_solve(A, b, x0, DMRG(; max_sweeps = [1, 1, 1], max_bond = [2, 3, 4])))
+    @test occursin(r"sweep: 3/3", out) && occursin("largest rank:", out) && occursin("truncation error:", out)
+
+    out = progress_output(() -> tdvp2(A, x0, fill(0.01, 3); max_bond = 4))
+    @test occursin(r"step: 3/3", out) && occursin("time:", out) && occursin("truncation error:", out)
+    out = progress_output(() -> implicit_euler_method(-1.0 * A, x0, x0, fill(0.01, 3); alg = ALS()))
+    @test occursin(r"step: 3/3", out) && occursin("largest rank:", out)
+
+    u0 = function_to_qtt(x -> sin(π * x), d)
+    out = progress_output(() -> non_linear_solve((4.0^d / 2) * Δ(d), u0 / norm(u0), PenaltyALS(; penalty_schedule = [1.0e2], max_sweeps = 3, tol = 0.0); g = 1.0))
+    @test occursin("penalty:", out)
+    out = progress_output(() -> non_linear_solve(k -> (4.0^k / 2) * Δ(k), u0 / norm(u0), MGR(; inner = PenaltyALS(; penalty_schedule = [1.0e2], max_sweeps = 2)); g_builder = k -> 1.0, target_sites = d + 2))
+    @test occursin(r"level: 3/3", out)
+
+    f(X) = vec(1 ./ (1 .+ sum(X, dims = 2)))
+    domain = [collect(range(0.0, 1.0, length = 8)) for _ in 1:3]
+    out = progress_output(() -> TTN.tt_cross(f, domain, TTN.MaxVol(; max_sweeps = 3, max_bond = 2, verbosity = 0)))
+    @test occursin("validation error:", out)
+    # ProgressMeter never draws on the first update and draws the final state only
+    # after an earlier draw, so every run above has at least three iterations.
 end

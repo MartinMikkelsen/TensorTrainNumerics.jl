@@ -5,7 +5,7 @@ using CairoMakie
 d = 8; N = 2^d; a, b = -6.0, 6.0
 h = (b - a) / (N - 1); xes = collect(range(a, b, N))
 
-# --- operators:  A = ½∂ₓₓ − ½ω²x²  (= −H_HO) --------------------------------
+# Operators:  A = ½∂ₓₓ − ½ω²x²  (= −H_HO)
 ∂xx = -(1 / h^2) * Δ(d)                                                # = d²/dx²
 V = ttv_to_diag_tto(qtt_polynom([0.0, 0.0, 0.5 * ω^2], d; a = a, b = b))   # ½ω²x²
 A = 0.5 * ∂xx - V                                                   # ∂u/∂τ = A u
@@ -22,7 +22,7 @@ end
 E_riccati(τ) = βR(τ) / 4 + ω^2 / (4 * βR(τ))                          # energy of that Gaussian → ½ω
 energy(u) = real(dot(u, H * u)) / real(dot(u, u))
 
-# --- Crank–Nicholson march in τ, recording snapshots + diagnostics ----------
+# Crank–Nicholson march in τ, recording snapshots + diagnostics
 τstep = 0.02; record_dt = 0.2; T = 3.0    # record_dt must be an exact multiple of τstep
 blk = round(Int, record_dt / τstep); nblk = round(Int, T / record_dt)
 times = collect(0.0:record_dt:T)
@@ -37,7 +37,7 @@ end
 
 u = u₀; record!(u)
 for _ in 1:nblk
-    global u = crank_nicholson_method(A, u, u, fill(τstep, blk); normalize = false, tt_solver = ALS())
+    global u = crank_nicholson_method(A, u, u, fill(τstep, blk); normalize = false, alg = ALS())
     record!(u)
 end
 

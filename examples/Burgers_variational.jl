@@ -26,7 +26,7 @@ max_bond = 20
 function burgers_residual(u)
     t1 = (u - v) * (1 / dt)
 
-    nl = 0.5 * tt_compress!(Dx * (hadamard_ttm(u,u)), max_bond)
+    nl = 0.5 * tt_compress!(Dx * (hadamard_ttm(u, u)), max_bond)
 
     lin = Dxx * u
 
@@ -46,7 +46,7 @@ function burgers_cost_grad(u)
 
     Dxu = Dx * u
     g += Dxu ⊕ R
-    g += tt_compress!(Dx * (hadamard_ttm(u,R)), max_bond)
+    g += tt_compress!(Dx * (hadamard_ttm(u, R)), max_bond)
 
     g = (dx * dt) * g
     return J, tt_compress!(g, max_bond)

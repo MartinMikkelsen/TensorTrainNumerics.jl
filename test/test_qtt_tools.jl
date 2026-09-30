@@ -1,6 +1,5 @@
 using Test
 
-# Test for index_to_point
 @testset "index_to_point" begin
     # 1D case
     @test isapprox(index_to_point((1,)), 0.0)
@@ -13,7 +12,6 @@ using Test
     @test isapprox(index_to_point((2, 2, 2)), 1.0)
 end
 
-# Test for tuple_to_index
 @testset "tuple_to_index" begin
     # 1D case
     @test tuple_to_index((1,)) == 1
@@ -30,7 +28,6 @@ end
     @test tuple_to_index((2, 1, 1)) == 5
     @test tuple_to_index((2, 2, 2)) == 8
 end
-# Tests for function_to_tensor
 @testset "function_to_tensor" begin
     # 1D: f(x) = x
     f1(x) = x
@@ -98,7 +95,6 @@ end
     @test qtt_to_vector(qtt_sin(2; a, b = a + 3 * (b - a), λ = 1.3))[1:2] ≈ qtt_to_vector(qtt_sin(1; a, b, λ = 1.3))
 end
 
-# Tests for tensor_to_grid
 @testset "tensor_to_grid" begin
     # 1D
     tensor1 = [10.0, 20.0]

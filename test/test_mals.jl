@@ -1,10 +1,10 @@
 using Test
 using Random
 using LinearAlgebra
+using Logging
 
 Random.seed!(5678)
 
-# ── helpers ──────────────────────────────────────────────────────────────────
 
 function mals_rel_residual(A, x, b)
     r = A * x - b
@@ -14,7 +14,6 @@ end
 
 mals_spd_op(d, shift = 3.0) = Δ(d) + shift * id_tto(d)
 
-# ── mals_linsolve ─────────────────────────────────────────────────────────────
 
 @testset "mals_linsolve: return type and structure" begin
     d = 4
@@ -36,7 +35,7 @@ end
     b = rand_tt(ntuple(_ -> 2, d), [1, 2, 2, 2, 1])
     x0 = rand_tt(ntuple(_ -> 2, d), [1, 2, 2, 2, 1])
 
-    x = mals_linsolve(A, b, x0; tol = 1.0e-10, rmax = 8)
+    x = mals_linsolve(A, b, x0; trunc_tol = 1.0e-5, max_bond = 8)
 
     @test mals_rel_residual(A, x, b) < 0.5
 end
@@ -47,43 +46,42 @@ end
     b = rand_tt(ntuple(_ -> 2, d), [1, 1, 1, 1, 1])
     x0 = rand_tt(ntuple(_ -> 2, d), [1, 1, 1, 1, 1])
 
-    x = mals_linsolve(A, b, x0; tol = 1.0e-12, rmax = 4)
+    x = mals_linsolve(A, b, x0; trunc_tol = 1.0e-6, max_bond = 4)
 
     @test mals_rel_residual(A, x, b) < 0.05
 end
 
-@testset "mals_linsolve: rank adaptation respects rmax" begin
+@testset "mals_linsolve: rank adaptation respects max_bond" begin
     d = 4
     A = mals_spd_op(d, 5.0)
     b = rand_tt(ntuple(_ -> 2, d), [1, 2, 2, 2, 1])
     x0 = rand_tt(ntuple(_ -> 2, d), [1, 1, 1, 1, 1])
-    rmax = 4
+    max_bond = 4
 
-    x = mals_linsolve(A, b, x0; tol = 1.0e-10, rmax = rmax)
+    x = mals_linsolve(A, b, x0; trunc_tol = 1.0e-5, max_bond)
 
-    @test maximum(x.ttv_rks) ≤ rmax
+    @test maximum(x.ttv_rks) ≤ max_bond
 end
 
-@testset "mals_linsolve: tighter tol gives smaller or equal ranks" begin
+@testset "mals_linsolve: looser trunc_tol gives smaller or equal ranks" begin
     d = 4
     A = mals_spd_op(d, 3.0)
     b = rand_tt(ntuple(_ -> 2, d), [1, 2, 2, 2, 1])
     x0 = rand_tt(ntuple(_ -> 2, d), [1, 2, 2, 2, 1])
 
-    x_loose = mals_linsolve(A, b, x0; tol = 1.0e-2, rmax = 8)
-    x_tight = mals_linsolve(A, b, x0; tol = 0.0, rmax = 8)
+    x_loose = mals_linsolve(A, b, x0; trunc_tol = 0.1, max_bond = 8)
+    x_tight = mals_linsolve(A, b, x0; trunc_tol = 0.0, max_bond = 8)
 
     @test maximum(x_loose.ttv_rks) ≤ maximum(x_tight.ttv_rks) + 2
 end
 
-# ── mals_eigsolve ─────────────────────────────────────────────────────────────
 
 @testset "mals_eigsolve: return type and structure" begin
     d = 4
     A = mals_spd_op(d)
     x0 = rand_tt(ntuple(_ -> 2, d), [1, 2, 2, 2, 1]; normalise = true)
 
-    E, x_opt, r_hist = mals_eigsolve(A, x0; sweep_schedule = [2], rmax_schedule = [4])
+    E, x_opt, r_hist = mals_eigsolve(A, x0; max_sweeps = 1, max_bond = 4)
 
     @test E isa Vector{Float64}
     @test x_opt isa TTvector{Float64}
@@ -99,7 +97,7 @@ end
     A = mals_spd_op(d, shift)
     x0 = rand_tt(ntuple(_ -> 2, d), [1, 2, 2, 2, 1]; normalise = true)
 
-    E, x_opt, _ = mals_eigsolve(A, x0; sweep_schedule = [4], rmax_schedule = [4])
+    E, x_opt, _ = mals_eigsolve(A, x0; max_sweeps = 3, max_bond = 4)
 
     λ = E[end]
     @test λ > 0.0
@@ -112,7 +110,7 @@ end
     A = mals_spd_op(d, 2.0)
     x0 = rand_tt(ntuple(_ -> 2, d), [1, 2, 2, 2, 1]; normalise = true)
 
-    E, _, _ = mals_eigsolve(A, x0; sweep_schedule = [4], rmax_schedule = [4])
+    E, _, _ = mals_eigsolve(A, x0; max_sweeps = 3, max_bond = 4)
 
     @test E[end] ≤ E[1] + 1.0e-8
 end
@@ -122,7 +120,7 @@ end
     A = mals_spd_op(d, 2.0)
     x0 = rand_tt(ntuple(_ -> 2, d), [1, 1, 1, 1, 1]; normalise = true)
 
-    E, x_opt, r_hist = mals_eigsolve(A, x0; sweep_schedule = [2, 4], rmax_schedule = [2, 4])
+    E, x_opt, r_hist = mals_eigsolve(A, x0; max_sweeps = [1, 2], max_bond = [2, 4])
 
     @test length(E) ≥ 2
     @test x_opt isa TTvector{Float64}
@@ -134,7 +132,7 @@ end
     A = mals_spd_op(d, 1.0)
     x0 = rand_tt(ntuple(_ -> 2, d), [1, 2, 2, 2, 1]; normalise = true)
 
-    E, x_opt, r_hist = mals_eigsolve(A, x0; sweep_schedule = [2], rmax_schedule = [4])
+    E, x_opt, r_hist = mals_eigsolve(A, x0; max_sweeps = 1, max_bond = 4)
 
     @test all(r > 0 for r in r_hist)
     @test all(isfinite, E)
@@ -148,8 +146,8 @@ end
 
     E, x_opt, _ = mals_eigsolve(
         A, x0;
-        sweep_schedule = [2], rmax_schedule = [4],
-        it_solver = true, itslv_thresh = 1
+        max_sweeps = 1, max_bond = 4,
+        local_solver = :auto, local_threshold = 1
     )
 
     @test x_opt isa TTvector{Float64}
@@ -185,4 +183,41 @@ end
     values = vec(ttv_to_tensor(x))
     @test E[end] ≈ first(eigvals(Hermitian(A_dense))) atol = 1.0e-10
     @test norm(A_dense * values - E[end] * values) / norm(values) < 1.0e-10
+end
+
+@testset "MALS keyword names" begin
+    TTN = TensorTrainNumerics
+    Random.seed!(51)
+    d = 6
+    dims = ntuple(_ -> 2, d)
+    A = Δ(d) + 3.0 * id_tto(d)
+    b = A * rand_tt(dims, 2; normalise = true)
+    x0 = rand_tt(dims, 2; normalise = true)
+
+    logs, x = Test.collect_test_logs() do
+        linear_solve(A, b, x0, MALS(; max_sweeps = 2, max_bond = 8, verbosity = 2, show_progress = false))
+    end
+    @test count(l -> l.level == Logging.Info, logs) == 2
+    @test norm(A * x - b) / norm(b) < 1.0e-4
+
+    @test_throws "`local_tol` is not used by linear_solve with MALS" linear_solve(A, b, x0, MALS(; local_tol = 1.0e-3))
+    @test_throws MethodError MALS(; rmax = 4)
+    @test_throws MethodError MALS(; tol = 1.0e-8)
+    @test_throws MethodError MALS(; sweep_schedule = [2])
+
+    E, x, r_hist = eigen_solve(A, x0, MALS(; max_sweeps = 2, show_progress = false))
+    @test length(E) == 2 * 2 * (d - 1)
+    E, x, r_hist = eigen_solve(A, x0, MALS(; max_bond = [2, 4], max_sweeps = [1, 1], show_progress = false))
+    @test all(≤(2), r_hist[1:(2 * (d - 1))])
+    @test maximum(r_hist) ≤ 4
+
+    # The core move keeps the rank that `_trunc_rank` predicts for the block's spectrum.
+    xm = orthogonalize(rand_tt((2, 2, 2, 2), 4))       # ranks [1, 2, 4, 2, 1]
+    s = [1.0, 0.1, 0.01, 0.001]
+    Q1 = Matrix(qr(randn(4, 4)).Q)
+    Q2 = Matrix(qr(randn(4, 4)).Q)
+    V = reshape(Q1 * Diagonal(s) * Q2', 2, 2, 2, 2)    # (n₂, r₂, n₃, r₄)
+    ε = 0.05 / norm(s)                                 # δ = 0.05/√3 for d = 4
+    TTN.right_core_move_mals(xm, 2, V, ε, typemax(Int))
+    @test xm.ttv_rks[3] == TTN._trunc_rank(s, ε, 4, typemax(Int)) == 2
 end

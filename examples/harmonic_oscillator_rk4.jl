@@ -35,7 +35,7 @@ function solve_forced_oscillator(A_dense, A, u₀_dense, Δt, T, max_bond)
     for _ in 2:length(t)
         u_dense = rk4_step(A_dense, u_dense, Δt)
 
-        ψ = rk4_method(A, ψ, [Δt], max_bond; normalize = false)
+        ψ = rk4_method(A, ψ, [Δt]; max_bond, normalize = false)
         push!(x_dense, u_dense[1])
         push!(x_tt, vec(ttv_to_tensor(ψ))[1])
     end

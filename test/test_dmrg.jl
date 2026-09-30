@@ -6,7 +6,6 @@ using TensorTrainNumerics
 
 Random.seed!(1234)
 
-# ── helpers ──────────────────────────────────────────────────────────────────
 
 # Relative residual ‖Ax - b‖ / ‖b‖
 function dmrg_rel_residual(A, x, b)
@@ -18,14 +17,6 @@ end
 # Build a small SPD operator: Δ(d) + shift * I  (positive-definite for shift > 0)
 dmrg_spd_op(d, shift = 3.0) = Δ(d) + shift * id_tto(d)
 
-@testset "cut_off_index preserves near-degenerate singular values" begin
-    s = [1.0, 1.0 - 5.0e-11, 0.1]
-    tol = (1.0 - 2.0e-11) / norm(s)
-
-    @test TensorTrainNumerics.cut_off_index(s, tol) == 2
-end
-
-# ── dmrg_linsolve ─────────────────────────────────────────────────────────────
 
 @testset "dmrg_linsolve: return type and structure" begin
     d = 4
@@ -33,7 +24,7 @@ end
     b = rand_tt(ntuple(_ -> 2, d), [1, 2, 2, 2, 1])
     x0 = rand_tt(ntuple(_ -> 2, d), [1, 2, 2, 2, 1])
 
-    x = dmrg_linsolve(A, b, x0; N = 2, sweep_schedule = [2], rmax_schedule = [4])
+    x = dmrg_linsolve(A, b, x0; nsites = 2, max_sweeps = 1, max_bond = 4)
 
     @test x isa TTvector{Float64}
     @test x.N == d
@@ -41,13 +32,13 @@ end
     @test all(isfinite, x.ttv_rks)
 end
 
-@testset "dmrg_linsolve N=2: residual decreases" begin
+@testset "dmrg_linsolve nsites = 2: residual decreases" begin
     d = 4
     A = dmrg_spd_op(d, 10.0)
     b = rand_tt(ntuple(_ -> 2, d), [1, 2, 2, 2, 1])
     x0 = rand_tt(ntuple(_ -> 2, d), [1, 2, 2, 2, 1])
 
-    x = dmrg_linsolve(A, b, x0; N = 2, sweep_schedule = [4], rmax_schedule = [8])
+    x = dmrg_linsolve(A, b, x0; nsites = 2, max_sweeps = 3, max_bond = 8)
 
     @test dmrg_rel_residual(A, x, b) < 0.5
 end
@@ -58,7 +49,7 @@ end
     b = rand_tt(ntuple(_ -> 2, d), [1, 2, 2, 2, 1])
     x0 = rand_tt(ntuple(_ -> 2, d), [1, 1, 1, 1, 1])
 
-    x = dmrg_linsolve(A, b, x0; N = 2, sweep_schedule = [2, 4], rmax_schedule = [2, 8])
+    x = dmrg_linsolve(A, b, x0; nsites = 2, max_sweeps = [1, 2], max_bond = [2, 8])
 
     @test x isa TTvector{Float64}
     @test x.ttv_dims == b.ttv_dims
@@ -70,12 +61,12 @@ end
     b = rand_tt(ntuple(_ -> 2, d), [1, 1, 1, 1, 1])
     x0 = rand_tt(ntuple(_ -> 2, d), [1, 1, 1, 1, 1])
 
-    x = dmrg_linsolve(A, b, x0; N = 2, sweep_schedule = [4], rmax_schedule = [4])
+    x = dmrg_linsolve(A, b, x0; nsites = 2, max_sweeps = 3, max_bond = 4)
 
     @test dmrg_rel_residual(A, x, b) < 0.05
 end
 
-@testset "dmrg_linsolve N=1: full local solve returns residual info" begin
+@testset "dmrg_linsolve nsites = 1: full local solve returns residual info" begin
     d = 3
     A = dmrg_spd_op(d, 5.0)
     b = rand_tt(ntuple(_ -> 2, d), [1, 1, 1, 1])
@@ -83,11 +74,10 @@ end
 
     x, info = dmrg_linsolve(
         A, b, x0;
-        N = 1,
-        sweep_schedule = [2],
-        rmax_schedule = [2],
-        it_solver = false,
-        itslv_thresh = typemax(Int),
+        nsites = 1,
+        max_sweeps = 1,
+        max_bond = 2,
+        local_solver = :direct,
         return_info = true,
     )
 
@@ -96,14 +86,13 @@ end
     @test isfinite(info.residual)
 end
 
-# ── dmrg_eigsolve ─────────────────────────────────────────────────────────────
 
 @testset "dmrg_eigsolve: return type and structure" begin
     d = 4
     A = dmrg_spd_op(d)
     x0 = rand_tt(ntuple(_ -> 2, d), [1, 2, 2, 2, 1]; normalise = true)
 
-    E, x_opt, r_hist = dmrg_eigsolve(A, x0; N = 2, sweep_schedule = [2], rmax_schedule = [4])
+    E, x_opt, r_hist = dmrg_eigsolve(A, x0; nsites = 2, max_sweeps = 1, max_bond = 4)
 
     @test E isa Vector{Float64}
     @test x_opt isa TTvector{Float64}
@@ -113,13 +102,13 @@ end
     @test x_opt.ttv_dims == ntuple(_ -> 2, d)
 end
 
-@testset "dmrg_eigsolve N=2: eigenvalue positive for SPD operator" begin
+@testset "dmrg_eigsolve nsites = 2: eigenvalue positive for SPD operator" begin
     d = 4
     shift = 3.0
     A = dmrg_spd_op(d, shift)
     x0 = rand_tt(ntuple(_ -> 2, d), [1, 2, 2, 2, 1]; normalise = true)
 
-    E, x_opt, _ = dmrg_eigsolve(A, x0; N = 2, sweep_schedule = [4], rmax_schedule = [4])
+    E, x_opt, _ = dmrg_eigsolve(A, x0; nsites = 2, max_sweeps = 3, max_bond = 4)
 
     λ = E[end]
     @test λ > 0.0
@@ -133,7 +122,7 @@ end
     A = dmrg_spd_op(d, 2.0)
     x0 = rand_tt(ntuple(_ -> 2, d), [1, 1, 1, 1, 1]; normalise = true)
 
-    E, x_opt, r_hist = dmrg_eigsolve(A, x0; N = 2, sweep_schedule = [2, 4], rmax_schedule = [2, 4])
+    E, x_opt, r_hist = dmrg_eigsolve(A, x0; nsites = 2, max_sweeps = [1, 2], max_bond = [2, 4])
 
     @test length(E) ≥ 2
     @test x_opt isa TTvector{Float64}
@@ -145,7 +134,7 @@ end
     A = dmrg_spd_op(d, 1.0)
     x0 = rand_tt(ntuple(_ -> 2, d), [1, 2, 2, 2, 1]; normalise = true)
 
-    E, _, _ = dmrg_eigsolve(A, x0; N = 2, sweep_schedule = [2], rmax_schedule = [4])
+    E, _, _ = dmrg_eigsolve(A, x0; nsites = 2, max_sweeps = 1, max_bond = 4)
 
     @test all(isreal, E)
     @test all(isfinite, E)
@@ -158,12 +147,11 @@ end
 
     E, x_opt, r_hist = dmrg_eigsolve(
         A, x0;
-        N = 2,
-        sweep_schedule = [1],
-        rmax_schedule = [2],
-        it_solver = true,
-        itslv_thresh = 1,
-        linsolv_maxiter = 20,
+        nsites = 2,
+        max_sweeps = 1,
+        max_bond = 2,
+        local_solver = :iterative,
+        local_maxiter = 20,
     )
 
     @test all(isfinite, E)
@@ -171,18 +159,17 @@ end
     @test length(r_hist) == length(E)
 end
 
-@testset "dmrg_eigsolve N=1: finalizes single-site core" begin
+@testset "dmrg_eigsolve nsites = 1: finalizes single-site core" begin
     d = 3
     A = dmrg_spd_op(d, 2.0)
     x0 = rand_tt(ntuple(_ -> 2, d), [1, 1, 1, 1]; normalise = true)
 
     E, x_opt, r_hist = dmrg_eigsolve(
         A, x0;
-        N = 1,
-        sweep_schedule = [2],
-        rmax_schedule = [2],
-        it_solver = false,
-        itslv_thresh = typemax(Int),
+        nsites = 1,
+        max_sweeps = 1,
+        max_bond = 2,
+        local_solver = :direct,
     )
 
     @test all(isfinite, E)
@@ -197,10 +184,10 @@ end
     b = qtt_sin(d)
     x0 = rand_tt(b.ttv_dims, 2)
     @test_logs min_level = Logging.Info begin
-        dmrg_linsolve(A, b, x0; sweep_schedule = [2], rmax_schedule = [4])
+        dmrg_linsolve(A, b, x0; max_sweeps = 1, max_bond = 4)
     end
     @test_logs min_level = Logging.Info begin
-        dmrg_eigsolve(A, x0; sweep_schedule = [2], rmax_schedule = [4])
+        dmrg_eigsolve(A, x0; max_sweeps = 1, max_bond = 4)
     end
 end
 
@@ -217,8 +204,8 @@ end
         x0 = ttv_decomp(randn(T, dims))
         expected = A_dense \ b_dense
 
-        for options in (NamedTuple(), (; it_solver = false, itslv_thresh = typemax(Int)), (; it_solver = false, itslv_thresh = 1))
-            alg = DMRG(; linsolv_tol = 1.0e-12, options...)
+        for options in (NamedTuple(), (; local_solver = :direct), (; local_solver = :auto, local_threshold = 1))
+            alg = DMRG(; local_tol = 1.0e-12, options...)
             x = linear_solve(A, b, x0, alg)
             values = vec(ttv_to_tensor(x))
             @test norm(A_dense * values - b_dense) / norm(b_dense) < 1.0e-10
@@ -239,8 +226,8 @@ end
         b = ttv_decomp(reshape(b_dense, dims))
         λ_exact = first(eigvals(Hermitian(A_dense)))
 
-        for options in (NamedTuple(), (; it_solver = false, itslv_thresh = typemax(Int)), (; it_solver = false, itslv_thresh = 1))
-            alg = DMRG(; linsolv_tol = 1.0e-12, options...)
+        for options in (NamedTuple(), (; local_solver = :direct), (; local_solver = :auto, local_threshold = 1))
+            alg = DMRG(; local_tol = 1.0e-12, options...)
             E, x, _ = eigen_solve(A, x0, alg)
             values = vec(ttv_to_tensor(x))
             @test E[end] ≈ λ_exact atol = 1.0e-10
@@ -250,4 +237,45 @@ end
             @test vec(ttv_to_tensor(solution)) ≈ A_dense \ b_dense rtol = 1.0e-10 atol = 1.0e-12
         end
     end
+end
+
+@testset "DMRG keyword names" begin
+    TTN = TensorTrainNumerics
+    Random.seed!(61)
+    d = 6
+    dims = ntuple(_ -> 2, d)
+    A = Δ(d) + 3.0 * id_tto(d)
+    b = A * rand_tt(dims, 2; normalise = true)
+    x0 = rand_tt(dims, 2; normalise = true)
+
+    x = linear_solve(A, b, x0, DMRG(; max_sweeps = 2, max_bond = 8, show_progress = false))
+    @test norm(A * x - b) / norm(b) < 1.0e-4
+
+    E, x, r_hist = eigen_solve(A, x0, DMRG(; max_sweeps = 2, show_progress = false))
+    @test length(E) == 2 * 2 * (d - 2) + 1
+    E, x, r_hist = eigen_solve(A, x0, DMRG(; max_bond = [2, 4], max_sweeps = [1, 1], show_progress = false))
+    @test all(≤(2), r_hist[1:(2 * (d - 2))])
+    @test maximum(x.ttv_rks) ≤ 4
+
+    @test_logs eigen_solve(A, x0, DMRG(; show_progress = false))
+    @test_logs (:info, "DMRG core move") match_mode = :any eigen_solve(A, x0, DMRG(; verbosity = 3, show_progress = false))
+    logs, _ = Test.collect_test_logs() do
+        eigen_solve(A, x0, DMRG(; max_sweeps = 3, verbosity = 2, show_progress = false))
+    end
+    @test count(l -> l.message == "DMRG eigen solve", logs) == 3
+
+    @test_throws MethodError DMRG(; N = 2)
+    @test_throws MethodError DMRG(; sweep_count = 2)
+    @test_throws MethodError DMRG(; rmax_schedule = [4])
+    @test_throws "`return_info` is not used by eigen_solve with DMRG" eigen_solve(A, x0, DMRG(; return_info = true))
+
+    # The core move keeps the rank that `_trunc_rank` predicts for the block's spectrum.
+    xm = orthogonalize(rand_tt((2, 2, 2, 2), 4))       # ranks [1, 2, 4, 2, 1]
+    s = [1.0, 0.1, 0.01, 0.001]
+    Q1 = Matrix(qr(randn(4, 4)).Q)
+    Q2 = Matrix(qr(randn(4, 4)).Q)
+    V = reshape(Q1 * Diagonal(s) * Q2', 2, 4, 2)       # (r₂, n₂·n₃, r₄)
+    ε = 0.05 / norm(s)
+    TTN.right_core_move!(xm, V, zeros(8, 8, 8), 2, ε, typemax(Int))
+    @test xm.ttv_rks[3] == TTN._trunc_rank(s, ε, 4, typemax(Int)) == 2
 end

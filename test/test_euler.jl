@@ -44,7 +44,7 @@ end
     steps = [0.05]
 
     # Run the implicit Euler solver
-    sol_tt = implicit_euler_method(A, u₀, guess, steps; normalize = false, tt_solver = "dmrg")
+    sol_tt = implicit_euler_method(A, u₀, guess, steps; normalize = false, alg = DMRG())
 
     # Convert to dense for validation
     A_dense = qtto_to_matrix(A)
@@ -72,7 +72,7 @@ end
 
     sol_tt = implicit_euler_method(
         A, u₀, guess, steps;
-        normalize = false, tt_solver = "krylov", tol = 1.0e-12
+        normalize = false, alg = Krylov(), tol = 1.0e-12
     )
 
     A_dense = qtto_to_matrix(A)
@@ -97,7 +97,7 @@ end
     guess = u₀
     steps = [0.05]
 
-    sol_tt = crank_nicholson_method(A, u₀, guess, steps; normalize = false, tt_solver = "mals")
+    sol_tt = crank_nicholson_method(A, u₀, guess, steps; normalize = false, alg = MALS())
 
     A_dense = qtto_to_matrix(A)
     u_dense = qtt_to_function(u₀)
@@ -123,7 +123,7 @@ end
 
     sol_tt = crank_nicholson_method(
         A, u₀, guess, steps;
-        normalize = false, tt_solver = "krylov", tol = 1.0e-12
+        normalize = false, alg = Krylov(), tol = 1.0e-12
     )
 
     A_dense = qtto_to_matrix(A)
@@ -149,7 +149,7 @@ end
 
     sol_tt = crank_nicholson_method(
         A, u₀, guess, steps;
-        normalize = false, tt_solver = "krylov", tol = 1.0e-12
+        normalize = false, alg = Krylov(), tol = 1.0e-12
     )
 
     A_dense = qtto_to_matrix(A)
@@ -179,7 +179,7 @@ end
     sol_tt = crank_nicholson_method(
         A, u₀, guess, steps;
         normalize = false,
-        tt_solver = "krylov",
+        alg = Krylov(),
         max_bond = max_bond,
         krylov_solver = :bicgstab,
         maxiter = 30,
@@ -212,7 +212,7 @@ end
     sol_tt = implicit_euler_method(
         A, u₀, guess, steps;
         normalize = false,
-        tt_solver = "krylov",
+        alg = Krylov(),
         isposdef = true,
         issymmetric = true,
         tol = 1.0e-12
@@ -229,12 +229,12 @@ end
     @test_throws ArgumentError implicit_euler_method(
         A, u₀, guess, steps;
         normalize = false,
-        tt_solver = "krylov",
+        alg = Krylov(),
         krylov_solver = :unknown
     )
 end
 
-@testset "Euler-family methods cover normalize and return_error options" begin
+@testset "Euler-family methods cover normalize and return_info options" begin
     d = 3
     h = 1 / d^2
     A = -h^2 * toeplitz_to_qtto(-2.0, 1.0, 1.0, d)
@@ -244,25 +244,25 @@ end
     guess = u₀
     steps = [0.02]
 
-    sol_euler, err_euler = euler_method(A, u₀, steps; normalize = true, return_error = true)
+    sol_euler, info_euler = euler_method(A, u₀, steps; normalize = true, return_info = true)
     @test isapprox(norm(sol_euler), 1.0; atol = 1.0e-10)
-    @test isfinite(err_euler)
+    @test isfinite(info_euler.error)
 
-    sol_impl, err_impl = implicit_euler_method(
+    sol_impl, info_impl = implicit_euler_method(
         A, u₀, guess, steps;
-        normalize = true, return_error = true, tt_solver = "krylov", tol = 1.0e-10
+        normalize = true, return_info = true, alg = Krylov(), tol = 1.0e-10
     )
     @test isapprox(norm(sol_impl), 1.0; atol = 1.0e-10)
-    @test isfinite(err_impl)
+    @test isfinite(info_impl.error)
 
-    sol_cn, err_cn = crank_nicholson_method(
+    sol_cn, info_cn = crank_nicholson_method(
         A, u₀, guess, steps;
-        normalize = true, return_error = true, tt_solver = "krylov", tol = 1.0e-10
+        normalize = true, return_info = true, alg = Krylov(), tol = 1.0e-10
     )
     @test isapprox(norm(sol_cn), 1.0; atol = 1.0e-10)
-    @test isfinite(err_cn)
+    @test isfinite(info_cn.error)
 
-    sol_rk = rk4_method(A, u₀, steps, 6; normalize = true)
+    sol_rk = rk4_method(A, u₀, steps; max_bond = 6, normalize = true)
     @test isapprox(norm(sol_rk), 1.0; atol = 1.0e-10)
 end
 
@@ -277,7 +277,7 @@ end
     steps = [0.05]
     max_bond = 8
 
-    sol_tt = rk4_method(A, u₀, steps, max_bond; normalize = false)
+    sol_tt = rk4_method(A, u₀, steps; max_bond, normalize = false)
 
     A_dense = qtto_to_matrix(A)
     u_dense = qtt_to_function(u₀)
@@ -297,7 +297,7 @@ end
     println("RK4 test passed with relative error: ", rel_error)
 end
 
-@testset "rk4_method return_error consistency" begin
+@testset "rk4_method return_info consistency" begin
     d = 4
     h = 1 / d^2
     A = -h^2 * toeplitz_to_qtto(-2.0, 1.0, 1.0, d)
@@ -308,9 +308,9 @@ end
     steps = [0.05]
     max_bond = 8
 
-    sol_tt, rel_err = rk4_method(A, u₀, steps, max_bond; normalize = false, return_error = true)
+    sol_tt, info = rk4_method(A, u₀, steps; max_bond, normalize = false, return_info = true)
 
-    @test rel_err < 1.0e-10
+    @test info.error < 1.0e-10
 
     A_dense = qtto_to_matrix(A)
     u_dense = qtt_to_function(u₀)
@@ -328,25 +328,25 @@ end
     @test rel_error < 1.0e-6
 end
 
-@testset "euler_method return_error measures the last-step defect" begin
+@testset "euler_method return_info measures the last-step defect" begin
     d = 5
     A = toeplitz_to_qtto(-2.0, 1.0, 1.0, d)
     u₀ = qtt_sin(d)
     steps = fill(1.0e-2, 5)
-    sol, err = euler_method(A, u₀, steps; normalize = false, return_error = true)
+    sol, info = euler_method(A, u₀, steps; normalize = false, return_info = true)
     # Exact explicit step with no truncation: the defect of the last step is zero.
-    @test err < 1.0e-10
+    @test info.error < 1.0e-10
 end
 
-@testset "rk4_method return_error reflects truncation error" begin
+@testset "rk4_method return_info reflects truncation error" begin
     d = 5
     A = ∇(d)
     u₀ = qtt_sin(d)
     steps = fill(0.5, 3)
-    _, err_tight = rk4_method(A, u₀, steps, 32; normalize = false, return_error = true)
-    _, err_loose = rk4_method(A, u₀, steps, 1; normalize = false, return_error = true)
-    @test err_tight < 1.0e-10   # no truncation at max_bond = 32 for d = 5
-    @test err_loose > 1.0e-6    # rank-1 cap must show up as compression error
+    _, info_tight = rk4_method(A, u₀, steps; max_bond = 32, normalize = false, return_info = true)
+    _, info_loose = rk4_method(A, u₀, steps; max_bond = 1, normalize = false, return_info = true)
+    @test info_tight.error < 1.0e-10   # no truncation at max_bond = 32 for d = 5
+    @test info_loose.error > 1.0e-6    # rank-1 cap must show up as compression error
 end
 
 @testset "solver-type dispatch for implicit time steppers" begin
@@ -358,19 +358,19 @@ end
     guess = rand_tt(u₀.ttv_dims, 4)
     steps = fill(0.05, 3)
 
-    sol_str = implicit_euler_method(A, u₀, guess, steps; tt_solver = "als", normalize = false, sweep_count = 4)
-    sol_typ = implicit_euler_method(A, u₀, guess, steps; tt_solver = ALSSolver(), normalize = false, sweep_count = 4)
+    sol_str = implicit_euler_method(A, u₀, guess, steps; alg = ALS(), normalize = false, max_sweeps = 2)
+    sol_typ = implicit_euler_method(A, u₀, guess, steps; alg = ALSSolver(), normalize = false, max_sweeps = 2)
     @test qtt_to_vector(sol_typ) ≈ qtt_to_vector(sol_str)
 
-    cn_str = crank_nicholson_method(A, u₀, guess, steps; tt_solver = "mals", normalize = false)
-    cn_typ = crank_nicholson_method(A, u₀, guess, steps; tt_solver = MALSSolver(), normalize = false)
+    cn_str = crank_nicholson_method(A, u₀, guess, steps; alg = MALS(), normalize = false)
+    cn_typ = crank_nicholson_method(A, u₀, guess, steps; alg = MALSSolver(), normalize = false)
     @test qtt_to_vector(cn_typ) ≈ qtt_to_vector(cn_str)
 
-    kr = crank_nicholson_method(A, u₀, guess, steps; tt_solver = KrylovSolver(), normalize = false, max_bond = 6)
+    kr = crank_nicholson_method(A, u₀, guess, steps; alg = KrylovSolver(), normalize = false, max_bond = 6)
     @test kr isa TTvector
     @test qtt_to_vector(kr) ≈ qtt_to_vector(cn_str) rtol = 1.0e-5
 
-    dm = implicit_euler_method(A, u₀, guess, steps; tt_solver = DMRGSolver(), normalize = false)
+    dm = implicit_euler_method(A, u₀, guess, steps; alg = DMRGSolver(), normalize = false)
     @test dm isa TTvector
     @test qtt_to_vector(dm) ≈ qtt_to_vector(sol_str) rtol = 1.0e-5
 end
@@ -388,28 +388,28 @@ end
     @test_throws MethodError implicit_euler_method(
         A, u₀, guess, steps;
         normalize = false,
-        tt_solver = ALSSolver(),
+        alg = ALSSolver(),
         tol = 1.0e-8
     )
 
     @test_throws MethodError crank_nicholson_method(
         A, u₀, guess, steps;
         normalize = false,
-        tt_solver = MALSSolver(),
-        sweep_count = 2
+        alg = MALSSolver(),
+        nsites = 2
     )
 
     @test implicit_euler_method(
         A, u₀, guess, steps;
         normalize = false,
-        tt_solver = DMRGSolver(),
-        linsolv_maxiter = 50
+        alg = DMRGSolver(),
+        local_maxiter = 50
     ) isa TTvector
 
     @test crank_nicholson_method(
         A, u₀, guess, steps;
         normalize = false,
-        tt_solver = KrylovSolver(),
+        alg = KrylovSolver(),
         max_bond = 6,
         krylovdim = 10
     ) isa TTvector
@@ -424,9 +424,9 @@ end
     steps = [0.01]
 
     @test euler_method(A, u₀, steps; normalize = false, show_progress = false) isa TTvector
-    @test implicit_euler_method(A, u₀, guess, steps; normalize = false, show_progress = false, tt_solver = ALS(sweep_count = 2)) isa TTvector
-    @test crank_nicholson_method(A, u₀, guess, steps; normalize = false, show_progress = false, tt_solver = MALS()) isa TTvector
-    @test rk4_method(A, u₀, steps, 4; normalize = false, show_progress = false) isa TTvector
+    @test implicit_euler_method(A, u₀, guess, steps; normalize = false, show_progress = false, alg = ALS(max_sweeps = 1)) isa TTvector
+    @test crank_nicholson_method(A, u₀, guess, steps; normalize = false, show_progress = false, alg = MALS()) isa TTvector
+    @test rk4_method(A, u₀, steps; max_bond = 4, normalize = false, show_progress = false) isa TTvector
 end
 
 @testset "time steppers do not normalize by default" begin
@@ -436,9 +436,9 @@ end
     steps = fill(0.01, 3)
     for f in (
             kw -> euler_method(A, u₀, steps; show_progress = false, kw...),
-            kw -> implicit_euler_method(A, u₀, u₀, steps; tt_solver = ALS(), show_progress = false, kw...),
-            kw -> crank_nicholson_method(A, u₀, u₀, steps; tt_solver = ALS(), show_progress = false, kw...),
-            kw -> rk4_method(A, u₀, steps, 4; show_progress = false, kw...),
+            kw -> implicit_euler_method(A, u₀, u₀, steps; alg = ALS(), show_progress = false, kw...),
+            kw -> crank_nicholson_method(A, u₀, u₀, steps; alg = ALS(), show_progress = false, kw...),
+            kw -> rk4_method(A, u₀, steps; max_bond = 4, show_progress = false, kw...),
             kw -> tdvp(A, u₀, steps; imaginary_time = true, show_progress = false, kw...),
             kw -> tdvp2(A, u₀, steps; imaginary_time = true, show_progress = false, kw...),
         )
@@ -458,11 +458,48 @@ end
     v₀ = vec(ttv_to_tensor(u₀))
     h = 0.1
     Id = Matrix(1.0I, prod(dims), prod(dims))
-    ie = implicit_euler_method(A, u₀, u₀, [h]; tt_solver = ALS(sweep_count = 6), show_progress = false)
+    ie = implicit_euler_method(A, u₀, u₀, [h]; alg = ALS(max_sweeps = 3), show_progress = false)
     @test vec(ttv_to_tensor(ie)) ≈ (Id - h * Ad) \ v₀
-    cn = crank_nicholson_method(A, u₀, u₀, [h]; tt_solver = ALS(sweep_count = 6), show_progress = false)
+    cn = crank_nicholson_method(A, u₀, u₀, [h]; alg = ALS(max_sweeps = 3), show_progress = false)
     @test vec(ttv_to_tensor(cn)) ≈ (Id - (h / 2) * Ad) \ ((Id + (h / 2) * Ad) * v₀)
-    ee, err = euler_method(A, u₀, [h]; return_error = true, show_progress = false)
+    ee, info = euler_method(A, u₀, [h]; return_info = true, show_progress = false)
     @test vec(ttv_to_tensor(ee)) ≈ (Id + h * Ad) * v₀
-    @test err < 1.0e-12
+    @test info.error < 1.0e-12
+end
+
+@testset "stepper keyword names" begin
+    TTN = TensorTrainNumerics
+    Random.seed!(71)
+    d = 4
+    A = -1.0 * Δ(d)
+    u₀ = rand_tt(ntuple(_ -> 2, d), 2; normalise = true)
+    steps = fill(1.0e-3, 3)
+
+    u, info = implicit_euler_method(A, u₀, u₀, steps; alg = ALS(; max_sweeps = 2), return_info = true, show_progress = false)
+    @test info.error isa Real
+    # An inner solver built with return_info = true still hands the stepper a TTvector.
+    @test implicit_euler_method(A, u₀, u₀, steps; alg = ALS(; return_info = true), show_progress = false) isa TTvector
+    u, info = crank_nicholson_method(A, u₀, u₀, steps; alg = Krylov(), tol = 1.0e-12, return_info = true, show_progress = false)
+    @test info.error isa Real
+    u, info = euler_method(A, u₀, steps; return_info = true, show_progress = false)
+    @test info.error isa Real
+    u = rk4_method(A, u₀, steps; max_bond = 4, show_progress = false)
+    @test maximum(u.ttv_rks) ≤ 4
+
+    @test_throws MethodError implicit_euler_method(A, u₀, u₀, steps; tt_solver = MALS())
+    @test_throws TypeError implicit_euler_method(A, u₀, u₀, steps; alg = "mals")
+    @test_throws MethodError rk4_method(A, u₀, steps, 4)
+    @test_throws MethodError euler_method(A, u₀, steps; return_error = true)
+
+    inner = TTN._stepper_algorithm(DMRG(; max_sweeps = 3, show_progress = true, return_info = true); max_bond = 5)
+    @test inner.max_sweeps == 3 && inner.max_bond == 5
+    @test !inner.show_progress && !inner.return_info
+    @test Krylov().show_progress
+end
+
+@testset "Krylov keeps its own max_bond unless the stepper sets one" begin
+    TTN = TensorTrainNumerics
+    alg = Krylov(; max_bond = 8)
+    @test TTN._stepper_algorithm(alg; TTN._stepper_overrides(alg, 0)...).max_bond == 8
+    @test TTN._stepper_algorithm(alg; TTN._stepper_overrides(alg, 5)...).max_bond == 5
 end

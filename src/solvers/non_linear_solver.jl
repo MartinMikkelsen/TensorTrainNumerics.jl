@@ -5,11 +5,9 @@
 # over a real TTvector by alternating site-local updates (damped Newton / nonlinear CG / SD),
 # with local operators projected through swept environments (no densification). Real path only.
 
-# ---------------------------------------------------------------------------
 # Site-local objective on the vectorized core y (dense, small: n = n_i·r_{i-1}·r_i).
 # Q(y) = Σ_m (Φy)_m⁴ and Qgrad(y) = ∇Q(y) are supplied as closures (dense Φ in tests,
 # 4-layer environments in the sweep). g_c is the HALF-gradient: ∇P = 2 g_c.
-# ---------------------------------------------------------------------------
 
 function _nl_penalty(y::AbstractVector{T}, Aloc::AbstractMatrix{T}, Q, g::Real, η::Real) where {T <: Real}
     s = dot(y, y)
@@ -77,11 +75,9 @@ function _nl_backtrack(
     return x
 end
 
-# ---------------------------------------------------------------------------
 # Exact quartic line search: φ(α) = P(x + αp) is exactly quartic in α. The A- and
 # norm-terms have closed forms; the interaction term I(α) = Q(x + αp) is fitted exactly
 # through 5 nodes (a quartic is determined by 5 values).
-# ---------------------------------------------------------------------------
 
 function _nl_line_coeffs(x::Vector{T}, p::Vector{T}, Aloc::Matrix{T}, Q, g::Real, η::Real) where {T <: Real}
     Ax = Aloc * x
@@ -176,14 +172,12 @@ function _nl_descent_update(
     return x
 end
 
-# ---------------------------------------------------------------------------
 # Environments. All are "pure": they contain cores strictly left/right of the
 # center site (the ALS G-convention of baking in the site's operator core is NOT
 # used here, because the interaction operator changes with every core update).
 # Right 3-leg op envs reuse als.jl's update_H! (layout H[i] = (rA_i, r_i, r_i),
 # contains cores i+1..d). 4-layer envs carry the interaction Σu⁴: four copies of
 # u's cores, legs (bra, mid1, mid2, ket) — all equal to u's bond ranks.
-# ---------------------------------------------------------------------------
 
 function _nl_right_op_envs(u::TTvector{T, N}, A::TToperator{T, N}) where {T <: Real, N}
     d = u.N
@@ -287,9 +281,6 @@ function _nl_effective_abs2(EL::Array{T, 4}, x0::Array{T, 3}, ER::Array{T, 4}) w
     return (B .+ B') ./ 2
 end
 
-# ---------------------------------------------------------------------------
-# Algorithm structs (style of linear_solver.jl) and the sweep driver
-# ---------------------------------------------------------------------------
 
 """
     NonLinearSolverAlgorithm
@@ -300,39 +291,43 @@ Supertype of algorithm objects accepted by [`non_linear_solve`](@ref):
 abstract type NonLinearSolverAlgorithm end
 
 """
-    PenaltyALS(; local_solver=:newton, ν_local=4, η_schedule=[1e2,1e4,1e6,1e8],
-                 tol=1e-6, max_sweeps=100, return_info=false, show_progress=false)
+    PenaltyALS(; local_solver=:newton, local_steps=4, penalty_schedule=[1e2,1e4,1e6,1e8],
+                 tol=1e-6, max_sweeps=100, return_info=false, verbosity=1, show_progress=true)
 
 Fixed-grid nonlinear penalty solver (arXiv:1802.07259): alternating site-local minimization of
-`P(u) = ⟨u|A|u⟩ + (g/2)Σu⁴ + η(⟨u|u⟩−1)²` under η-continuation. `local_solver` is `:newton`
-(damped Newton, paper's default), `:cg` (Polak–Ribière+), or `:sd`; `ν_local` line-search steps
-are used per site for `:cg`/`:sd`. Each η stage sweeps until the relative penalty change is
-below `tol` or `max_sweeps` is hit.
+`P(u) = ⟨u|A|u⟩ + (g/2)Σu⁴ + η(⟨u|u⟩−1)²` under continuation in the penalty weight `η`, which
+takes the values of `penalty_schedule` in turn. `local_solver` is `:newton` (damped Newton, the
+paper's default), `:cg` (Polak–Ribière+), or `:sd`; `local_steps` line-search steps are used per
+site for `:cg`/`:sd`. Each stage sweeps until the relative penalty change is below `tol` or
+`max_sweeps` sweeps are done. `verbosity ≥ 2` logs one line per sweep; `show_progress`
+displays a progress bar.
 """
 struct PenaltyALS <: NonLinearSolverAlgorithm
     local_solver::Symbol
-    ν_local::Int
-    η_schedule::Vector{Float64}
+    local_steps::Int
+    penalty_schedule::Vector{Float64}
     tol::Float64
     max_sweeps::Int
     return_info::Bool
+    verbosity::Int
     show_progress::Bool
 end
 
 function PenaltyALS(;
         local_solver::Symbol = :newton,
-        ν_local::Int = 4,
-        η_schedule::Vector{Float64} = [1.0e2, 1.0e4, 1.0e6, 1.0e8],
-        tol::Float64 = 1.0e-6,
+        local_steps::Int = 4,
+        penalty_schedule = [1.0e2, 1.0e4, 1.0e6, 1.0e8],
+        tol::Real = 1.0e-6,
         max_sweeps::Int = 100,
         return_info::Bool = false,
-        show_progress::Bool = false
+        verbosity::Int = 1,
+        show_progress::Bool = true
     )
     local_solver in (:newton, :cg, :sd) || throw(ArgumentError("local_solver must be :newton, :cg, or :sd"))
-    isempty(η_schedule) && throw(ArgumentError("η_schedule must not be empty"))
+    isempty(penalty_schedule) && throw(ArgumentError("penalty_schedule must not be empty"))
     max_sweeps < 1 && throw(ArgumentError("max_sweeps must be ≥ 1"))
-    ν_local < 1 && throw(ArgumentError("ν_local must be ≥ 1"))
-    return PenaltyALS(local_solver, ν_local, η_schedule, tol, max_sweeps, return_info, show_progress)
+    local_steps < 1 && throw(ArgumentError("local_steps must be ≥ 1"))
+    return PenaltyALS(local_solver, local_steps, collect(Float64, penalty_schedule), tol, max_sweeps, return_info, verbosity, show_progress)
 end
 
 "Site-local update: build A_loc, Q, ∇Q (and B for Newton), run the local solver, return the new core."
@@ -352,7 +347,7 @@ function _nl_site_step(
         _nl_newton_step(x0, Aloc, B, Q, Qgrad, g, η)
     else
         variant = alg.local_solver === :cg ? :pr : :sd
-        _nl_descent_update(x0, Aloc, Q, Qgrad, g, η; ν = alg.ν_local, variant = variant)
+        _nl_descent_update(x0, Aloc, Q, Qgrad, g, η; ν = alg.local_steps, variant = variant)
     end
     return reshape(xnew, dims)
 end
@@ -388,11 +383,11 @@ function _penalty_solve_impl(A::TToperator{T, N}, u0::TTvector{T, N}, alg::Penal
     LA[1] = ones(T, 1, 1, 1)
     EL = Vector{Array{T, 4}}(undef, d)
     EL[1] = ones(T, 1, 1, 1, 1)
-    η_history = Float64[]
+    penalty_history = Float64[]
     total_sweeps = 0
     penalty = zero(Float64)
-    progress = _solver_progress(length(alg.η_schedule) * alg.max_sweeps, alg.show_progress; desc = "Nonlinear penalty ALS")
-    for (stage, η) in enumerate(alg.η_schedule)
+    progress = _solver_progress(length(alg.penalty_schedule) * alg.max_sweeps, alg.show_progress; desc = "Nonlinear penalty ALS")
+    for (stage, η) in enumerate(alg.penalty_schedule)
         Pprev = _nl_penalty_local(u, 1, A.tto_vec[1], LA[1], HA[1], EL[1], ER[1], g, η)
         for _ in 1:alg.max_sweeps
             for i in 1:(d - 1)                      # forward half sweep
@@ -408,22 +403,23 @@ function _penalty_solve_impl(A::TToperator{T, N}, u0::TTvector{T, N}, alg::Penal
                 ER[i - 1] = _nl_env4_absorb_right(u.ttv_vec[i], ER[i])
             end
             total_sweeps += 1
-            next!(progress)
             penalty = _nl_penalty_local(u, 1, A.tto_vec[1], LA[1], HA[1], EL[1], ER[1], g, η)
+            alg.verbosity ≥ 2 && @info "PenaltyALS sweep" η sweep = total_sweeps penalty
+            next!(progress; showvalues = [("sweep", total_sweeps), ("η", η), ("penalty", penalty)])
             abs(penalty - Pprev) ≤ alg.tol * abs(penalty) && break
             Pprev = penalty
         end
         update!(progress, stage * alg.max_sweeps)
-        push!(η_history, η)
+        push!(penalty_history, η)
     end
     finish!(progress)
-    # η_schedule of all zeros = unconstrained minimization (no norm constraint to enforce)
-    if maximum(alg.η_schedule) > 0
+    # A penalty_schedule of all zeros is unconstrained minimization (no norm constraint to enforce).
+    if maximum(alg.penalty_schedule) > 0
         s = dot(u, u)
-        abs(s - 1) < 1.0e-4 || @warn "penalty did not enforce ⟨u|u⟩=1 (|s−1| = $(abs(s - 1))); extend η_schedule"
+        abs(s - 1) < 1.0e-4 || alg.verbosity < 1 || @warn "penalty did not enforce ⟨u|u⟩=1 (|s−1| = $(abs(s - 1))); extend penalty_schedule"
     end
     if alg.return_info
-        info = (; energy = gpe_energy(A, u; g = g), penalty = penalty, sweeps = total_sweeps, η_history = η_history)
+        info = (; energy = gpe_energy(A, u; g = g), penalty = penalty, sweeps = total_sweeps, penalty_history)
         return u, info
     end
     return u
@@ -459,32 +455,38 @@ function gpe_energy(A::TToperator{T, N}, u::TTvector{T, N}; g::Real = 0.0) where
 end
 
 """
-    MGR(; inner = PenaltyALS(), max_rank = 8, return_info = false, show_progress = false)
+    MGR(; inner = PenaltyALS(), max_bond = 8, return_info = false, verbosity = 1, show_progress = true)
 
 Multigrid-renormalization driver (arXiv:1802.07259): solve on the coarse grid of `u0`, then
-repeatedly prolong to one more QTT site (`qtto_linear_prolongation`), truncate to `max_rank`
+repeatedly prolong to one more QTT site (`qtto_linear_prolongation`), truncate to `max_bond`
 (keeping numerically zero singular values as bond-growth room), normalize, and re-solve with
-`inner`, up to the target grid.
+`inner`, up to the target grid. `verbosity ≥ 2` logs one line per grid level; `show_progress`
+displays a progress bar over the levels.
 """
 struct MGR <: NonLinearSolverAlgorithm
     inner::PenaltyALS
-    max_rank::Int
+    max_bond::Int
     return_info::Bool
+    verbosity::Int
     show_progress::Bool
 end
 
 function MGR(;
         inner::PenaltyALS = PenaltyALS(),
-        max_rank::Int = 8,
+        max_bond::Int = 8,
         return_info::Bool = false,
-        show_progress::Bool = false
+        verbosity::Int = 1,
+        show_progress::Bool = true
     )
-    return MGR(inner, max_rank, return_info, show_progress)
+    return MGR(inner, max_bond, return_info, verbosity, show_progress)
 end
 
 "Quiet copy of the inner solver (level progress is reported by the MGR bar)."
 function _mgr_inner(alg::PenaltyALS)
-    return PenaltyALS(alg.local_solver, alg.ν_local, alg.η_schedule, alg.tol, alg.max_sweeps, false, false)
+    return PenaltyALS(;
+        alg.local_solver, alg.local_steps, alg.penalty_schedule, alg.tol, alg.max_sweeps,
+        alg.verbosity, return_info = false, show_progress = false
+    )
 end
 
 "Function barrier: one MGR level with concretely typed operator and state."
@@ -511,16 +513,18 @@ function non_linear_solve(
     level_energies = Float64[]
     u = _mgr_level(A_builder(u0.N), u0, inner, g_builder(u0.N))
     push!(level_sites, u0.N)
+    alg.verbosity ≥ 2 && @info "MGR level" sites = u0.N
     alg.return_info && push!(level_energies, gpe_energy(A_builder(u0.N), u; g = g_builder(u0.N)))
-    next!(progress)
+    next!(progress; showvalues = [("level", "1/$levels"), ("largest rank", maximum(u.ttv_rks))])
     for d in (u0.N + 1):target_sites
         up = qtto_linear_prolongation(d - 1) * u
-        tt_compress!(up, alg.max_rank)
+        tt_compress!(up, alg.max_bond)
         up = (1 / norm(up)) * up
         u = _mgr_level(A_builder(d), up, inner, g_builder(d))
         push!(level_sites, d)
+        alg.verbosity ≥ 2 && @info "MGR level" sites = d
         alg.return_info && push!(level_energies, gpe_energy(A_builder(d), u; g = g_builder(d)))
-        next!(progress)
+        next!(progress; showvalues = [("level", "$(d - u0.N + 1)/$levels"), ("largest rank", maximum(u.ttv_rks))])
     end
     finish!(progress)
     if alg.return_info
