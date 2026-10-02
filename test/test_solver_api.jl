@@ -167,7 +167,9 @@ end
     Random.seed!(43)
     dims = (2, 2, 2, 2)
     B = rand_tto(dims, 2)
-    A = B' * B + id_tto(4)
+    # The shift keeps A well conditioned, so GMRES reaches `rtol` before its Krylov
+    # dimension equals the system size and the residual stays far above rounding error.
+    A = B' * B + 1000 * id_tto(4)
     b = rand_tt(dims, [1, 2, 2, 2, 1])
     x0 = rand_tt(dims, [1, 2, 2, 2, 1])
 
@@ -178,12 +180,12 @@ end
     @test info.residual > 1.0e-10
 
     # A converged solve reports its relative residual.
-    x, info = linear_solve(A, b, x0, Krylov(krylovdim = 16, maxiter = 20, rtol = 1.0e-10, return_info = true))
+    x, info = linear_solve(A, b, x0, Krylov(krylovdim = 16, maxiter = 20, rtol = 1.0e-6, return_info = true))
     @test info.converged
     M = reshape(tto_to_tensor(A), prod(dims), :)
     bv = vec(ttv_to_tensor(b))
     @test info.residual ≈ norm(M * vec(ttv_to_tensor(x)) - bv) / norm(bv) rtol = 1.0e-3
-    @test info.residual < 1.0e-9
+    @test info.residual ≤ 1.0e-6
 end
 
 @testset "shared solver option helpers" begin
