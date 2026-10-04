@@ -377,3 +377,37 @@ end
         @test abs(info.residual - amen_relres(A, x, b)) ≤ 1.0e-10
     end
 end
+
+@testset "AMEn rejects QTT inputs with different metadata" begin
+    Random.seed!(18)
+    d = 4
+    dims = ntuple(_ -> 2, d)
+    A = Δ(d) + 0.5 * id_tto(d)
+    b = rand_tt(dims, 2)
+    x0 = rand_tt(dims, 1)
+    Aq = QTToperator(A, 2, 2, :serial)
+    serial(x) = QTTvector(x, 2, 2, :serial)
+    interleaved(x) = QTTvector(x, 2, 2, :interleaved)
+    for alg in (AMEn(show_progress = false), AMEn(return_info = true, show_progress = false))
+        @test_throws "ordering mismatch" linear_solve(Aq, interleaved(b), serial(x0), alg)
+        @test_throws "ordering mismatch" linear_solve(Aq, serial(b), interleaved(x0), alg)
+        @test_throws "ordering mismatch" linear_solve(A, serial(b), interleaved(x0), alg)
+    end
+    @test_throws "ordering mismatch" eigen_solve(Aq, interleaved(x0), AMEn(show_progress = false))
+    @test_throws "n_dims mismatch" linear_solve(Aq, QTTvector(b, 1, 4, :serial), serial(x0), AMEn(show_progress = false))
+
+    # A plain TT carries no QTT metadata, so it is accepted next to a QTT wrapper.
+    x = linear_solve(Aq, b, x0, AMEn(tol = 1.0e-8, show_progress = false))
+    @test x isa TTvector
+    @test amen_relres(A, x, b) ≤ 1.0e-7
+end
+
+@testset "AMEn eigen_solve converges for the zero operator" begin
+    Random.seed!(19)
+    A = zeros_tto(2, 4, 1)
+    x0 = rand_tt((2, 2, 2, 2), 2)
+    E, x, _ = @test_logs min_level = Logging.Warn eigen_solve(A, x0, AMEn(show_progress = false))
+    @test all(iszero, E)
+    @test length(E) ≤ 2 * 4
+    @test norm(amen_vector(x)) ≈ 1
+end

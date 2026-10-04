@@ -227,11 +227,16 @@ function _amen_sweep!(s::_AMEnState{T}, problem, A::Vector; tol, max_bond, enric
     return residual
 end
 
+# Check the QTT metadata of `a` against `b`. A plain tensor train carries no
+# metadata, so only pairs of QTT wrappers are checked.
+_check_qtt(a, b) = nothing
+
 function _amen_check(A::AbstractTToperator, x::AbstractTTvector)
     A.N ≥ 2 || throw(ArgumentError("AMEn needs at least 2 cores; got $(A.N)"))
     A.tto_dims == x.ttv_dims || throw(
         DimensionMismatch("operator dimensions $(A.tto_dims) and vector dimensions $(x.ttv_dims) do not match")
     )
+    _check_qtt(A, x)
     return nothing
 end
 
@@ -276,6 +281,7 @@ end
 function _amen_linsolve_impl(A::AbstractTToperator, b::AbstractTTvector, x0::AbstractTTvector; return_info::Bool, kwargs...)
     _amen_check(A, x0)
     _amen_check(A, b)
+    _check_qtt(x0, b)
     norm_b = norm(b)
     norm_b > 0 || throw(ArgumentError("the right-hand side is zero"))
     T = float(promote_type(eltype(A), eltype(b), eltype(x0)))
@@ -328,7 +334,9 @@ function _solve_site(p::_AMEnEigen, s::_AMEnState, Ak, k; local_opts...)
     xk = s.x[k] / norm(s.x[k])
     Kx = _local_matvec(ΦL, Ak, ΦR, xk)
     p.scale[] = max(p.scale[], norm(Kx))
-    res = norm(Kx - real(dot(xk, Kx)) * xk) / p.scale[]
+    res = norm(Kx - real(dot(xk, Kx)) * xk)
+    # A nonzero residual implies `Kx ≠ 0`, so the scale is positive here.
+    iszero(res) || (res /= p.scale[])
     λ, sol = _local_eigmin(ΦL, Ak, ΦR, xk; local_opts...)
     return sol, res, λ
 end
