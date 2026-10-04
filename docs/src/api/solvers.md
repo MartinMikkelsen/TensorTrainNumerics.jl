@@ -15,6 +15,7 @@ LinearSolverAlgorithm
 EigenSolverAlgorithm
 ALS
 MALS
+AMEn
 DMRG
 Krylov
 als_linsolve
@@ -27,6 +28,7 @@ dmrg_eigsolve
 TTLinearSolver
 ALSSolver
 MALSSolver
+AMEnSolver
 DMRGSolver
 KrylovSolver
 ```

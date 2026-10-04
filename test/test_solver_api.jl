@@ -24,6 +24,26 @@ using TensorTrainNumerics
     @test MALSSolver === MALS
     @test DMRGSolver === DMRG
     @test KrylovSolver === Krylov
+    @test AMEn().tol == 1.0e-6
+    @test AMEn().max_sweeps == 20
+    @test AMEn().kickrank == 4
+    @test isnothing(AMEn().max_bond)
+    @test isnothing(AMEn().local_tol)
+    @test AMEn(tol = 1.0e-9, max_bond = 12, kickrank = 2).max_bond == 12
+    @test AMEn(local_tol = 1.0e-3).local_tol == 1.0e-3
+    @test AMEn().show_progress
+    @test AMEnSolver === AMEn
+    @test AMEn() isa EigenSolverAlgorithm
+    @test_throws "`tol` must be ≥ 0" AMEn(tol = -1.0)
+    @test_throws "`max_sweeps` must be ≥ 1" AMEn(max_sweeps = 0)
+    @test_throws "`kickrank` must be ≥ 0" AMEn(kickrank = -1)
+    @test_throws "`max_bond` must be ≥ 1" AMEn(max_bond = 0)
+    @test_throws "`local_solver` must be" AMEn(local_solver = :gmres)
+    opts = TensorTrainNumerics._amen_options(AMEn(tol = 1.0e-4))
+    @test opts.max_bond == typemax(Int)
+    @test opts.local_threshold == 256
+    @test opts.local_tol == 0.5e-4
+    @test !haskey(opts, :return_info)
 end
 
 @testset "linear_solve front door with ALS" begin
@@ -257,6 +277,11 @@ end
     @test occursin("eigenvalue:", out) && occursin("truncation error:", out)
     out = progress_output(() -> linear_solve(A, b, x0, DMRG(; max_sweeps = [1, 1, 1], max_bond = [2, 3, 4])))
     @test occursin(r"sweep: 3/3", out) && occursin("largest rank:", out) && occursin("truncation error:", out)
+
+    out = progress_output(() -> linear_solve(A, b, rand_tt(dims, 1), AMEn(; tol = 1.0e-10)))
+    @test occursin("sweep:", out) && occursin("largest rank:", out) && occursin("residual:", out)
+    out = progress_output(() -> eigen_solve(A, rand_tt(dims, 1), AMEn(; tol = 1.0e-10)))
+    @test occursin("eigenvalue:", out) && occursin("residual:", out)
 
     out = progress_output(() -> tdvp2(A, x0, fill(0.01, 3); max_bond = 4))
     @test occursin(r"step: 3/3", out) && occursin("time:", out) && occursin("truncation error:", out)

@@ -876,6 +876,8 @@ function increase_ranks(q::QTTvector, max_bond::Int; kwargs...)
     return QTTvector(increase_ranks(TTvector(q), max_bond; kwargs...), q.n_dims, q.bits_per_dim, q.ordering)
 end
 
+_rewrap(guess::QTTvector, x::TTvector) = QTTvector(x, guess.n_dims, guess.bits_per_dim, guess.ordering)
+
 """
     function_to_qttv(f, n_dims, bits_per_dim; ordering=:interleaved, a=0.0, b=1.0)
 
