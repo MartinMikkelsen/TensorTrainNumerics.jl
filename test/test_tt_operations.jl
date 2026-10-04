@@ -439,3 +439,36 @@ end
     @test_throws MethodError hadamard_ttm(x, y; rmax = 2)
     @test_throws MethodError hadamard_ttm(x, y; tol = 1.0e-3)
 end
+
+@testset "hadamard_ttm truncation matches rounding of the exact product" begin
+    d = 10
+    f = function_to_qtt(t -> exp(-20 * (t - 0.4)^2) + 0.3 * sin(9t), d)
+    g = function_to_qtt(t -> 1 / (1 + 25 * (t - 0.6)^2), d)
+    ref = vec(ttv_to_tensor(f)) .* vec(ttv_to_tensor(g))
+    err(z) = norm(vec(ttv_to_tensor(z)) - ref)
+
+    for trunc_tol in (1.0e-4, 1.0e-8)
+        z = hadamard_ttm(f, g; trunc_tol)
+        rounded = tt_round!(hadamard(f, g); trunc_tol)
+        @test maximum(z.ttv_rks) ≤ maximum(rounded.ttv_rks) + 2
+        @test err(z) ≤ 5 * trunc_tol * norm(f) * norm(g)
+    end
+
+    # The rank cap applies to every bond of the intermediate chain, so the error
+    # at a given cap is larger than that of rounding the exact product, and it
+    # falls as the cap grows.
+    for (max_bond, bound) in ((16, 1.0e-5), (24, 1.0e-7))
+        z = hadamard_ttm(f, g; max_bond)
+        @test maximum(z.ttv_rks) ≤ max_bond
+        @test err(z) ≤ bound * norm(ref)
+    end
+
+    # The result has its orthogonality center on the first core.
+    z = hadamard_ttm(f, g; trunc_tol = 1.0e-8)
+    @test z.ttv_ot == [0; fill(-1, d - 1)]
+    for k in 2:d
+        n, rl, rr = size(z.ttv_vec[k])
+        M = reshape(permutedims(z.ttv_vec[k], (2, 1, 3)), rl, n * rr)
+        @test M * M' ≈ I
+    end
+end

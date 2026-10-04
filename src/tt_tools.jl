@@ -777,6 +777,33 @@ function concatenate(tt1::TToperator, tt2::TToperator)
     return TToperator{eltype(tt1), length(tto_dims)}(N, tto_vec, tto_dims, tto_rks, tto_ot)
 end
 
+# Make `cores[k]` right-orthonormal and multiply the triangular factor into
+# `cores[k - 1]`. The bond between them shrinks to at most `n * r_right`.
+function _orthogonalize_right!(cores::Vector, k)
+    n, rl, rr = size(cores[k])
+    F = lq(reshape(permutedims(cores[k], (2, 1, 3)), rl, n * rr))
+    Q = Matrix(F.Q)
+    r = size(Q, 1)
+    cores[k] = permutedims(reshape(Q, r, n, rr), (2, 1, 3))
+    prev = cores[k - 1]
+    cores[k - 1] = reshape(reshape(prev, :, rl) * F.L[:, 1:r], size(prev, 1), size(prev, 2), r)
+    return cores
+end
+
+# Make `cores[k]` left-orthonormal and multiply the triangular factor into
+# `cores[k + 1]`. The bond between them shrinks to at most `n * r_left`.
+function _orthogonalize_left!(cores::Vector, k)
+    n, rl, rr = size(cores[k])
+    F = qr(reshape(cores[k], n * rl, rr))
+    Q = Matrix(F.Q)
+    r = size(Q, 2)
+    cores[k] = reshape(Q, n, rl, r)
+    next = cores[k + 1]
+    moved = F.R * reshape(permutedims(next, (2, 1, 3)), rr, :)
+    cores[k + 1] = permutedims(reshape(moved, r, size(next, 1), size(next, 3)), (2, 1, 3))
+    return cores
+end
+
 # Smallest rank whose discarded singular-value tail has Frobenius norm ≤ δ,
 # capped at max_bond and floored at 1.
 function _frob_trunc_rank(s::AbstractVector{<:Real}, δ::Real, max_bond::Int)

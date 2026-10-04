@@ -51,19 +51,6 @@ function _project(ΦL, b, ΦR)
     return p
 end
 
-# Make `cores[k]` right-orthonormal and multiply the triangular factor into
-# `cores[k - 1]`. The bond between them shrinks to at most `n * r_right`.
-function _orthogonalize_right!(cores::Vector, k)
-    n, rl, rr = size(cores[k])
-    F = lq(reshape(permutedims(cores[k], (2, 1, 3)), rl, n * rr))
-    Q = Matrix(F.Q)
-    r = size(Q, 1)
-    cores[k] = permutedims(reshape(Q, r, n, rr), (2, 1, 3))
-    prev = cores[k - 1]
-    cores[k - 1] = reshape(reshape(prev, :, rl) * F.L[:, 1:r], size(prev, 1), size(prev, 2), r)
-    return cores
-end
-
 # Core with orthonormal columns in the `(n * r_left, r_right)` unfolding that
 # spans the columns of `c`.
 function _left_orthonormal(c)
