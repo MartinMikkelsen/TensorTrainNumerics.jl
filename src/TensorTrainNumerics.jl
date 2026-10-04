@@ -19,8 +19,8 @@ export *, +, dot, -, /, add!, outer_product, hadamard, hadamard_ttm, kron, ⊕, 
 include("tt_operations.jl")
 
 export LinearSolverAlgorithm, EigenSolverAlgorithm
-export ALS, MALS, DMRG, Krylov
-export TTLinearSolver, ALSSolver, MALSSolver, DMRGSolver, KrylovSolver
+export ALS, MALS, AMEn, DMRG, Krylov
+export TTLinearSolver, ALSSolver, MALSSolver, AMEnSolver, DMRGSolver, KrylovSolver
 export linear_solve, eigen_solve
 include("solvers/linear_solver.jl")
 
@@ -32,6 +32,8 @@ include("solvers/non_linear_solver.jl")
 
 export mals_eigsolve, mals_linsolve
 include("solvers/mals.jl")
+
+include("solvers/amen.jl")
 
 export dmrg_linsolve, dmrg_eigsolve
 include("solvers/dmrg.jl")

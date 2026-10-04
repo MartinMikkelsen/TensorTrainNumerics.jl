@@ -57,7 +57,6 @@ function tdvp_step(u)
     )
 end
 
-# OptimKit calls this on accepted iterates only, so line-search trials stay untruncated.
 function truncate_and_record!(u, E, grad, iteration)
     u = tt_round!(u; max_bond, trunc_tol)
     u /= norm(u)
@@ -71,7 +70,6 @@ gradient_descent(maxiter) = OptimKit.optimize(
     (finalize!) = truncate_and_record!
 )
 
-# Take one step of each solver so that the timings exclude compilation.
 started = time_ns()
 history_optim = [measure(u0)]
 tdvp_step(u0)

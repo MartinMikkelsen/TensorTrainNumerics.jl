@@ -40,8 +40,8 @@ end
     LinearSolverAlgorithm
 
 Supertype of algorithm objects accepted by [`linear_solve`](@ref) and by the
-implicit time steppers: [`ALS`](@ref), [`MALS`](@ref), [`DMRG`](@ref), and
-[`Krylov`](@ref).
+implicit time steppers: [`ALS`](@ref), [`MALS`](@ref), [`AMEn`](@ref),
+[`DMRG`](@ref), and [`Krylov`](@ref).
 """
 abstract type LinearSolverAlgorithm end
 
@@ -49,7 +49,7 @@ abstract type LinearSolverAlgorithm end
     EigenSolverAlgorithm <: LinearSolverAlgorithm
 
 Supertype of algorithm objects that [`eigen_solve`](@ref) also accepts:
-[`ALS`](@ref), [`MALS`](@ref), and [`DMRG`](@ref).
+[`ALS`](@ref), [`MALS`](@ref), [`AMEn`](@ref), and [`DMRG`](@ref).
 """
 abstract type EigenSolverAlgorithm <: LinearSolverAlgorithm end
 
@@ -181,6 +181,106 @@ function MALS(;
         local_tol, return_info, verbosity, show_progress
     )
 end
+
+"""
+    AMEn(; kwargs...)
+
+Alternating minimal energy method (Dolgov & Savostyanov 2014). Each micro-step
+optimizes a single core, as [`ALS`](@ref) does, and then enlarges the basis of
+that core with an approximation of the residual. The approximation is a second
+tensor train of rank `kickrank`. A truncated SVD after each local solve removes
+directions that are not needed, so the TT ranks adapt during the solve without
+the two-core local problems of [`MALS`](@ref) and [`DMRG`](@ref).
+
+Pass to [`linear_solve`](@ref) to solve `A x = b`, or to [`eigen_solve`](@ref)
+to find the smallest eigenpair of a Hermitian `A` (the eigenvalue variant
+follows Kressner, Steinlechner & Uschmajew 2014).
+
+Convergence of the linear solver is proven for Hermitian positive definite `A`.
+For other operators the local systems are the Galerkin projections of `A`
+itself, with no symmetrization; this works for many non-symmetric problems but
+is not covered by the proof.
+
+One sweep orthogonalizes the cores from right to left and then solves from left
+to right. The solve stops when the largest relative residual of the local
+problems in a sweep is at most `tol`; one further sweep without enrichment then
+removes the directions added last.
+
+The stopping test measures the residual within the current TT basis. The
+enrichment brings the part of the residual outside that basis into the test, so
+with `kickrank = 0`, or when `max_bond` limits the ranks, the test can be met
+while `‖A x − b‖ / ‖b‖` is still above `tol`; `return_info = true` reports that
+residual.
+
+# Keyword arguments
+- `tol=1e-6`: target relative residual of the local problems. It is the stopping
+  threshold and the threshold of the rank truncation.
+- `max_sweeps::Int=20`: largest number of sweeps.
+- `max_bond=nothing`: largest bond dimension; `nothing` means no limit.
+- `kickrank::Int=4`: rank of the residual approximation, which is the number of
+  directions added to a bond per micro-step. `0` disables enrichment.
+- `local_solver=:auto`, `local_threshold=nothing` (256 unknowns),
+  `local_maxiter=200`: local solver settings; see [`ALS`](@ref). The iterative
+  solver is GMRES for `linear_solve` and Lanczos for `eigen_solve`.
+- `local_tol=nothing`: relative tolerance of the iterative local solver;
+  `nothing` means `tol / 2`.
+- `return_info::Bool=false` (`linear_solve` only): return
+  `(x, (; residual, converged, sweeps))` instead of `x`, where `residual` is
+  `‖A x − b‖ / ‖b‖`, `converged` tells whether the stopping test was met, and
+  `sweeps` is the number of sweeps run.
+- `verbosity::Int=1`: `0` silences the warning issued when `max_sweeps` is
+  reached without meeting `tol`; `2` logs one line per sweep.
+- `show_progress::Bool=true`: display a progress bar over the sweeps.
+
+`eigen_solve` returns `(E, x, r_hist)`: the eigenvalue history (one entry per
+micro-step), the eigenvector approximation, and the largest bond dimension
+after each micro-step. Its residual is `‖A x − λ x‖` of the local problems for
+unit-norm `x`, relative to the largest `‖A x‖` met during the solve.
+"""
+struct AMEn <: EigenSolverAlgorithm
+    tol::Float64
+    max_sweeps::Int
+    max_bond::Union{Nothing, Int}
+    kickrank::Int
+    local_solver::Symbol
+    local_threshold::Union{Nothing, Int}
+    local_maxiter::Int
+    local_tol::Union{Nothing, Float64}
+    return_info::Bool
+    verbosity::Int
+    show_progress::Bool
+end
+
+function AMEn(;
+        tol::Real = 1.0e-6,
+        max_sweeps::Int = 20,
+        max_bond::Union{Nothing, Int} = nothing,
+        kickrank::Int = 4,
+        local_solver::Symbol = :auto,
+        local_threshold::Union{Nothing, Int} = nothing,
+        local_maxiter::Int = 200,
+        local_tol::Union{Nothing, Real} = nothing,
+        return_info::Bool = false,
+        verbosity::Int = 1,
+        show_progress::Bool = true
+    )
+    tol ≥ 0 || throw(ArgumentError("`tol` must be ≥ 0; got $tol"))
+    max_sweeps ≥ 1 || throw(ArgumentError("`max_sweeps` must be ≥ 1; got $max_sweeps"))
+    kickrank ≥ 0 || throw(ArgumentError("`kickrank` must be ≥ 0; got $kickrank"))
+    isnothing(max_bond) || max_bond ≥ 1 || throw(ArgumentError("`max_bond` must be ≥ 1; got $max_bond"))
+    return AMEn(
+        tol, max_sweeps, max_bond, kickrank, _check_local_solver(local_solver), local_threshold,
+        local_maxiter, isnothing(local_tol) ? nothing : Float64(local_tol),
+        return_info, verbosity, show_progress
+    )
+end
+
+# Keyword arguments of `_amen_linsolve_impl` and `_amen_eigsolve_impl` for `alg`.
+_amen_options(alg::AMEn) = (;
+    alg.tol, alg.max_sweeps, max_bond = something(alg.max_bond, typemax(Int)), alg.kickrank,
+    alg.local_solver, local_threshold = something(alg.local_threshold, 256), alg.local_maxiter,
+    local_tol = something(alg.local_tol, alg.tol / 2), alg.verbosity, alg.show_progress,
+)
 
 """
     DMRG(; kwargs...)
@@ -324,6 +424,8 @@ const TTLinearSolver = LinearSolverAlgorithm
 const ALSSolver = ALS
 "Alias for [`MALS`](@ref)."
 const MALSSolver = MALS
+"Alias for [`AMEn`](@ref)."
+const AMEnSolver = AMEn
 "Alias for [`DMRG`](@ref)."
 const DMRGSolver = DMRG
 "Alias for [`Krylov`](@ref)."
@@ -439,6 +541,9 @@ Compatibility wrapper for `linear_solve(A, b, guess, MALS(; kwargs...))`.
 function mals_linsolve(A, b, guess; kwargs...)
     return linear_solve(A, b, guess, MALS(; kwargs...))
 end
+
+linear_solve(A, b, guess, alg::AMEn) =
+    _amen_linsolve_impl(A, b, guess; _amen_options(alg)..., return_info = alg.return_info)
 
 # Keyword arguments of `_dmrg_linsolve_impl` and `_dmrg_eigsolve_impl` for `alg`.
 function _dmrg_options(alg::DMRG, guess)
