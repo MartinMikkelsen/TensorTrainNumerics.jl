@@ -33,6 +33,7 @@ Low-rank numerical tensor methods has gained a lot of traction recently and one 
 There are already several tensor train related packages
 
 `ttpy` [@oseledets_software_ttpy] is a Python package for tensor computations allowing linear algebra in up to 100 dimensions
+
 `TT-toolbox` is a Matlab implementation of `ttpy``
 
 `MPSKit.jl` [@mpskitjl] is a Julia package for matrix product states and matrix product operators for (quasi) one-dimensional quantum lattices and two-dimensional statistical mechanics models
@@ -46,6 +47,5 @@ There are already several tensor train related packages
 `ITensors.jl` is a very popular Julia package for efficient tensor network algorithms.
                                                                                     
 `TensorCrossInterpolation.jl` [@nunez2025learning] is a Julia package for learning tensor networks with tensor cross interpolation
-                      
 
 # References
