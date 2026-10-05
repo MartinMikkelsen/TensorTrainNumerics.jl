@@ -441,10 +441,12 @@ Elementwise (Hadamard) product of two `TTvector`s; identical to [`hadamard`](@re
 """
 ⊕(x::TTvector{T, N}, y::TTvector{T, N}) where {T <: Number, N} = hadamard(x, y)
 
-# Swap cores j and j + 1 through a truncated SVD (rule of `_trunc_rank` for a
-# TT with d cores, applied to the local spectrum).
+# Swap cores j and j + 1 of a chain through a truncated SVD (rule of `_trunc_rank`
+# for a TT with d cores). The orthogonality center of the chain must be on one
+# of the two cores, so that the singular values are those of the whole chain
+# across this bond; it ends on core j.
 function _ttm_swap!(
-        cores::Vector{Array{T, 3}}, rks::Vector{Int}, j::Int;
+        cores::Vector{Array{T, 3}}, j::Int;
         trunc_tol::Real = 0.0, max_bond::Int = typemax(Int), d::Int
     ) where {T}
     A = cores[j]         # (dA, rL, rM)
@@ -457,36 +459,50 @@ function _ttm_swap!(
     mat = reshape(permutedims(C, (3, 2, 1, 4)), rL * dB, dA * rR)
     U, S, Vt = _truncated_svd(mat, trunc_tol, d, max_bond)
     r = size(U, 2)
-    cores[j] = permutedims(reshape(U, rL, dB, r), (2, 1, 3))        # (dB, rL, r)
-    cores[j + 1] = permutedims(reshape(S * Vt, r, dA, rR), (2, 1, 3))  # (dA, r, rR)
-    return rks[j + 1] = r
+    cores[j] = permutedims(reshape(U * S, rL, dB, r), (2, 1, 3))    # (dB, rL, r)
+    cores[j + 1] = permutedims(reshape(Vt, r, dA, rR), (2, 1, 3))   # (dA, r, rR)
+    return cores
 end
 
-function _ttm_contract!(cores::Vector{Array{T, 3}}, rks::Vector{Int}, p::Int) where {T}
+# Merge cores p and p + 1, which carry the same physical index, into their
+# elementwise product on that index.
+function _ttm_contract!(cores::Vector{Array{T, 3}}, p::Int) where {T}
     A = cores[p]         # (d, rL, rM)
     B = cores[p + 1]     # (d, rM, rR)
     d_phys, rL = size(A, 1), size(A, 2)
     rR = size(B, 3)
     Pi = zeros(T, d_phys, rL, rR)
-    @inbounds for s in 1:d_phys
+    for s in 1:d_phys
         mul!(view(Pi, s, :, :), view(A, s, :, :), view(B, s, :, :))
     end
     cores[p] = Pi
     deleteat!(cores, p + 1)
-    return deleteat!(rks, p + 1)
+    return cores
 end
 
 """
     hadamard_ttm(x::TTvector, y::TTvector; trunc_tol=1e-14, max_bond=typemax(Int)) -> TTvector
 
-Elementwise (Hadamard) product of `x` and `y` computed by moving the cores of
-`y` through those of `x` with a sequence of adjacent-core swaps, truncating
-each swap by SVD. `trunc_tol` and `max_bond` are applied to the spectrum of
-each local SVD with the rule of [`tt_round!`](@ref).
+Elementwise (Hadamard) product of `x` and `y` by tensor train multiplication
+(Michailidis, Fenton & Kiffner, arXiv:2410.19747). The cores of `x` followed by
+the reversed cores of `y` form a chain of `2d` cores. The cores of `y` are moved
+through the chain by swaps of adjacent cores until each meets the core of `x`
+with the same physical index, and the two are then merged. Each swap is a
+truncated SVD, so the full product with ranks `rˣ·rʸ` is never formed.
 
-The cores are not brought into canonical form before those SVDs, so the bound
-`‖x∘y − z‖ ≤ trunc_tol·‖x∘y‖` is not guaranteed. For a product with a known
-accuracy, use [`hadamard`](@ref) followed by [`tt_round!`](@ref).
+The chain is kept in mixed canonical form with its orthogonality center on the
+pair being swapped, which makes each truncation optimal for the whole chain.
+`trunc_tol` and `max_bond` are applied to every swap with the rule of
+[`tt_round!`](@ref), relative to the norm of the chain. That norm is at most
+`‖x‖·‖y‖`, so the error of the result is of the order of
+`trunc_tol·‖x‖·‖y‖`, which can exceed `trunc_tol·‖x∘y‖`.
+
+`max_bond` limits every bond of the intermediate chain, and those can need a
+larger rank than the bonds of the product. A cap that the product itself would
+fit under can therefore still cause an error; [`hadamard`](@ref) followed by
+[`tt_round!`](@ref) truncates the product only.
+
+The result has its orthogonality center on the first core.
 """
 function hadamard_ttm(
         x::TTvector{T, N}, y::TTvector{T, N};
@@ -503,14 +519,28 @@ function hadamard_ttm(
     for k in 1:d
         cores[d + k] = permutedims(y.ttv_vec[d + 1 - k], (1, 3, 2))
     end
-    rks = vcat(collect(x.ttv_rks), reverse(collect(y.ttv_rks))[2:end])
-    for iter in 1:d
-        for j in d:-1:(d - iter + 2)
-            _ttm_swap!(cores, rks, j; trunc_tol, max_bond, d)
-        end
-        _ttm_contract!(cores, rks, d - iter + 1)
+    # Mixed canonical form with the orthogonality center on core d.
+    for k in 1:(d - 1)
+        _orthogonalize_left!(cores, k)
     end
-    return TTvector{T, N}(d, cores, x.ttv_dims, rks, zeros(Int64, d))
+    for k in (2d):-1:(d + 1)
+        _orthogonalize_right!(cores, k)
+    end
+    # Site p of the product is formed from core p and the core of `y` that the
+    # swaps bring to position p + 1. Before the swaps the center is on core
+    # p + 1 (on core d for p = d) and is moved to core d; each swap then leaves
+    # it on the left core of its pair, and the merge leaves it on core p.
+    for p in d:-1:1
+        for k in (p + 1):(d - 1)
+            _orthogonalize_left!(cores, k)
+        end
+        for j in d:-1:(p + 1)
+            _ttm_swap!(cores, j; trunc_tol, max_bond, d)
+        end
+        _ttm_contract!(cores, p)
+    end
+    rks = [1; [size(c, 3) for c in cores]]
+    return TTvector{T, N}(d, cores, x.ttv_dims, rks, [0; fill(-1, d - 1)])
 end
 
 """

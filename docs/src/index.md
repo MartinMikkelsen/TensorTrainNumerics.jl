@@ -26,7 +26,9 @@ cross interpolation behind one set of types.
   cap, and entanglement entropies across every bond.
 - **Arithmetic.** Addition, scalar and operator products, inner products and
   norms, Hadamard (elementwise) and Kronecker products, and diagonal operators
-  built from vectors [TensorOperations](@cite).
+  built from vectors [TensorOperations](@cite). The Hadamard product is also
+  available by tensor train multiplication [Michailidis_2024](@cite), which
+  truncates while it multiplies.
 - **QTT functions and operators.** Low-rank QTT constructions of polynomials,
   trigonometric functions, exponentials, and Chebyshev polynomials; finite-
   difference Laplacians with Dirichlet, Neumann, and periodic boundary
@@ -36,7 +38,9 @@ cross interpolation behind one set of types.
 - **Spin-chain Hamiltonians.** Ising, XY, XXZ, XXX, and XYZ Hamiltonians as
   low-rank TT operators.
 - **Linear and eigenvalue solvers.** ALS and MALS [als_mals](@cite), one- and
-  two-site DMRG [White](@cite), and Krylov methods from KrylovKit.jl with rank
+  two-site DMRG [White](@cite), AMEn
+  [Dolgov_Savostyanov_2014, Kressner_Steinlechner_Uschmajew_2014](@cite), and
+  Krylov methods from KrylovKit.jl with rank
   truncation, all through [`linear_solve`](@ref) and [`eigen_solve`](@ref).
 - **Nonlinear problems.** A penalty-method ALS solver and multigrid
   renormalization [mgr](@cite) for Gross–Pitaevskii-type ground states.
