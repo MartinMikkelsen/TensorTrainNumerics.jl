@@ -18,7 +18,7 @@
 
 ## Features
 
-- **Solvers** — ALS, MALS [[1](#references)], and DMRG for linear systems [[2](#references)], non-linear (multigrid) [[3](#references)] and eigenvalue problems; adaptive rank control via SVD truncation [[4](#references)]
+- **Solvers** — ALS, MALS [[1](#references)], DMRG [[2](#references)], and AMEn [[12](#references)] for linear systems and eigenvalue problems, and a multigrid solver for non-linear problems [[3](#references)]; adaptive rank control via SVD truncation [[4](#references)]
 - **Time evolution** — single- and two-site TDVP [[5](#references)], implicit Euler, Crank–Nicolson, and Krylov exponential integrators 
 - **TT-cross** — MaxVol [[6](#references)], DMRG-cross [[7](#references)], and Greedy algorithms [[8](#references)] for black-box function approximation and numerical integration [[9](#references)]
 - **QTT operators** — exact low-rank representations of Laplacians, gradient operators [[10](#references)], shift matrices, and the discrete Fourier transform [[11](#references)]
@@ -102,6 +102,22 @@ println("Relative error: ", relerr)
 Relative error: 4.560872651853784e-16
 ```
 
+`AMEn` adapts the ranks during the solve and stops once the requested residual is reached, so the guess can have rank 1:
+
+```julia
+A = Δ(d) + id_tto(d)
+x0 = rand_tt(b.ttv_dims, 1)
+
+x, info = linear_solve(A, b, x0, AMEn(tol = 1e-8, return_info = true))
+
+println("Converged: ", info.converged, " after ", info.sweeps, " sweeps")
+println("Ranks: ", x.ttv_rks)
+```
+```julia
+Converged: true after 4 sweeps
+Ranks: [1, 2, 4, 4, 4, 2, 1]
+```
+
 For more examples including 2D PDEs, time evolution, and the QTT Fourier transform, see the [documentation](https://martinmikkelsen.github.io/TensorTrainNumerics.jl/).
 
 ### References
@@ -127,3 +143,5 @@ For more examples including 2D PDEs, time evolution, and the QTT Fourier transfo
 [10] Kazeev, Vladimir A., and Boris N. Khoromskij. "Low-rank explicit QTT representation of the Laplace operator and its inverse." SIAM journal on matrix analysis and applications 33.3 (2012): 742-758.
 
 [11] Chen, Jielun, and Michael Lindsey. "Direct interpolative construction of the discrete Fourier transform as a matrix product operator." Applied and Computational Harmonic Analysis (2025): 101817.
+
+[12] Dolgov, Sergey V., and Dmitry V. Savostyanov. "Alternating minimal energy methods for linear systems in higher dimensions." SIAM Journal on Scientific Computing 36.5 (2014): A2248-A2271.
