@@ -20,7 +20,7 @@ DMRG
 Krylov
 als_linsolve
 als_eigsolve
-als_gen_eigsolv
+als_gen_eigsolve
 mals_linsolve
 mals_eigsolve
 dmrg_linsolve
@@ -48,7 +48,7 @@ gpe_energy
 ```@docs
 euler_method
 implicit_euler_method
-crank_nicholson_method
+crank_nicolson_method
 rk4_method
 tdvp
 tdvp2

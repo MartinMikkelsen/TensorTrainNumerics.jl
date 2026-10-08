@@ -6,7 +6,7 @@ using TensorOperations
 import ChainRulesCore: rrule, NoTangent, Tangent, ZeroTangent, AbstractZero, unthunk
 
 function _tt_left_envs(A::TTvector{T, M}, B::TTvector{T, M}) where {T, M}
-    N = A.N
+    N = nsites(A)
     Ls = Vector{Matrix{T}}(undef, N + 1)
     Ls[1] = ones(T, 1, 1)
     @inbounds for k in 1:N
@@ -20,7 +20,7 @@ function _tt_left_envs(A::TTvector{T, M}, B::TTvector{T, M}) where {T, M}
 end
 
 function _tt_right_envs(A::TTvector{T, M}, B::TTvector{T, M}) where {T, M}
-    N = A.N
+    N = nsites(A)
     Gs = Vector{Matrix{T}}(undef, N + 1)
     Gs[N + 1] = ones(T, 1, 1)
     @inbounds for k in N:-1:1
@@ -38,11 +38,11 @@ function rrule(
         A::TTvector{T, M}, B::TTvector{T, M}
     ) where {T, M}
     Ls = _tt_left_envs(A, B)
-    Ω = Ls[A.N + 1][1, 1]
+    Ω = Ls[nsites(A) + 1][1, 1]
     function dot_pullback(Ω̄)
         Δ = unthunk(Ω̄)
         Gs = _tt_right_envs(A, B)
-        N = A.N
+        N = nsites(A)
         Ā = Vector{Array{T, 3}}(undef, N)
         B̄ = Vector{Array{T, 3}}(undef, N)
         @inbounds for k in 1:N
@@ -227,7 +227,7 @@ end
 function rrule(::typeof(*), a::Number, x::TTvector{R, N}) where {R <: Number, N}
     T = promote_type(typeof(a), R)
     X, scale_cotangents = _scale_rrule(a, x.ttv_vec, TensorTrainNumerics._scale_site(x.ttv_ot), T)
-    y = TTvector{T, N}(x.N, X, x.ttv_dims, copy(x.ttv_rks), copy(x.ttv_ot))
+    y = TTvector{T, N}(X, x.ttv_dims, copy(x.ttv_rks), copy(x.ttv_ot))
     function scale_pullback(ȳraw)
         Z = _cotangent_cores(ȳraw, :ttv_vec)
         Z === nothing && return (NoTangent(), ZeroTangent(), ZeroTangent())
@@ -240,7 +240,7 @@ end
 function rrule(::typeof(*), a::Number, A::TToperator{R, N}) where {R <: Number, N}
     T = promote_type(typeof(a), R)
     X, scale_cotangents = _scale_rrule(a, A.tto_vec, TensorTrainNumerics._scale_site(A.tto_ot), T)
-    B = TToperator{T, N}(A.N, X, A.tto_dims, copy(A.tto_rks), copy(A.tto_ot))
+    B = TToperator{T, N}(X, A.tto_dims, copy(A.tto_rks), copy(A.tto_ot))
     function scale_pullback(B̄raw)
         Z = _cotangent_cores(B̄raw, :tto_vec)
         Z === nothing && return (NoTangent(), ZeroTangent(), ZeroTangent())

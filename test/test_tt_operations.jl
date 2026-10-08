@@ -9,7 +9,7 @@ using LinearAlgebra
     # Construct a TTvector with explicit values
     core1 = reshape([1.0, 2.0, 3.0], 3, 1, 1)
     core2 = reshape([4.0, 5.0], 2, 1, 1)
-    x = TTvector{Float64, 2}(2, [core1, core2], dims, rks, zeros(Int, 2))
+    x = TTvector{Float64, 2}([core1, core2], dims, rks, zeros(Int, 2))
     # Full vector
     full_x = vec([core1[i, 1, 1] * core2[j, 1, 1] for i in 1:3, j in 1:2])
     # Diagonal TT-matrix
@@ -135,8 +135,8 @@ end
 
 @testset "adjoint and the KrylovKit (x, Val) calling convention" begin
     dims = (2, 3, 2)
-    A = TToperator(3, [randn(ComplexF64, n, n, r1, r2) for (n, r1, r2) in zip(dims, (1, 2, 2), (2, 2, 1))], dims, [1, 2, 2, 1], zeros(Int, 3))
-    x = TTvector(3, [randn(ComplexF64, n, r1, r2) for (n, r1, r2) in zip(dims, (1, 2, 2), (2, 2, 1))], dims, [1, 2, 2, 1], zeros(Int, 3))
+    A = TToperator([randn(ComplexF64, n, n, r1, r2) for (n, r1, r2) in zip(dims, (1, 2, 2), (2, 2, 1))], dims, [1, 2, 2, 1], zeros(Int, 3))
+    x = TTvector([randn(ComplexF64, n, r1, r2) for (n, r1, r2) in zip(dims, (1, 2, 2), (2, 2, 1))], dims, [1, 2, 2, 1], zeros(Int, 3))
     M = reshape(tto_to_tensor(A), prod(dims), :)
     v = vec(ttv_to_tensor(x))
     @test reshape(tto_to_tensor(A'), prod(dims), :) ≈ M'
@@ -178,7 +178,7 @@ end
     A = rand_tto((2, 2, 2), 2)
     B = rand_tto((2, 2, 2), 3)
     C = A ⨝ B
-    @test C.N == 3
+    @test nsites(C) == 3
     @test C.tto_dims == (4, 4, 4)
     @test C.tto_rks == A.tto_rks .* B.tto_rks
 
@@ -321,7 +321,7 @@ end
     a = rand_tt((2, 3), [1, 2, 1])
     b = rand_tt((4, 5), [1, 3, 1])
     c = kron(a, b)
-    @test c.N == a.N + b.N
+    @test nsites(c) == nsites(a) + nsites(b)
     @test c.ttv_dims == (2, 3, 4, 5)
     @test c.ttv_rks[1] == 1 && c.ttv_rks[end] == 1
     Ta = ttv_to_tensor(a)
@@ -336,7 +336,7 @@ end
     A = rand_tto((2, 3), 2)
     B = rand_tto((4, 5), 2)
     C = kron(A, B)
-    @test C.N == A.N + B.N
+    @test nsites(C) == nsites(A) + nsites(B)
     @test C.tto_dims == (2, 3, 4, 5)
     @test C.tto_rks[1] == 1 && C.tto_rks[end] == 1
 

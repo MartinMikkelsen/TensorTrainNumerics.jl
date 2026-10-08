@@ -14,10 +14,10 @@ using LinearAlgebra: dot as ladot   # array dot, for the directional pairing
 
 # Rebuild a TTvector from its cores, holding metadata fixed from a template.
 build_tt(cores, tmpl::TTvector{T, M}) where {T, M} =
-    TTvector{eltype(cores[1]), M}(tmpl.N, cores, tmpl.ttv_dims, tmpl.ttv_rks, tmpl.ttv_ot)
+    TTvector{eltype(cores[1]), M}(cores, tmpl.ttv_dims, tmpl.ttv_rks, tmpl.ttv_ot)
 
 build_tto(cores, tmpl::TToperator{T, M}) where {T, M} =
-    TToperator{eltype(cores[1]), M}(tmpl.N, cores, tmpl.tto_dims, tmpl.tto_rks, tmpl.tto_ot)
+    TToperator{eltype(cores[1]), M}(cores, tmpl.tto_dims, tmpl.tto_rks, tmpl.tto_ot)
 
 flatten_cores(cores) = vcat(vec.(cores)...)
 
@@ -90,8 +90,8 @@ end
 @testset "dot rrule — both complex arguments match dense pullbacks" begin
     a = ComplexF64[1 + 2im, 3 - 4im]
     b = ComplexF64[2 + im, -1 + 3im]
-    A = TTvector(1, [reshape(a, 2, 1, 1)], (2,), [1, 1], [0])
-    B = TTvector(1, [reshape(b, 2, 1, 1)], (2,), [1, 1], [0])
+    A = TTvector([reshape(a, 2, 1, 1)], (2,), [1, 1], [0])
+    B = TTvector([reshape(b, 2, 1, 1)], (2,), [1, 1], [0])
     _, tt_pullback = Zygote.pullback(
         (ac, bc) -> dot(build_tt(ac, A), build_tt(bc, B)), A.ttv_vec, B.ttv_vec
     )
@@ -117,11 +117,11 @@ end
     ranks_a = [1, 2, 2, 1]
     ranks_b = [1, 1, 2, 1]
     A = TTvector(
-        3, [randn(rng, ComplexF64, dims[k], ranks_a[k], ranks_a[k + 1]) for k in 1:3],
+        [randn(rng, ComplexF64, dims[k], ranks_a[k], ranks_a[k + 1]) for k in 1:3],
         dims, ranks_a, zeros(Int, 3)
     )
     B = TTvector(
-        3, [randn(rng, ComplexF64, dims[k], ranks_b[k], ranks_b[k + 1]) for k in 1:3],
+        [randn(rng, ComplexF64, dims[k], ranks_b[k], ranks_b[k + 1]) for k in 1:3],
         dims, ranks_b, zeros(Int, 3)
     )
     da = [randn(rng, ComplexF64, size(c)) for c in A.ttv_vec]
@@ -149,11 +149,11 @@ end
     ranks = [1, 2, 2, 1]
     H = pauli_sum_tto(:y, 3)
     ψ = TTvector(
-        3, [randn(rng, ComplexF64, dims[k], ranks[k], ranks[k + 1]) for k in 1:3],
+        [randn(rng, ComplexF64, dims[k], ranks[k], ranks[k + 1]) for k in 1:3],
         dims, ranks, zeros(Int, 3)
     )
     c = TTvector(
-        3, [randn(rng, ComplexF64, dims[k], ranks[k], ranks[k + 1]) for k in 1:3],
+        [randn(rng, ComplexF64, dims[k], ranks[k], ranks[k + 1]) for k in 1:3],
         dims, ranks, zeros(Int, 3)
     )
     dirs = [randn(rng, ComplexF64, size(core)) for core in ψ.ttv_vec]
@@ -173,9 +173,9 @@ using LinearAlgebra: norm as lanorm
         n = length(dims)
         rh = n == 1 ? [1, 1] : [1, 2, 3, 1]
         rp = n == 1 ? [1, 1] : [1, 3, 2, 1]
-        H = TToperator(n, [randn(rng, T, dims[k], dims[k], rh[k], rh[k + 1]) for k in 1:n], dims, rh, zeros(Int, n))
-        ψ = TTvector(n, [randn(rng, T, dims[k], rp[k], rp[k + 1]) for k in 1:n], dims, rp, zeros(Int, n))
-        c = TTvector(n, [randn(rng, T, d, 1, 1) for d in dims], dims, ones(Int, n + 1), zeros(Int, n))
+        H = TToperator([randn(rng, T, dims[k], dims[k], rh[k], rh[k + 1]) for k in 1:n], dims, rh, zeros(Int, n))
+        ψ = TTvector([randn(rng, T, dims[k], rp[k], rp[k + 1]) for k in 1:n], dims, rp, zeros(Int, n))
+        c = TTvector([randn(rng, T, d, 1, 1) for d in dims], dims, ones(Int, n + 1), zeros(Int, n))
         dh = [randn(rng, T, size(core)) for core in H.tto_vec]
         dp = [randn(rng, T, size(core)) for core in ψ.ttv_vec]
         cdense = vec(ttv_to_tensor(c))
@@ -215,9 +215,9 @@ end
     for T in (Float64, ComplexF64)
         dims, n = (2, 3, 2), 3
         rx, ry = [1, 2, 3, 1], [1, 3, 2, 1]
-        x = TTvector(n, [randn(rng, T, dims[k], rx[k], rx[k + 1]) for k in 1:n], dims, rx, zeros(Int, n))
-        y = TTvector(n, [randn(rng, T, dims[k], ry[k], ry[k + 1]) for k in 1:n], dims, ry, zeros(Int, n))
-        c = TTvector(n, [randn(rng, T, d, 1, 1) for d in dims], dims, ones(Int, n + 1), zeros(Int, n))
+        x = TTvector([randn(rng, T, dims[k], rx[k], rx[k + 1]) for k in 1:n], dims, rx, zeros(Int, n))
+        y = TTvector([randn(rng, T, dims[k], ry[k], ry[k + 1]) for k in 1:n], dims, ry, zeros(Int, n))
+        c = TTvector([randn(rng, T, d, 1, 1) for d in dims], dims, ones(Int, n + 1), zeros(Int, n))
         dx = [randn(rng, T, size(core)) for core in x.ttv_vec]
         dy = [randn(rng, T, size(core)) for core in y.ttv_vec]
         cdense = vec(ttv_to_tensor(c))
@@ -268,9 +268,9 @@ end
         n = length(dims)
         rx = n == 1 ? [1, 1] : [1, 2, 3, 1]
         ry = n == 1 ? [1, 1] : [1, 3, 2, 1]
-        x = TTvector(n, [randn(rng, T, dims[k], rx[k], rx[k + 1]) for k in 1:n], dims, rx, zeros(Int, n))
-        y = TTvector(n, [randn(rng, T, dims[k], ry[k], ry[k + 1]) for k in 1:n], dims, ry, zeros(Int, n))
-        c = TTvector(n, [randn(rng, T, d, 1, 1) for d in dims], dims, ones(Int, n + 1), zeros(Int, n))
+        x = TTvector([randn(rng, T, dims[k], rx[k], rx[k + 1]) for k in 1:n], dims, rx, zeros(Int, n))
+        y = TTvector([randn(rng, T, dims[k], ry[k], ry[k + 1]) for k in 1:n], dims, ry, zeros(Int, n))
+        c = TTvector([randn(rng, T, d, 1, 1) for d in dims], dims, ones(Int, n + 1), zeros(Int, n))
         cdense = vec(ttv_to_tensor(c))
         dense(cores, tmpl) = vec(ttv_to_tensor(build_tt(cores, tmpl)))
         dx = [randn(rng, T, size(core)) for core in x.ttv_vec]
@@ -328,8 +328,8 @@ end
 
         # Operator sums, differences, and scalar multiples, applied to a fixed state.
         rh = n == 1 ? [1, 1] : [1, 2, 2, 1]
-        A = TToperator(n, [randn(rng, T, dims[k], dims[k], rh[k], rh[k + 1]) for k in 1:n], dims, rh, zeros(Int, n))
-        B = TToperator(n, [randn(rng, T, dims[k], dims[k], rh[k], rh[k + 1]) for k in 1:n], dims, rh, zeros(Int, n))
+        A = TToperator([randn(rng, T, dims[k], dims[k], rh[k], rh[k + 1]) for k in 1:n], dims, rh, zeros(Int, n))
+        B = TToperator([randn(rng, T, dims[k], dims[k], rh[k], rh[k + 1]) for k in 1:n], dims, rh, zeros(Int, n))
         dA = [randn(rng, T, size(core)) for core in A.tto_vec]
         dB = [randn(rng, T, size(core)) for core in B.tto_vec]
         densemat(cores, tmpl) = reshape(tto_to_tensor(build_tto(cores, tmpl)), prod(dims), :)
@@ -375,7 +375,7 @@ end
 @testset "field reads of a differentiated TT keep the rule cotangents" begin
     rng = Xoshiro(20260924)
     dims, rks = (2, 3, 2), [1, 2, 2, 1]
-    x = TTvector(3, [randn(rng, dims[k], rks[k], rks[k + 1]) for k in 1:3], dims, rks, zeros(Int, 3))
+    x = TTvector([randn(rng, dims[k], rks[k], rks[k + 1]) for k in 1:3], dims, rks, zeros(Int, 3))
     dx = [randn(rng, size(c)) for c in x.ttv_vec]
     ad_dd(g) = sum(real(ladot(g[k], dx[k])) for k in eachindex(dx))
 
@@ -386,14 +386,14 @@ end
     @test ad_dd(g) ≈ fd_directional(mixed, x.ttv_vec, dx) rtol = 1.0e-5 atol = 1.0e-7
 
     # An integer field of the same TTvector used in differentiated arithmetic.
-    scaled(cs) = (u = build_tt(cs, x); real(dot(u, u)) * 2.0^u.N)
+    scaled(cs) = (u = build_tt(cs, x); real(dot(u, u)) * 2.0^nsites(u))
     g = only(Zygote.gradient(scaled, x.ttv_vec))
     @test g !== nothing
     @test ad_dd(g) ≈ fd_directional(scaled, x.ttv_vec, dx) rtol = 1.0e-5 atol = 1.0e-7
 
     # The same through a QTTvector wrapper.
     qdims, qrks = (2, 2, 2, 2), [1, 2, 3, 2, 1]
-    y = TTvector(4, [randn(rng, qdims[k], qrks[k], qrks[k + 1]) for k in 1:4], qdims, qrks, zeros(Int, 4))
+    y = TTvector([randn(rng, qdims[k], qrks[k], qrks[k + 1]) for k in 1:4], qdims, qrks, zeros(Int, 4))
     dy = [randn(rng, size(c)) for c in y.ttv_vec]
     qloss(cs) = (q = QTTvector(build_tt(cs, y), 2, 2, :interleaved); real(dot(q, q)) + sum(q.ttv_vec[2]) * q.n_dims)
     g = only(Zygote.gradient(qloss, y.ttv_vec))

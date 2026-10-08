@@ -8,7 +8,7 @@ Holtz, Sebastian, Thorsten Rohwedder, and Reinhold Schneider. "The alternating l
 
 function init_H(x_tt::AbstractTTvector, A_tto::AbstractTToperator)
     T = eltype(x_tt)
-    d = x_tt.N
+    d = nsites(x_tt)
     H = Array{Array{T}}(undef, d)
     H[d] = ones(T, 1, 1, 1)
     for i in d:-1:2
@@ -27,7 +27,7 @@ end
 
 function init_Hb(x_tt::AbstractTTvector, b_tt::AbstractTTvector)
     T = eltype(x_tt)
-    d = x_tt.N
+    d = nsites(x_tt)
     H_b = Array{Array{T}}(undef, d)
     H_b[d] = ones(T, 1, 1)
     for i in d:-1:2
@@ -172,7 +172,7 @@ function _als_linsolve_impl(
         return_info::Bool, verbosity::Int, show_progress::Bool
     )
     T = eltype(tt_start)
-    d = A.N
+    d = nsites(A)
     tt_opt = orthogonalize(tt_start)
     dims = tt_start.ttv_dims
     rks = copy(tt_start.ttv_rks)
@@ -218,7 +218,7 @@ function _als_eigsolve_impl(
         verbosity::Int, show_progress::Bool
     )
     T = eltype(tt_start)
-    d = A.N
+    d = nsites(A)
     dims = tt_start.ttv_dims
     tt_opt = orthogonalize(tt_start)
     E = Float64[]
@@ -283,7 +283,7 @@ function eigen_solve(A::AbstractTToperator, guess::AbstractTTvector, alg::ALS)
 end
 
 """
-    als_gen_eigsolv(A, S, tt_start; sweep_schedule, rmax_schedule, tol, it_solver, itslv_thresh)
+    als_gen_eigsolve(A, S, tt_start; sweep_schedule, rmax_schedule, tol, it_solver, itslv_thresh)
 
 Find the smallest generalized eigenpair `Ax = λ S x` using the ALS algorithm.
 
@@ -303,14 +303,14 @@ Find the smallest generalized eigenpair `Ax = λ S x` using the ALS algorithm.
 `(E, tt_opt)` where `E` is the eigenvalue history and `tt_opt` is the approximate
 eigenvector, or `nothing` if the schedule is exhausted without a final return.
 """
-function als_gen_eigsolv(
+function als_gen_eigsolve(
         A::AbstractTToperator, S::AbstractTToperator, tt_start::AbstractTTvector;
         sweep_schedule = [2], rmax_schedule = [maximum(tt_start.ttv_rks)],
         tol = 1.0e-10, it_solver = false, itslv_thresh = 2500,
         show_progress::Bool = false
     )
     T = eltype(tt_start)
-    d = A.N
+    d = nsites(A)
     # Initialize the to be returned tensor in its tensor train format
     tt_opt = orthogonalize(tt_start)
     dims = tt_start.ttv_dims
@@ -393,4 +393,10 @@ function als_gen_eigsolv(
         next!(progress)
     end
     return E[1:i_μit], tt_opt
+end
+
+# Deprecated: renamed to `als_gen_eigsolve`.
+function als_gen_eigsolv(args...; kwargs...)
+    Base.depwarn("`als_gen_eigsolv` is deprecated, use `als_gen_eigsolve`.", :als_gen_eigsolv)
+    return als_gen_eigsolve(args...; kwargs...)
 end

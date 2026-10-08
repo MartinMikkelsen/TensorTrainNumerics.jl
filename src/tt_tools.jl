@@ -22,7 +22,6 @@ A tensor in tensor-train (TT) format, also called a matrix product state:
 where core `Gₖ` has size `(nₖ, rₖ₋₁, rₖ)` and `r₀ = r_M = 1`.
 
 # Fields
-- `N::Int64`: number of cores (sites); equal to `M`.
 - `ttv_vec::Vector{Array{T,3}}`: the cores, each of size `(ttv_dims[k], ttv_rks[k], ttv_rks[k+1])`.
 - `ttv_dims::NTuple{M,Int64}`: physical dimensions `(n₁, …, n_M)`.
 - `ttv_rks::Vector{Int64}`: TT ranks `(r₀, r₁, …, r_M)`, of length `M + 1`.
@@ -36,10 +35,12 @@ The fields cannot be reassigned, but in-place operations such as
 
 The constructor does not check that these fields are consistent with each other.
 Use constructors such as [`ttv_decomp`](@ref), [`rand_tt`](@ref), or
+
+The number of cores (sites) is the type parameter `M`, returned by `nsites(x)`.
+
 [`zeros_tt`](@ref) to build valid instances.
 """
 struct TTvector{T <: Number, M} <: AbstractTTvector
-    N::Int64
     ttv_vec::Vector{Array{T, 3}}
     ttv_dims::NTuple{M, Int64}
     ttv_rks::Vector{Int64}
@@ -67,17 +68,17 @@ where core `Aₖ` has size `(nₖ, nₖ, rₖ₋₁, rₖ)` (output index, input
 rank, right rank) and `r₀ = r_M = 1`.
 
 # Fields
-- `N::Int64`: number of cores (sites); equal to `M`.
 - `tto_vec::Vector{Array{T,4}}`: the cores.
 - `tto_dims::NTuple{M,Int64}`: physical dimensions `(n₁, …, n_M)`, shared by input and output.
 - `tto_rks::Vector{Int64}`: TT ranks `(r₀, r₁, …, r_M)`, of length `M + 1`.
 - `tto_ot::Vector{Int64}`: orthogonality flag of each core, with the same
   convention as `TTvector.ttv_ot`.
 
+The number of cores (sites) is the type parameter `M`, returned by `nsites(A)`.
+
 The constructor does not check that these fields are consistent with each other.
 """
 struct TToperator{T <: Number, M} <: AbstractTToperator
-    N::Int64
     tto_vec::Array{Array{T, 4}, 1}
     tto_dims::NTuple{M, Int64}
     tto_rks::Array{Int64, 1}
@@ -86,15 +87,55 @@ end
 
 Base.eltype(::TToperator{T, M}) where {T, M} = T
 
+"""
+    nsites(x::Union{AbstractTTvector, AbstractTToperator}) -> Int
+
+Number of cores (sites) of the tensor train `x`.
+"""
+function nsites end
+
+# `getfield` because `getproperty` calls `nsites`.
+nsites(x::AbstractTTvector) = length(getfield(x, :ttv_dims))
+nsites(A::AbstractTToperator) = length(getfield(A, :tto_dims))
+
+# Deprecated: the number of cores is no longer a field or a constructor argument.
+function Base.getproperty(x::Union{AbstractTTvector, AbstractTToperator}, name::Symbol)
+    if name === :N
+        Base.depwarn("the `N` field is deprecated, use `nsites(x)`.", :getproperty)
+        return nsites(x)
+    end
+    return getfield(x, name)
+end
+
+function TTvector{T, M}(N::Integer, ttv_vec, ttv_dims, ttv_rks, ttv_ot) where {T, M}
+    Base.depwarn("`TTvector{T, M}(N, cores, dims, rks, ot)` is deprecated, omit `N`.", :TTvector)
+    return TTvector{T, M}(ttv_vec, ttv_dims, ttv_rks, ttv_ot)
+end
+
+function TTvector(N::Integer, ttv_vec, ttv_dims, ttv_rks, ttv_ot)
+    Base.depwarn("`TTvector(N, cores, dims, rks, ot)` is deprecated, omit `N`.", :TTvector)
+    return TTvector(ttv_vec, ttv_dims, ttv_rks, ttv_ot)
+end
+
+function TToperator{T, M}(N::Integer, tto_vec, tto_dims, tto_rks, tto_ot) where {T, M}
+    Base.depwarn("`TToperator{T, M}(N, cores, dims, rks, ot)` is deprecated, omit `N`.", :TToperator)
+    return TToperator{T, M}(tto_vec, tto_dims, tto_rks, tto_ot)
+end
+
+function TToperator(N::Integer, tto_vec, tto_dims, tto_rks, tto_ot)
+    Base.depwarn("`TToperator(N, cores, dims, rks, ot)` is deprecated, omit `N`.", :TToperator)
+    return TToperator(tto_vec, tto_dims, tto_rks, tto_ot)
+end
+
 function Base.complex(A::TToperator{T, M}) where {T, M}
     return TToperator{Complex{real(T)}, M}(
-        A.N, complex.(A.tto_vec), A.tto_dims, copy(A.tto_rks), copy(A.tto_ot)
+        complex.(A.tto_vec), A.tto_dims, copy(A.tto_rks), copy(A.tto_ot)
     )
 end
 
 function Base.complex(v::TTvector{T, M}) where {T, M}
     return TTvector{Complex{real(T)}, M}(
-        v.N, complex.(v.ttv_vec), v.ttv_dims, copy(v.ttv_rks), copy(v.ttv_ot)
+        complex.(v.ttv_vec), v.ttv_dims, copy(v.ttv_rks), copy(v.ttv_ot)
     )
 end
 
@@ -117,8 +158,8 @@ function rand_orthogonal(n, m; T = Float64)
 end
 
 """
-    rand_tt([T=Float64,] dims, rks; normalise=false, orthogonal=false)
-    rand_tt(dims, rmax::Int; normalise=false, orthogonal=false)
+    rand_tt([T=Float64,] dims, rks; normalize=false, orthogonal=false)
+    rand_tt(dims, rmax::Int; normalize=false, orthogonal=false)
 
 Generate a random [`TTvector`](@ref) with element type `T`, physical dimensions
 `dims`, and TT ranks `rks` (a vector of length `length(dims) + 1` with
@@ -128,19 +169,23 @@ With an integer `rmax`, every interior rank is set to `rmax`, reduced where the
 dimensions force a smaller rank (see [`r_and_d_to_rks`](@ref)).
 
 # Keyword arguments
-- `normalise::Bool=false`: scale core `k` by `1/√(dims[k]·rks[k+1])`.
-- `orthogonal::Bool=false`: when `normalise` is also `true`, replace every core by
+- `normalize::Bool=false`: scale core `k` by `1/√(dims[k]·rks[k+1])`.
+- `orthogonal::Bool=false`: when `normalize` is also `true`, replace every core by
   a right-orthogonal core from a QR factorization. Has no effect otherwise.
 """
-function rand_tt(dims, rks; normalise = false, orthogonal = false)
-    return rand_tt(Float64, dims, rks; normalise = normalise, orthogonal = orthogonal)
+function rand_tt(dims, rks; kwargs...)
+    return rand_tt(Float64, dims, rks; kwargs...)
 end
 
-function rand_tt(::Type{T}, dims, rks; normalise = false, orthogonal = false) where {T}
+function rand_tt(::Type{T}, dims, rks; normalize = false, orthogonal = false, normalise = nothing) where {T}
+    if normalise !== nothing
+        Base.depwarn("the `normalise` keyword of `rand_tt` is deprecated, use `normalize`.", :rand_tt)
+        normalize = normalise
+    end
     y = zeros_tt(T, dims, rks)
     @inbounds for i in eachindex(y.ttv_vec)
         y.ttv_vec[i] = randn(T, dims[i], rks[i], rks[i + 1])
-        if normalise
+        if normalize
             y.ttv_vec[i] *= 1 / sqrt(dims[i] * rks[i + 1])
             if orthogonal
                 q, _ = qr(reshape(permutedims(y.ttv_vec[i], (1, 3, 2)), dims[i] * rks[i + 1], rks[i]))
@@ -151,11 +196,11 @@ function rand_tt(::Type{T}, dims, rks; normalise = false, orthogonal = false) wh
     return y
 end
 
-function rand_tt(dims, rmax::Int; normalise = false, orthogonal = false)
+function rand_tt(dims, rmax::Int; kwargs...)
     d = length(dims)
     rks = rmax * ones(Int, d + 1)
     rks = r_and_d_to_rks(rks, dims; rmax = rmax)
-    return rand_tt(dims, rks; normalise = normalise, orthogonal = orthogonal)
+    return rand_tt(dims, rks; kwargs...)
 end
 
 """
@@ -175,7 +220,7 @@ function rand_tt(x_tt::TTvector{T, N}; ε = convert(T, 1.0e-5)) where {T, N}
     for i in eachindex(x_tt.ttv_vec)
         tt_vec[i] += ε * randn(x_tt.ttv_dims[i], x_tt.ttv_rks[i], x_tt.ttv_rks[i + 1])
     end
-    return TTvector{T, N}(N, tt_vec, x_tt.ttv_dims, copy(x_tt.ttv_rks), zeros(Int, N))
+    return TTvector{T, N}(tt_vec, x_tt.ttv_dims, copy(x_tt.ttv_rks), zeros(Int, N))
 end
 
 """
@@ -190,7 +235,7 @@ Create a deep copy of a `TTvector` object.
 - A new `TTvector` object that is a deep copy of `x_tt`.
 """
 Base.copy(x_tt::TTvector{T, N}) where {T <: Number, N} =
-    TTvector{T, N}(x_tt.N, copy.(x_tt.ttv_vec), x_tt.ttv_dims, copy(x_tt.ttv_rks), copy(x_tt.ttv_ot))
+    TTvector{T, N}(copy.(x_tt.ttv_vec), x_tt.ttv_dims, copy(x_tt.ttv_rks), copy(x_tt.ttv_ot))
 
 """
     ttv_decomp(tensor::Array; index=1, tol=1e-12) -> TTvector
@@ -271,7 +316,7 @@ function ttv_decomp(tensor::Array{T, d}; index = 1, tol = 1.0e-12) where {T <: N
     end
 
     # Define the return value as a TTvector
-    return TTvector{T, d}(d, ttv_vec, dims, rks, ttv_ot)
+    return TTvector{T, d}(ttv_vec, dims, rks, ttv_ot)
 end
 
 """
@@ -286,7 +331,7 @@ Convert a TTvector (Tensor Train vector) to a full tensor.
 - A tensor of type `Array{T,N}` with the same dimensions as specified in `x_tt.ttv_dims`.
 """
 function ttv_to_tensor(x_tt::TTvector{T, N}) where {T <: Number, N}
-    d = x_tt.N
+    d = nsites(x_tt)
     # Progressive contraction: P holds the partial contraction of cores 1:k as a
     # (prod(dims[1:k]), r_k) matrix with the first physical index fastest, so the
     # final reshape matches Julia's column-major tensor layout. O(d·n·r²·prod)
@@ -322,13 +367,13 @@ The result owns its cores, ranks, and orthogonality flags; mutating it does not 
 
 """
 function tto_to_ttv(A::TToperator{T, N}) where {T <: Number, N}
-    d = A.N
+    d = nsites(A)
     xtt_vec = Array{Array{T, 3}, 1}(undef, d)
     A_rks = A.tto_rks
     for i in eachindex(xtt_vec)
         xtt_vec[i] = reshape(copy(A.tto_vec[i]), A.tto_dims[i]^2, A_rks[i], A_rks[i + 1])
     end
-    return TTvector{T, N}(d, xtt_vec, A.tto_dims .^ 2, copy(A.tto_rks), copy(A.tto_ot))
+    return TTvector{T, N}(xtt_vec, A.tto_dims .^ 2, copy(A.tto_rks), copy(A.tto_ot))
 end
 
 """
@@ -351,14 +396,14 @@ The result owns its cores, ranks, and orthogonality flags; mutating it does not 
 """
 function ttv_to_tto(x::TTvector{T, N}) where {T <: Number, N}
     @assert(isqrt.(x.ttv_dims) .^ 2 == x.ttv_dims, DimensionMismatch)
-    d = x.N
+    d = nsites(x)
     Att_vec = Array{Array{T, 4}, 1}(undef, d)
     x_rks = x.ttv_rks
     A_dims = isqrt.(x.ttv_dims)
     for i in eachindex(A_dims)
         Att_vec[i] = reshape(copy(x.ttv_vec[i]), A_dims[i], A_dims[i], x_rks[i], x_rks[i + 1])
     end
-    return TToperator{T, N}(d, Att_vec, A_dims, copy(x.ttv_rks), copy(x.ttv_ot))
+    return TToperator{T, N}(Att_vec, A_dims, copy(x.ttv_rks), copy(x.ttv_ot))
 end
 
 """
@@ -393,7 +438,7 @@ function tto_decomp(tensor::Array{T, N}; index = 1) where {T <: Number, N}
         # Fill in tto_vec[i]
         tto_vec[i] = reshape(ttv.ttv_vec[i], tto_dims[i], tto_dims[i], :, rks[i + 1])
     end
-    return TToperator{T, d}(d, tto_vec, tto_dims, rks, ttv.ttv_ot)
+    return TToperator{T, d}(tto_vec, tto_dims, rks, ttv.ttv_ot)
 end
 
 """
@@ -408,7 +453,7 @@ Convert a TToperator to a full tensor.
 - A tensor of type `Array{T, 2N}` with dimensions `[n_1, ..., n_d, n_1, ..., n_d]`, where `n_i` are the dimensions of the TToperator.
 """
 function tto_to_tensor(tto::TToperator{T, N}) where {T <: Number, N}
-    d = tto.N
+    d = nsites(tto)
     # Fuse each core's (i, j) pair, contract progressively as a TT vector, then
     # split the fused axes back and sort them into [i_1,…,i_d, j_1,…,j_d].
     fused = ttv_to_tensor(tto_to_ttv(tto))
@@ -502,7 +547,7 @@ so a fixed-rank solver (e.g. ALS) has room to develop higher-rank structure.
 - `TTvector{T,N}`: A new TT vector with increased ranks.
 """
 function increase_ranks(x_tt::TTvector{T, N}, max_bond::Int; rks = vcat(1, max_bond * ones(Int, length(x_tt.ttv_dims) - 1), 1), noise = 0.0) where {T <: Number, N}
-    d = x_tt.N
+    d = nsites(x_tt)
     vec_out = Array{Array{T}}(undef, d)
     out_ot = zeros(Int64, d)
     @assert(max_bond > maximum(x_tt.ttv_rks), "New bond dimension too low")
@@ -510,7 +555,7 @@ function increase_ranks(x_tt::TTvector{T, N}, max_bond::Int; rks = vcat(1, max_b
     for i in 1:d
         vec_out[i] = increase_ranks_noise(x_tt.ttv_vec[i], rks[i], rks[i + 1], noise)
     end
-    return TTvector{T, N}(d, vec_out, x_tt.ttv_dims, rks, out_ot)
+    return TTvector{T, N}(vec_out, x_tt.ttv_dims, rks, out_ot)
 end
 
 # Deprecated: renamed to `increase_ranks` (the `ϵ_wn` keyword is now `noise`).
@@ -533,7 +578,7 @@ Orthogonalizes the given Tensor Train (TT) vector `x_tt` with respect to the `i`
 
 """
 function orthogonalize(x_tt::TTvector{T, N}; i = 1::Int) where {T <: Number, N}
-    d = x_tt.N
+    d = nsites(x_tt)
     @assert(1 ≤ i ≤ d, DimensionMismatch("Impossible orthogonalization"))
     y_rks = r_and_d_to_rks(x_tt.ttv_rks, x_tt.ttv_dims)
     y_tt = zeros_tt(T, x_tt.ttv_dims, y_rks)
@@ -548,7 +593,7 @@ function orthogonalize(x_tt::TTvector{T, N}; i = 1::Int) where {T <: Number, N}
         FR = F.R[1:y_tt.ttv_rks[j + 1], :]
     end
     FL = ones(T, 1, 1)
-    (i < x_tt.N) && (yright_temp = zeros(T, maximum(x_tt.ttv_rks), maximum(y_tt.ttv_rks), maximum(x_tt.ttv_dims)))
+    (i < nsites(x_tt)) && (yright_temp = zeros(T, maximum(x_tt.ttv_rks), maximum(y_tt.ttv_rks), maximum(x_tt.ttv_dims)))
     for j in d:-1:(i + 1)
         y_tt.ttv_ot[j] = -1
         yright_temp = zeros(T, x_tt.ttv_rks[j], y_tt.ttv_rks[j + 1], x_tt.ttv_dims[j])
@@ -567,18 +612,18 @@ function orthogonalize(x_tt::TTvector{T, N}; i = 1::Int) where {T <: Number, N}
 end
 
 """
-    entanglemententropy(ψ::TTvector; base=exp(1.0))
+    entanglement_entropy(ψ::TTvector; base=exp(1.0))
 
 Compute the von Neumann entanglement entropy across every bond of an MPS.
 
-The returned vector has length `ψ.N - 1`; entry `k` is the entropy of the
+The returned vector has length `nsites(ψ) - 1`; entry `k` is the entropy of the
 bipartition `1:k | k+1:N`. The input state is not mutated. Use `base = 2`
 to return entropy in bits.
 """
-function entanglemententropy(ψ::TTvector; base::Real = exp(1.0))
+function entanglement_entropy(ψ::TTvector; base::Real = exp(1.0))
     @assert base > 0 && base != 1 "base must be positive and not equal to 1"
 
-    N = ψ.N
+    N = nsites(ψ)
     entropy = zeros(Float64, max(N - 1, 0))
     N <= 1 && return entropy
     logscale = log(base)
@@ -610,6 +655,12 @@ function entanglemententropy(ψ::TTvector; base::Real = exp(1.0))
     return entropy
 end
 
+# Deprecated: renamed to `entanglement_entropy`.
+function entanglemententropy(args...; kwargs...)
+    Base.depwarn("`entanglemententropy` is deprecated, use `entanglement_entropy`.", :entanglemententropy)
+    return entanglement_entropy(args...; kwargs...)
+end
+
 function _ot_description(ot::Vector{Int})
     all(iszero, ot)   && return "none"
     all(==(1), ot)    && return "left-canonical"
@@ -625,22 +676,22 @@ function _ot_description(ot::Vector{Int})
 end
 
 function Base.show(io::IO, tt::TTvector{T, N}) where {T <: Number, N}
-    return print(io, "MPS{$T}($(tt.N) sites)")
+    return print(io, "MPS{$T}($(nsites(tt)) sites)")
 end
 
 function Base.show(io::IO, tto::TToperator{T, N}) where {T <: Number, N}
-    return print(io, "MPO{$T}($(tto.N) sites)")
+    return print(io, "MPO{$T}($(nsites(tto)) sites)")
 end
 
 function Base.show(io::IO, ::MIME"text/plain", tt::TTvector{T, N}) where {T <: Number, N}
-    println(io, "MPS{$T} with $(tt.N) sites")
+    println(io, "MPS{$T} with $(nsites(tt)) sites")
     println(io, "  Physical dims : $(tt.ttv_dims)")
     println(io, "  Bond dims     : $(tt.ttv_rks)")
     return print(io, "  Orthogonality : $(_ot_description(tt.ttv_ot))")
 end
 
 function Base.show(io::IO, ::MIME"text/plain", tto::TToperator{T, N}) where {T <: Number, N}
-    println(io, "MPO{$T} with $(tto.N) sites")
+    println(io, "MPO{$T} with $(nsites(tto)) sites")
     println(io, "  Physical dims : $(tto.tto_dims)")
     println(io, "  Bond dims     : $(tto.tto_rks)")
     return print(io, "  Orthogonality : $(_ot_description(tto.tto_ot))")
@@ -652,7 +703,7 @@ end
 Print an ASCII bond diagram of the TT structure to stdout.
 """
 function visualize(tt::TTvector)
-    N = tt.N
+    N = nsites(tt)
     dims = collect(tt.ttv_dims)
     ranks = tt.ttv_rks
     rwidth = max(maximum(length.(string.(ranks))), 2)
@@ -672,7 +723,7 @@ function visualize(tt::TTvector)
 end
 
 function visualize(tt::TToperator)
-    N = tt.N
+    N = nsites(tt)
     dims = collect(tt.tto_dims)
     ranks = tt.tto_rks
     total_length = 0
@@ -706,14 +757,14 @@ end
 Evaluate a binary (QTT) tensor train on the coarse grid spanned by its first
 `core` bits, returning `2^core` values in big-endian order (bit 1 is the most
 significant, matching `tuple_to_index`). The remaining sites are fixed at
-physical index 1 (bit value 0). For `core == qtt.N` this is the full grid
+physical index 1 (bit value 0). For `core == nsites(qtt)` this is the full grid
 vector, identical to [`qtt_to_vector`](@ref).
 
 The contraction is progressive — O(d·r²·2^core) — and never materializes the
 full tensor.
 """
 function matricize(qtt::TTvector{T}, core::Int)::Vector{T} where {T <: Number}
-    d = qtt.N
+    d = nsites(qtt)
     @assert 1 ≤ core ≤ d "core must be in 1:$(d)"
     @assert all(==(2), qtt.ttv_dims) "matricize expects binary (QTT) physical dimensions"
 
@@ -743,7 +794,7 @@ end
     concatenate(tt1::TTvector, tt2::TTvector) -> TTvector
     concatenate(A1::TToperator, A2::TToperator) -> TToperator
 
-Join two tensor trains into one with `tt1.N + tt2.N` cores: the cores of `tt1`
+Join two tensor trains into one with `nsites(tt1) + nsites(tt2)` cores: the cores of `tt1`
 followed by the cores of `tt2`. The last rank of the first argument must equal
 the first rank of the second; for standard boundary ranks of 1 the result
 represents the tensor (Kronecker) product.
@@ -753,13 +804,12 @@ function concatenate(tt1::TTvector, tt2::TTvector)
         throw(ArgumentError("The final rank of the first TTvector must equal the initial rank of the second TTvector."))
     end
 
-    N = tt1.N + tt2.N
     ttv_vec = vcat(tt1.ttv_vec, tt2.ttv_vec)
     ttv_dims = (tt1.ttv_dims..., tt2.ttv_dims...)
     ttv_rks = vcat(tt1.ttv_rks[1:(end - 1)], tt2.ttv_rks)
     ttv_ot = vcat(tt1.ttv_ot, tt2.ttv_ot)
 
-    return TTvector{eltype(tt1), length(ttv_dims)}(N, ttv_vec, ttv_dims, ttv_rks, ttv_ot)
+    return TTvector{eltype(tt1), length(ttv_dims)}(ttv_vec, ttv_dims, ttv_rks, ttv_ot)
 end
 
 
@@ -768,13 +818,12 @@ function concatenate(tt1::TToperator, tt2::TToperator)
         throw(ArgumentError("The final rank of the first TToperator must equal the initial rank of the second TToperator."))
     end
 
-    N = tt1.N + tt2.N
     tto_vec = vcat(tt1.tto_vec, tt2.tto_vec)
     tto_dims = (tt1.tto_dims..., tt2.tto_dims...)
     tto_rks = vcat(tt1.tto_rks[1:(end - 1)], tt2.tto_rks)
     tto_ot = vcat(tt1.tto_ot, tt2.tto_ot)
 
-    return TToperator{eltype(tt1), length(tto_dims)}(N, tto_vec, tto_dims, tto_rks, tto_ot)
+    return TToperator{eltype(tt1), length(tto_dims)}(tto_vec, tto_dims, tto_rks, tto_ot)
 end
 
 # Make `cores[k]` right-orthonormal and multiply the triangular factor into
@@ -844,7 +893,7 @@ end
 # Mutates the *contents* of x's containers (not just the field bindings) so
 # wrappers sharing them — e.g. `QTTvector` — observe the update.
 function _tt_truncate_sweep!(x::TTvector{T, N}, select::F) where {T <: Number, N, F}
-    d = x.N
+    d = nsites(x)
     y = orthogonalize(x; i = 1)
     for k in 1:d
         x.ttv_vec[k] = y.ttv_vec[k]
@@ -886,7 +935,7 @@ additionally caps every bond dimension. The result is left-canonical with the
 orthogonality center on the last core.
 """
 function tt_round!(x::TTvector{T, N}; trunc_tol::Real = 0.0, max_bond::Int = typemax(Int)) where {T <: Number, N}
-    return _tt_truncate_sweep!(x, s -> _trunc_rank(s, trunc_tol, x.N, max_bond))
+    return _tt_truncate_sweep!(x, s -> _trunc_rank(s, trunc_tol, nsites(x), max_bond))
 end
 
 """
@@ -908,7 +957,7 @@ function tt_compress!(ψ::TTvector{T, N}, max_bond::Int; trunc_tol::Real = 0.0, 
     sweeps ≥ 1 || throw(ArgumentError("`sweeps` must be ≥ 1; got $sweeps"))
     for sw in 1:sweeps
         verbosity ≥ 2 && @info "TT compress: sweep $sw"
-        _tt_truncate_sweep!(ψ, s -> _trunc_rank(s, trunc_tol, ψ.N, max_bond))
+        _tt_truncate_sweep!(ψ, s -> _trunc_rank(s, trunc_tol, nsites(ψ), max_bond))
     end
     return ψ
 end

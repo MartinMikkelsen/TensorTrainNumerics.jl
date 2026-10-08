@@ -266,8 +266,8 @@ end
     d = 5
     dims = ntuple(_ -> 2, d)
     A = Δ(d) + 3.0 * id_tto(d)
-    b = A * rand_tt(dims, 2; normalise = true)
-    x0 = rand_tt(dims, 2; normalise = true)
+    b = A * rand_tt(dims, 2; normalize = true)
+    x0 = rand_tt(dims, 2; normalize = true)
 
     out = progress_output(() -> linear_solve(A, b, x0, ALS(; max_sweeps = 3)))
     @test occursin(r"sweep: 3/3", out) && occursin("largest rank:", out)

@@ -102,7 +102,7 @@ function implicit_euler_method(
 end
 
 """
-    crank_nicholson_method(A, u₀, guess, steps; alg=MALS(), normalize=false, max_bond=0, return_info=false, show_progress=true, kwargs...)
+    crank_nicolson_method(A, u₀, guess, steps; alg=MALS(), normalize=false, max_bond=0, return_info=false, show_progress=true, kwargs...)
 
 Crank–Nicolson time stepping: solve `(I − h/2·A)·u_{n+1} = (I + h/2·A)·u_n` at
 every step with the TT linear solver `alg` (a [`LinearSolverAlgorithm`](@ref)).
@@ -112,7 +112,7 @@ dimension and, for [`Krylov`](@ref), also caps its operator applications. With
 `return_info = true` returns `(u, (; error))`, where `error` is the relative
 residual of the last step's linear system.
 """
-function crank_nicholson_method(
+function crank_nicolson_method(
         A::AbstractTToperator,
         u₀::AbstractTTvector,
         guess::AbstractTTvector,
@@ -128,7 +128,7 @@ function crank_nicholson_method(
     solution = (u₀)
     u_prev = (u₀)
     Id = _identity_like(A)
-    progress = _solver_progress(length(steps), show_progress; desc = "Crank-Nicholson method")
+    progress = _solver_progress(length(steps), show_progress; desc = "Crank-Nicolson method")
 
     t = 0.0
     for (step, h) in enumerate(steps)
@@ -157,6 +157,12 @@ function crank_nicholson_method(
     end
 
     return solution
+end
+
+# Deprecated: renamed to `crank_nicolson_method`.
+function crank_nicholson_method(args...; kwargs...)
+    Base.depwarn("`crank_nicholson_method` is deprecated, use `crank_nicolson_method`.", :crank_nicholson_method)
+    return crank_nicolson_method(args...; kwargs...)
 end
 
 """

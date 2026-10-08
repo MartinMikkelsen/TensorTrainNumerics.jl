@@ -219,7 +219,7 @@ end
 _check_qtt(a, b) = nothing
 
 function _amen_check(A::AbstractTToperator, x::AbstractTTvector)
-    A.N ≥ 2 || throw(ArgumentError("AMEn needs at least 2 cores; got $(A.N)"))
+    nsites(A) ≥ 2 || throw(ArgumentError("AMEn needs at least 2 cores; got $(nsites(A))"))
     A.tto_dims == x.ttv_dims || throw(
         DimensionMismatch("operator dimensions $(A.tto_dims) and vector dimensions $(x.ttv_dims) do not match")
     )
@@ -239,7 +239,7 @@ function _amen_solve(
         local_solver::Symbol, local_threshold::Int, local_maxiter::Int, local_tol::Real,
         verbosity::Int, show_progress::Bool, name::String
     ) where {T}
-    d = x0.N
+    d = nsites(x0)
     s = _AMEnState([convert(Array{T, 3}, c) for c in x0.ttv_vec], kickrank)
     cores = [convert(Array{T, 4}, c) for c in A.tto_vec]
     local_opts = (; local_solver, local_threshold, local_maxiter, local_tol)
@@ -260,7 +260,7 @@ function _amen_solve(
     sweeps < max_sweeps && finish!(progress)
     converged || verbosity == 0 || @warn "$name did not converge" sweeps residual tol
     rks = [1; [size(c, 3) for c in s.x]]
-    x = TTvector{T, d}(d, s.x, x0.ttv_dims, rks, [fill(1, d - 1); 0])
+    x = TTvector{T, d}(s.x, x0.ttv_dims, rks, [fill(1, d - 1); 0])
     return _rewrap(x0, x), (; converged, sweeps, residual)
 end
 

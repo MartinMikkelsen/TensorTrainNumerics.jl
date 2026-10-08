@@ -17,7 +17,7 @@ end
 function energy(u, K, V, ω, g)
     s = dot(u, u)
     w = hadamard(u, u)
-    return dot(u, (K + (ω^2 / 2) * V) * u) / s + (g * 2.0^u.N / 2) * dot(w, w) / s^2
+    return dot(u, (K + (ω^2 / 2) * V) * u) / s + (g * 2.0^nsites(u) / 2) * dot(w, w) / s^2
 end
 
 # Ground state by multigrid renormalization: solve on 2^L0 points, then prolong
@@ -40,7 +40,7 @@ E = energy(u, K, V, ω, g)
 println("E*(ω = $ω, g = $g) = $E   (TT ranks $(u.ttv_rks))")
 
 # Gradient of F with respect to the TT cores, holding ranks and dimensions fixed.
-core_grad(v) = only(Zygote.gradient(cs -> energy(TTvector(L, cs, v.ttv_dims, v.ttv_rks, v.ttv_ot), K, V, ω, g), v.ttv_vec))
+core_grad(v) = only(Zygote.gradient(cs -> energy(TTvector(cs, v.ttv_dims, v.ttv_rks, v.ttv_ot), K, V, ω, g), v.ttv_vec))
 gradnorm(v) = sqrt(sum(sum(abs2, c) for c in core_grad(v)))
 u_trial = orthogonalize(function_to_qtt(x -> sin(π * x), L))
 println("‖∇_cores F‖ at sin(πx): $(gradnorm(u_trial / norm(u_trial)))   at the ground state: $(gradnorm(u))")

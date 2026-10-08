@@ -56,7 +56,7 @@ end
     dims = (2, 2, 2)
     # Bond ranks 5 and 3 exceed `n * r_right` of the core to their right (4 and 2).
     cores = [randn(T, 2, 1, 5), randn(T, 2, 5, 3), randn(T, 2, 3, 1)]
-    as_tt(c) = TTvector{T, 3}(3, c, dims, [1; [size(ck, 3) for ck in c]], zeros(Int, 3))
+    as_tt(c) = TTvector{T, 3}(c, dims, [1; [size(ck, 3) for ck in c]], zeros(Int, 3))
     before = ttv_to_tensor(as_tt(copy(cores)))
 
     for k in 3:-1:2
@@ -85,7 +85,7 @@ end
     d = 6
     dims = ntuple(_ -> 2, d)
     A = Δ(d) + 0.5 * id_tto(d)
-    b = rand_tt(dims, 3; normalise = true)
+    b = rand_tt(dims, 3; normalize = true)
     x0 = rand_tt(dims, 1)
     x, info = linear_solve(A, b, x0, AMEn(tol = 1.0e-8, return_info = true, show_progress = false))
     ref = amen_matrix(A) \ amen_vector(b)
@@ -104,7 +104,7 @@ end
     d = 6
     dims = ntuple(_ -> 2, d)
     A = Δ(d) + 0.5 * id_tto(d)
-    x_true = rand_tt(dims, 3; normalise = true)
+    x_true = rand_tt(dims, 3; normalize = true)
     b = A * x_true
     x = linear_solve(A, b, rand_tt(dims, 1), AMEn(tol = 1.0e-8, show_progress = false))
     @test norm(amen_vector(x) - amen_vector(x_true)) ≤ 1.0e-6
@@ -117,7 +117,7 @@ end
     dims = ntuple(_ -> 2, d)
     A = Δ(d) + 0.3 * ∇(d) + 0.5 * id_tto(d)
     @test !issymmetric(amen_matrix(A))
-    b = rand_tt(dims, 3; normalise = true)
+    b = rand_tt(dims, 3; normalize = true)
     x, info = linear_solve(A, b, rand_tt(dims, 1), AMEn(tol = 1.0e-8, return_info = true, show_progress = false))
     @test info.converged
     @test amen_relres(A, x, b) ≤ 1.0e-7
@@ -140,7 +140,7 @@ end
     @test amen_relres(Ar, x, b) ≤ 1.0e-7
 
     A32 = TTN._convert_eltype(Float32, Ar)
-    b32 = TTN._convert_eltype(Float32, rand_tt(dims, 2; normalise = true))
+    b32 = TTN._convert_eltype(Float32, rand_tt(dims, 2; normalize = true))
     x32 = linear_solve(A32, b32, TTN._convert_eltype(Float32, rand_tt(dims, 1)), AMEn(tol = 1.0e-4, show_progress = false))
     @test eltype(x32) == Float32
     @test amen_relres(A32, x32, b32) ≤ 1.0e-3
@@ -159,7 +159,7 @@ end
     d = 6
     dims = ntuple(_ -> 2, d)
     A = Δ(d) + 0.5 * id_tto(d)
-    b = rand_tt(dims, 3; normalise = true)
+    b = rand_tt(dims, 3; normalize = true)
 
     x = linear_solve(A, b, rand_tt(dims, 1), AMEn(max_bond = 2, max_sweeps = 4, verbosity = 0, show_progress = false))
     @test maximum(x.ttv_rks) ≤ 2
@@ -180,7 +180,7 @@ end
     d = 6
     dims = ntuple(_ -> 2, d)
     A = Δ(d) + 0.5 * id_tto(d)
-    b = rand_tt(dims, 3; normalise = true)
+    b = rand_tt(dims, 3; normalize = true)
     x0 = rand_tt(dims, 1)
     @test_logs (:warn, r"did not converge") match_mode = :any linear_solve(A, b, x0, AMEn(max_sweeps = 1, tol = 1.0e-12, show_progress = false))
     @test_logs min_level = Logging.Warn linear_solve(A, b, x0, AMEn(max_sweeps = 1, tol = 1.0e-12, verbosity = 0, show_progress = false))
@@ -208,14 +208,14 @@ end
     d = 5
     dims = ntuple(_ -> 2, d)
     A = Δ(d) + 0.5 * id_tto(d)
-    b = rand_tt(dims, 2; normalise = true)
+    b = rand_tt(dims, 2; normalize = true)
 
     # Ranks above what the dimensions allow.
     x = linear_solve(A, b, rand_tt(dims, [1, 4, 6, 4, 2, 1]), AMEn(tol = 1.0e-8, show_progress = false))
     @test amen_relres(A, x, b) ≤ 1.0e-7
 
     # A guess that already solves the system.
-    x_true = rand_tt(dims, 2; normalise = true)
+    x_true = rand_tt(dims, 2; normalize = true)
     x, info = linear_solve(A, A * x_true, x_true, AMEn(tol = 1.0e-8, return_info = true, show_progress = false))
     @test info.converged
     @test info.sweeps ≤ 2
@@ -276,7 +276,7 @@ end
     d = 4
     dims = ntuple(_ -> 2, d)
     x0 = rand_tt(dims, 4)
-    b = rand_tt(dims, 2; normalise = true)
+    b = rand_tt(dims, 2; normalize = true)
 
     A = Δ(d) + 0.5 * id_tto(d)
     ref = amen_matrix(A) \ amen_vector(b)
@@ -317,7 +317,7 @@ end
     dims = ntuple(_ -> 2, d)
     A = -1.0 * Δ(d)
     M = amen_matrix(A)
-    u0 = rand_tt(dims, 2; normalise = true)
+    u0 = rand_tt(dims, 2; normalize = true)
     h = 0.01
     steps = fill(h, 3)
 
@@ -325,7 +325,7 @@ end
     ref = (I - h * M)^3 \ amen_vector(u0)
     @test norm(amen_vector(u) - ref) / norm(ref) ≤ 1.0e-6
 
-    u = crank_nicholson_method(A, u0, u0, steps; alg = AMEn(tol = 1.0e-10), show_progress = false)
+    u = crank_nicolson_method(A, u0, u0, steps; alg = AMEn(tol = 1.0e-10), show_progress = false)
     ref = ((I - h / 2 * M) \ (I + h / 2 * M))^3 * amen_vector(u0)
     @test norm(amen_vector(u) - ref) / norm(ref) ≤ 1.0e-6
 
@@ -370,7 +370,7 @@ end
     d = 8
     dims = ntuple(_ -> 2, d)
     A = 4.0^d * Δ(d)
-    b = rand_tt(dims, 2; normalise = true)
+    b = rand_tt(dims, 2; normalize = true)
     for tol in (1.0e-4, 1.0e-8)
         x, info = linear_solve(A, b, rand_tt(dims, 1), AMEn(; tol, return_info = true, show_progress = false))
         @test info.converged

@@ -13,7 +13,7 @@ Random.seed!(42)
     for nsites in 1:3, active in unique([1, nsites])
         local_ops = [k == active ? [0.0 0.0; 0.0 1.0] : Matrix{Float64}(I, 2, 2) for k in 1:nsites]
         H = TToperator(
-            nsites, [reshape(A, 2, 2, 1, 1) for A in local_ops],
+            [reshape(A, 2, 2, 1, 1) for A in local_ops],
             ntuple(_ -> 2, nsites), ones(Int, nsites + 1), zeros(Int, nsites)
         )
         # Site 1 is the fastest physical index in ttv_to_tensor.
@@ -214,7 +214,7 @@ end
     ψ2, F = tdvp1sweep!(complex(0.1), ψ, H0, nothing; verbose = false)
 
     @test dense_relerr(ψ2, ψ_ref) < 1.0e-12
-    @test length(F) == ψ.N + 2
+    @test length(F) == nsites(ψ) + 2
 end
 
 @testset "tdvp: basic behavior" begin
@@ -299,7 +299,7 @@ end
     H0 = (0.0 + 0.0im) * complex(id_tto(d))
 
     ψ1, F1 = tdvp2sweep!(0.1im, deepcopy(ψ0), H0, nothing; verbose = false)
-    @test length(F1) == ψ0.N + 2
+    @test length(F1) == nsites(ψ0) + 2
     @test size(F1[1]) == (1, 1, 1)
     @test size(F1[end]) == (1, 1, 1)
     @test isapprox(ttv_to_tensor(ψ1), ttv_to_tensor(ψ0); atol = 1.0e-10, rtol = 1.0e-10)
@@ -477,7 +477,7 @@ end
     Random.seed!(31)
     d = 4
     H = Δ(d)
-    u0 = rand_tt(ntuple(_ -> 2, d), 2; normalise = true)
+    u0 = rand_tt(ntuple(_ -> 2, d), 2; normalize = true)
     steps = [0.01, 0.01]
 
     ψ, info = tdvp(H, u0, steps; substeps = 2, return_info = true, show_progress = false)
@@ -497,7 +497,7 @@ end
 @testset "TDVP rejects keywords that KrylovKit.exponentiate does not take" begin
     d = 4
     H = Δ(d)
-    u0 = rand_tt(ntuple(_ -> 2, d), 2; normalise = true)
+    u0 = rand_tt(ntuple(_ -> 2, d), 2; normalize = true)
     @test_throws "unsupported keyword argument(s) verbose" tdvp(H, u0, [0.01]; verbose = true, show_progress = false)
     @test_throws "unsupported keyword argument(s) truncerr" tdvp2(H, u0, [0.01]; truncerr = 1.0e-8, show_progress = false)
     @test tdvp(H, u0, [0.01]; tol = 1.0e-12, krylovdim = 10, show_progress = false) isa TTvector

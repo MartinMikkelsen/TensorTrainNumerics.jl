@@ -9,7 +9,7 @@ Holtz, Sebastian, Thorsten Rohwedder, and Reinhold Schneider. "The alternating l
 
 function init_H(x_tt::AbstractTTvector, A_tto::AbstractTToperator, N::Int, rmax)
     T = eltype(x_tt)
-    d = x_tt.N
+    d = nsites(x_tt)
     H = Array{Array{T, 3}, 1}(undef, d + 1 - N)
     H[d + 1 - N] = ones(T, 1, 1, 1)
     rks = r_and_d_to_rks(vcat(1, rmax * ones(Int, d - 1), 1), x_tt.ttv_dims; rmax = rmax)
@@ -55,7 +55,7 @@ end
 
 function init_Hb(x_tt::AbstractTTvector, b_tt::AbstractTTvector, N::Integer, rmax)
     T = eltype(x_tt)
-    d = x_tt.N
+    d = nsites(x_tt)
     H_b = Array{Array{T, 2}, 1}(undef, d + 1 - N)
     H_b[d + 1 - N] = ones(T, 1, 1)
     rks = r_and_d_to_rks(vcat(1, rmax * ones(Int, d - 1), 1), x_tt.ttv_dims; rmax = rmax)
@@ -113,7 +113,7 @@ end
 
 function right_core_move!(x_tt::AbstractTTvector, V, V_move, i::Int, trunc_tol::Real, r_max::Integer; verbose::Bool = false, trunc_err = nothing)
     u_V, s_V, v_V = svd(reshape(V, x_tt.ttv_rks[i] * x_tt.ttv_dims[i], :))
-    x_tt.ttv_rks[i + 1] = _trunc_rank(s_V, trunc_tol, x_tt.N, r_max)
+    x_tt.ttv_rks[i + 1] = _trunc_rank(s_V, trunc_tol, nsites(x_tt), r_max)
     δ = _discarded_weight(s_V, x_tt.ttv_rks[i + 1])
     isnothing(trunc_err) || (trunc_err[] = max(trunc_err[], δ))
     verbose && @info "DMRG core move" bond = i + 1 rank = x_tt.ttv_rks[i + 1] max_rank = r_max truncation_error = δ
@@ -133,7 +133,7 @@ end
 
 function left_core_move!(x_tt::AbstractTTvector, V, V_move, j::Int, trunc_tol::Real, r_max::Integer; verbose::Bool = false, trunc_err = nothing)
     u_V, s_V, v_V = svd(reshape(V, :, x_tt.ttv_dims[j] * x_tt.ttv_rks[j + 1]))
-    x_tt.ttv_rks[j] = _trunc_rank(s_V, trunc_tol, x_tt.N, r_max)
+    x_tt.ttv_rks[j] = _trunc_rank(s_V, trunc_tol, nsites(x_tt), r_max)
     δ = _discarded_weight(s_V, x_tt.ttv_rks[j])
     isnothing(trunc_err) || (trunc_err[] = max(trunc_err[], δ))
     verbose && @info "DMRG core move" bond = j rank = x_tt.ttv_rks[j] max_rank = r_max truncation_error = δ
@@ -179,7 +179,7 @@ end
 
 function init_dmrg(A::AbstractTToperator, tt_opt::AbstractTTvector, rks, N::Integer)
     T = eltype(tt_opt)
-    d = tt_opt.N
+    d = nsites(tt_opt)
     rmax = maximum(rks)
     G = Array{Array{T, 3}, 1}(undef, d + 1 - N)
     Amid_list = Array{Array{T, 4}, 1}(undef, d + 1 - N)
@@ -201,7 +201,7 @@ end
 
 function init_dmrg_b(b::AbstractTTvector, tt_opt::AbstractTTvector, rks, N)
     T = eltype(b)
-    d = b.N
+    d = nsites(b)
     rmax = maximum(rks)
     G_b = zeros.(T, rks[1:(d + 1 - N)], b.ttv_rks[1:(d + 1 - N)]) #Array{Array{T,2},1}(undef, d+1-N)
     bmid_list = Array{Array{T, 3}, 1}(undef, d + 1 - N)
@@ -305,7 +305,7 @@ function _dmrg_linsolve_impl(
         return_info::Bool, verbosity::Int, show_progress::Bool
     )
     T = eltype(tt_start)
-    d = b.N
+    d = length(b.ttv_dims)
     rmax = maximum(max_bond)
     if nsites == 1
         tt_start = increase_ranks(tt_start, rmax)
@@ -360,7 +360,7 @@ function _dmrg_eigsolve_impl(
         local_solver::Symbol, local_threshold::Int, local_maxiter::Int, local_tol::Real,
         verbosity::Int, show_progress::Bool
     )
-    d = tt_start.N
+    d = length(tt_start.ttv_dims)
     tt_opt = orthogonalize(tt_start)
     dims = tt_start.ttv_dims
     rmax = maximum(max_bond)

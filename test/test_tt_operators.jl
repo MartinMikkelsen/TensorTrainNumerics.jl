@@ -479,7 +479,7 @@ end
     d = 3
     P = qtto_constant_prolongation(d)
     @test P isa TToperator{Float64, 4}
-    @test P.N == d + 1
+    @test nsites(P) == d + 1
     @test P.tto_dims == ntuple(_ -> 2, d + 1)
     @test size(P.tto_vec[end], 2) == 1
 
@@ -523,7 +523,7 @@ end
     d = 3
     P = qtto_linear_prolongation(d)
     @test P isa TToperator{Float64, 4}
-    @test P.N == d + 1
+    @test nsites(P) == d + 1
     @test P.tto_dims == ntuple(_ -> 2, d + 1)
     @test size(P.tto_vec[end], 2) == 1
 

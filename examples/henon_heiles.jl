@@ -25,7 +25,7 @@ function henon_heiles_hamiltonian(n; λ = 0.111803)
     right[:, :, 1, 1] = id
     right[:, :, 2, 1] = q
     right[:, :, 3, 1] = h0 - λ * q3 / 3
-    return TToperator(2, [left, right], (n, n), [1, 3, 1], [0, 0])
+    return TToperator([left, right], (n, n), [1, 3, 1], [0, 0])
 end
 
 function henon_heiles_trajectory(stepper, H, initial, reference, times, eigensystem; kwargs...)
@@ -73,7 +73,7 @@ function henon_heiles_example(; n = 16, λ = 0.111803, q0 = 0.7, fixed_rank = mi
         packet[k] = packet[k - 1] * α / sqrt(k - 1)
     end
     normalize!(packet) # Normalize the initial truncated packet only.
-    ψ0 = TTvector(2, [reshape(copy(packet), n, 1, 1) for _ in 1:2], (n, n), [1, 1, 1], [0, 0])
+    ψ0 = TTvector([reshape(copy(packet), n, 1, 1) for _ in 1:2], (n, n), [1, 1, 1], [0, 0])
     # Exact zero-padding gives fixed-rank TDVP room to develop entanglement.
     fixed_initial = fixed_rank == 1 ? copy(ψ0) : TensorTrainNumerics.increase_ranks(ψ0, fixed_rank; noise = 0.0)
     times = range(0.0; step = Float64(dt), length = nsteps + 1)

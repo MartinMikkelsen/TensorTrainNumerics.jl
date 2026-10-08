@@ -18,7 +18,7 @@ function pauli_product_tto(factors, d)
         local_matrix = haskey(factor_map, site) ? convert.(T, pauli_matrix(factor_map[site])) : id
         cores[site] = reshape(local_matrix, 2, 2, 1, 1)
     end
-    return TToperator{T, d}(d, cores, dims, ones(Int, d + 1), zeros(Int, d))
+    return TToperator{T, d}(cores, dims, ones(Int, d + 1), zeros(Int, d))
 end
 
 function periodic_transverse_field_ising_tto(d, g)
@@ -30,7 +30,7 @@ function periodic_transverse_field_ising_tto(d, g)
 end
 
 function z_magnetization(state)
-    d = state.N
+    d = nsites(state)
     probabilities = abs2.(qtt_to_function(state))
     probabilities ./= sum(probabilities)
 
@@ -132,7 +132,7 @@ loss_and_grad(ψ) = energy_and_gradient(ψ; bond = opt_bond)
 report(ψ) = (vals = energy_and_gradient(ψ); (vals[1], norm(vals[2])))
 
 Random.seed!(1)
-ψ0_ad = rand_tt(ntuple(_ -> 2, n), opt_bond; normalise = true)
+ψ0_ad = rand_tt(ntuple(_ -> 2, n), opt_bond; normalize = true)
 
 optimizer = LBFGS(; maxiter = 100, verbosity = 1)
 
@@ -169,7 +169,7 @@ using Zygote
 shapes_ad = size.(ψ0_ad.ttv_vec)
 offsets_ad = cumsum([0; prod.(shapes_ad)])
 unflatten_ad(θ) = [reshape(θ[(offsets_ad[k] + 1):offsets_ad[k + 1]], shapes_ad[k]) for k in 1:n]
-rebuild_ad(θ) = TTvector{Float64, n}(n, unflatten_ad(θ), ψ0_ad.ttv_dims, ψ0_ad.ttv_rks, ψ0_ad.ttv_ot)
+rebuild_ad(θ) = TTvector{Float64, n}(unflatten_ad(θ), ψ0_ad.ttv_dims, ψ0_ad.ttv_rks, ψ0_ad.ttv_ot)
 loss_ad(θ) = (ψ = rebuild_ad(θ); real(dot(ψ, H_ising * ψ)) / real(dot(ψ, ψ)))
 
 θ0 = vcat(vec.(ψ0_ad.ttv_vec)...)

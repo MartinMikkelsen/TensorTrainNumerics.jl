@@ -53,7 +53,7 @@ end
 ψ = u₀
 record!(ψ)
 for _ in 1:n_blocks
-    global ψ = crank_nicholson_method(
+    global ψ = crank_nicolson_method(
         A, ψ, ψ, fill(τ, block);
         normalize = false, alg = ALS()
     )

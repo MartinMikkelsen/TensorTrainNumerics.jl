@@ -188,7 +188,7 @@ For the parabolic problem $u_t = A u$, $u(0) = u_0$, three classical time-steppi
 |---|---|---|
 | `euler_method` | Explicit (forward) Euler | Conditionally stable, $\Delta t < 2/\|A\|$ |
 | `implicit_euler_method` | Implicit (backward) Euler | Unconditionally stable |
-| `crank_nicholson_method` | Crank–Nicolson | Unconditionally stable, second-order |
+| `crank_nicolson_method` | Crank–Nicolson | Unconditionally stable, second-order |
 | `expintegrator` | Krylov exponential integrator | Exact up to Krylov tolerance |
 
 ```@example timestep
@@ -209,7 +209,7 @@ steps = collect(range(0.0, 5.0, 500))
 
 sol_impl, info_impl = implicit_euler_method(A, u0, init, steps;
     return_info = true, normalize = false)
-sol_cn, info_cn     = crank_nicholson_method(A, u0, init, steps;
+sol_cn, info_cn     = crank_nicolson_method(A, u0, init, steps;
     return_info = true, alg = MALS(), normalize = false)
 sol_krylov, _       = expintegrator(A, last(steps), u0)
 

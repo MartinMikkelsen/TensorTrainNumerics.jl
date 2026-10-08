@@ -32,6 +32,7 @@ zeros_tto
 id_tto
 r_and_d_to_rks
 concatenate
+nsites
 Base.copy(::TTvector{T, N}) where {T <: Number, N}
 ```
 
@@ -70,7 +71,7 @@ orthogonalize(::TTvector{T, N}) where {T <: Number, N}
 tt_round!
 tt_round
 tt_compress!
-entanglemententropy
+entanglement_entropy
 visualize
 ```
 

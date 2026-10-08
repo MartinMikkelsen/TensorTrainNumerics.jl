@@ -268,15 +268,15 @@ end
 @testset "to_qtt and to_ttv" begin
     @testset "single-core big-endian split and merge" begin
         values = Float64.(1:6)
-        tt = TTvector{Float64, 1}(1, [reshape(values, 6, 1, 1)], (6,), [1, 1], [0])
+        tt = TTvector{Float64, 1}([reshape(values, 6, 1, 1)], (6,), [1, 1], [0])
 
         qtt = to_qtt(tt, [[2, 3]])
-        @test qtt.N == 2
+        @test nsites(qtt) == 2
         @test qtt.ttv_dims == (2, 3)
         @test ttv_to_tensor(qtt) ≈ [1.0 2.0 3.0; 4.0 5.0 6.0] atol = 1.0e-12
 
         merged = to_ttv(qtt, [2])
-        @test merged.N == 1
+        @test nsites(merged) == 1
         @test merged.ttv_dims == (6,)
         @test vec(ttv_to_tensor(merged)) ≈ values atol = 1.0e-12
     end
@@ -286,11 +286,11 @@ end
         tt = ttv_decomp(tensor)
 
         qtt = to_qtt(tt, [[2, 2], [2, 3]])
-        @test qtt.N == 4
+        @test nsites(qtt) == 4
         @test qtt.ttv_dims == (2, 2, 2, 3)
 
         merged = to_ttv(qtt, [2, 2])
-        @test merged.N == 2
+        @test nsites(merged) == 2
         @test merged.ttv_dims == (4, 6)
         @test ttv_to_tensor(merged) ≈ tensor atol = 1.0e-11
     end
@@ -310,7 +310,7 @@ end
 
     @testset "threshold truncates small relative singular values" begin
         values = [1.0, 0.0, 0.0, 1.0e-3]
-        tt = TTvector{Float64, 1}(1, [reshape(values, 4, 1, 1)], (4,), [1, 1], [0])
+        tt = TTvector{Float64, 1}([reshape(values, 4, 1, 1)], (4,), [1, 1], [0])
 
         exact = to_qtt(tt, [[2, 2]])
         truncated = to_qtt(tt, [[2, 2]]; threshold = 1.0e-2)
@@ -322,7 +322,7 @@ end
     end
 
     @testset "invalid split and merge metadata throws" begin
-        tt = TTvector{Float64, 1}(1, [reshape(Float64.(1:4), 4, 1, 1)], (4,), [1, 1], [0])
+        tt = TTvector{Float64, 1}([reshape(Float64.(1:4), 4, 1, 1)], (4,), [1, 1], [0])
 
         @test_throws AssertionError to_qtt(tt, [[2, 2], [2]])
         @test_throws AssertionError to_qtt(tt, [[2, 3]])
@@ -406,7 +406,7 @@ end
     @test qtt_to_function(tt3) ≈ qtt_to_vector(tt3)
 
     dims = (2, 2, 2, 2, 2, 2)
-    A = rand_tt(dims, 5; normalise = true)
+    A = rand_tt(dims, 5; normalize = true)
     @test qtt_to_function(A) ≈ qtt_to_vector(A)
 
 end

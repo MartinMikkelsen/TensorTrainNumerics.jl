@@ -9,7 +9,7 @@ d = 10
 H = heisenberg_xyz_tto(d; jx = 1.1, jy = 0.8, jz = 1.2, λ = 1.1, field = :x)
 
 x0_ranks = vcat(1, fill(2, d - 1), 1)
-x0 = rand_tt(eltype(H), H.tto_dims, x0_ranks; normalise = true)
+x0 = rand_tt(eltype(H), H.tto_dims, x0_ranks; normalize = true)
 
 energies, ground_state, rank_history = eigen_solve(
     H,
@@ -21,7 +21,7 @@ H_dense = qtto_to_matrix(H)
 exact_ground_energy = first(eigvals(Hermitian(H_dense)))
 dmrg_ground_energy = energies[end]
 energy_error = abs(dmrg_ground_energy - exact_ground_energy)
-ground_entropy = entanglemententropy(ground_state; base = 2)
+ground_entropy = entanglement_entropy(ground_state; base = 2)
 
 @info "Heisenberg XYZ ground state" sites = d hamiltonian_rank = maximum(H.tto_rks) state_rank = maximum(ground_state.ttv_rks) dmrg_ground_energy exact_ground_energy energy_error final_sweep_rank = rank_history[end]
 
@@ -40,16 +40,16 @@ nsteps = 100
 times = collect(0:dt:(nsteps * dt))
 
 function entropy_trajectory(H, initial_state, dt, nsteps; max_bond = 8, trunc_tol = 1.0e-10)
-    d = initial_state.N
+    d = nsites(initial_state)
     state = initial_state
     entropy_history = zeros(Float64, nsteps + 1, d - 1)
     rank_history = zeros(Int, nsteps + 1)
-    entropy_history[1, :] .= entanglemententropy(state; base = 2)
+    entropy_history[1, :] .= entanglement_entropy(state; base = 2)
     rank_history[1] = maximum(state.ttv_rks)
 
     for step in 1:nsteps
         state = tdvp2(H, state, [dt]; normalize = true, substeps = 1, max_bond = max_bond, trunc_tol, verbosity = 0)
-        entropy_history[step + 1, :] .= entanglemententropy(state; base = 2)
+        entropy_history[step + 1, :] .= entanglement_entropy(state; base = 2)
         rank_history[step + 1] = maximum(state.ttv_rks)
     end
     return entropy_history, rank_history

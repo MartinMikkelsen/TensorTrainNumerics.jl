@@ -14,7 +14,7 @@ end
 
 function init_H_mals(x_tt::AbstractTTvector, A::AbstractTToperator, rmax::Int)
     T = eltype(x_tt)
-    d = x_tt.N
+    d = nsites(x_tt)
     H = Array{Array{T, 5}}(undef, d - 1)
     # H[d-1] from the last operator core
     H[d - 1] = reshape(
@@ -51,7 +51,7 @@ end
 
 function init_Hb_mals(x_tt::AbstractTTvector, b::AbstractTTvector, rmax::Int)
     T = eltype(x_tt)
-    d = x_tt.N
+    d = nsites(x_tt)
     Hb = Array{Array{T, 3}}(undef, d - 1)
     # Base case: H_b[d-1] from the last vector core
     Hb[d - 1] = reshape(
@@ -80,7 +80,7 @@ function left_core_move_mals(
         trunc_tol::Real, max_bond::Integer; trunc_err = nothing
     ) where {T <: Number}
     u_V, s_V, v_V = svd(reshape(V, prod(size(V)[1:2]), :))
-    xtt.ttv_rks[i + 1] = _trunc_rank(s_V, trunc_tol, xtt.N, max_bond)
+    xtt.ttv_rks[i + 1] = _trunc_rank(s_V, trunc_tol, nsites(xtt), max_bond)
     isnothing(trunc_err) || (trunc_err[] = max(trunc_err[], _discarded_weight(s_V, xtt.ttv_rks[i + 1])))
 
     # Update the (i+1)-th core from truncated V-matrix
@@ -106,7 +106,7 @@ function right_core_move_mals(
         trunc_tol::Real, max_bond::Integer; trunc_err = nothing
     ) where {T <: Number}
     u_V, s_V, v_V = svd(reshape(V, prod(size(V)[1:2]), :))
-    xtt.ttv_rks[i + 1] = _trunc_rank(s_V, trunc_tol, xtt.N, max_bond)
+    xtt.ttv_rks[i + 1] = _trunc_rank(s_V, trunc_tol, nsites(xtt), max_bond)
     isnothing(trunc_err) || (trunc_err[] = max(trunc_err[], _discarded_weight(s_V, xtt.ttv_rks[i + 1])))
 
     # Update the i-th core from truncated U
@@ -207,7 +207,7 @@ function _mals_linsolve_impl(
         return_info::Bool, verbosity::Int, show_progress::Bool
     )
     T = eltype(tt_start)
-    d = b.N
+    d = nsites(b)
 
     tt_opt = orthogonalize(tt_start)
     dims = tt_start.ttv_dims
@@ -278,7 +278,7 @@ function _mals_eigsolve_impl(
         verbosity::Int, show_progress::Bool
     )
     T = eltype(tt_start)
-    d = A.N
+    d = nsites(A)
     tt_opt = orthogonalize(tt_start)
     dims = tt_start.ttv_dims
     E = Float64[]

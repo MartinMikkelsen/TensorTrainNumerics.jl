@@ -35,7 +35,7 @@ end
     x = als_linsolve(A, b, x0)
 
     @test x isa TTvector{Float64, 3}
-    @test x.N == 3
+    @test nsites(x) == 3
     @test x.ttv_dims == dims
 end
 
@@ -144,13 +144,13 @@ end
 @testset "als_eigsolve: return type and structure" begin
     d = 4
     A = als_spd_op(d)
-    x0 = rand_tt(ntuple(_ -> 2, d), [1, 2, 2, 2, 1]; normalise = true)
+    x0 = rand_tt(ntuple(_ -> 2, d), [1, 2, 2, 2, 1]; normalize = true)
 
     E, x_opt = als_eigsolve(A, x0; max_sweeps = 1, max_bond = 2, noise = 0.0)
 
     @test E isa Vector{Float64}
     @test x_opt isa TTvector{Float64}
-    @test x_opt.N == d
+    @test nsites(x_opt) == d
     @test x_opt.ttv_dims == ntuple(_ -> 2, d)
     @test length(E) ≥ 1
     @test all(isfinite, E)
@@ -160,7 +160,7 @@ end
     d = 4
     shift = 3.0
     A = als_spd_op(d, shift)
-    x0 = rand_tt(ntuple(_ -> 2, d), [1, 2, 2, 2, 1]; normalise = true)
+    x0 = rand_tt(ntuple(_ -> 2, d), [1, 2, 2, 2, 1]; normalize = true)
 
     E, x_opt = als_eigsolve(A, x0; max_sweeps = 3, max_bond = 2)
 
@@ -173,7 +173,7 @@ end
 @testset "als_eigsolve: eigenvalue non-increasing over sweeps" begin
     d = 4
     A = als_spd_op(d, 2.0)
-    x0 = rand_tt(ntuple(_ -> 2, d), [1, 2, 2, 2, 1]; normalise = true)
+    x0 = rand_tt(ntuple(_ -> 2, d), [1, 2, 2, 2, 1]; normalize = true)
 
     E, _ = als_eigsolve(A, x0; max_sweeps = 3, max_bond = 2)
 
@@ -183,7 +183,7 @@ end
 @testset "als_eigsolve: multi-stage schedule with rank growth and noise" begin
     d = 4
     A = als_spd_op(d, 2.0)
-    x0 = rand_tt(ntuple(_ -> 2, d), [1, 1, 1, 1, 1]; normalise = true)
+    x0 = rand_tt(ntuple(_ -> 2, d), [1, 1, 1, 1, 1]; normalize = true)
 
     E, x_opt = als_eigsolve(
         A, x0;
@@ -200,7 +200,7 @@ end
 @testset "als_eigsolve: iterative solver path" begin
     d = 4
     A = als_spd_op(d, 2.0)
-    x0 = rand_tt(ntuple(_ -> 2, d), [1, 2, 2, 2, 1]; normalise = true)
+    x0 = rand_tt(ntuple(_ -> 2, d), [1, 2, 2, 2, 1]; normalize = true)
 
     E, x_opt = als_eigsolve(
         A, x0;
@@ -213,29 +213,29 @@ end
 end
 
 
-@testset "als_gen_eigsolv: return type and structure (S = I)" begin
+@testset "als_gen_eigsolve: return type and structure (S = I)" begin
     d = 4
     A = als_spd_op(d, 3.0)
     S = id_tto(d)
-    x0 = rand_tt(ntuple(_ -> 2, d), [1, 2, 2, 2, 1]; normalise = true)
+    x0 = rand_tt(ntuple(_ -> 2, d), [1, 2, 2, 2, 1]; normalize = true)
 
-    result = als_gen_eigsolv(A, S, x0; sweep_schedule = [2], rmax_schedule = [2])
+    result = als_gen_eigsolve(A, S, x0; sweep_schedule = [2], rmax_schedule = [2])
 
     @test result !== nothing
     E, x_opt = result
     @test E isa AbstractVector
     @test x_opt isa TTvector{Float64}
-    @test x_opt.N == d
+    @test nsites(x_opt) == d
 end
 
-@testset "als_gen_eigsolv: Ax = λx with S=I matches als_eigsolve" begin
+@testset "als_gen_eigsolve: Ax = λx with S=I matches als_eigsolve" begin
     d = 4
     shift = 2.0
     A = als_spd_op(d, shift)
     S = id_tto(d)
-    x0 = rand_tt(ntuple(_ -> 2, d), [1, 2, 2, 2, 1]; normalise = true)
+    x0 = rand_tt(ntuple(_ -> 2, d), [1, 2, 2, 2, 1]; normalize = true)
 
-    result = als_gen_eigsolv(A, S, x0; sweep_schedule = [2], rmax_schedule = [2])
+    result = als_gen_eigsolve(A, S, x0; sweep_schedule = [2], rmax_schedule = [2])
     @test result !== nothing
     E_gen, _ = result
 
@@ -244,13 +244,13 @@ end
     @test isapprox(E_gen[end], E_std[end]; rtol = 0.05)
 end
 
-@testset "als_gen_eigsolv: multi-stage schedule grows ranks" begin
+@testset "als_gen_eigsolve: multi-stage schedule grows ranks" begin
     d = 3
     A = als_spd_op(d, 2.0)
     S = id_tto(d)
-    x0 = rand_tt(ntuple(_ -> 2, d), [1, 1, 1, 1]; normalise = true)
+    x0 = rand_tt(ntuple(_ -> 2, d), [1, 1, 1, 1]; normalize = true)
 
-    result = als_gen_eigsolv(A, S, x0; sweep_schedule = [1, 2], rmax_schedule = [1, 2])
+    result = als_gen_eigsolve(A, S, x0; sweep_schedule = [1, 2], rmax_schedule = [1, 2])
 
     @test result !== nothing
     E, x_opt = result
@@ -259,13 +259,13 @@ end
     @test all(isfinite, E)
 end
 
-@testset "als_gen_eigsolv: iterative local eigensolver path" begin
+@testset "als_gen_eigsolve: iterative local eigensolver path" begin
     d = 3
     A = als_spd_op(d, 2.0)
     S = id_tto(d)
-    x0 = rand_tt(ntuple(_ -> 2, d), [1, 2, 2, 1]; normalise = true)
+    x0 = rand_tt(ntuple(_ -> 2, d), [1, 2, 2, 1]; normalize = true)
 
-    result = als_gen_eigsolv(
+    result = als_gen_eigsolve(
         A, S, x0;
         sweep_schedule = [2],
         rmax_schedule = [2],
@@ -296,8 +296,8 @@ end
     d = 6
     dims = ntuple(_ -> 2, d)
     A = Δ(d) + 3.0 * id_tto(d)
-    b = A * rand_tt(dims, 2; normalise = true)          # exact solution has rank 2
-    x0 = rand_tt(dims, 2; normalise = true)
+    b = A * rand_tt(dims, 2; normalize = true)          # exact solution has rank 2
+    x0 = rand_tt(dims, 2; normalize = true)
 
     logs, x = Test.collect_test_logs() do
         linear_solve(A, b, x0, ALS(; max_sweeps = 3, verbosity = 2, show_progress = false))
@@ -316,7 +316,7 @@ end
 
     # Stage 1 applies max_bond from the start; a scalar max_bond with two stages
     # raises the ranks once.
-    g1 = rand_tt(dims, 1; normalise = true)
+    g1 = rand_tt(dims, 1; normalize = true)
     E, x = eigen_solve(A, g1, ALS(; max_bond = 4, max_sweeps = [1, 1], noise = 1.0e-3, show_progress = false))
     @test maximum(x.ttv_rks) == 4
     @test length(E) == 2 * 2 * (d - 1)

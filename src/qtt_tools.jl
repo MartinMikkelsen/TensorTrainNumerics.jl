@@ -22,8 +22,8 @@ end
 
 # With a single site there is nothing to chain: the one core holds the values at
 # the two grid points (or the 2 × 2 matrix of an operator) directly.
-_single_site_qtt(values) = TTvector{eltype(values), 1}(1, [reshape(collect(values), 2, 1, 1)], (2,), [1, 1], [0])
-_single_site_qtto(M) = TToperator{eltype(M), 1}(1, [reshape(collect(M), 2, 2, 1, 1)], (2,), [1, 1], [0])
+_single_site_qtt(values) = TTvector{eltype(values), 1}([reshape(collect(values), 2, 1, 1)], (2,), [1, 1], [0])
+_single_site_qtto(M) = TToperator{eltype(M), 1}([reshape(collect(M), 2, 2, 1, 1)], (2,), [1, 1], [0])
 
 """
     index_to_point(t; L=1.0) -> Float64
@@ -112,7 +112,7 @@ most significant bit. The contraction is progressive and never forms the
 `2 × ⋯ × 2` tensor.
 """
 function qtt_to_vector(qtt::TTvector{T}) where {T}
-    d = qtt.N
+    d = nsites(qtt)
     P = qtt.ttv_vec[1][:, 1, :]
     for k in 2:d
         G = qtt.ttv_vec[k]
@@ -382,7 +382,7 @@ function to_qtt(
     end
 
     N_new = length(qtt_cores)
-    return TTvector{T, N_new}(N_new, qtt_cores, Tuple(new_dims), new_rks, zeros(Int64, N_new))
+    return TTvector{T, N_new}(qtt_cores, Tuple(new_dims), new_rks, zeros(Int64, N_new))
 end
 
 """
@@ -432,7 +432,7 @@ function to_ttv(qtt::TTvector{T, M}, merge_numbers::Vector{Int}) where {T <: Num
     N_new = length(tt_cores)
     new_dims = ntuple(i -> size(tt_cores[i], 1), N_new)
     new_rks = vcat([size(c, 2) for c in tt_cores], size(tt_cores[end], 3))
-    return TTvector{T, N_new}(N_new, tt_cores, new_dims, new_rks, zeros(Int64, N_new))
+    return TTvector{T, N_new}(tt_cores, new_dims, new_rks, zeros(Int64, N_new))
 end
 
 """
@@ -444,7 +444,6 @@ Identical TT fields as `TTvector` plus:
 - `ordering`: `:interleaved` or `:serial`
 """
 struct QTTvector{T <: Number, M} <: AbstractTTvector
-    N::Int64
     ttv_vec::Vector{Array{T, 3}}
     ttv_dims::NTuple{M, Int64}
     ttv_rks::Vector{Int64}
@@ -458,7 +457,6 @@ end
 A Quantized Tensor Train operator with explicit multi-dimensional ordering metadata.
 """
 struct QTToperator{T <: Number, M} <: AbstractTToperator
-    N::Int64
     tto_vec::Array{Array{T, 4}, 1}
     tto_dims::NTuple{M, Int64}
     tto_rks::Array{Int64, 1}
@@ -472,11 +470,11 @@ Base.eltype(::QTTvector{T, M}) where {T, M} = T
 Base.eltype(::QTToperator{T, M}) where {T, M} = T
 
 function Base.show(io::IO, q::QTTvector{T, M}) where {T, M}
-    return print(io, "QTT-MPS{$T}($(q.N) sites, $(q.n_dims)d×$(q.bits_per_dim)bits, $(q.ordering))")
+    return print(io, "QTT-MPS{$T}($(nsites(q)) sites, $(q.n_dims)d×$(q.bits_per_dim)bits, $(q.ordering))")
 end
 
 function Base.show(io::IO, ::MIME"text/plain", q::QTTvector{T, M}) where {T, M}
-    println(io, "QTT-MPS{$T} with $(q.N) sites")
+    println(io, "QTT-MPS{$T} with $(nsites(q)) sites")
     println(io, "  Dimensions    : $(q.n_dims)d × $(q.bits_per_dim) bits/dim  ($(q.n_dims * 2^q.bits_per_dim) grid points per dim)")
     println(io, "  Ordering      : $(q.ordering)")
     println(io, "  Physical dims : $(q.ttv_dims)")
@@ -485,11 +483,11 @@ function Base.show(io::IO, ::MIME"text/plain", q::QTTvector{T, M}) where {T, M}
 end
 
 function Base.show(io::IO, A::QTToperator{T, M}) where {T, M}
-    return print(io, "QTT-MPO{$T}($(A.N) sites, $(A.n_dims)d×$(A.bits_per_dim)bits, $(A.ordering))")
+    return print(io, "QTT-MPO{$T}($(nsites(A)) sites, $(A.n_dims)d×$(A.bits_per_dim)bits, $(A.ordering))")
 end
 
 function Base.show(io::IO, ::MIME"text/plain", A::QTToperator{T, M}) where {T, M}
-    println(io, "QTT-MPO{$T} with $(A.N) sites")
+    println(io, "QTT-MPO{$T} with $(nsites(A)) sites")
     println(io, "  Dimensions    : $(A.n_dims)d × $(A.bits_per_dim) bits/dim  ($(A.n_dims * 2^A.bits_per_dim) grid points per dim)")
     println(io, "  Ordering      : $(A.ordering)")
     println(io, "  Physical dims : $(A.tto_dims)")
@@ -511,10 +509,10 @@ Wrap a `TTvector` as a `QTTvector` by specifying multi-dimensional QTT metadata.
 All physical dimensions in `ttv` must be 2.
 """
 function QTTvector(ttv::TTvector{T, M}, n_dims::Int, bits_per_dim::Int, ordering::Symbol) where {T, M}
-    @assert n_dims * bits_per_dim == ttv.N "n_dims * bits_per_dim must equal ttv.N (got $(n_dims)*$(bits_per_dim)=$(n_dims * bits_per_dim) ≠ $(ttv.N))"
+    @assert n_dims * bits_per_dim == nsites(ttv) "n_dims * bits_per_dim must equal nsites(ttv) (got $(n_dims)*$(bits_per_dim)=$(n_dims * bits_per_dim) ≠ $(nsites(ttv)))"
     @assert all(==(2), ttv.ttv_dims) "All physical dimensions must be 2 for QTT (got $(ttv.ttv_dims))"
     @assert ordering ∈ (:interleaved, :serial) "ordering must be :interleaved or :serial (got $ordering)"
-    return QTTvector{T, M}(ttv.N, ttv.ttv_vec, ttv.ttv_dims, ttv.ttv_rks, ttv.ttv_ot, n_dims, bits_per_dim, ordering)
+    return QTTvector{T, M}(ttv.ttv_vec, ttv.ttv_dims, ttv.ttv_rks, ttv.ttv_ot, n_dims, bits_per_dim, ordering)
 end
 
 """
@@ -531,10 +529,10 @@ Wrap a `TToperator` as a `QTToperator` by specifying multi-dimensional QTT metad
 All physical dimensions in `tto` must be 2.
 """
 function QTToperator(tto::TToperator{T, M}, n_dims::Int, bits_per_dim::Int, ordering::Symbol) where {T, M}
-    @assert n_dims * bits_per_dim == tto.N "n_dims * bits_per_dim must equal tto.N (got $(n_dims)*$(bits_per_dim)=$(n_dims * bits_per_dim) ≠ $(tto.N))"
+    @assert n_dims * bits_per_dim == nsites(tto) "n_dims * bits_per_dim must equal nsites(tto) (got $(n_dims)*$(bits_per_dim)=$(n_dims * bits_per_dim) ≠ $(nsites(tto)))"
     @assert all(==(2), tto.tto_dims) "All physical dimensions must be 2 for QTT (got $(tto.tto_dims))"
     @assert ordering ∈ (:interleaved, :serial) "ordering must be :interleaved or :serial (got $ordering)"
-    return QTToperator{T, M}(tto.N, tto.tto_vec, tto.tto_dims, tto.tto_rks, tto.tto_ot, n_dims, bits_per_dim, ordering)
+    return QTToperator{T, M}(tto.tto_vec, tto.tto_dims, tto.tto_rks, tto.tto_ot, n_dims, bits_per_dim, ordering)
 end
 
 """
@@ -543,10 +541,10 @@ end
 Strip QTT metadata to recover the underlying `TTvector`.
 """
 TTvector(q::QTTvector{T, M}) where {T, M} =
-    TTvector{T, M}(q.N, q.ttv_vec, q.ttv_dims, q.ttv_rks, q.ttv_ot)
+    TTvector{T, M}(q.ttv_vec, q.ttv_dims, q.ttv_rks, q.ttv_ot)
 
-function entanglemententropy(q::QTTvector; base::Real = exp(1.0))
-    return entanglemententropy(TTvector(q); base = base)
+function entanglement_entropy(q::QTTvector; base::Real = exp(1.0))
+    return entanglement_entropy(TTvector(q); base = base)
 end
 
 """
@@ -555,7 +553,7 @@ end
 Strip QTT metadata to recover the underlying `TToperator`.
 """
 TToperator(q::QTToperator{T, M}) where {T, M} =
-    TToperator{T, M}(q.N, q.tto_vec, q.tto_dims, q.tto_rks, q.tto_ot)
+    TToperator{T, M}(q.tto_vec, q.tto_dims, q.tto_rks, q.tto_ot)
 
 """
     check_compat(a::QTTvector, b::QTTvector)
@@ -653,7 +651,7 @@ end
 
 function Base.copy(A::QTToperator{T, M}) where {T, M}
     tto = TToperator(A)
-    tto_copy = TToperator{T, M}(tto.N, copy.(tto.tto_vec), tto.tto_dims, copy(tto.tto_rks), copy(tto.tto_ot))
+    tto_copy = TToperator{T, M}(copy.(tto.tto_vec), tto.tto_dims, copy(tto.tto_rks), copy(tto.tto_ot))
     return QTToperator(tto_copy, A.n_dims, A.bits_per_dim, A.ordering)
 end
 
@@ -807,7 +805,7 @@ function reorder(q::QTTvector, new_ordering::Symbol; threshold::Real = 0.0)
 
     n_dims = q.n_dims
     bits_per_dim = q.bits_per_dim
-    N = q.N
+    N = nsites(q)
 
     perm = zeros(Int, N)
     if q.ordering == :serial && new_ordering == :interleaved
@@ -841,7 +839,7 @@ function reorder(q::QTTvector, new_ordering::Symbol; threshold::Real = 0.0)
         rks[k + 1] = size(cores[k], 3)
     end
     dims = ntuple(_ -> 2, N)
-    new_ttv = TTvector{eltype(q), N}(N, cores, dims, rks, zeros(Int, N))
+    new_ttv = TTvector{eltype(q), N}(cores, dims, rks, zeros(Int, N))
     return QTTvector(new_ttv, n_dims, bits_per_dim, new_ordering)
 end
 
@@ -984,7 +982,7 @@ function reorder(A::QTToperator, new_ordering::Symbol; threshold::Real = 0.0)
 
     n_dims = A.n_dims
     bits_per_dim = A.bits_per_dim
-    N = A.N
+    N = nsites(A)
 
     # Build the same permutation as for QTTvector reorder
     perm = zeros(Int, N)
@@ -1016,7 +1014,7 @@ function reorder(A::QTToperator, new_ordering::Symbol; threshold::Real = 0.0)
         rks[k + 1] = size(cores[k], 4)
     end
     dims = ntuple(_ -> 2, N)
-    new_tto = TToperator{eltype(A), N}(N, cores, dims, rks, zeros(Int, N))
+    new_tto = TToperator{eltype(A), N}(cores, dims, rks, zeros(Int, N))
     return QTToperator(new_tto, n_dims, bits_per_dim, new_ordering)
 end
 
@@ -1027,7 +1025,7 @@ Contract the TT chain and return an `n_dims`-dimensional array of size `2^bits_p
 per dimension, with values ordered on the uniform grid (index 1 = leftmost grid point).
 """
 function qttv_to_array(q::QTTvector)
-    N = q.N
+    N = nsites(q)
     n_dims = q.n_dims
     bits_per_dim = q.bits_per_dim
     ordering = q.ordering

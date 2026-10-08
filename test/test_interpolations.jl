@@ -13,11 +13,11 @@ import TensorCrossInterpolation as TCI
 
     tt = to_ttvector(tt_tci)
     @test tt isa TTvector
-    @test tt.N == numbits
+    @test nsites(tt) == numbits
     @test tt.ttv_rks[1] == 1
     @test tt.ttv_rks[end] == 1
     @test all(d -> d == 2, tt.ttv_dims)
-    for k in 1:tt.N
+    for k in 1:nsites(tt)
         @test size(tt.ttv_vec[k], 2) == tt.ttv_rks[k]
         @test size(tt.ttv_vec[k], 3) == tt.ttv_rks[k + 1]
     end
@@ -47,12 +47,12 @@ end
     tt = to_ttvector(tt_tci)
 
     @test tt isa TTvector
-    @test tt.N == numbits
+    @test nsites(tt) == numbits
     @test tt.ttv_rks[1] == 1
     @test tt.ttv_rks[end] == 1
     # Fused: each site has phys_dim = 2^2 = 4
     @test all(d -> d == 4, tt.ttv_dims)
-    for k in 1:tt.N
+    for k in 1:nsites(tt)
         @test size(tt.ttv_vec[k], 2) == tt.ttv_rks[k]
         @test size(tt.ttv_vec[k], 3) == tt.ttv_rks[k + 1]
     end

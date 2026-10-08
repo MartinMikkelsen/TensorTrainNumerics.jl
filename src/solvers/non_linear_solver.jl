@@ -180,7 +180,7 @@ end
 # u's cores, legs (bra, mid1, mid2, ket) — all equal to u's bond ranks.
 
 function _nl_right_op_envs(u::TTvector{T, N}, A::TToperator{T, N}) where {T <: Real, N}
-    d = u.N
+    d = nsites(u)
     H = Vector{Array{T, 3}}(undef, d)
     H[d] = ones(T, 1, 1, 1)
     for i in d:-1:2
@@ -235,7 +235,7 @@ function _nl_env4_absorb_left(x::Array{T, 3}, E::Array{T, 4}) where {T <: Real}
 end
 
 function _nl_right_qenvs(u::TTvector{T, N}) where {T <: Real, N}
-    d = u.N
+    d = nsites(u)
     E = Vector{Array{T, 4}}(undef, d)
     E[d] = ones(T, 1, 1, 1, 1)
     for i in d:-1:2
@@ -366,15 +366,15 @@ end
 
 function _penalty_solve_impl(A::TToperator{T, N}, u0::TTvector{T, N}, alg::PenaltyALS; g::Real = 0.0) where {T, N}
     T <: Real || throw(ArgumentError("non_linear_solve implements the real path only; got eltype $T"))
-    u0.N ≥ 2 || throw(ArgumentError("non_linear_solve needs at least 2 TT cores"))
+    nsites(u0) ≥ 2 || throw(ArgumentError("non_linear_solve needs at least 2 TT cores"))
     # Round-trip gauge (far end, then back to site 1): orthogonalize(u0) alone only
     # right-canonicalizes sites 2..d and never QR-checks site 1's own local admissibility
     # (rks[2] ≤ dims[1]·rks[1]) against what's actually reachable from the left boundary.
     # An un-rounded sum (e.g. seed + ε·padding) can carry a locally-redundant left core
     # that trips the plain (non-pivoted) QR inside right_core_move/left_core_move, which
     # assume admissible ranks. Gauging to the far end first forces the missing left QR pass.
-    u = orthogonalize(orthogonalize(u0; i = u0.N); i = 1)
-    d = u.N
+    u = orthogonalize(orthogonalize(u0; i = nsites(u0)); i = 1)
+    d = nsites(u)
     rks = copy(u.ttv_rks)
     # pure environments (never contain the center core)
     HA = _nl_right_op_envs(u, A)
@@ -496,7 +496,7 @@ _mgr_level(A::TToperator{T, N}, u::TTvector{T, N}, inner::PenaltyALS, g::Real) w
 """
     non_linear_solve(A_builder, u0, alg::MGR; g_builder, target_sites)
 
-MGR ground-state solve from the coarse grid `u0.N` up to `target_sites` QTT sites.
+MGR ground-state solve from the coarse grid `nsites(u0)` up to `target_sites` QTT sites.
 `A_builder(d)::TToperator` returns the discrete linear operator on `d` sites and
 `g_builder(d)::Real` the discrete interaction coefficient (e.g. `g · 2^d`).
 Returns `u`, or `(u, info)` with `info = (; energy, level_sites, level_energies)`.
@@ -505,18 +505,18 @@ function non_linear_solve(
         A_builder::Function, u0::TTvector{T, M}, alg::MGR;
         g_builder::Function, target_sites::Int
     ) where {T, M}
-    target_sites ≥ u0.N || throw(ArgumentError("target_sites ($target_sites) must be ≥ u0.N ($(u0.N))"))
+    target_sites ≥ nsites(u0) || throw(ArgumentError("target_sites ($target_sites) must be ≥ nsites(u0) ($(nsites(u0)))"))
     inner = _mgr_inner(alg.inner)
-    levels = target_sites - u0.N + 1
+    levels = target_sites - nsites(u0) + 1
     progress = _solver_progress(levels, alg.show_progress; desc = "MGR nonlinear solve")
     level_sites = Int[]
     level_energies = Float64[]
-    u = _mgr_level(A_builder(u0.N), u0, inner, g_builder(u0.N))
-    push!(level_sites, u0.N)
-    alg.verbosity ≥ 2 && @info "MGR level" sites = u0.N
-    alg.return_info && push!(level_energies, gpe_energy(A_builder(u0.N), u; g = g_builder(u0.N)))
+    u = _mgr_level(A_builder(nsites(u0)), u0, inner, g_builder(nsites(u0)))
+    push!(level_sites, nsites(u0))
+    alg.verbosity ≥ 2 && @info "MGR level" sites = nsites(u0)
+    alg.return_info && push!(level_energies, gpe_energy(A_builder(nsites(u0)), u; g = g_builder(nsites(u0))))
     next!(progress; showvalues = [("level", "1/$levels"), ("largest rank", maximum(u.ttv_rks))])
-    for d in (u0.N + 1):target_sites
+    for d in (nsites(u0) + 1):target_sites
         up = qtto_linear_prolongation(d - 1) * u
         tt_compress!(up, alg.max_bond)
         up = (1 / norm(up)) * up
@@ -524,7 +524,7 @@ function non_linear_solve(
         push!(level_sites, d)
         alg.verbosity ≥ 2 && @info "MGR level" sites = d
         alg.return_info && push!(level_energies, gpe_energy(A_builder(d), u; g = g_builder(d)))
-        next!(progress; showvalues = [("level", "$(d - u0.N + 1)/$levels"), ("largest rank", maximum(u.ttv_rks))])
+        next!(progress; showvalues = [("level", "$(d - nsites(u0) + 1)/$levels"), ("largest rank", maximum(u.ttv_rks))])
     end
     finish!(progress)
     if alg.return_info

@@ -157,9 +157,9 @@ P∞ = [g1(xi, μx) * g1(yj, μy) for xi in xes, yj in xes]
 maximum(P∞)
 ```
 
-### 5. Evolve With Crank-Nicholson
+### 5. Evolve With Crank-Nicolson
 
-For an autonomous linear system $\dot{u} = A u$, Crank-Nicholson applies
+For an autonomous linear system $\dot{u} = A u$, Crank-Nicolson applies
 
 ```math
 u^{k+1}
@@ -168,7 +168,7 @@ u^{k+1}
     \left(I+\frac{\tau}{2}A\right)u^k,
 ```
 
-with time step $\tau$. The implementation calls `crank_nicholson_method`, solving each implicit TT linear system with ALS:
+with time step $\tau$. The implementation calls `crank_nicolson_method`, solving each implicit TT linear system with ALS:
 
 ```@example ou_qtt
 τ = 0.02
@@ -193,7 +193,7 @@ end
 ψ = u₀
 record!(ψ)
 for _ in 1:n_blocks
-    global ψ = crank_nicholson_method(
+    global ψ = crank_nicolson_method(
         A, ψ, ψ, fill(τ, block);
         normalize = false, alg = ALS()
     )

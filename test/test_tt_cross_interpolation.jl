@@ -93,7 +93,7 @@ import TensorTrainNumerics: MaxVolPivot, RandomPivot, MaxVol, Greedy, DMRGcross,
 
             tt = tt_cross(f, domain, MaxVol(verbosity = 0, show_progress = false, tol = 1.0e-6))
             @test tt isa TTvector
-            @test tt.N == 4
+            @test nsites(tt) == 4
             @test all(tt.ttv_dims .== 10)
             @test tt.ttv_rks[1] == 1
             @test tt.ttv_rks[end] == 1
@@ -112,7 +112,7 @@ import TensorTrainNumerics: MaxVolPivot, RandomPivot, MaxVol, Greedy, DMRGcross,
                     dense = ttv_to_tensor(tt)
 
                     @test tt.ttv_rks[1] == tt.ttv_rks[end] == 1
-                    @test all(size(tt.ttv_vec[k]) == (tt.ttv_dims[k], tt.ttv_rks[k], tt.ttv_rks[k + 1]) for k in 1:tt.N)
+                    @test all(size(tt.ttv_vec[k]) == (tt.ttv_dims[k], tt.ttv_rks[k], tt.ttv_rks[k + 1]) for k in 1:nsites(tt))
                     @test all(isfinite, dense)
                     @test norm(tt) ≈ norm(dense)
                     @test ttv_to_tensor(orthogonalize(tt)) ≈ dense
@@ -146,7 +146,7 @@ import TensorTrainNumerics: MaxVolPivot, RandomPivot, MaxVol, Greedy, DMRGcross,
 
             tt = tt_cross(f, domain, Greedy(verbosity = 0, show_progress = false, tol = 1.0e-6, max_sweeps = 50))
             @test tt isa TTvector
-            @test tt.N == 3
+            @test nsites(tt) == 3
         end
 
         @testset "Greedy regression: zero-lock avoidance" begin
@@ -245,7 +245,7 @@ import TensorTrainNumerics: MaxVolPivot, RandomPivot, MaxVol, Greedy, DMRGcross,
 
             tt = tt_cross(f, domain, DMRGcross(verbosity = 0, show_progress = false, tol = 1.0e-6))
             @test tt isa TTvector
-            @test tt.N == 4
+            @test nsites(tt) == 4
         end
 
         @testset "DMRGcross regression: relative tolerance is scale invariant" begin
@@ -364,7 +364,7 @@ import TensorTrainNumerics: MaxVolPivot, RandomPivot, MaxVol, Greedy, DMRGcross,
 
             tt = tt_cross(f, dims; alg = MaxVol(verbosity = 0, show_progress = false))
             @test tt isa TTvector
-            @test tt.N == 4
+            @test nsites(tt) == 4
         end
 
         @testset "Complex domain support" begin

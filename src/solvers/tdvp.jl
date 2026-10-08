@@ -4,7 +4,7 @@ using TensorOperations
 using LinearAlgebra
 
 function _sync_ranks_from_lsr!(ψ::AbstractTTvector, A_lsr::Vector{<:AbstractArray})
-    N = ψ.N
+    N = nsites(ψ)
     new_rks = similar(ψ.ttv_rks)
     @inbounds for k in 1:N
         new_rks[k] = size(A_lsr[k], 1)
@@ -47,7 +47,7 @@ function tdvp1sweep!(
 
     T = eltype(ψ)
     Tc = (dt isa Complex || T <: Complex) ? Complex{real(T)} : T
-    Nsites = ψ.N
+    Nsites = nsites(ψ)
     # Symmetric projector splitting: half steps on both sweeps, with a
     # single full step at the terminal site.
     dt_half = dt / 2
@@ -268,7 +268,7 @@ function tdvp2sweep!(
 
     T = eltype(ψ)
     Tc = (dt isa Complex || T <: Complex) ? Complex{real(T)} : T
-    Nsites = ψ.N
+    Nsites = nsites(ψ)
     dt_half = dt / 2
 
     A_lsr = [permutedims(ψ.ttv_vec[k], (2, 1, 3)) for k in 1:Nsites]

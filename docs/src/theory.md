@@ -145,7 +145,7 @@ H = Δ(4)
 ψ = qtt_sin(4)
 
 function energy(cores)
-    A = TToperator(H.N, cores, H.tto_dims, H.tto_rks, H.tto_ot)
+    A = TToperator(cores, H.tto_dims, H.tto_rks, H.tto_ot)
     return real(dot(ψ, A * ψ)) / real(dot(ψ, ψ))
 end
 

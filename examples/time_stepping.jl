@@ -16,7 +16,7 @@ solution_explicit, info_explicit = euler_method(A, u₀, steps; return_info = tr
 
 solution_implicit, info_implicit = implicit_euler_method(A, u₀, init, steps; return_info = true, normalize = false)
 
-solution_crank, info_crank = crank_nicholson_method(A, u₀, init, steps; return_info = true, alg = MALS(), normalize = false)
+solution_crank, info_crank = crank_nicolson_method(A, u₀, init, steps; return_info = true, alg = MALS(), normalize = false)
 
 solution_krylov, rel_krylov = expintegrator(A, last(steps), u₀)
 

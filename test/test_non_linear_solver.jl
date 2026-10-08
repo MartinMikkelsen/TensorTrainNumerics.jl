@@ -143,7 +143,7 @@ end
 function with_core(u::TTvector{T}, l::Int, c::Array{T, 3}) where {T}
     v = copy(u.ttv_vec)
     v[l] = c
-    return TTvector{T, length(u.ttv_dims)}(u.N, v, u.ttv_dims, copy(u.ttv_rks), zeros(Int64, u.N))
+    return TTvector{T, length(u.ttv_dims)}(v, u.ttv_dims, copy(u.ttv_rks), zeros(Int64, nsites(u)))
 end
 
 # Dense environment isometry at site l by basis-column densification (u MUST be gauged at l).
@@ -151,7 +151,7 @@ function dense_phi(u::TTvector{Float64}, l::Int)
     core = u.ttv_vec[l]
     dims = size(core)
     n = prod(dims)
-    Φ = zeros(2^u.N, n)
+    Φ = zeros(2^nsites(u), n)
     for j in 1:n
         c = zeros(dims)
         c[j] = 1.0
@@ -165,7 +165,7 @@ end
     for L in (3, 4)
         A = (4.0^L / 2) * Δ(L)
         Ad = qtto_to_matrix(A)
-        u0 = rand_tt(ntuple(_ -> 2, L), 4; normalise = true)
+        u0 = rand_tt(ntuple(_ -> 2, L), 4; normalize = true)
         # matricization sanity: qtto_to_matrix matches operator application in decode order
         @test norm(qtt_to_function(A * u0) - Ad * qtt_to_function(u0)) < 1.0e-8 * norm(Ad)
         for l in 1:L
@@ -286,7 +286,7 @@ end
     for L in (3, 4, 6), g in (0.0, 100.0)
         g_eff = g * 2.0^L
         A = (4.0^L / 2) * Δ(L)
-        u = rand_tt(ntuple(_ -> 2, L), 4; normalise = true)
+        u = rand_tt(ntuple(_ -> 2, L), 4; normalize = true)
         uu = qtt_to_function(u)
         s = dot(uu, uu)
         Ed = dot(uu, qtto_to_matrix(A) * uu) / s + g_eff * sum(uu .^ 4) / s^2
@@ -310,7 +310,7 @@ end
     A5 = (4.0^L / 2) * Δ(L)
     fd, Ed = dense_gpe_groundstate(L; g_eff = g_eff)
     seed5 = function_to_qtt(x -> sin(π * x), L)
-    pad = rand_tt(ntuple(_ -> 2, L), 4; normalise = true)
+    pad = rand_tt(ntuple(_ -> 2, L), 4; normalize = true)
     u05 = orthogonalize(seed5 + (1.0e-3 * norm(seed5)) * pad)
     u05 = (1 / norm(u05)) * u05
     Es = Float64[]
@@ -347,7 +347,7 @@ end
         E_dense = dot(f, Aac_dense * f) + (g_ac / 2) * sum(f .^ 4)
         Aac = (4.0^Lac / 2) * Δ(Lac) - g_ac * id_tto(Lac)
         seed = function_to_qtt(x -> tanh(x / (sqrt(2) * ε)) * tanh((1 - x) / (sqrt(2) * ε)), Lac)
-        u0ac = orthogonalize(seed + (1.0e-3 * norm(seed)) * rand_tt(ntuple(_ -> 2, Lac), 4; normalise = true))
+        u0ac = orthogonalize(seed + (1.0e-3 * norm(seed)) * rand_tt(ntuple(_ -> 2, Lac), 4; normalize = true))
         alg_ac = PenaltyALS(; penalty_schedule = [0.0], tol = 1.0e-10, max_sweeps = 50, return_info = true)
         local uac, iac
         @test_logs match_mode = :all begin
@@ -381,7 +381,7 @@ end
 
     # fixed-grid solve at L=6 (warm full-rank seed) reaches the same energy
     seed6 = function_to_qtt(x -> sin(π * x), 6)
-    pad6 = rand_tt(ntuple(_ -> 2, 6), 8; normalise = true)
+    pad6 = rand_tt(ntuple(_ -> 2, 6), 8; normalize = true)
     u06 = orthogonalize(seed6 + (1.0e-3 * norm(seed6)) * pad6)
     u06 = (1 / norm(u06)) * u06
     _, ifix = non_linear_solve((4.0^6 / 2) * Δ(6), u06, PenaltyALS(; return_info = true); g = g * 2.0^6)

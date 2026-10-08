@@ -13,7 +13,7 @@ end
     cores = [rand(2, 1, 2), rand(2, 2, 2), rand(2, 2, 1)]
     rks = [1, 2, 2, 1]
     dims = (2, 2, 2)
-    q = QTTvector{Float64, 3}(3, cores, dims, rks, zeros(Int, 3), 1, 3, :serial)
+    q = QTTvector{Float64, 3}(cores, dims, rks, zeros(Int, 3), 1, 3, :serial)
     @test q.n_dims == 1
     @test q.bits_per_dim == 3
     @test q.ordering == :serial
@@ -25,7 +25,7 @@ end
     cores = [rand(2, 2, 1, 2), rand(2, 2, 2, 2), rand(2, 2, 2, 1)]
     rks = [1, 2, 2, 1]
     dims = (2, 2, 2)
-    A = QTToperator{Float64, 3}(3, cores, dims, rks, zeros(Int, 3), 1, 3, :interleaved)
+    A = QTToperator{Float64, 3}(cores, dims, rks, zeros(Int, 3), 1, 3, :interleaved)
     @test A.n_dims == 1
     @test A.bits_per_dim == 3
     @test A.ordering == :interleaved
@@ -40,12 +40,12 @@ end
     @test q.n_dims == 2
     @test q.bits_per_dim == 3
     @test q.ordering == :interleaved
-    @test q.N == 6
+    @test nsites(q) == 6
 
     # Strip back to TTvector
     ttv2 = TTvector(q)
     @test ttv2 isa TTvector{Float64, 6}
-    @test ttv2.N == 6
+    @test nsites(ttv2) == 6
 
     # Wrap constructor asserts
     @test_throws AssertionError QTTvector(ttv, 2, 4, :interleaved)  # 2*4=8 ≠ 6
@@ -78,14 +78,14 @@ end
     @test check_compat(ttv, ttv) === nothing
 end
 
-@testset "QTTvector entanglemententropy" begin
+@testset "QTTvector entanglement_entropy" begin
     bell_tensor = zeros(Float64, 2, 2)
     bell_tensor[1, 1] = inv(sqrt(2))
     bell_tensor[2, 2] = inv(sqrt(2))
     q = QTTvector(ttv_decomp(bell_tensor), 1, 2, :serial)
 
-    @test entanglemententropy(q) ≈ [log(2)]
-    @test entanglemententropy(q; base = 2) ≈ [1.0]
+    @test entanglement_entropy(q) ≈ [log(2)]
+    @test entanglement_entropy(q; base = 2) ≈ [1.0]
 end
 
 @testset "QTTvector dispatch methods" begin
@@ -225,7 +225,7 @@ end
     @test A1_serial.n_dims == 1
     @test A1_serial.bits_per_dim == d
     @test A1_serial.ordering == :serial
-    @test A1_serial.N == d
+    @test nsites(A1_serial) == d
 
     A1_il = qtt_laplacian(1, d; ordering = :interleaved, bc = :DN)
     @test A1_il isa QTToperator
@@ -237,13 +237,13 @@ end
     @test A2s.n_dims == 2
     @test A2s.bits_per_dim == d
     @test A2s.ordering == :serial
-    @test A2s.N == 2 * d
+    @test nsites(A2s) == 2 * d
 
     # 2D interleaved case
     A2i = qtt_laplacian(2, d; ordering = :interleaved, bc = :DD)
     @test A2i isa QTToperator
     @test A2i.ordering == :interleaved
-    @test A2i.N == 2 * d
+    @test nsites(A2i) == 2 * d
 
     # Correctness: 2D serial Laplacian matrix matches direct Kronecker-sum reference
     h = 1.0 / (n - 1)
@@ -289,7 +289,7 @@ end
     A3 = qtt_laplacian(3, 3; ordering = :serial, bc = :DD)
     @test A3 isa QTToperator
     @test A3.n_dims == 3
-    @test A3.N == 9
+    @test nsites(A3) == 9
 end
 
 @testset "NN Laplacian acts on multidimensional QTT states" begin
@@ -433,7 +433,7 @@ end
 
     for ordering in (:serial, :interleaved)
         q = function_to_qttv(f, 3, bits; ordering = ordering)
-        @test q.N == 3 * bits
+        @test nsites(q) == 3 * bits
         @test q.n_dims == 3
         @test q.bits_per_dim == bits
         @test q.ordering == ordering
@@ -673,7 +673,7 @@ end
     A3s = qtt_laplacian(3, d; ordering = :serial, bc = :DD)
     @test A3s.n_dims == 3
     @test A3s.bits_per_dim == d
-    @test A3s.N == 3 * d
+    @test nsites(A3s) == 3 * d
 
     M_qtt = qtto_to_matrix(TToperator(A3s))
     M_ref = kron(M1d, kron(I_n, I_n)) +

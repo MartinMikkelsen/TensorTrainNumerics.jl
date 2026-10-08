@@ -13,12 +13,12 @@ Return `x` with its cores converted to element type `T` (`x` itself if already `
 """
 function _convert_eltype(::Type{T}, x::TTvector{S, N}) where {T <: Number, S <: Number, N}
     T === S && return x
-    return TTvector{T, N}(x.N, [convert(Array{T, 3}, c) for c in x.ttv_vec], x.ttv_dims, copy(x.ttv_rks), copy(x.ttv_ot))
+    return TTvector{T, N}([convert(Array{T, 3}, c) for c in x.ttv_vec], x.ttv_dims, copy(x.ttv_rks), copy(x.ttv_ot))
 end
 
 function _convert_eltype(::Type{T}, A::TToperator{S, N}) where {T <: Number, S <: Number, N}
     T === S && return A
-    return TToperator{T, N}(A.N, [convert(Array{T, 4}, c) for c in A.tto_vec], A.tto_dims, copy(A.tto_rks), copy(A.tto_ot))
+    return TToperator{T, N}([convert(Array{T, 4}, c) for c in A.tto_vec], A.tto_dims, copy(A.tto_rks), copy(A.tto_ot))
 end
 
 """
@@ -26,9 +26,9 @@ Adds two TTvectors and returns a new TTvector.
 """
 function +(x::TTvector{T, N}, y::TTvector{T, N}) where {T <: Number, N}
     @assert x.ttv_dims == y.ttv_dims "Incompatible dimensions"
-    d = x.N
+    d = nsites(x)
     if d == 1
-        return TTvector{T, N}(1, [x.ttv_vec[1] + y.ttv_vec[1]], x.ttv_dims, [1, 1], zeros(Int64, 1))
+        return TTvector{T, N}([x.ttv_vec[1] + y.ttv_vec[1]], x.ttv_dims, [1, 1], zeros(Int64, 1))
     end
     ttv_vec = Array{Array{T, 3}, 1}(undef, d)
     rks = x.ttv_rks + y.ttv_rks
@@ -51,7 +51,7 @@ function +(x::TTvector{T, N}, y::TTvector{T, N}) where {T <: Number, N}
         ttv_vec[d][:, 1:x.ttv_rks[d], 1] = x.ttv_vec[d]
         ttv_vec[d][:, (x.ttv_rks[d] + 1):rks[d], 1] = y.ttv_vec[d]
     end
-    return TTvector{T, N}(d, ttv_vec, x.ttv_dims, rks, zeros(Int64, d))
+    return TTvector{T, N}(ttv_vec, x.ttv_dims, rks, zeros(Int64, d))
 end
 
 """
@@ -81,9 +81,9 @@ Adds two TToperators and returns a new TToperator.
 """
 function +(x::TToperator{T, N}, y::TToperator{T, N}) where {T <: Number, N}
     @assert x.tto_dims == y.tto_dims "Incompatible dimensions"
-    d = x.N
+    d = nsites(x)
     if d == 1
-        return TToperator{T, N}(1, [x.tto_vec[1] + y.tto_vec[1]], x.tto_dims, [1, 1], zeros(Int64, 1))
+        return TToperator{T, N}([x.tto_vec[1] + y.tto_vec[1]], x.tto_dims, [1, 1], zeros(Int64, 1))
     end
     tto_vec = Array{Array{T, 4}, 1}(undef, d)
     rks = x.tto_rks + y.tto_rks
@@ -106,7 +106,7 @@ function +(x::TToperator{T, N}, y::TToperator{T, N}) where {T <: Number, N}
         tto_vec[d][:, :, 1:x.tto_rks[d], 1] = x.tto_vec[d]
         tto_vec[d][:, :, (x.tto_rks[d] + 1):rks[d], 1] = y.tto_vec[d]
     end
-    return TToperator{T, N}(d, tto_vec, x.tto_dims, rks, zeros(Int64, d))
+    return TToperator{T, N}(tto_vec, x.tto_dims, rks, zeros(Int64, d))
 end
 
 """
@@ -116,7 +116,7 @@ function *(A::TToperator{T, N}, v::TTvector{T, N}) where {T <: Number, N}
     @assert A.tto_dims == v.ttv_dims "Incompatible dimensions"
     y = zeros_tt(T, A.tto_dims, A.tto_rks .* v.ttv_rks)
     begin
-        @inbounds for k in 1:v.N
+        @inbounds for k in 1:nsites(v)
             yvec_temp = reshape(y.ttv_vec[k], (y.ttv_dims[k], A.tto_rks[k], v.ttv_rks[k], A.tto_rks[k + 1], v.ttv_rks[k + 1]))
             @tensoropt((νₖ₋₁, νₖ), yvec_temp[iₖ, αₖ₋₁, νₖ₋₁, αₖ, νₖ] = A.tto_vec[k][iₖ, jₖ, αₖ₋₁, αₖ] * v.ttv_vec[k][jₖ, νₖ₋₁, νₖ])
         end
@@ -179,7 +179,7 @@ and its entries conjugated. The ranks are unchanged.
 """
 function Base.adjoint(A::TToperator{T, N}) where {T, N}
     cores = [conj(permutedims(c, (2, 1, 3, 4))) for c in A.tto_vec]
-    return TToperator{T, N}(A.N, cores, A.tto_dims, copy(A.tto_rks), copy(A.tto_ot))
+    return TToperator{T, N}(cores, A.tto_dims, copy(A.tto_rks), copy(A.tto_ot))
 end
 
 """
@@ -187,7 +187,7 @@ Multiplies two TToperators and returns a new TToperator.
 """
 function *(A::TToperator{T, N}, B::TToperator{T, N}) where {T <: Number, N}
     @assert A.tto_dims == B.tto_dims "Incompatible dimensions"
-    d = A.N
+    d = nsites(A)
     A_rks = A.tto_rks #R_0, ..., R_d
     B_rks = B.tto_rks #r_0, ..., r_d
     Y = [zeros(T, A.tto_dims[k], A.tto_dims[k], A_rks[k] * B_rks[k], A_rks[k + 1] * B_rks[k + 1]) for k in eachindex(A.tto_dims)]
@@ -195,7 +195,7 @@ function *(A::TToperator{T, N}, B::TToperator{T, N}) where {T <: Number, N}
         M_temp = reshape(Y[k], A.tto_dims[k], A.tto_dims[k], A_rks[k], B_rks[k], A_rks[k + 1], B_rks[k + 1])
         @tensor M_temp[iₖ, jₖ, αₖ₋₁, βₖ₋₁, αₖ, βₖ] = A.tto_vec[k][iₖ, z, αₖ₋₁, αₖ] * B.tto_vec[k][z, jₖ, βₖ₋₁, βₖ]
     end
-    return TToperator{T, N}(d, Y, A.tto_dims, A.tto_rks .* B.tto_rks, zeros(Int64, d))
+    return TToperator{T, N}(Y, A.tto_dims, A.tto_rks .* B.tto_rks, zeros(Int64, d))
 end
 
 """
@@ -222,8 +222,8 @@ The dual operation — physical blocks composed by matrix product, bonds tensore
 (the *outer* core product `•`) — is ordinary operator multiplication `A * B`.
 """
 function ⨝(A::TToperator{T, N}, B::TToperator{T, N}) where {T <: Number, N}
-    @assert A.N == B.N "Inner core product requires operators with the same number of cores"
-    d = A.N
+    @assert nsites(A) == nsites(B) "Inner core product requires operators with the same number of cores"
+    d = nsites(A)
     Y = Vector{Array{T, 4}}(undef, d)
     @inbounds for k in 1:d
         Ak = A.tto_vec[k]
@@ -238,7 +238,7 @@ function ⨝(A::TToperator{T, N}, B::TToperator{T, N}) where {T <: Number, N}
     end
     dims = ntuple(k -> A.tto_dims[k] * B.tto_dims[k], N)
     rks = A.tto_rks .* B.tto_rks
-    return TToperator{T, N}(d, Y, dims, rks, zeros(Int64, d))
+    return TToperator{T, N}(Y, dims, rks, zeros(Int64, d))
 end
 
 """
@@ -291,7 +291,7 @@ function *(a::S, A::TTvector{R, N}) where {S <: Number, R <: Number, N}
     i = _scale_site(A.ttv_ot)
     X = [Array{T, 3}(c) for c in A.ttv_vec]   # promote and copy cores before scaling
     X[i] = aT * X[i]
-    return TTvector{T, N}(A.N, X, A.ttv_dims, copy(A.ttv_rks), copy(A.ttv_ot))
+    return TTvector{T, N}(X, A.ttv_dims, copy(A.ttv_rks), copy(A.ttv_ot))
 end
 
 """
@@ -306,7 +306,7 @@ function *(a::S, A::TToperator{R, N}) where {S <: Number, R <: Number, N}
     i = _scale_site(A.tto_ot)
     X = [Array{T, 4}(c) for c in A.tto_vec]   # promote and copy cores before scaling
     X[i] = aT * X[i]
-    return TToperator{T, N}(A.N, X, A.tto_dims, copy(A.tto_rks), copy(A.tto_ot))
+    return TToperator{T, N}(X, A.tto_dims, copy(A.tto_rks), copy(A.tto_ot))
 end
 
 Base.:*(A::TTvector{T, N}, a::S) where {T <: Number, S <: Number, N} = a * A
@@ -374,7 +374,7 @@ function outer_product(x::TTvector{T, N}, y::TTvector{T, N}) where {T <: Number,
         M_temp = reshape(Y[k], x.ttv_dims[k], x.ttv_dims[k], x.ttv_rks[k], y.ttv_rks[k], x.ttv_rks[k + 1], y.ttv_rks[k + 1])
         @tensor M_temp[iₖ, jₖ, αₖ₋₁, βₖ₋₁, αₖ, βₖ] = x.ttv_vec[k][iₖ, αₖ₋₁, αₖ] * conj(y.ttv_vec[k][jₖ, βₖ₋₁, βₖ])
     end
-    return TToperator{T, N}(x.N, Y, x.ttv_dims, x.ttv_rks .* y.ttv_rks, zeros(Int64, x.N))
+    return TToperator{T, N}(Y, x.ttv_dims, x.ttv_rks .* y.ttv_rks, zeros(Int64, nsites(x)))
 end
 
 
@@ -382,7 +382,7 @@ end
 Creates a diagonal TToperator from a TTvector.
 """
 function ttv_to_diag_tto(x::TTvector{T, M}) where {T <: Number, M}
-    d = x.N                              # number of dimensions (cores)
+    d = nsites(x)                              # number of dimensions (cores)
     dims = x.ttv_dims                       # (n₁, n₂, …, n_d)
     rks = x.ttv_rks                        # (r₀=1, r₁, …, r_d=1)
     cores = x.ttv_vec                        # Vector of length d, each core is Array{T,3} sized (n_i, r_i, r_{i+1})
@@ -408,7 +408,7 @@ function ttv_to_diag_tto(x::TTvector{T, M}) where {T <: Number, M}
         new_cores[i] = D
     end
 
-    return TToperator{T, M}(d, new_cores, dims, new_rks, new_ot)
+    return TToperator{T, M}(new_cores, dims, new_rks, new_ot)
 end
 
 """
@@ -416,7 +416,7 @@ Computes the Hadamard product (element-wise multiplication) of two TTvectors and
 """
 function hadamard(x::TTvector{T, N}, y::TTvector{T, N}) where {T <: Number, N}
     @assert x.ttv_dims == y.ttv_dims "Incompatible TT dimensions"
-    d = x.N
+    d = nsites(x)
     ttv_vec = Vector{Array{T, 3}}(undef, d)
     dims = x.ttv_dims
     rks = [x.ttv_rks[k] * y.ttv_rks[k] for k in 1:(d + 1)]
@@ -431,7 +431,7 @@ function hadamard(x::TTvector{T, N}, y::TTvector{T, N}) where {T <: Number, N}
         end
         ttv_vec[k] = core
     end
-    return TTvector{T, N}(d, ttv_vec, dims, rks, zeros(Int64, d))
+    return TTvector{T, N}(ttv_vec, dims, rks, zeros(Int64, d))
 end
 
 """
@@ -510,7 +510,7 @@ function hadamard_ttm(
         max_bond::Int = typemax(Int)
     ) where {T <: Number, N}
     @assert x.ttv_dims == y.ttv_dims "Incompatible TT dimensions"
-    d = x.N
+    d = nsites(x)
 
     cores = Vector{Array{T, 3}}(undef, 2d)
     for k in 1:d
@@ -540,7 +540,7 @@ function hadamard_ttm(
         _ttm_contract!(cores, p)
     end
     rks = [1; [size(c, 3) for c in cores]]
-    return TTvector{T, N}(d, cores, x.ttv_dims, rks, [0; fill(-1, d - 1)])
+    return TTvector{T, N}(cores, x.ttv_dims, rks, [0; fill(-1, d - 1)])
 end
 
 """
@@ -551,7 +551,7 @@ function kron(A::TToperator{T, d1}, B::TToperator{T, d2}) where {T, d1, d2}
     dims = (A.tto_dims..., B.tto_dims...)
     rks = vcat(A.tto_rks[1:(end - 1)], B.tto_rks)
     ot = vcat(A.tto_ot, B.tto_ot)
-    return TToperator{T, d1 + d2}(d1 + d2, d, dims, rks, ot)
+    return TToperator{T, d1 + d2}(d, dims, rks, ot)
 end
 
 """
@@ -567,7 +567,6 @@ Computes the Kronecker product of two TTvectors and returns a new TTvector.
 """
 function kron(a::TTvector{T, d1}, b::TTvector{T, d2}) where {T, d1, d2}
     return TTvector{T, d1 + d2}(
-        d1 + d2,
         vcat(a.ttv_vec, b.ttv_vec),
         (a.ttv_dims..., b.ttv_dims...),
         vcat(a.ttv_rks[1:(end - 1)], b.ttv_rks),

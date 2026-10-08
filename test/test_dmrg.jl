@@ -27,7 +27,7 @@ dmrg_spd_op(d, shift = 3.0) = Δ(d) + shift * id_tto(d)
     x = dmrg_linsolve(A, b, x0; nsites = 2, max_sweeps = 1, max_bond = 4)
 
     @test x isa TTvector{Float64}
-    @test x.N == d
+    @test nsites(x) == d
     @test x.ttv_dims == b.ttv_dims
     @test all(isfinite, x.ttv_rks)
 end
@@ -90,7 +90,7 @@ end
 @testset "dmrg_eigsolve: return type and structure" begin
     d = 4
     A = dmrg_spd_op(d)
-    x0 = rand_tt(ntuple(_ -> 2, d), [1, 2, 2, 2, 1]; normalise = true)
+    x0 = rand_tt(ntuple(_ -> 2, d), [1, 2, 2, 2, 1]; normalize = true)
 
     E, x_opt, r_hist = dmrg_eigsolve(A, x0; nsites = 2, max_sweeps = 1, max_bond = 4)
 
@@ -98,7 +98,7 @@ end
     @test x_opt isa TTvector{Float64}
     @test r_hist isa Vector{<:Integer}
     @test length(E) == length(r_hist)
-    @test x_opt.N == d
+    @test nsites(x_opt) == d
     @test x_opt.ttv_dims == ntuple(_ -> 2, d)
 end
 
@@ -106,7 +106,7 @@ end
     d = 4
     shift = 3.0
     A = dmrg_spd_op(d, shift)
-    x0 = rand_tt(ntuple(_ -> 2, d), [1, 2, 2, 2, 1]; normalise = true)
+    x0 = rand_tt(ntuple(_ -> 2, d), [1, 2, 2, 2, 1]; normalize = true)
 
     E, x_opt, _ = dmrg_eigsolve(A, x0; nsites = 2, max_sweeps = 3, max_bond = 4)
 
@@ -120,7 +120,7 @@ end
 @testset "dmrg_eigsolve: sweep schedule with rank growth" begin
     d = 4
     A = dmrg_spd_op(d, 2.0)
-    x0 = rand_tt(ntuple(_ -> 2, d), [1, 1, 1, 1, 1]; normalise = true)
+    x0 = rand_tt(ntuple(_ -> 2, d), [1, 1, 1, 1, 1]; normalize = true)
 
     E, x_opt, r_hist = dmrg_eigsolve(A, x0; nsites = 2, max_sweeps = [1, 2], max_bond = [2, 4])
 
@@ -132,7 +132,7 @@ end
 @testset "dmrg_eigsolve: eigenvalues are real and finite" begin
     d = 4
     A = dmrg_spd_op(d, 1.0)
-    x0 = rand_tt(ntuple(_ -> 2, d), [1, 2, 2, 2, 1]; normalise = true)
+    x0 = rand_tt(ntuple(_ -> 2, d), [1, 2, 2, 2, 1]; normalize = true)
 
     E, _, _ = dmrg_eigsolve(A, x0; nsites = 2, max_sweeps = 1, max_bond = 4)
 
@@ -143,7 +143,7 @@ end
 @testset "dmrg_eigsolve: iterative local eigensolver path" begin
     d = 3
     A = dmrg_spd_op(d, 2.0)
-    x0 = rand_tt(ntuple(_ -> 2, d), [1, 2, 2, 1]; normalise = true)
+    x0 = rand_tt(ntuple(_ -> 2, d), [1, 2, 2, 1]; normalize = true)
 
     E, x_opt, r_hist = dmrg_eigsolve(
         A, x0;
@@ -162,7 +162,7 @@ end
 @testset "dmrg_eigsolve nsites = 1: finalizes single-site core" begin
     d = 3
     A = dmrg_spd_op(d, 2.0)
-    x0 = rand_tt(ntuple(_ -> 2, d), [1, 1, 1, 1]; normalise = true)
+    x0 = rand_tt(ntuple(_ -> 2, d), [1, 1, 1, 1]; normalize = true)
 
     E, x_opt, r_hist = dmrg_eigsolve(
         A, x0;
@@ -245,8 +245,8 @@ end
     d = 6
     dims = ntuple(_ -> 2, d)
     A = Δ(d) + 3.0 * id_tto(d)
-    b = A * rand_tt(dims, 2; normalise = true)
-    x0 = rand_tt(dims, 2; normalise = true)
+    b = A * rand_tt(dims, 2; normalize = true)
+    x0 = rand_tt(dims, 2; normalize = true)
 
     x = linear_solve(A, b, x0, DMRG(; max_sweeps = 2, max_bond = 8, show_progress = false))
     @test norm(A * x - b) / norm(b) < 1.0e-4

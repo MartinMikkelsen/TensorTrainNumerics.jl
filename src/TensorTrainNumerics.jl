@@ -1,6 +1,6 @@
 module TensorTrainNumerics
 
-export AbstractTTvector, AbstractTToperator, TTvector, TToperator, eltype, complex, ttv_decomp, tto_decomp, ttv_to_tensor, tto_to_tensor, tto_to_ttv, visualize, matricize, concatenate, orthogonalize, entanglemententropy, copy, r_and_d_to_rks, tt_compress!, tt_round!, tt_round, ttvector_manifold
+export AbstractTTvector, AbstractTToperator, TTvector, TToperator, nsites, eltype, complex, ttv_decomp, tto_decomp, ttv_to_tensor, tto_to_tensor, tto_to_ttv, visualize, matricize, concatenate, orthogonalize, entanglement_entropy, entanglemententropy, copy, r_and_d_to_rks, tt_compress!, tt_round!, tt_round, ttvector_manifold
 """
     ttvector_manifold(x::TTvector)
 
@@ -24,7 +24,7 @@ export TTLinearSolver, ALSSolver, MALSSolver, AMEnSolver, DMRGSolver, KrylovSolv
 export linear_solve, eigen_solve
 include("solvers/linear_solver.jl")
 
-export als_linsolve, als_eigsolve, als_gen_eigsolv
+export als_linsolve, als_eigsolve, als_gen_eigsolve, als_gen_eigsolv
 include("solvers/als.jl")
 
 export NonLinearSolverAlgorithm, PenaltyALS, MGR, non_linear_solve, gpe_energy
@@ -60,7 +60,7 @@ export gauss_chebyshev_lobatto
 export index_to_point, tuple_to_index, function_to_tensor, tensor_to_grid, function_to_qtt, qtt_to_function, qtt_to_vector, function_to_qtt_uniform, qtt_polynom, qtt_cos, qtt_sin, qtt_exp, qtto_to_matrix, qtt_basis_vector, qtt_chebyshev, qtt_trapezoidal, to_qtt, to_ttv, QTTvector, QTToperator, check_compat, function_to_qttv, qttv_to_array, reorder
 include("qtt_tools.jl")
 
-export euler_method, implicit_euler_method, crank_nicholson_method, rk4_method
+export euler_method, implicit_euler_method, crank_nicolson_method, crank_nicholson_method, rk4_method
 include("solvers/time_evolution.jl")
 
 export fourier_qtto, reverse_qtt_bits
