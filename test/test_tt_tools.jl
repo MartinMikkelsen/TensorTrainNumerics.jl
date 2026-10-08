@@ -1263,3 +1263,20 @@ end
     @test_logs tt_compress!(copy(x), 2)
     @test_logs (:info, "TT compress: sweep 1") (:info, "TT compress: sweep 2") tt_compress!(copy(x), 2; sweeps = 2, verbosity = 2)
 end
+
+@testset "tt_round for TToperator" begin
+    A = Δ_P(4)
+    B = A + A - A                                  # same operator, inflated ranks
+    dense = qtto_to_matrix(A)
+    @test maximum(B.tto_rks) > maximum(A.tto_rks)
+
+    R = tt_round(B; trunc_tol = 1.0e-12)
+    @test R isa TToperator
+    @test maximum(R.tto_rks) ≤ 3
+    @test qtto_to_matrix(R) ≈ dense
+    @test maximum(B.tto_rks) == 15                 # input untouched
+
+    @test tt_round!(B; trunc_tol = 1.0e-12) === B
+    @test maximum(B.tto_rks) ≤ 3
+    @test qtto_to_matrix(B) ≈ dense
+end

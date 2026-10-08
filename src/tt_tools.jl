@@ -897,6 +897,29 @@ Non-mutating variant of [`tt_round!`](@ref).
 tt_round(x::TTvector; kwargs...) = tt_round!(copy(x); kwargs...)
 
 """
+    tt_round!(A::TToperator; trunc_tol=0.0, max_bond=typemax(Int))
+
+Truncate the TT ranks of the operator `A` in place. Rounding is performed on
+the vectorized operator ([`tto_to_ttv`](@ref)) with the Frobenius norm, so
+`trunc_tol` and `max_bond` have the same meaning as in
+[`tt_round!`](@ref) for a `TTvector`.
+"""
+function tt_round!(A::TToperator; kwargs...)
+    B = ttv_to_tto(tt_round!(tto_to_ttv(A); kwargs...))
+    copyto!(A.tto_vec, B.tto_vec)
+    copyto!(A.tto_rks, B.tto_rks)
+    copyto!(A.tto_ot, B.tto_ot)
+    return A
+end
+
+"""
+    tt_round(A::TToperator; trunc_tol=0.0, max_bond=typemax(Int))
+
+Non-mutating variant of [`tt_round!`](@ref) for operators.
+"""
+tt_round(A::TToperator; kwargs...) = ttv_to_tto(tt_round!(tto_to_ttv(A); kwargs...))
+
+"""
     tt_compress!(ψ::TTvector, max_bond::Int; trunc_tol=0.0, sweeps=1, verbosity=1)
 
 Compress `ψ` in place to bond dimension at most `max_bond` with TT rounding

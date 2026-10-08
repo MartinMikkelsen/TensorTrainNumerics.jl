@@ -13,7 +13,7 @@ function _tt_left_envs(A::TTvector{T, M}, B::TTvector{T, M}) where {T, M}
         Ak = A.ttv_vec[k]
         Bk = B.ttv_vec[k]
         Lp = Ls[k]
-        @tensor Ln[a, b] := conj(Ak[z, α, a]) * Bk[z, β, b] * Lp[α, β]
+        @tensoropt Ln[a, b] := conj(Ak[z, α, a]) * Bk[z, β, b] * Lp[α, β]
         Ls[k + 1] = Ln
     end
     return Ls
@@ -27,7 +27,7 @@ function _tt_right_envs(A::TTvector{T, M}, B::TTvector{T, M}) where {T, M}
         Ak = A.ttv_vec[k]
         Bk = B.ttv_vec[k]
         Gn = Gs[k + 1]
-        @tensor Gp[α, β] := conj(Ak[z, α, a]) * Bk[z, β, b] * Gn[a, b]
+        @tensoropt Gp[α, β] := conj(Ak[z, α, a]) * Bk[z, β, b] * Gn[a, b]
         Gs[k] = Gp
     end
     return Gs
@@ -50,8 +50,8 @@ function rrule(
             Bk = B.ttv_vec[k]
             Lp = Ls[k]
             Gn = Gs[k + 1]
-            @tensor EB[z, α, a] := Bk[z, β, b] * Lp[α, β] * Gn[a, b]
-            @tensor EA[z, β, b] := conj(Ak[z, α, a]) * Lp[α, β] * Gn[a, b]
+            @tensoropt EB[z, α, a] := Bk[z, β, b] * Lp[α, β] * Gn[a, b]
+            @tensoropt EA[z, β, b] := conj(Ak[z, α, a]) * Lp[α, β] * Gn[a, b]
             Ā[k] = conj(Δ) .* EB
             # B enters linearly, so its reverse rule conjugates the complete coefficient.
             B̄[k] = Δ .* conj.(EA)

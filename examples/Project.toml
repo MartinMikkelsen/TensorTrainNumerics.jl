@@ -8,3 +8,7 @@ Manopt = "0fc0a36d-df90-57f3-8f93-d78a9fc72bb5"
 OptimKit = "77e91f04-9b3b-57a6-a776-40b61faaebe0"
 ProgressMeter = "92933f4c-e287-5a05-a399-4b506db050ca"
 TensorTrainNumerics = "304e70ee-b558-420e-aed5-de4d05b6ca2b"
+Zygote = "e88e6eb3-aa80-5325-afca-941959d7151f"
+
+[sources]
+TensorTrainNumerics = {path = ".."}
