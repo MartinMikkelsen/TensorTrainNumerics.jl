@@ -25,27 +25,41 @@ where core `Gₖ` has size `(nₖ, rₖ₋₁, rₖ)` and `r₀ = r_M = 1`.
 - `ttv_vec::Vector{Array{T,3}}`: the cores, each of size `(ttv_dims[k], ttv_rks[k], ttv_rks[k+1])`.
 - `ttv_dims::NTuple{M,Int64}`: physical dimensions `(n₁, …, n_M)`.
 - `ttv_rks::Vector{Int64}`: TT ranks `(r₀, r₁, …, r_M)`, of length `M + 1`.
-- `ttv_ot::Vector{Int64}`: orthogonality flag of each core: `1` left-orthogonal,
-  `-1` right-orthogonal, `0` neither (or the orthogonality center).
+- `orthogonality::Vector{Int64}`: the interval `[left, right]`, with
+  `1 ≤ left ≤ right ≤ M`. The cores `k < left` are left-orthogonal and the cores
+  `k > right` are right-orthogonal; nothing is recorded about the cores inside
+  the interval. `[c, c]` is an orthogonality center at core `c`, and `[1, M]`
+  records nothing.
 
 The fields cannot be reassigned, but in-place operations such as
 [`tt_round!`](@ref) and [`add!`](@ref) replace the contents of `ttv_vec`,
-`ttv_rks`, and `ttv_ot`; any other object built on the same vectors (such as a
-[`QTTvector`](@ref) wrapping this `TTvector`) sees the change.
-
-The constructor does not check that these fields are consistent with each other.
-Use constructors such as [`ttv_decomp`](@ref), [`rand_tt`](@ref), or
+`ttv_rks`, and `orthogonality`; any other object built on the same vectors (such
+as a [`QTTvector`](@ref) wrapping this `TTvector`) sees the change.
 
 The number of cores (sites) is the type parameter `M`, returned by `nsites(x)`.
 
-[`zeros_tt`](@ref) to build valid instances.
+# Constructor
+
+    TTvector{T, M}(cores, dims, ranks; orthogonality = (1, M))
+
+A `Vector{Int64}` passed as `orthogonality` is stored without copying. The
+constructor checks the orthogonality interval but not that the cores, `dims`,
+and `ranks` are consistent with each other or that the cores have the recorded
+orthogonality. Use constructors such as [`ttv_decomp`](@ref), [`rand_tt`](@ref),
+or [`zeros_tt`](@ref) to build valid instances.
 """
 struct TTvector{T <: Number, M} <: AbstractTTvector
     ttv_vec::Vector{Array{T, 3}}
     ttv_dims::NTuple{M, Int64}
     ttv_rks::Vector{Int64}
-    ttv_ot::Vector{Int64}
+    orthogonality::Vector{Int64}
+    function TTvector{T, M}(ttv_vec, ttv_dims, ttv_rks; orthogonality = (1, M)) where {T <: Number, M}
+        return new{T, M}(ttv_vec, ttv_dims, ttv_rks, _orthogonality_storage(orthogonality, M))
+    end
 end
+
+TTvector(ttv_vec::Vector{Array{T, 3}}, ttv_dims::NTuple{M, Int64}, ttv_rks; kwargs...) where {T <: Number, M} =
+    TTvector{T, M}(ttv_vec, ttv_dims, ttv_rks; kwargs...)
 
 Base.eltype(::TTvector{T, N}) where {T <: Number, N} = T
 
@@ -71,19 +85,31 @@ rank, right rank) and `r₀ = r_M = 1`.
 - `tto_vec::Vector{Array{T,4}}`: the cores.
 - `tto_dims::NTuple{M,Int64}`: physical dimensions `(n₁, …, n_M)`, shared by input and output.
 - `tto_rks::Vector{Int64}`: TT ranks `(r₀, r₁, …, r_M)`, of length `M + 1`.
-- `tto_ot::Vector{Int64}`: orthogonality flag of each core, with the same
-  convention as `TTvector.ttv_ot`.
+- `orthogonality::Vector{Int64}`: the orthogonality interval `[left, right]`,
+  with the same meaning as for [`TTvector`](@ref).
 
 The number of cores (sites) is the type parameter `M`, returned by `nsites(A)`.
 
-The constructor does not check that these fields are consistent with each other.
+# Constructor
+
+    TToperator{T, M}(cores, dims, ranks; orthogonality = (1, M))
+
+A `Vector{Int64}` passed as `orthogonality` is stored without copying. The
+constructor checks the orthogonality interval but not that the other fields are
+consistent with each other.
 """
 struct TToperator{T <: Number, M} <: AbstractTToperator
-    tto_vec::Array{Array{T, 4}, 1}
+    tto_vec::Vector{Array{T, 4}}
     tto_dims::NTuple{M, Int64}
-    tto_rks::Array{Int64, 1}
-    tto_ot::Array{Int64, 1}
+    tto_rks::Vector{Int64}
+    orthogonality::Vector{Int64}
+    function TToperator{T, M}(tto_vec, tto_dims, tto_rks; orthogonality = (1, M)) where {T <: Number, M}
+        return new{T, M}(tto_vec, tto_dims, tto_rks, _orthogonality_storage(orthogonality, M))
+    end
 end
+
+TToperator(tto_vec::Vector{Array{T, 4}}, tto_dims::NTuple{M, Int64}, tto_rks; kwargs...) where {T <: Number, M} =
+    TToperator{T, M}(tto_vec, tto_dims, tto_rks; kwargs...)
 
 Base.eltype(::TToperator{T, M}) where {T, M} = T
 
@@ -98,44 +124,151 @@ function nsites end
 nsites(x::AbstractTTvector) = length(getfield(x, :ttv_dims))
 nsites(A::AbstractTToperator) = length(getfield(A, :tto_dims))
 
-# Deprecated: the number of cores is no longer a field or a constructor argument.
+# Storage for the orthogonality interval of an `M`-site tensor train. A
+# `Vector{Int64}` is stored as is, so that wrappers can share it.
+function _orthogonality_storage(o::Vector{Int64}, M)
+    length(o) == 2 || throw(ArgumentError("orthogonality must be an interval (left, right); got $o"))
+    _check_orthogonality(o[1], o[2], M)
+    return o
+end
+_orthogonality_storage(o, M) = _orthogonality_storage(collect(Int64, o), M)
+
+function _check_orthogonality(left, right, M)
+    1 ≤ left ≤ right ≤ M ||
+        throw(ArgumentError("orthogonality must be an interval (left, right) with 1 ≤ left ≤ right ≤ $M; got ($left, $right)"))
+    return nothing
+end
+
+# Orthogonality interval `(left, right)` of `x`: the cores `k < left` are
+# left-orthogonal and the cores `k > right` are right-orthogonal. Nothing is
+# recorded about the cores inside the interval.
+function _orthogonality(x::Union{AbstractTTvector, AbstractTToperator})
+    o = getfield(x, :orthogonality)
+    return o[1], o[2]
+end
+
+# Overwrite the entries of the interval; objects sharing it with `x` see the update.
+function _set_orthogonality!(x::Union{AbstractTTvector, AbstractTToperator}, left::Integer, right::Integer)
+    o = getfield(x, :orthogonality)
+    _check_orthogonality(left, right, nsites(x))
+    o[1] = left
+    o[2] = right
+    return x
+end
+
+_forget_orthogonality!(x) = _set_orthogonality!(x, 1, nsites(x))
+
+# The orthogonality center of `x`, or `nothing` if the interval spans several cores.
+function _orthogonality_center(x)
+    left, right = _orthogonality(x)
+    return left == right ? left : nothing
+end
+
+# Record that core `i` has been replaced by an arbitrary core.
+function _core_replaced!(x, i::Integer)
+    left, right = _orthogonality(x)
+    return _set_orthogonality!(x, min(left, i), max(right, i))
+end
+
+# Record that core `i` has been made left-orthogonal and core `i + 1` replaced.
+function _center_moved_right!(x, i::Integer)
+    left, right = _orthogonality(x)
+    return _set_orthogonality!(x, left ≥ i ? i + 1 : left, max(right, i + 1))
+end
+
+# Record that core `i` has been made right-orthogonal and core `i - 1` replaced.
+function _center_moved_left!(x, i::Integer)
+    left, right = _orthogonality(x)
+    return _set_orthogonality!(x, min(left, i - 1), right ≤ i ? i - 1 : right)
+end
+
+# Interval of the train formed by the cores of `a` followed by the cores of `b`:
+# the left-orthogonal cores of `a` and the right-orthogonal cores of `b` keep
+# their orthogonality.
+function _joined_orthogonality(a, b)
+    return _orthogonality(a)[1], nsites(a) + _orthogonality(b)[2]
+end
+
+# Interval holding the guarantees of per-core flags (`1` left-orthogonal, `-1`
+# right-orthogonal, `0` neither): the leading run of `1`s and the trailing run
+# of `-1`s, shortened so that the interval contains at least one core.
+function _flags_to_orthogonality(ot::AbstractVector, M)
+    Base.require_one_based_indexing(ot)
+    length(ot) == M || throw(ArgumentError("expected $M orthogonality flags; got $(length(ot))"))
+    nleft = something(findfirst(!=(1), ot), M + 1) - 1
+    nright = M - something(findlast(!=(-1), ot), 0)
+    right = max(M - nright, 1)
+    left = min(nleft + 1, right)
+    return left, right
+end
+
+function _orthogonality_to_flags(x)
+    left, right = _orthogonality(x)
+    return [k < left ? 1 : k > right ? -1 : 0 for k in 1:nsites(x)]
+end
+
+# Deprecated: `N` (the number of cores) and the per-core orthogonality flags
+# `ttv_ot`/`tto_ot` are no longer fields.
 function Base.getproperty(x::Union{AbstractTTvector, AbstractTToperator}, name::Symbol)
     if name === :N
         Base.depwarn("the `N` field is deprecated, use `nsites(x)`.", :getproperty)
         return nsites(x)
+    elseif name === :ttv_ot || name === :tto_ot
+        Base.depwarn("the `$name` field is deprecated, use the `orthogonality` interval.", :getproperty)
+        return _orthogonality_to_flags(x)
     end
     return getfield(x, name)
 end
 
-function TTvector{T, M}(N::Integer, ttv_vec, ttv_dims, ttv_rks, ttv_ot) where {T, M}
+# Deprecated: constructors taking per-core orthogonality flags, optionally
+# preceded by the number of cores.
+const _FLAGS_DEPWARN = "passing per-core orthogonality flags is deprecated, use the `orthogonality = (left, right)` keyword."
+
+function TTvector{T, M}(ttv_vec, ttv_dims, ttv_rks, ot) where {T <: Number, M}
+    Base.depwarn("`TTvector`: " * _FLAGS_DEPWARN, :TTvector)
+    return TTvector{T, M}(ttv_vec, ttv_dims, ttv_rks; orthogonality = _flags_to_orthogonality(ot, M))
+end
+
+TTvector(ttv_vec::Vector{Array{T, 3}}, ttv_dims::NTuple{M, Int64}, ttv_rks, ot) where {T <: Number, M} =
+    TTvector{T, M}(ttv_vec, ttv_dims, ttv_rks, ot)
+
+function TTvector{T, M}(N::Integer, ttv_vec, ttv_dims, ttv_rks, ot) where {T <: Number, M}
     Base.depwarn("`TTvector{T, M}(N, cores, dims, rks, ot)` is deprecated, omit `N`.", :TTvector)
-    return TTvector{T, M}(ttv_vec, ttv_dims, ttv_rks, ttv_ot)
+    return TTvector{T, M}(ttv_vec, ttv_dims, ttv_rks, ot)
 end
 
-function TTvector(N::Integer, ttv_vec, ttv_dims, ttv_rks, ttv_ot)
+function TTvector(N::Integer, ttv_vec::Vector{Array{T, 3}}, ttv_dims::NTuple{M, Int64}, ttv_rks, ot) where {T <: Number, M}
     Base.depwarn("`TTvector(N, cores, dims, rks, ot)` is deprecated, omit `N`.", :TTvector)
-    return TTvector(ttv_vec, ttv_dims, ttv_rks, ttv_ot)
+    return TTvector{T, M}(ttv_vec, ttv_dims, ttv_rks, ot)
 end
 
-function TToperator{T, M}(N::Integer, tto_vec, tto_dims, tto_rks, tto_ot) where {T, M}
+function TToperator{T, M}(tto_vec, tto_dims, tto_rks, ot) where {T <: Number, M}
+    Base.depwarn("`TToperator`: " * _FLAGS_DEPWARN, :TToperator)
+    return TToperator{T, M}(tto_vec, tto_dims, tto_rks; orthogonality = _flags_to_orthogonality(ot, M))
+end
+
+TToperator(tto_vec::Vector{Array{T, 4}}, tto_dims::NTuple{M, Int64}, tto_rks, ot) where {T <: Number, M} =
+    TToperator{T, M}(tto_vec, tto_dims, tto_rks, ot)
+
+function TToperator{T, M}(N::Integer, tto_vec, tto_dims, tto_rks, ot) where {T <: Number, M}
     Base.depwarn("`TToperator{T, M}(N, cores, dims, rks, ot)` is deprecated, omit `N`.", :TToperator)
-    return TToperator{T, M}(tto_vec, tto_dims, tto_rks, tto_ot)
+    return TToperator{T, M}(tto_vec, tto_dims, tto_rks, ot)
 end
 
-function TToperator(N::Integer, tto_vec, tto_dims, tto_rks, tto_ot)
+function TToperator(N::Integer, tto_vec::Vector{Array{T, 4}}, tto_dims::NTuple{M, Int64}, tto_rks, ot) where {T <: Number, M}
     Base.depwarn("`TToperator(N, cores, dims, rks, ot)` is deprecated, omit `N`.", :TToperator)
-    return TToperator(tto_vec, tto_dims, tto_rks, tto_ot)
+    return TToperator{T, M}(tto_vec, tto_dims, tto_rks, ot)
 end
 
 function Base.complex(A::TToperator{T, M}) where {T, M}
     return TToperator{Complex{real(T)}, M}(
-        complex.(A.tto_vec), A.tto_dims, copy(A.tto_rks), copy(A.tto_ot)
+        complex.(A.tto_vec), A.tto_dims, copy(A.tto_rks); orthogonality = copy(A.orthogonality)
     )
 end
 
 function Base.complex(v::TTvector{T, M}) where {T, M}
     return TTvector{Complex{real(T)}, M}(
-        complex.(v.ttv_vec), v.ttv_dims, copy(v.ttv_rks), copy(v.ttv_ot)
+        complex.(v.ttv_vec), v.ttv_dims, copy(v.ttv_rks); orthogonality = copy(v.orthogonality)
     )
 end
 
@@ -220,7 +353,7 @@ function rand_tt(x_tt::TTvector{T, N}; ε = convert(T, 1.0e-5)) where {T, N}
     for i in eachindex(x_tt.ttv_vec)
         tt_vec[i] += ε * randn(x_tt.ttv_dims[i], x_tt.ttv_rks[i], x_tt.ttv_rks[i + 1])
     end
-    return TTvector{T, N}(tt_vec, x_tt.ttv_dims, copy(x_tt.ttv_rks), zeros(Int, N))
+    return TTvector{T, N}(tt_vec, x_tt.ttv_dims, copy(x_tt.ttv_rks))
 end
 
 """
@@ -235,7 +368,7 @@ Create a deep copy of a `TTvector` object.
 - A new `TTvector` object that is a deep copy of `x_tt`.
 """
 Base.copy(x_tt::TTvector{T, N}) where {T <: Number, N} =
-    TTvector{T, N}(copy.(x_tt.ttv_vec), x_tt.ttv_dims, copy(x_tt.ttv_rks), copy(x_tt.ttv_ot))
+    TTvector{T, N}(copy.(x_tt.ttv_vec), x_tt.ttv_dims, copy(x_tt.ttv_rks); orthogonality = copy(x_tt.orthogonality))
 
 """
     ttv_decomp(tensor::Array; index=1, tol=1e-12) -> TTvector
@@ -255,14 +388,6 @@ function ttv_decomp(tensor::Array{T, d}; index = 1, tol = 1.0e-12) where {T <: N
     # Decomposes a tensor into its tensor train with core matrices at i=index
     dims = size(tensor) #dims = [n_1,...,n_d]
     ttv_vec = Array{Array{T, 3}}(undef, d)
-    # ttv_ot[i]= -1 if i < index
-    # ttv_ot[i] = 0 if i = index
-    # ttv_ot[i] = 1 if i > index
-    ttv_ot = -ones(Int64, d)
-    ttv_ot[index] = 0
-    if index < d
-        ttv_ot[(index + 1):d] = ones(d - index)
-    end
     rks = ones(Int64, d + 1)
     tensor_curr = tensor
     # Calculate ttv_vec[i] for i < index
@@ -316,7 +441,7 @@ function ttv_decomp(tensor::Array{T, d}; index = 1, tol = 1.0e-12) where {T <: N
     end
 
     # Define the return value as a TTvector
-    return TTvector{T, d}(ttv_vec, dims, rks, ttv_ot)
+    return TTvector{T, d}(ttv_vec, dims, rks; orthogonality = (index, index))
 end
 
 """
@@ -373,7 +498,7 @@ function tto_to_ttv(A::TToperator{T, N}) where {T <: Number, N}
     for i in eachindex(xtt_vec)
         xtt_vec[i] = reshape(copy(A.tto_vec[i]), A.tto_dims[i]^2, A_rks[i], A_rks[i + 1])
     end
-    return TTvector{T, N}(xtt_vec, A.tto_dims .^ 2, copy(A.tto_rks), copy(A.tto_ot))
+    return TTvector{T, N}(xtt_vec, A.tto_dims .^ 2, copy(A.tto_rks); orthogonality = copy(A.orthogonality))
 end
 
 """
@@ -403,7 +528,7 @@ function ttv_to_tto(x::TTvector{T, N}) where {T <: Number, N}
     for i in eachindex(A_dims)
         Att_vec[i] = reshape(copy(x.ttv_vec[i]), A_dims[i], A_dims[i], x_rks[i], x_rks[i + 1])
     end
-    return TToperator{T, N}(Att_vec, A_dims, copy(x.ttv_rks), copy(x.ttv_ot))
+    return TToperator{T, N}(Att_vec, A_dims, copy(x.ttv_rks); orthogonality = copy(x.orthogonality))
 end
 
 """
@@ -438,7 +563,7 @@ function tto_decomp(tensor::Array{T, N}; index = 1) where {T <: Number, N}
         # Fill in tto_vec[i]
         tto_vec[i] = reshape(ttv.ttv_vec[i], tto_dims[i], tto_dims[i], :, rks[i + 1])
     end
-    return TToperator{T, d}(tto_vec, tto_dims, rks, ttv.ttv_ot)
+    return TToperator{T, d}(tto_vec, tto_dims, rks; orthogonality = ttv.orthogonality)
 end
 
 """
@@ -549,13 +674,12 @@ so a fixed-rank solver (e.g. ALS) has room to develop higher-rank structure.
 function increase_ranks(x_tt::TTvector{T, N}, max_bond::Int; rks = vcat(1, max_bond * ones(Int, length(x_tt.ttv_dims) - 1), 1), noise = 0.0) where {T <: Number, N}
     d = nsites(x_tt)
     vec_out = Array{Array{T}}(undef, d)
-    out_ot = zeros(Int64, d)
     @assert(max_bond > maximum(x_tt.ttv_rks), "New bond dimension too low")
     rks = r_and_d_to_rks(rks, x_tt.ttv_dims; rmax = max_bond)
     for i in 1:d
         vec_out[i] = increase_ranks_noise(x_tt.ttv_vec[i], rks[i], rks[i + 1], noise)
     end
-    return TTvector{T, N}(vec_out, x_tt.ttv_dims, rks, out_ot)
+    return TTvector{T, N}(vec_out, x_tt.ttv_dims, rks)
 end
 
 # Deprecated: renamed to `increase_ranks` (the `ϵ_wn` keyword is now `noise`).
@@ -585,7 +709,6 @@ function orthogonalize(x_tt::TTvector{T, N}; i = 1::Int) where {T <: Number, N}
     FR = ones(T, 1, 1)
     yleft_temp = zeros(T, maximum(x_tt.ttv_rks), maximum(x_tt.ttv_dims), maximum(x_tt.ttv_rks))
     for j in 1:(i - 1)
-        y_tt.ttv_ot[j] = 1
         @tensoropt((βⱼ₋₁, αⱼ), yleft_temp[1:y_tt.ttv_rks[j], 1:x_tt.ttv_dims[j], 1:x_tt.ttv_rks[j + 1]][αⱼ₋₁, iⱼ, αⱼ] = FR[αⱼ₋₁, βⱼ₋₁] * x_tt.ttv_vec[j][iⱼ, βⱼ₋₁, αⱼ])
         F = qr(reshape(yleft_temp[1:y_tt.ttv_rks[j], 1:x_tt.ttv_dims[j], 1:x_tt.ttv_rks[j + 1]], x_tt.ttv_dims[j] * y_tt.ttv_rks[j], :))
         y_tt.ttv_rks[j + 1] = size(Matrix(F.Q), 2)
@@ -595,7 +718,6 @@ function orthogonalize(x_tt::TTvector{T, N}; i = 1::Int) where {T <: Number, N}
     FL = ones(T, 1, 1)
     (i < nsites(x_tt)) && (yright_temp = zeros(T, maximum(x_tt.ttv_rks), maximum(y_tt.ttv_rks), maximum(x_tt.ttv_dims)))
     for j in d:-1:(i + 1)
-        y_tt.ttv_ot[j] = -1
         yright_temp = zeros(T, x_tt.ttv_rks[j], y_tt.ttv_rks[j + 1], x_tt.ttv_dims[j])
         @tensoropt((αⱼ₋₁, αⱼ), yright_temp[1:x_tt.ttv_rks[j], 1:y_tt.ttv_rks[j + 1], 1:x_tt.ttv_dims[j]][αⱼ₋₁, βⱼ, iⱼ] = x_tt.ttv_vec[j][iⱼ, αⱼ₋₁, αⱼ] * FL[αⱼ, βⱼ])
         F = lq(reshape(yright_temp[1:x_tt.ttv_rks[j], 1:y_tt.ttv_rks[j + 1], 1:x_tt.ttv_dims[j]], x_tt.ttv_rks[j], :))
@@ -603,7 +725,7 @@ function orthogonalize(x_tt::TTvector{T, N}; i = 1::Int) where {T <: Number, N}
         y_tt.ttv_vec[j] = permutedims(reshape(Matrix(F.Q), y_tt.ttv_rks[j], y_tt.ttv_rks[j + 1], x_tt.ttv_dims[j]), [3 1 2])
         FL = F.L[:, 1:y_tt.ttv_rks[j]]
     end
-    y_tt.ttv_ot[i] = 0
+    _set_orthogonality!(y_tt, i, i)
     y_tt.ttv_vec[i] = zeros(T, y_tt.ttv_dims[i], y_tt.ttv_rks[i], y_tt.ttv_rks[i + 1])
     @simd for k in 1:x_tt.ttv_dims[i]
         y_tt.ttv_vec[i][k, :, :] = FR * x_tt.ttv_vec[i][k, :, :] * FL
@@ -661,18 +783,11 @@ function entanglemententropy(args...; kwargs...)
     return entanglement_entropy(args...; kwargs...)
 end
 
-function _ot_description(ot::Vector{Int})
-    all(iszero, ot)   && return "none"
-    all(==(1), ot)    && return "left-canonical"
-    all(==(-1), ot)   && return "right-canonical"
-    zeros_at = findall(iszero, ot)
-    if length(zeros_at) == 1
-        c = zeros_at[1]
-        left_ok = c == 1 || all(==(1), ot[1:(c - 1)])
-        right_ok = c == length(ot) || all(==(-1), ot[(c + 1):end])
-        left_ok && right_ok && return "center @ site $c"
-    end
-    return string(ot)       # fallback: raw vector
+function _orthogonality_description(x)
+    left, right = _orthogonality(x)
+    left == right && return "center @ site $left"
+    (left, right) == (1, nsites(x)) && return "none"
+    return "center within sites $left:$right"
 end
 
 function Base.show(io::IO, tt::TTvector{T, N}) where {T <: Number, N}
@@ -687,14 +802,14 @@ function Base.show(io::IO, ::MIME"text/plain", tt::TTvector{T, N}) where {T <: N
     println(io, "MPS{$T} with $(nsites(tt)) sites")
     println(io, "  Physical dims : $(tt.ttv_dims)")
     println(io, "  Bond dims     : $(tt.ttv_rks)")
-    return print(io, "  Orthogonality : $(_ot_description(tt.ttv_ot))")
+    return print(io, "  Orthogonality : $(_orthogonality_description(tt))")
 end
 
 function Base.show(io::IO, ::MIME"text/plain", tto::TToperator{T, N}) where {T <: Number, N}
     println(io, "MPO{$T} with $(nsites(tto)) sites")
     println(io, "  Physical dims : $(tto.tto_dims)")
     println(io, "  Bond dims     : $(tto.tto_rks)")
-    return print(io, "  Orthogonality : $(_ot_description(tto.tto_ot))")
+    return print(io, "  Orthogonality : $(_orthogonality_description(tto))")
 end
 
 """
@@ -807,9 +922,8 @@ function concatenate(tt1::TTvector, tt2::TTvector)
     ttv_vec = vcat(tt1.ttv_vec, tt2.ttv_vec)
     ttv_dims = (tt1.ttv_dims..., tt2.ttv_dims...)
     ttv_rks = vcat(tt1.ttv_rks[1:(end - 1)], tt2.ttv_rks)
-    ttv_ot = vcat(tt1.ttv_ot, tt2.ttv_ot)
 
-    return TTvector{eltype(tt1), length(ttv_dims)}(ttv_vec, ttv_dims, ttv_rks, ttv_ot)
+    return TTvector{eltype(tt1), length(ttv_dims)}(ttv_vec, ttv_dims, ttv_rks; orthogonality = _joined_orthogonality(tt1, tt2))
 end
 
 
@@ -821,9 +935,8 @@ function concatenate(tt1::TToperator, tt2::TToperator)
     tto_vec = vcat(tt1.tto_vec, tt2.tto_vec)
     tto_dims = (tt1.tto_dims..., tt2.tto_dims...)
     tto_rks = vcat(tt1.tto_rks[1:(end - 1)], tt2.tto_rks)
-    tto_ot = vcat(tt1.tto_ot, tt2.tto_ot)
 
-    return TToperator{eltype(tt1), length(tto_dims)}(tto_vec, tto_dims, tto_rks, tto_ot)
+    return TToperator{eltype(tt1), length(tto_dims)}(tto_vec, tto_dims, tto_rks; orthogonality = _joined_orthogonality(tt1, tt2))
 end
 
 # Make `cores[k]` right-orthonormal and multiply the triangular factor into
@@ -899,7 +1012,7 @@ function _tt_truncate_sweep!(x::TTvector{T, N}, select::F) where {T <: Number, N
         x.ttv_vec[k] = y.ttv_vec[k]
     end
     x.ttv_rks .= y.ttv_rks
-    x.ttv_ot .= y.ttv_ot
+    _set_orthogonality!(x, 1, 1)
     d == 1 && return x
     for k in 1:(d - 1)
         C = x.ttv_vec[k]                          # center core, (n, r_l, r_r)
@@ -909,14 +1022,13 @@ function _tt_truncate_sweep!(x::TTvector{T, N}, select::F) where {T <: Number, N
         U = F_svd.U[:, 1:r_new]
         x.ttv_vec[k] = permutedims(reshape(U, rl, n, r_new), (2, 1, 3))
         x.ttv_rks[k + 1] = r_new
-        x.ttv_ot[k] = 1
         SV = Diagonal(F_svd.S[1:r_new]) * F_svd.Vt[1:r_new, :]
         B = x.ttv_vec[k + 1]                      # (n₂, r_r, r₃)
         n2 = size(B, 1)
         r3 = size(B, 3)
         Bnew = reshape(SV * reshape(permutedims(B, (2, 1, 3)), rr, n2 * r3), r_new, n2, r3)
         x.ttv_vec[k + 1] = permutedims(Bnew, (2, 1, 3))
-        x.ttv_ot[k + 1] = 0
+        _set_orthogonality!(x, k + 1, k + 1)
     end
     return x
 end

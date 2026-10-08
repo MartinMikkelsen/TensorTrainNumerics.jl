@@ -174,7 +174,7 @@ end
 
     @test all(isfinite, E)
     @test x_opt isa TTvector{Float64}
-    @test x_opt.ttv_ot[1] == 0
+    @test x_opt.orthogonality == [1, 1]
     @test length(r_hist) == length(E)
 end
 

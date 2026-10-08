@@ -226,8 +226,8 @@ end
 
 function rrule(::typeof(*), a::Number, x::TTvector{R, N}) where {R <: Number, N}
     T = promote_type(typeof(a), R)
-    X, scale_cotangents = _scale_rrule(a, x.ttv_vec, TensorTrainNumerics._scale_site(x.ttv_ot), T)
-    y = TTvector{T, N}(X, x.ttv_dims, copy(x.ttv_rks), copy(x.ttv_ot))
+    X, scale_cotangents = _scale_rrule(a, x.ttv_vec, TensorTrainNumerics._scale_site(x), T)
+    y = TTvector{T, N}(X, x.ttv_dims, copy(x.ttv_rks); orthogonality = copy(x.orthogonality))
     function scale_pullback(ȳraw)
         Z = _cotangent_cores(ȳraw, :ttv_vec)
         Z === nothing && return (NoTangent(), ZeroTangent(), ZeroTangent())
@@ -239,8 +239,8 @@ end
 
 function rrule(::typeof(*), a::Number, A::TToperator{R, N}) where {R <: Number, N}
     T = promote_type(typeof(a), R)
-    X, scale_cotangents = _scale_rrule(a, A.tto_vec, TensorTrainNumerics._scale_site(A.tto_ot), T)
-    B = TToperator{T, N}(X, A.tto_dims, copy(A.tto_rks), copy(A.tto_ot))
+    X, scale_cotangents = _scale_rrule(a, A.tto_vec, TensorTrainNumerics._scale_site(A), T)
+    B = TToperator{T, N}(X, A.tto_dims, copy(A.tto_rks); orthogonality = copy(A.orthogonality))
     function scale_pullback(B̄raw)
         Z = _cotangent_cores(B̄raw, :tto_vec)
         Z === nothing && return (NoTangent(), ZeroTangent(), ZeroTangent())

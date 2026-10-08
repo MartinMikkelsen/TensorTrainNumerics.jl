@@ -138,12 +138,11 @@ function left_core_move(x_tt::AbstractTTvector, V::Array{T, 3}, i::Int, x_rks) w
 
     # Apply core movement 3.1
     x_tt.ttv_vec[i] = permutedims(reshape(Matrix(QV)[:, 1:rim], ni, ri, :), [1 3 2])
-    x_tt.ttv_ot[i] = 1
 
     # Apply core movement 3.2
     @tensoropt((b, c, z), Xim[a, b, c] := x_tt.ttv_vec[i - 1][a, b, z] * RV[1:rim, :][c, z]) #size (nim,rim2,rim_new)
     x_tt.ttv_vec[i - 1] = Xim
-    x_tt.ttv_ot[i - 1] = 0
+    _center_moved_left!(x_tt, i)
     return x_tt
 end
 
@@ -154,12 +153,11 @@ function right_core_move(x_tt::AbstractTTvector, V::Array{T, 3}, i::Int, x_rks) 
 
     # Apply core movement 3.1
     x_tt.ttv_vec[i] = reshape(Matrix(QV)[:, 1:ri], ni, rim, :)
-    x_tt.ttv_ot[i] = -1
 
     # Apply core movement 3.2
     @tensoropt((b, c, z), Xip[a, b, c] := RV[1:ri, :][b, z] * x_tt.ttv_vec[i + 1][a, z, c]) #size (nip,ri,rip)
     x_tt.ttv_vec[i + 1] = Xip
-    x_tt.ttv_ot[i + 1] = 0
+    _center_moved_right!(x_tt, i)
     return x_tt
 end
 
@@ -368,8 +366,8 @@ function als_gen_eigsolve(
         # First half sweep
         for i in 1:(d - 1)
 
-            # If i is the index of the core matrices do the optimization
-            if tt_opt.ttv_ot[i] == 0
+            # Optimize core i only while it is the orthogonality center
+            if _orthogonality_center(tt_opt) == i
                 # Define V as solution of K*x=Pb in x
                 i_μit += 1
                 E[i_μit], V = K_eiggenmin(G[i], H[i], K[i], L[i], tt_opt.ttv_vec[i]; it_solver = it_solver, itslv_thresh = itslv_thresh)

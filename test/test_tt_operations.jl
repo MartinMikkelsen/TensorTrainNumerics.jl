@@ -9,7 +9,7 @@ using LinearAlgebra
     # Construct a TTvector with explicit values
     core1 = reshape([1.0, 2.0, 3.0], 3, 1, 1)
     core2 = reshape([4.0, 5.0], 2, 1, 1)
-    x = TTvector{Float64, 2}([core1, core2], dims, rks, zeros(Int, 2))
+    x = TTvector{Float64, 2}([core1, core2], dims, rks)
     # Full vector
     full_x = vec([core1[i, 1, 1] * core2[j, 1, 1] for i in 1:3, j in 1:2])
     # Diagonal TT-matrix
@@ -121,7 +121,7 @@ end
     add!(x, y)
     @test isapprox(ttv_to_tensor(x), expected_tensor; atol = 1.0e-12)
     @test x.ttv_rks == [1, 5, 1]
-    @test all(x.ttv_ot .== 0)
+    @test x.orthogonality == [1, 2]
 end
 
 @testset "TToperator callable" begin
@@ -135,8 +135,8 @@ end
 
 @testset "adjoint and the KrylovKit (x, Val) calling convention" begin
     dims = (2, 3, 2)
-    A = TToperator([randn(ComplexF64, n, n, r1, r2) for (n, r1, r2) in zip(dims, (1, 2, 2), (2, 2, 1))], dims, [1, 2, 2, 1], zeros(Int, 3))
-    x = TTvector([randn(ComplexF64, n, r1, r2) for (n, r1, r2) in zip(dims, (1, 2, 2), (2, 2, 1))], dims, [1, 2, 2, 1], zeros(Int, 3))
+    A = TToperator([randn(ComplexF64, n, n, r1, r2) for (n, r1, r2) in zip(dims, (1, 2, 2), (2, 2, 1))], dims, [1, 2, 2, 1])
+    x = TTvector([randn(ComplexF64, n, r1, r2) for (n, r1, r2) in zip(dims, (1, 2, 2), (2, 2, 1))], dims, [1, 2, 2, 1])
     M = reshape(tto_to_tensor(A), prod(dims), :)
     v = vec(ttv_to_tensor(x))
     @test reshape(tto_to_tensor(A'), prod(dims), :) ≈ M'
@@ -283,13 +283,13 @@ end
         x = rand_tt((2, 3), [1, 2, 1])
         y = α * x
         @test y.ttv_rks !== x.ttv_rks
-        @test y.ttv_ot !== x.ttv_ot
+        @test y.orthogonality !== x.orthogonality
         @test all(y.ttv_vec[i] !== x.ttv_vec[i] for i in eachindex(x.ttv_vec))
 
         A = rand_tto((2, 3), 2)
         B = α * A
         @test B.tto_rks !== A.tto_rks
-        @test B.tto_ot !== A.tto_ot
+        @test B.orthogonality !== A.orthogonality
         @test all(B.tto_vec[i] !== A.tto_vec[i] for i in eachindex(A.tto_vec))
     end
 end
@@ -465,7 +465,7 @@ end
 
     # The result has its orthogonality center on the first core.
     z = hadamard_ttm(f, g; trunc_tol = 1.0e-8)
-    @test z.ttv_ot == [0; fill(-1, d - 1)]
+    @test z.orthogonality == [1, 1]
     for k in 2:d
         n, rl, rr = size(z.ttv_vec[k])
         M = reshape(permutedims(z.ttv_vec[k], (2, 1, 3)), rl, n * rr)

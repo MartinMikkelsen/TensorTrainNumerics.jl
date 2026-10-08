@@ -145,7 +145,7 @@ H = Δ(4)
 ψ = qtt_sin(4)
 
 function energy(cores)
-    A = TToperator(cores, H.tto_dims, H.tto_rks, H.tto_ot)
+    A = TToperator(cores, H.tto_dims, H.tto_rks; orthogonality = H.orthogonality)
     return real(dot(ψ, A * ψ)) / real(dot(ψ, ψ))
 end
 
@@ -176,6 +176,16 @@ A TT-vector is *left-canonical up to site k* when each core $A^{(1)},\ldots,A^{(
 ```@example ttbasics
 vL = orthogonalize(v)          # left-canonical (gauge center at site N)
 vC = orthogonalize(v; i = 2)  # gauge center at site 2
+```
+
+Every `TTvector` and `TToperator` records what is known about its gauge in the
+field `orthogonality`, an interval `[left, right]`: the cores before `left` are
+left-orthogonal and the cores after `right` are right-orthogonal. Nothing is
+recorded about the cores inside the interval, so `[c, c]` is an orthogonality
+center at core `c` and `[1, N]` records nothing.
+
+```@example ttbasics
+vC.orthogonality
 ```
 
 Orthogonalization is a prerequisite for the alternating solvers (ALS, MALS, DMRG) and TDVP, and enables cheap norm computation: `norm(v) == norm(vC.ttv_vec[2])`.

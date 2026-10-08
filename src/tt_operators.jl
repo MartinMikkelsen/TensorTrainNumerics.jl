@@ -82,7 +82,7 @@ function pauli_sum_tto(μ, d::Int)
     dims = ntuple(_ -> 2, d)
 
     if d == 1
-        return TToperator{T, 1}([reshape(P, 2, 2, 1, 1)], dims, [1, 1], zeros(Int64, 1))
+        return TToperator{T, 1}([reshape(P, 2, 2, 1, 1)], dims, [1, 1])
     end
 
     rks = vcat(1, fill(2, d - 1), 1)
@@ -104,7 +104,7 @@ function pauli_sum_tto(μ, d::Int)
     cores[d][:, :, 1, 1] = id
     cores[d][:, :, 2, 1] = P
 
-    return TToperator{T, d}(cores, dims, rks, zeros(Int64, d))
+    return TToperator{T, d}(cores, dims, rks)
 end
 
 """
@@ -145,7 +145,7 @@ function pauli_pair_sum_tto(μ, ν, d::Int)
     cores[d][:, :, 1, 1] = id
     cores[d][:, :, 2, 1] = Pν
 
-    return TToperator{T, d}(cores, dims, rks, zeros(Int64, d))
+    return TToperator{T, d}(cores, dims, rks)
 end
 
 """
@@ -226,7 +226,7 @@ function heisenberg_xyz_tto(d::Int; jx = 1.0, jy = 1.0, jz = 1.0, λ = 0.0, fiel
     cores[d][:, :, 4, 1] = Pz2
     cores[d][:, :, 5, 1] = λT * Pf
 
-    return TToperator{T, d}(cores, dims, rks, zeros(Int64, d))
+    return TToperator{T, d}(cores, dims, rks)
 end
 
 """
@@ -463,8 +463,7 @@ function qtto_constant_prolongation(d::Int)
     return TToperator{Float64, d + 1}(
         out,
         ntuple(_ -> 2, d + 1),
-        ones(Int64, d + 2),
-        zeros(Int64, d + 1)
+        ones(Int64, d + 2)
     )
 end
 
@@ -478,7 +477,7 @@ function qtto_linear_prolongation(d::Int)
     if d == 1
         average_core = zeros(Float64, 2, 2, 1, 1)
         average_core[:, :, 1, 1] .= 0.5 .* [1.0 1.0; 0.0 1.0]
-        average_branch = TToperator{Float64, 1}([average_core], (2,), [1, 1], [0])
+        average_branch = TToperator{Float64, 1}([average_core], (2,), [1, 1])
     else
         average_branch = 0.5 * (id_tto(d) + shift(d))
     end
@@ -511,7 +510,7 @@ function qtto_linear_prolongation(d::Int)
     out[d + 1][1, 1, 1:l₀, 1] .= 1.0
     out[d + 1][2, 1, (l₀ + 1):(l₀ + l₁), 1] .= 1.0
 
-    return TToperator{Float64, d + 1}(out, ntuple(_ -> 2, d + 1), out_rks, zeros(Int64, d + 1))
+    return TToperator{Float64, d + 1}(out, ntuple(_ -> 2, d + 1), out_rks)
 end
 
 
@@ -539,7 +538,7 @@ function id_tto(::Type{T}, d; n_dim::Int = 2) where {T}
         A[j] = zeros(T, n_dim, n_dim, 1, 1)
         A[j][:, :, 1, 1] = Matrix{T}(I, n_dim, n_dim)
     end
-    return TToperator{T, d}(A, dims, ones(Int64, d + 1), zeros(Int64, d))
+    return TToperator{T, d}(A, dims, ones(Int64, d + 1))
 end
 
 # Identity operator with the element type and physical dimensions of `A`.
@@ -548,7 +547,7 @@ function _identity_like(A::AbstractTToperator)
     dims = A.tto_dims
     d = length(dims)
     cores = [reshape(Matrix{T}(I, n, n), n, n, 1, 1) for n in dims]
-    return TToperator{T, d}(cores, dims, ones(Int, d + 1), zeros(Int, d))
+    return TToperator{T, d}(cores, dims, ones(Int, d + 1))
 end
 
 """
@@ -568,34 +567,37 @@ function rand_tto(dims, rmax::Int; T = Float64)
         rks[i + 1] = rip
         tt_vec[i] = randn(T, dims[i], dims[i], ri, rip)
     end
-    return TToperator{T, d}(tt_vec, dims, rks, zeros(Int, d))
+    return TToperator{T, d}(tt_vec, dims, rks)
 end
 
 """
-    zeros_tt([T=Float64,] dims, rks; ot=zeros(Int, length(dims))) -> TTvector
-    zeros_tt(n::Integer, d::Integer, r; ot, r_and_d=true) -> TTvector
+    zeros_tt([T=Float64,] dims, rks; orthogonality=(1, length(dims))) -> TTvector
+    zeros_tt(n::Integer, d::Integer, r; orthogonality=(1, d), r_and_d=true) -> TTvector
 
 Return a [`TTvector`](@ref) with element type `T`, physical dimensions `dims`,
-TT ranks `rks` (length `length(dims) + 1`), and all cores zero. `ot` sets the
-orthogonality flags.
+TT ranks `rks` (length `length(dims) + 1`), and all cores zero. `orthogonality`
+sets the orthogonality interval `(left, right)` recorded on the result.
 
 The second form uses `d` sites of dimension `n` and interior ranks `r`. With
 `r_and_d = true`, ranks are reduced where the dimensions force a smaller rank
 (see [`r_and_d_to_rks`](@ref)); otherwise every interior rank is `r`.
 """
-function zeros_tt(dims, rks; ot = zeros(Int64, length(dims)))
-    return zeros_tt(Float64, dims, rks; ot = ot)
+function zeros_tt(dims, rks; kwargs...)
+    return zeros_tt(Float64, dims, rks; kwargs...)
 end
 
-function zeros_tt(::Type{T}, dims::NTuple{N, Int64}, rks; ot = zeros(Int64, length(dims))) where {T, N}
+function zeros_tt(::Type{T}, dims::NTuple{N, Int64}, rks; orthogonality = (1, N), ot = nothing) where {T, N}
     @assert length(dims) + 1 == length(rks) "Dimensions and ranks are not compatible"
+    if ot !== nothing
+        Base.depwarn("the `ot` keyword of `zeros_tt` is deprecated, use `orthogonality = (left, right)`.", :zeros_tt)
+        orthogonality = _flags_to_orthogonality(ot, N)
+    end
     tt_vec = [zeros(T, dims[i], rks[i], rks[i + 1]) for i in eachindex(dims)]
     rks_vec = collect(Int64, rks)
-    ot_vec = collect(Int64, ot)
-    return TTvector{T, N}(tt_vec, dims, rks_vec, ot_vec)
+    return TTvector{T, N}(tt_vec, dims, rks_vec; orthogonality)
 end
 
-function zeros_tt(n::Integer, d::Integer, r; ot = zeros(Int64, d), r_and_d = true)
+function zeros_tt(n::Integer, d::Integer, r; r_and_d = true, kwargs...)
     dims = ntuple(x -> n, d)
     if r_and_d
         rks = r_and_d_to_rks(r * ones(Int64, d + 1), dims)
@@ -603,11 +605,11 @@ function zeros_tt(n::Integer, d::Integer, r; ot = zeros(Int64, d), r_and_d = tru
         rks = r * ones(Int64, d + 1)
         rks[1], rks[end] = 1, 1
     end
-    return zeros_tt(Float64, dims, rks; ot = ot)
+    return zeros_tt(Float64, dims, rks; kwargs...)
 end
 
-function zeros_tt(::Type{T}, dims::Vector{Int}, rks::Vector{Int}; ot = zeros(Int64, length(dims))) where {T}
-    return zeros_tt(T, Tuple(dims), Tuple(rks); ot = ot)
+function zeros_tt(::Type{T}, dims::Vector{Int}, rks::Vector{Int}; kwargs...) where {T}
+    return zeros_tt(T, Tuple(dims), Tuple(rks); kwargs...)
 end
 
 function zeros_tt!(A::TTvector)
@@ -626,8 +628,7 @@ function ones_tt(::Type{T}, dims) where {T}
     N = length(dims)
     vec = [ones(T, n, 1, 1) for n in dims]
     rks = ones(Int64, N + 1)
-    ot = zeros(Int64, N)
-    return TTvector{T, N}(vec, Tuple(dims), rks, ot)
+    return TTvector{T, N}(vec, Tuple(dims), rks)
 end
 
 function ones_tt(n::Integer, d::Integer)
@@ -650,7 +651,7 @@ end
 function zeros_tto(::Type{T}, dims::NTuple{N, Int64}, rks) where {T, N}
     @assert length(dims) + 1 == length(rks) "Dimensions and ranks are not compatible"
     vec = [zeros(T, dims[i], dims[i], rks[i], rks[i + 1]) for i in eachindex(dims)]
-    return TToperator{T, N}(vec, dims, rks, zeros(Int64, N))
+    return TToperator{T, N}(vec, dims, rks)
 end
 
 function zeros_tto(n, d, r)

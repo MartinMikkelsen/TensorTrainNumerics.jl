@@ -119,8 +119,7 @@ function right_core_move!(x_tt::AbstractTTvector, V, V_move, i::Int, trunc_tol::
     verbose && @info "DMRG core move" bond = i + 1 rank = x_tt.ttv_rks[i + 1] max_rank = r_max truncation_error = δ
 
     x_tt.ttv_vec[i] = permutedims(reshape(u_V[:, 1:x_tt.ttv_rks[i + 1]], x_tt.ttv_rks[i], x_tt.ttv_dims[i], :), (2, 1, 3))
-    x_tt.ttv_ot[i] = 1
-    x_tt.ttv_ot[i + 1] = 0
+    _center_moved_right!(x_tt, i)
     mid_size = div(size(v_V, 1), size(V, 3))  # = dim[i+1] for N≥2, = 1 for N=1
     V_moveview = @view(V_move[1:x_tt.ttv_rks[i + 1], 1:mid_size, 1:size(V, 3)])
     @tensor V_moveview[αk, ik, βk] = reshape(v_V'[1:x_tt.ttv_rks[i + 1], :], x_tt.ttv_rks[i + 1], :, size(V, 3))[αk, ik, βk]
@@ -139,8 +138,7 @@ function left_core_move!(x_tt::AbstractTTvector, V, V_move, j::Int, trunc_tol::R
     verbose && @info "DMRG core move" bond = j rank = x_tt.ttv_rks[j] max_rank = r_max truncation_error = δ
 
     x_tt.ttv_vec[j] = permutedims(reshape(v_V'[1:x_tt.ttv_rks[j], :], x_tt.ttv_rks[j], :, x_tt.ttv_rks[j + 1]), (2, 1, 3))
-    x_tt.ttv_ot[j] = -1
-    x_tt.ttv_ot[j - 1] = 0
+    _center_moved_left!(x_tt, j)
     mid_size = div(size(u_V, 1), size(V, 1))  # = dim[j-1] for N≥2, = 1 for N=1
     V_moveview = @view(V_move[1:size(V, 1), 1:mid_size, 1:x_tt.ttv_rks[j]])
     @tensor V_moveview[αk, ik, βk] = reshape(u_V[:, 1:x_tt.ttv_rks[j]], size(V, 1), :, x_tt.ttv_rks[j])[αk, ik, βk]
@@ -293,7 +291,7 @@ function _dmrg_final_core!(tt_opt, V, V_view, V_move, nsites, trunc_tol, max_bon
         V_moveview = @view(V_move[1:tt_opt.ttv_rks[1], 1:prod(tt_opt.ttv_dims[1:(nsites - 1)]), 1:tt_opt.ttv_rks[nsites]])
         tt_opt.ttv_vec[1] = permutedims(reshape(V_moveview, 1, tt_opt.ttv_dims[1], :), (2, 1, 3))
     end
-    tt_opt.ttv_ot[1] = 0
+    _core_replaced!(tt_opt, 1)
     return tt_opt
 end
 

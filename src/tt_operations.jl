@@ -13,12 +13,12 @@ Return `x` with its cores converted to element type `T` (`x` itself if already `
 """
 function _convert_eltype(::Type{T}, x::TTvector{S, N}) where {T <: Number, S <: Number, N}
     T === S && return x
-    return TTvector{T, N}([convert(Array{T, 3}, c) for c in x.ttv_vec], x.ttv_dims, copy(x.ttv_rks), copy(x.ttv_ot))
+    return TTvector{T, N}([convert(Array{T, 3}, c) for c in x.ttv_vec], x.ttv_dims, copy(x.ttv_rks); orthogonality = copy(x.orthogonality))
 end
 
 function _convert_eltype(::Type{T}, A::TToperator{S, N}) where {T <: Number, S <: Number, N}
     T === S && return A
-    return TToperator{T, N}([convert(Array{T, 4}, c) for c in A.tto_vec], A.tto_dims, copy(A.tto_rks), copy(A.tto_ot))
+    return TToperator{T, N}([convert(Array{T, 4}, c) for c in A.tto_vec], A.tto_dims, copy(A.tto_rks); orthogonality = copy(A.orthogonality))
 end
 
 """
@@ -28,7 +28,7 @@ function +(x::TTvector{T, N}, y::TTvector{T, N}) where {T <: Number, N}
     @assert x.ttv_dims == y.ttv_dims "Incompatible dimensions"
     d = nsites(x)
     if d == 1
-        return TTvector{T, N}([x.ttv_vec[1] + y.ttv_vec[1]], x.ttv_dims, [1, 1], zeros(Int64, 1))
+        return TTvector{T, N}([x.ttv_vec[1] + y.ttv_vec[1]], x.ttv_dims, [1, 1])
     end
     ttv_vec = Array{Array{T, 3}, 1}(undef, d)
     rks = x.ttv_rks + y.ttv_rks
@@ -51,7 +51,7 @@ function +(x::TTvector{T, N}, y::TTvector{T, N}) where {T <: Number, N}
         ttv_vec[d][:, 1:x.ttv_rks[d], 1] = x.ttv_vec[d]
         ttv_vec[d][:, (x.ttv_rks[d] + 1):rks[d], 1] = y.ttv_vec[d]
     end
-    return TTvector{T, N}(ttv_vec, x.ttv_dims, rks, zeros(Int64, d))
+    return TTvector{T, N}(ttv_vec, x.ttv_dims, rks)
 end
 
 """
@@ -65,14 +65,14 @@ function add!(x::TTvector{T, N}, y::TTvector{T, N}) where {T <: Number, N}
 end
 
 # Make `x` represent `src` by replacing the contents of its core list, ranks, and
-# orthogonality flags; objects sharing these vectors with `x` see the update. The
+# orthogonality interval; objects sharing these vectors with `x` see the update. The
 # number of cores is fixed by the type, so only the entries change. The core
 # arrays themselves are shared with `src`.
 function _overwrite!(x::TTvector, src::TTvector)
     x.ttv_dims == src.ttv_dims || throw(DimensionMismatch("cannot overwrite a TTvector with dimensions $(x.ttv_dims) by one with dimensions $(src.ttv_dims)"))
     copyto!(x.ttv_vec, src.ttv_vec)
     copyto!(x.ttv_rks, src.ttv_rks)
-    copyto!(x.ttv_ot, src.ttv_ot)
+    copyto!(x.orthogonality, src.orthogonality)
     return x
 end
 
@@ -83,7 +83,7 @@ function +(x::TToperator{T, N}, y::TToperator{T, N}) where {T <: Number, N}
     @assert x.tto_dims == y.tto_dims "Incompatible dimensions"
     d = nsites(x)
     if d == 1
-        return TToperator{T, N}([x.tto_vec[1] + y.tto_vec[1]], x.tto_dims, [1, 1], zeros(Int64, 1))
+        return TToperator{T, N}([x.tto_vec[1] + y.tto_vec[1]], x.tto_dims, [1, 1])
     end
     tto_vec = Array{Array{T, 4}, 1}(undef, d)
     rks = x.tto_rks + y.tto_rks
@@ -106,7 +106,7 @@ function +(x::TToperator{T, N}, y::TToperator{T, N}) where {T <: Number, N}
         tto_vec[d][:, :, 1:x.tto_rks[d], 1] = x.tto_vec[d]
         tto_vec[d][:, :, (x.tto_rks[d] + 1):rks[d], 1] = y.tto_vec[d]
     end
-    return TToperator{T, N}(tto_vec, x.tto_dims, rks, zeros(Int64, d))
+    return TToperator{T, N}(tto_vec, x.tto_dims, rks)
 end
 
 """
@@ -179,7 +179,7 @@ and its entries conjugated. The ranks are unchanged.
 """
 function Base.adjoint(A::TToperator{T, N}) where {T, N}
     cores = [conj(permutedims(c, (2, 1, 3, 4))) for c in A.tto_vec]
-    return TToperator{T, N}(cores, A.tto_dims, copy(A.tto_rks), copy(A.tto_ot))
+    return TToperator{T, N}(cores, A.tto_dims, copy(A.tto_rks); orthogonality = copy(A.orthogonality))
 end
 
 """
@@ -195,7 +195,7 @@ function *(A::TToperator{T, N}, B::TToperator{T, N}) where {T <: Number, N}
         M_temp = reshape(Y[k], A.tto_dims[k], A.tto_dims[k], A_rks[k], B_rks[k], A_rks[k + 1], B_rks[k + 1])
         @tensor M_temp[iₖ, jₖ, αₖ₋₁, βₖ₋₁, αₖ, βₖ] = A.tto_vec[k][iₖ, z, αₖ₋₁, αₖ] * B.tto_vec[k][z, jₖ, βₖ₋₁, βₖ]
     end
-    return TToperator{T, N}(Y, A.tto_dims, A.tto_rks .* B.tto_rks, zeros(Int64, d))
+    return TToperator{T, N}(Y, A.tto_dims, A.tto_rks .* B.tto_rks)
 end
 
 """
@@ -238,7 +238,7 @@ function ⨝(A::TToperator{T, N}, B::TToperator{T, N}) where {T <: Number, N}
     end
     dims = ntuple(k -> A.tto_dims[k] * B.tto_dims[k], N)
     rks = A.tto_rks .* B.tto_rks
-    return TToperator{T, N}(Y, dims, rks, zeros(Int64, d))
+    return TToperator{T, N}(Y, dims, rks)
 end
 
 """
@@ -276,8 +276,9 @@ function dot(A::TTvector{T, N}, B::TTvector{T, N}) where {T <: Number, N}
 end
 
 
-# Core that carries a scalar factor: the orthogonality center, or core 1 if there is none.
-_scale_site(ot) = something(findfirst(==(0), ot), 1)
+# Core that carries a scalar factor. It lies inside the orthogonality interval,
+# so scaling it keeps the recorded orthogonality valid.
+_scale_site(x) = _orthogonality(x)[1]
 
 """
 Multiplies a TTvector by a scalar and returns a new TTvector.
@@ -288,10 +289,10 @@ function *(a::S, A::TTvector{R, N}) where {S <: Number, R <: Number, N}
     if iszero(aT)
         return zeros_tt(T, A.ttv_dims, copy(A.ttv_rks))
     end
-    i = _scale_site(A.ttv_ot)
+    i = _scale_site(A)
     X = [Array{T, 3}(c) for c in A.ttv_vec]   # promote and copy cores before scaling
     X[i] = aT * X[i]
-    return TTvector{T, N}(X, A.ttv_dims, copy(A.ttv_rks), copy(A.ttv_ot))
+    return TTvector{T, N}(X, A.ttv_dims, copy(A.ttv_rks); orthogonality = copy(A.orthogonality))
 end
 
 """
@@ -303,10 +304,10 @@ function *(a::S, A::TToperator{R, N}) where {S <: Number, R <: Number, N}
     if iszero(aT)
         return zeros_tto(T, A.tto_dims, copy(A.tto_rks))
     end
-    i = _scale_site(A.tto_ot)
+    i = _scale_site(A)
     X = [Array{T, 4}(c) for c in A.tto_vec]   # promote and copy cores before scaling
     X[i] = aT * X[i]
-    return TToperator{T, N}(X, A.tto_dims, copy(A.tto_rks), copy(A.tto_ot))
+    return TToperator{T, N}(X, A.tto_dims, copy(A.tto_rks); orthogonality = copy(A.orthogonality))
 end
 
 Base.:*(A::TTvector{T, N}, a::S) where {T <: Number, S <: Number, N} = a * A
@@ -374,7 +375,7 @@ function outer_product(x::TTvector{T, N}, y::TTvector{T, N}) where {T <: Number,
         M_temp = reshape(Y[k], x.ttv_dims[k], x.ttv_dims[k], x.ttv_rks[k], y.ttv_rks[k], x.ttv_rks[k + 1], y.ttv_rks[k + 1])
         @tensor M_temp[iₖ, jₖ, αₖ₋₁, βₖ₋₁, αₖ, βₖ] = x.ttv_vec[k][iₖ, αₖ₋₁, αₖ] * conj(y.ttv_vec[k][jₖ, βₖ₋₁, βₖ])
     end
-    return TToperator{T, N}(Y, x.ttv_dims, x.ttv_rks .* y.ttv_rks, zeros(Int64, nsites(x)))
+    return TToperator{T, N}(Y, x.ttv_dims, x.ttv_rks .* y.ttv_rks)
 end
 
 
@@ -388,7 +389,6 @@ function ttv_to_diag_tto(x::TTvector{T, M}) where {T <: Number, M}
     cores = x.ttv_vec                        # Vector of length d, each core is Array{T,3} sized (n_i, r_i, r_{i+1})
 
     new_rks = copy(rks)
-    new_ot = zeros(Int, d)
     new_cores = Vector{Array{T, 4}}(undef, d)
 
     for i in 1:d
@@ -408,7 +408,7 @@ function ttv_to_diag_tto(x::TTvector{T, M}) where {T <: Number, M}
         new_cores[i] = D
     end
 
-    return TToperator{T, M}(new_cores, dims, new_rks, new_ot)
+    return TToperator{T, M}(new_cores, dims, new_rks)
 end
 
 """
@@ -431,7 +431,7 @@ function hadamard(x::TTvector{T, N}, y::TTvector{T, N}) where {T <: Number, N}
         end
         ttv_vec[k] = core
     end
-    return TTvector{T, N}(ttv_vec, dims, rks, zeros(Int64, d))
+    return TTvector{T, N}(ttv_vec, dims, rks)
 end
 
 """
@@ -540,7 +540,7 @@ function hadamard_ttm(
         _ttm_contract!(cores, p)
     end
     rks = [1; [size(c, 3) for c in cores]]
-    return TTvector{T, N}(cores, x.ttv_dims, rks, [0; fill(-1, d - 1)])
+    return TTvector{T, N}(cores, x.ttv_dims, rks; orthogonality = (1, 1))
 end
 
 """
@@ -550,8 +550,7 @@ function kron(A::TToperator{T, d1}, B::TToperator{T, d2}) where {T, d1, d2}
     d = vcat(A.tto_vec, B.tto_vec)
     dims = (A.tto_dims..., B.tto_dims...)
     rks = vcat(A.tto_rks[1:(end - 1)], B.tto_rks)
-    ot = vcat(A.tto_ot, B.tto_ot)
-    return TToperator{T, d1 + d2}(d, dims, rks, ot)
+    return TToperator{T, d1 + d2}(d, dims, rks; orthogonality = _joined_orthogonality(A, B))
 end
 
 """
@@ -569,8 +568,8 @@ function kron(a::TTvector{T, d1}, b::TTvector{T, d2}) where {T, d1, d2}
     return TTvector{T, d1 + d2}(
         vcat(a.ttv_vec, b.ttv_vec),
         (a.ttv_dims..., b.ttv_dims...),
-        vcat(a.ttv_rks[1:(end - 1)], b.ttv_rks),
-        vcat(a.ttv_ot, b.ttv_ot)
+        vcat(a.ttv_rks[1:(end - 1)], b.ttv_rks);
+        orthogonality = _joined_orthogonality(a, b)
     )
 end
 

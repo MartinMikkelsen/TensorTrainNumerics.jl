@@ -11,7 +11,7 @@ function _sync_ranks_from_lsr!(ψ::AbstractTTvector, A_lsr::Vector{<:AbstractArr
     end
     new_rks[N + 1] = size(A_lsr[N], 3)
     ψ.ttv_rks .= new_rks
-    ψ.ttv_ot .= 0
+    _forget_orthogonality!(ψ)
     return ψ
 end
 

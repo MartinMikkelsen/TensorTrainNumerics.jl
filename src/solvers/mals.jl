@@ -96,8 +96,7 @@ function left_core_move_mals(
         u_V[:, 1:xtt.ttv_rks[i + 1]] * Diagonal(s_V[1:xtt.ttv_rks[i + 1]]),
         size(V, 1), size(V, 2), :
     )
-    xtt.ttv_ot[i + 1] = 1
-    xtt.ttv_ot[i] = 0
+    _center_moved_left!(xtt, i + 1)
     return xtt
 end
 
@@ -114,7 +113,6 @@ function right_core_move_mals(
         u_V[:, 1:xtt.ttv_rks[i + 1]],
         size(V, 1), size(V, 2), xtt.ttv_rks[i + 1]
     )
-    xtt.ttv_ot[i] = -1
 
     # Update the (i+1)-th core from diag(s_trunc) * V^T
     xtt.ttv_vec[i + 1] = permutedims(
@@ -123,7 +121,7 @@ function right_core_move_mals(
             xtt.ttv_rks[i + 1], size(V, 3), size(V, 4)
         ), [2, 1, 3]
     )
-    xtt.ttv_ot[i + 1] = 0
+    _center_moved_right!(xtt, i)
     return xtt
 end
 

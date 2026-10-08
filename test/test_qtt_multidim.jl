@@ -13,7 +13,7 @@ end
     cores = [rand(2, 1, 2), rand(2, 2, 2), rand(2, 2, 1)]
     rks = [1, 2, 2, 1]
     dims = (2, 2, 2)
-    q = QTTvector{Float64, 3}(cores, dims, rks, zeros(Int, 3), 1, 3, :serial)
+    q = QTTvector{Float64, 3}(cores, dims, rks, [1, 3], 1, 3, :serial)
     @test q.n_dims == 1
     @test q.bits_per_dim == 3
     @test q.ordering == :serial
@@ -25,7 +25,7 @@ end
     cores = [rand(2, 2, 1, 2), rand(2, 2, 2, 2), rand(2, 2, 2, 1)]
     rks = [1, 2, 2, 1]
     dims = (2, 2, 2)
-    A = QTToperator{Float64, 3}(cores, dims, rks, zeros(Int, 3), 1, 3, :interleaved)
+    A = QTToperator{Float64, 3}(cores, dims, rks, [1, 3], 1, 3, :interleaved)
     @test A.n_dims == 1
     @test A.bits_per_dim == 3
     @test A.ordering == :interleaved

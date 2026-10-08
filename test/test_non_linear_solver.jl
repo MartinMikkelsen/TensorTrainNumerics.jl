@@ -139,11 +139,11 @@ end
     end
 end
 
-# Replace core l of u (shallow copy elsewhere); orthogonality flags reset.
+# Replace core l of u (shallow copy elsewhere); no orthogonality is recorded.
 function with_core(u::TTvector{T}, l::Int, c::Array{T, 3}) where {T}
     v = copy(u.ttv_vec)
     v[l] = c
-    return TTvector{T, length(u.ttv_dims)}(v, u.ttv_dims, copy(u.ttv_rks), zeros(Int64, nsites(u)))
+    return TTvector{T, length(u.ttv_dims)}(v, u.ttv_dims, copy(u.ttv_rks))
 end
 
 # Dense environment isometry at site l by basis-column densification (u MUST be gauged at l).

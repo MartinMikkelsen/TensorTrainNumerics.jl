@@ -14,7 +14,7 @@ Random.seed!(42)
         local_ops = [k == active ? [0.0 0.0; 0.0 1.0] : Matrix{Float64}(I, 2, 2) for k in 1:nsites]
         H = TToperator(
             [reshape(A, 2, 2, 1, 1) for A in local_ops],
-            ntuple(_ -> 2, nsites), ones(Int, nsites + 1), zeros(Int, nsites)
+            ntuple(_ -> 2, nsites), ones(Int, nsites + 1)
         )
         # Site 1 is the fastest physical index in ttv_to_tensor.
         H_dense = reduce(kron, reverse(local_ops))
@@ -62,7 +62,7 @@ end
     A_lsr = [randn(lefts[k], dims[k], rights[k]) for k in 1:N]
     _sync_ranks_from_lsr!(ψ, A_lsr)
     @test ψ.ttv_rks == [lefts..., rights[end]]
-    @test all(==(0), ψ.ttv_ot)
+    @test ψ.orthogonality == [1, nsites(ψ)]
 end
 
 @testset "_real_or_complex_t" begin

@@ -80,7 +80,7 @@ function VectorInterface.scale(x::TTvector, α::Number)
 end
 function VectorInterface.scale!(x::TTvector{T}, α::Number) where {T}
     αT = convert(T, α)
-    i = findfirst(==(0), x.ttv_ot); i === nothing && (i = 1)
+    i = TensorTrainNumerics._scale_site(x)
     @. x.ttv_vec[i] = αT * x.ttv_vec[i]
     return x
 end

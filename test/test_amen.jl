@@ -56,7 +56,7 @@ end
     dims = (2, 2, 2)
     # Bond ranks 5 and 3 exceed `n * r_right` of the core to their right (4 and 2).
     cores = [randn(T, 2, 1, 5), randn(T, 2, 5, 3), randn(T, 2, 3, 1)]
-    as_tt(c) = TTvector{T, 3}(c, dims, [1; [size(ck, 3) for ck in c]], zeros(Int, 3))
+    as_tt(c) = TTvector{T, 3}(c, dims, [1; [size(ck, 3) for ck in c]])
     before = ttv_to_tensor(as_tt(copy(cores)))
 
     for k in 3:-1:2

@@ -18,8 +18,7 @@ function TensorTrainNumerics.to_ttvector(tt::TCI.TensorTrain{V, 3}) where {V}
     ttv_vec = [permutedims(c, (2, 1, 3)) for c in sites]
     ttv_dims = ntuple(i -> size(ttv_vec[i], 1), N)
     ttv_rks = vcat([1], [size(c, 3) for c in sites])
-    ttv_ot = zeros(Int, N)
-    return TTvector{V, N}(ttv_vec, ttv_dims, ttv_rks, ttv_ot)
+    return TTvector{V, N}(ttv_vec, ttv_dims, ttv_rks)
 end
 
 end

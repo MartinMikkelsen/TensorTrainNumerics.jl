@@ -18,7 +18,7 @@ function pauli_product_tto(factors, d)
         local_matrix = haskey(factor_map, site) ? convert.(T, pauli_matrix(factor_map[site])) : id
         cores[site] = reshape(local_matrix, 2, 2, 1, 1)
     end
-    return TToperator{T, d}(cores, dims, ones(Int, d + 1), zeros(Int, d))
+    return TToperator{T, d}(cores, dims, ones(Int, d + 1))
 end
 
 function periodic_transverse_field_ising_tto(d, g)
@@ -169,7 +169,7 @@ using Zygote
 shapes_ad = size.(ψ0_ad.ttv_vec)
 offsets_ad = cumsum([0; prod.(shapes_ad)])
 unflatten_ad(θ) = [reshape(θ[(offsets_ad[k] + 1):offsets_ad[k + 1]], shapes_ad[k]) for k in 1:n]
-rebuild_ad(θ) = TTvector{Float64, n}(unflatten_ad(θ), ψ0_ad.ttv_dims, ψ0_ad.ttv_rks, ψ0_ad.ttv_ot)
+rebuild_ad(θ) = TTvector{Float64, n}(unflatten_ad(θ), ψ0_ad.ttv_dims, ψ0_ad.ttv_rks; orthogonality = ψ0_ad.orthogonality)
 loss_ad(θ) = (ψ = rebuild_ad(θ); real(dot(ψ, H_ising * ψ)) / real(dot(ψ, ψ)))
 
 θ0 = vcat(vec.(ψ0_ad.ttv_vec)...)

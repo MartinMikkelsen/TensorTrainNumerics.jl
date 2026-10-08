@@ -13,7 +13,7 @@ function poisson_2d(L)
     Δ1 = (1 / h^2) * toeplitz_to_qtto(2.0, -1.0, -1.0, L)
     A = Δ1 ⊗ id_tto(L) + id_tto(L) ⊗ Δ1
     dims = ntuple(_ -> 2, 2L)
-    b = TTvector{Float64, 2L}([ones(2, 1, 1) for _ in 1:2L], dims, ones(Int, 2L + 1), zeros(Int, 2L))
+    b = TTvector{Float64, 2L}([ones(2, 1, 1) for _ in 1:2L], dims, ones(Int, 2L + 1))
     return A, b, dims
 end
 

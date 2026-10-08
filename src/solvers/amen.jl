@@ -260,7 +260,7 @@ function _amen_solve(
     sweeps < max_sweeps && finish!(progress)
     converged || verbosity == 0 || @warn "$name did not converge" sweeps residual tol
     rks = [1; [size(c, 3) for c in s.x]]
-    x = TTvector{T, d}(s.x, x0.ttv_dims, rks, [fill(1, d - 1); 0])
+    x = TTvector{T, d}(s.x, x0.ttv_dims, rks; orthogonality = (d, d))
     return _rewrap(x0, x), (; converged, sweeps, residual)
 end
 
