@@ -123,13 +123,13 @@ end
     d = 3
     tt = qtt_polynom(coef, d; a = 0.0, b = 1.0)
     # Check types and shapes
-    @test hasproperty(tt, :ttv_vec)
-    @test length(tt.ttv_vec) == d
-    @test size(tt.ttv_vec[1]) == (2, 1, 2)
-    @test size(tt.ttv_vec[d]) == (2, 2, 1)
+    @test hasproperty(tt, :cores)
+    @test length(tt.cores) == d
+    @test size(tt.cores[1]) == (2, 1, 2)
+    @test size(tt.cores[d]) == (2, 2, 1)
     # Check that the first core is filled as expected for x=0 and x=1
-    @test isapprox((tt.ttv_vec[1])[1, 1, 2], 1.0)  # not 0.0
-    @test isapprox(tt.ttv_vec[1][2, 1, 2], 1.0)  # φ(1,1) for x^1
+    @test isapprox((tt.cores[1])[1, 1, 2], 1.0)  # not 0.0
+    @test isapprox(tt.cores[1][2, 1, 2], 1.0)  # φ(1,1) for x^1
 end
 
 @testset "qtt_cos" begin
@@ -139,14 +139,14 @@ end
     b = 1.0
     tt = qtt_cos(d; a = a, b = b, λ = λ)
     # Check structure
-    @test hasproperty(tt, :ttv_vec)
-    @test length(tt.ttv_vec) == d
-    @test size(tt.ttv_vec[1]) == (2, 1, 2)
-    @test size(tt.ttv_vec[d]) == (2, 2, 1)
+    @test hasproperty(tt, :cores)
+    @test length(tt.cores) == d
+    @test size(tt.cores[1]) == (2, 1, 2)
+    @test size(tt.cores[d]) == (2, 2, 1)
     # Check first core values at x=a
     t₁ = a
-    @test isapprox(tt.ttv_vec[1][1, 1, 1], cos(λ * π * t₁))
-    @test isapprox(tt.ttv_vec[1][1, 1, 2], -sin(λ * π * t₁))
+    @test isapprox(tt.cores[1][1, 1, 1], cos(λ * π * t₁))
+    @test isapprox(tt.cores[1][1, 1, 2], -sin(λ * π * t₁))
 end
 
 @testset "qtt_sin" begin
@@ -156,14 +156,14 @@ end
     b = 1.0
     tt = qtt_sin(d; a = a, b = b, λ = λ)
     # Check structure
-    @test hasproperty(tt, :ttv_vec)
-    @test length(tt.ttv_vec) == d
-    @test size(tt.ttv_vec[1]) == (2, 1, 2)
-    @test size(tt.ttv_vec[d]) == (2, 2, 1)
+    @test hasproperty(tt, :cores)
+    @test length(tt.cores) == d
+    @test size(tt.cores[1]) == (2, 1, 2)
+    @test size(tt.cores[d]) == (2, 2, 1)
     # Check first core values at x=a
     t₁ = a
-    @test isapprox(tt.ttv_vec[1][1, 1, 1], sin(λ * π * t₁))
-    @test isapprox(tt.ttv_vec[1][1, 1, 2], cos(λ * π * t₁))
+    @test isapprox(tt.cores[1][1, 1, 1], sin(λ * π * t₁))
+    @test isapprox(tt.cores[1][1, 1, 2], cos(λ * π * t₁))
 end
 
 @testset "qtt_exp" begin
@@ -174,16 +174,16 @@ end
     b = 1.0
     tt = qtt_exp(d; a = a, b = b, α = α, β = β)
     # Check structure
-    @test hasproperty(tt, :ttv_vec)
-    @test length(tt.ttv_vec) == d
-    @test size(tt.ttv_vec[1]) == (2, 1, 1)
-    @test size(tt.ttv_vec[d]) == (2, 1, 1)
+    @test hasproperty(tt, :cores)
+    @test length(tt.cores) == d
+    @test size(tt.cores[1]) == (2, 1, 1)
+    @test size(tt.cores[d]) == (2, 1, 1)
     # Check first core values
     h = (b - a) / (2^d - 1)
     t₁ = a
-    @test isapprox(tt.ttv_vec[1][1, 1, 1], exp(α * t₁ + β))
+    @test isapprox(tt.cores[1][1, 1, 1], exp(α * t₁ + β))
     t₁ = a + h * 2^(d - 1)
-    @test isapprox(tt.ttv_vec[1][2, 1, 1], exp(α * t₁ + β))
+    @test isapprox(tt.cores[1][2, 1, 1], exp(α * t₁ + β))
 end
 
 @testset "qtt_chebyshev" begin
@@ -191,40 +191,40 @@ end
     d = 3
     n = 0
     tt = qtt_chebyshev(n, d)
-    @test hasproperty(tt, :ttv_vec)
-    @test length(tt.ttv_vec) == d
-    @test size(tt.ttv_vec[1]) == (2, 1, 2)
-    @test size(tt.ttv_vec[d]) == (2, 2, 1)
+    @test hasproperty(tt, :cores)
+    @test length(tt.cores) == d
+    @test size(tt.cores[1]) == (2, 1, 2)
+    @test size(tt.cores[d]) == (2, 2, 1)
 
     # Check that the first core is filled as expected for n=0
     N = 2^d
     x_nodes, _ = gauss_chebyshev_lobatto(N; shifted = true)
     θ = acos.(clamp.(2 .* x_nodes .- 1, -1.0, 1.0))
     # For n=0, cos(0*θ)=1, sin(0*θ)=0
-    @test isapprox(tt.ttv_vec[1][1, 1, 1], 1.0)
-    @test isapprox(tt.ttv_vec[1][1, 1, 2], 0.0)
-    @test isapprox(tt.ttv_vec[1][2, 1, 1], 1.0)
-    @test isapprox(tt.ttv_vec[1][2, 1, 2], 0.0)
+    @test isapprox(tt.cores[1][1, 1, 1], 1.0)
+    @test isapprox(tt.cores[1][1, 1, 2], 0.0)
+    @test isapprox(tt.cores[1][2, 1, 1], 1.0)
+    @test isapprox(tt.cores[1][2, 1, 2], 0.0)
 
     # Test for n=1 (should correspond to T₁(x)=x)
     n = 1
     tt1 = qtt_chebyshev(n, d)
     # Check first core values
-    @test isapprox(tt1.ttv_vec[1][1, 1, 1], cos(n * θ[1]))
-    @test isapprox(tt1.ttv_vec[1][1, 1, 2], -sin(n * θ[1]))
-    @test isapprox(tt1.ttv_vec[1][2, 1, 1], cos(n * θ[2^(d - 1) + 1]))
-    @test isapprox(tt1.ttv_vec[1][2, 1, 2], -sin(n * θ[2^(d - 1) + 1]))
+    @test isapprox(tt1.cores[1][1, 1, 1], cos(n * θ[1]))
+    @test isapprox(tt1.cores[1][1, 1, 2], -sin(n * θ[1]))
+    @test isapprox(tt1.cores[1][2, 1, 1], cos(n * θ[2^(d - 1) + 1]))
+    @test isapprox(tt1.cores[1][2, 1, 2], -sin(n * θ[2^(d - 1) + 1]))
 
     # Check last core values
-    @test isapprox(tt1.ttv_vec[d][2, 1, 1], cos(n * θ[2]))
-    @test isapprox(tt1.ttv_vec[d][2, 2, 1], sin(n * θ[2]))
+    @test isapprox(tt1.cores[d][2, 1, 1], cos(n * θ[2]))
+    @test isapprox(tt1.cores[d][2, 2, 1], sin(n * θ[2]))
 
     # Check that the identity block is set in intermediate d
     for k in 2:(d - 1)
-        @test tt1.ttv_vec[k][1, 1, 1] ≈ 1.0
-        @test tt1.ttv_vec[k][1, 2, 2] ≈ 1.0
-        @test tt1.ttv_vec[k][1, 1, 2] ≈ 0.0
-        @test tt1.ttv_vec[k][1, 2, 1] ≈ 0.0
+        @test tt1.cores[k][1, 1, 1] ≈ 1.0
+        @test tt1.cores[k][1, 2, 2] ≈ 1.0
+        @test tt1.cores[k][1, 1, 2] ≈ 0.0
+        @test tt1.cores[k][1, 2, 1] ≈ 0.0
     end
 end
 
@@ -254,10 +254,10 @@ end
     tt2 = function_to_qtt(g, d, a = a, b = b)
     tt3 = function_to_qtt(Q, d; a = a, b = b)
     # Check structure
-    @test hasproperty(tt, :ttv_vec)
-    @test length(tt.ttv_vec) == d
-    @test size(tt.ttv_vec[1]) == (2, 1, 2)
-    @test size(tt.ttv_vec[d]) == (2, 2, 1)
+    @test hasproperty(tt, :cores)
+    @test length(tt.cores) == d
+    @test size(tt.cores[1]) == (2, 1, 2)
+    @test size(tt.cores[d]) == (2, 2, 1)
 
     A = qtt_sin(d; a = a, b = b)
     @test qtt_to_function(tt) ≈ qtt_to_function(A)
@@ -272,12 +272,12 @@ end
 
         qtt = to_qtt(tt, [[2, 3]])
         @test nsites(qtt) == 2
-        @test qtt.ttv_dims == (2, 3)
+        @test qtt.dims == (2, 3)
         @test ttv_to_tensor(qtt) ≈ [1.0 2.0 3.0; 4.0 5.0 6.0] atol = 1.0e-12
 
         merged = to_ttv(qtt, [2])
         @test nsites(merged) == 1
-        @test merged.ttv_dims == (6,)
+        @test merged.dims == (6,)
         @test vec(ttv_to_tensor(merged)) ≈ values atol = 1.0e-12
     end
 
@@ -287,11 +287,11 @@ end
 
         qtt = to_qtt(tt, [[2, 2], [2, 3]])
         @test nsites(qtt) == 4
-        @test qtt.ttv_dims == (2, 2, 2, 3)
+        @test qtt.dims == (2, 2, 2, 3)
 
         merged = to_ttv(qtt, [2, 2])
         @test nsites(merged) == 2
-        @test merged.ttv_dims == (4, 6)
+        @test merged.dims == (4, 6)
         @test ttv_to_tensor(merged) ≈ tensor atol = 1.0e-11
     end
 
@@ -315,8 +315,8 @@ end
         exact = to_qtt(tt, [[2, 2]])
         truncated = to_qtt(tt, [[2, 2]]; threshold = 1.0e-2)
 
-        @test exact.ttv_rks == [1, 2, 1]
-        @test truncated.ttv_rks == [1, 1, 1]
+        @test exact.ranks == [1, 2, 1]
+        @test truncated.ranks == [1, 1, 1]
         @test vec(ttv_to_tensor(to_ttv(exact, [2]))) ≈ values atol = 1.0e-12
         @test vec(ttv_to_tensor(to_ttv(truncated, [2]))) ≈ [1.0, 0.0, 0.0, 0.0] atol = 1.0e-12
     end
@@ -364,7 +364,7 @@ end
     for pos in 1:(2^d)
         tt = qtt_basis_vector(d, pos)
         for k in 1:d
-            nonzeros = count(!iszero, tt.ttv_vec[k][:, 1, 1])
+            nonzeros = count(!iszero, tt.cores[k][:, 1, 1])
             @test nonzeros == 1
         end
     end
@@ -376,9 +376,9 @@ end
     b = 1.0
     tt = qtt_trapezoidal(d; a = a, b = b)
     # Check structure
-    @test hasproperty(tt, :ttv_vec)
-    @test length(tt.ttv_vec) == d
-    @test maximum(tt.ttv_rks) ≤ 3
+    @test hasproperty(tt, :cores)
+    @test length(tt.cores) == d
+    @test maximum(tt.ranks) ≤ 3
     A = qtt_sin(d, λ = 3.0)
     w = qtt_trapezoidal(d)
     I1 = TensorTrainNumerics.dot(w, A)

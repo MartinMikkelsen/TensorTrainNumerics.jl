@@ -56,7 +56,7 @@ for _ in 1:nblk
     record!(u)
 end
 
-@info "FK 2D coupled HO" E_final = E_num[end] E0 = E0 ρ_final = ρ_num[end] ρ_analytic = ρ∞ rank = maximum(u.ttv_rks)
+@info "FK 2D coupled HO" E_final = E_num[end] E0 = E0 ρ_final = ρ_num[end] ρ_analytic = ρ∞ rank = maximum(u.ranks)
 
 function cov_ellipse(Σ; n = 120)
     vals, vecs = LA.eigen(LA.Symmetric(Σ))

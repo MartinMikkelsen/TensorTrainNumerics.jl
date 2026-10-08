@@ -34,14 +34,14 @@ end
     z_base = zero(x)
 
     @test z !== x
-    @test z.ttv_dims == dims
-    @test z.ttv_rks == ranks
-    @test z.ttv_rks !== x.ttv_rks
+    @test z.dims == dims
+    @test z.ranks == ranks
+    @test z.ranks !== x.ranks
     @test all(iszero, _dense(z))
     @test z_complex isa TTVector{ComplexF64}
-    @test z_complex.ttv_dims == dims
-    @test z_complex.ttv_rks == ranks
-    @test z_complex.ttv_rks !== x.ttv_rks
+    @test z_complex.dims == dims
+    @test z_complex.ranks == ranks
+    @test z_complex.ranks !== x.ranks
     @test all(iszero, _dense(z_complex))
     @test all(iszero, _dense(z_base))
     @test _dense(x) == x_dense
@@ -166,17 +166,17 @@ end
     z_complex = VectorInterface.zerovector(A, ComplexF64)
 
     @test z isa TTOperator{Float64, 2}
-    @test VectorInterface.length(A) == prod(A.tto_dims)^2
+    @test VectorInterface.length(A) == prod(A.row_dims)^2
     if z isa TTOperator
-        @test z.tto_dims == A.tto_dims
-        @test z.tto_rks == A.tto_rks
-        @test z.tto_rks !== A.tto_rks
+        @test z.row_dims == A.row_dims
+        @test z.ranks == A.ranks
+        @test z.ranks !== A.ranks
         @test all(iszero, tto_to_tensor(z))
     end
     @test z_complex isa TTOperator{ComplexF64, 2}
-    @test z_complex.tto_dims == A.tto_dims
-    @test z_complex.tto_rks == A.tto_rks
-    @test z_complex.tto_rks !== A.tto_rks
+    @test z_complex.row_dims == A.row_dims
+    @test z_complex.ranks == A.ranks
+    @test z_complex.ranks !== A.ranks
     @test all(iszero, tto_to_tensor(z_complex))
 end
 
@@ -195,8 +195,8 @@ end
     @test z.max_bond == 2
     @test eltype(z.tt) === ComplexF64
     @test all(iszero, _dense(z.tt))
-    @test z.tt.ttv_rks == bounded_x.tt.ttv_rks
-    @test z.tt.ttv_rks !== bounded_x.tt.ttv_rks
+    @test z.tt.ranks == bounded_x.tt.ranks
+    @test z.tt.ranks !== bounded_x.tt.ranks
 
     z_mutating = TensorTrainNumerics._RankBoundedTTVector(copy(x), 2)
     @test VectorInterface.zerovector!(z_mutating) === z_mutating
@@ -239,13 +239,13 @@ end
 
     added = VectorInterface.add(bounded_y, bounded_x, 0.25, -0.5)
     @test added.max_bond == 2
-    @test maximum(added.tt.ttv_rks) <= 2
+    @test maximum(added.tt.ranks) <= 2
     @test _dense(added.tt) ≈ -0.5 * y_dense + 0.25 * x_dense
 
     add_destination = TensorTrainNumerics._RankBoundedTTVector(copy(y), 2)
     add_result = VectorInterface.add!!(add_destination, bounded_x, 0.25, -0.5)
     @test add_result.max_bond == 2
-    @test maximum(add_result.tt.ttv_rks) <= 2
+    @test maximum(add_result.tt.ranks) <= 2
     @test _dense(add_result.tt) ≈ -0.5 * y_dense + 0.25 * x_dense
 
     @test VectorInterface.inner(bounded_x, bounded_y) ≈ dot(x_dense, y_dense)
@@ -344,7 +344,7 @@ end
     end
 
     solution = fetch(solve_task)
-    @test maximum(solution.ttv_rks) <= 1
+    @test maximum(solution.ranks) <= 1
 end
 
 @testset "bounded Krylov vector operations support every linear solver" begin
@@ -374,7 +374,7 @@ end
         actual = vec(ttv_to_tensor(x))
 
         @test norm(actual - expected) / norm(expected) < 1.0e-12
-        @test maximum(x.ttv_rks) <= 2
+        @test maximum(x.ranks) <= 2
     end
 end
 
@@ -393,7 +393,7 @@ end
 
     @test added.tt === bounded_destination.tt
     @test vec(ttv_to_tensor(bounded_destination.tt)) ≈ 0.5 * destination_before + 0.25 * source_dense
-    @test maximum(bounded_destination.tt.ttv_rks) <= 2
+    @test maximum(bounded_destination.tt.ranks) <= 2
 
     scaled_destination = zeros_tt(Float64, dims, ranks)
     bounded_scaled = TensorTrainNumerics._RankBoundedTTVector(scaled_destination, 2)
@@ -401,5 +401,5 @@ end
 
     @test scaled.tt === bounded_scaled.tt
     @test vec(ttv_to_tensor(bounded_scaled.tt)) ≈ 1.5 * source_dense
-    @test maximum(bounded_scaled.tt.ttv_rks) <= 2
+    @test maximum(bounded_scaled.tt.ranks) <= 2
 end

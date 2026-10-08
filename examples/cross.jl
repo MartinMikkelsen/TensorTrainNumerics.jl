@@ -50,7 +50,7 @@ tt_dmrg = tt_cross(sin_6d, domain, DMRGcross(tol = 1.0e-8, max_sweeps = 25, verb
 
 tt_greedy = tt_cross(sin_6d, domain, Greedy(tol = 1.0e-12, verbosity = 2));
 
-println("\nResulting TT ranks: $(tt_greedy.ttv_rks)")
+println("\nResulting TT ranks: $(tt_greedy.ranks)")
 
 println("\nConverting TT back to full tensor...")
 tensor_approx = ttv_to_tensor(tt_greedy);

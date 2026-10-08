@@ -18,7 +18,7 @@ A = QTTOperator(A_raw, 2, d, :serial)
 b_raw = 2π^2 * qtt_sin(d; a = h, b = 1 - h) ⊗ qtt_sin(d; a = h, b = 1 - h)
 b = QTTVector(b_raw, 2, d, :serial)
 
-x0 = QTTVector(rand_tt(b_raw.ttv_dims, b_raw.ttv_rks), 2, d, :serial)
+x0 = QTTVector(rand_tt(b_raw.dims, b_raw.ranks), 2, d, :serial)
 x_sol = linear_solve(A, b, x0, DMRG(max_sweeps = 19, trunc_tol = 1.0e-10))
 
 sol = qttv_to_array(x_sol)

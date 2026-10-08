@@ -12,9 +12,9 @@ function init_H(x_tt::AbstractTTVector, A_tto::AbstractTTOperator)
     H = Array{Array{T}}(undef, d)
     H[d] = ones(T, 1, 1, 1)
     for i in d:-1:2
-        H[i - 1] = zeros(T, A_tto.tto_rks[i], x_tt.ttv_rks[i], x_tt.ttv_rks[i])
-        x_vec = x_tt.ttv_vec[i]
-        A_vec = A_tto.tto_vec[i]
+        H[i - 1] = zeros(T, A_tto.ranks[i], x_tt.ranks[i], x_tt.ranks[i])
+        x_vec = x_tt.cores[i]
+        A_vec = A_tto.cores[i]
         update_H!(x_vec, A_vec, H[i], H[i - 1])
     end
     return H
@@ -31,9 +31,9 @@ function init_Hb(x_tt::AbstractTTVector, b_tt::AbstractTTVector)
     H_b = Array{Array{T}}(undef, d)
     H_b[d] = ones(T, 1, 1)
     for i in d:-1:2
-        H_b[i - 1] = zeros(T, x_tt.ttv_rks[i], b_tt.ttv_rks[i])
-        b_vec = b_tt.ttv_vec[i]
-        x_vec = x_tt.ttv_vec[i]
+        H_b[i - 1] = zeros(T, x_tt.ranks[i], b_tt.ranks[i])
+        b_vec = b_tt.cores[i]
+        x_vec = x_tt.cores[i]
         update_Hb!(x_vec, b_vec, H_b[i], H_b[i - 1]) #size(rbim, rim)
     end
     return H_b
@@ -131,32 +131,32 @@ end
 
 function left_core_move(x_tt::AbstractTTVector, V::Array{T, 3}, i::Int, x_rks) where {T <: Number}
     rim, ri = x_rks[i], x_rks[i + 1]
-    ni = x_tt.ttv_dims[i]
+    ni = x_tt.dims[i]
 
     # Prepare core movements
     QV, RV = qr(reshape(permutedims(V, [1 3 2]), ni * ri, :)) #QV: ni*ri x ni*ri; RV ni*ri x rim
 
     # Apply core movement 3.1
-    x_tt.ttv_vec[i] = permutedims(reshape(Matrix(QV)[:, 1:rim], ni, ri, :), [1 3 2])
+    x_tt.cores[i] = permutedims(reshape(Matrix(QV)[:, 1:rim], ni, ri, :), [1 3 2])
 
     # Apply core movement 3.2
-    @tensoropt((b, c, z), Xim[a, b, c] := x_tt.ttv_vec[i - 1][a, b, z] * RV[1:rim, :][c, z]) #size (nim,rim2,rim_new)
-    x_tt.ttv_vec[i - 1] = Xim
+    @tensoropt((b, c, z), Xim[a, b, c] := x_tt.cores[i - 1][a, b, z] * RV[1:rim, :][c, z]) #size (nim,rim2,rim_new)
+    x_tt.cores[i - 1] = Xim
     _center_moved_left!(x_tt, i)
     return x_tt
 end
 
 function right_core_move(x_tt::AbstractTTVector, V::Array{T, 3}, i::Int, x_rks) where {T <: Number}
     rim, ri = x_rks[i], x_rks[i + 1]
-    ni = x_tt.ttv_dims[i]
+    ni = x_tt.dims[i]
     QV, RV = qr(reshape(V, ni * rim, :)) #QV: ni*rim x ni*rim; RV ni*rim x ri
 
     # Apply core movement 3.1
-    x_tt.ttv_vec[i] = reshape(Matrix(QV)[:, 1:ri], ni, rim, :)
+    x_tt.cores[i] = reshape(Matrix(QV)[:, 1:ri], ni, rim, :)
 
     # Apply core movement 3.2
-    @tensoropt((b, c, z), Xip[a, b, c] := RV[1:ri, :][b, z] * x_tt.ttv_vec[i + 1][a, z, c]) #size (nip,ri,rip)
-    x_tt.ttv_vec[i + 1] = Xip
+    @tensoropt((b, c, z), Xip[a, b, c] := RV[1:ri, :][b, z] * x_tt.cores[i + 1][a, z, c]) #size (nip,ri,rip)
+    x_tt.cores[i + 1] = Xip
     _center_moved_right!(x_tt, i)
     return x_tt
 end
@@ -172,17 +172,17 @@ function _als_linsolve_impl(
     T = eltype(tt_start)
     d = nsites(A)
     tt_opt = orthogonalize(tt_start)
-    dims = tt_start.ttv_dims
-    rks = copy(tt_start.ttv_rks)
+    dims = tt_start.dims
+    rks = copy(tt_start.ranks)
 
     G = Array{Array{T}}(undef, d)
     G_b = Array{Array{T}}(undef, d)
     for i in 1:d
-        G[i] = zeros(T, dims[i], rks[i], dims[i], rks[i], A.tto_rks[i + 1])
-        G_b[i] = zeros(dims[i], rks[i], b.ttv_rks[i + 1])
+        G[i] = zeros(T, dims[i], rks[i], dims[i], rks[i], A.ranks[i + 1])
+        G_b[i] = zeros(dims[i], rks[i], b.ranks[i + 1])
     end
-    G[1] = reshape(A.tto_vec[1][:, :, 1, :], dims[1], 1, dims[1], 1, :)
-    G_b[1] = reshape(b.ttv_vec[1], dims[1], 1, :)
+    G[1] = reshape(A.cores[1][:, :, 1, :], dims[1], 1, dims[1], 1, :)
+    G_b[1] = reshape(b.cores[1], dims[1], 1, :)
     H = init_H(tt_opt, A)
     H_b = init_Hb(tt_opt, b)
 
@@ -192,16 +192,16 @@ function _als_linsolve_impl(
         for i in 1:(d - 1)
             V = Ksolve(G[i], G_b[i], H[i], H_b[i]; local_opts...)
             tt_opt = right_core_move(tt_opt, V, i, rks)
-            update_G!(tt_opt.ttv_vec[i], A.tto_vec[i + 1], G[i], G[i + 1])
-            update_Gb!(tt_opt.ttv_vec[i], b.ttv_vec[i + 1], G_b[i], G_b[i + 1])
+            update_G!(tt_opt.cores[i], A.cores[i + 1], G[i], G[i + 1])
+            update_Gb!(tt_opt.cores[i], b.cores[i + 1], G_b[i], G_b[i + 1])
         end
         for i in d:(-1):2
             V = Ksolve(G[i], G_b[i], H[i], H_b[i]; local_opts...)
             tt_opt = left_core_move(tt_opt, V, i, rks)
-            update_H!(tt_opt.ttv_vec[i], A.tto_vec[i], H[i], H[i - 1])
-            update_Hb!(tt_opt.ttv_vec[i], b.ttv_vec[i], H_b[i], H_b[i - 1])
+            update_H!(tt_opt.cores[i], A.cores[i], H[i], H[i - 1])
+            update_Hb!(tt_opt.cores[i], b.cores[i], H_b[i], H_b[i - 1])
         end
-        max_rank = maximum(tt_opt.ttv_rks)
+        max_rank = maximum(tt_opt.ranks)
         verbosity ≥ 2 && @info "ALS linear solve" sweep max_rank
         next!(progress; showvalues = [("sweep", "$sweep/$max_sweeps"), ("largest rank", max_rank)])
     end
@@ -217,14 +217,14 @@ function _als_eigsolve_impl(
     )
     T = eltype(tt_start)
     d = nsites(A)
-    dims = tt_start.ttv_dims
+    dims = tt_start.dims
     tt_opt = orthogonalize(tt_start)
     E = Float64[]
     local_opts = (; local_solver, local_threshold, local_maxiter, local_tol)
     progress = _solver_progress(sum(max_sweeps), show_progress; desc = "ALS eigen solve")
     sweep = 0
     for (stage, nsweeps) in enumerate(max_sweeps)
-        r = maximum(tt_opt.ttv_rks)
+        r = maximum(tt_opt.ranks)
         max_bond[stage] < r && throw(
             ArgumentError(
                 "ALS cannot lower ranks: stage $stage has max_bond = $(max_bond[stage]) but the current largest rank is $r"
@@ -236,26 +236,26 @@ function _als_eigsolve_impl(
         # G[i] for i > 1 is overwritten during each left-to-right pass before use.
         G = Array{Array{T}}(undef, d)
         for i in 1:d
-            G[i] = zeros(T, dims[i], tt_opt.ttv_rks[i], dims[i], tt_opt.ttv_rks[i], A.tto_rks[i + 1])
+            G[i] = zeros(T, dims[i], tt_opt.ranks[i], dims[i], tt_opt.ranks[i], A.ranks[i + 1])
         end
-        G[1] = reshape(A.tto_vec[1][:, :, 1, :], dims[1], 1, dims[1], 1, :)
+        G[1] = reshape(A.cores[1][:, :, 1, :], dims[1], 1, dims[1], 1, :)
         H = init_H(tt_opt, A)
         for _ in 1:nsweeps
             sweep += 1
             for i in 1:(d - 1)
-                λ, V = K_eigmin(G[i], H[i], tt_opt.ttv_vec[i]; local_opts...)
+                λ, V = K_eigmin(G[i], H[i], tt_opt.cores[i]; local_opts...)
                 push!(E, λ)
-                tt_opt = right_core_move(tt_opt, V, i, tt_opt.ttv_rks)
-                update_G!(tt_opt.ttv_vec[i], A.tto_vec[i + 1], G[i], G[i + 1])
+                tt_opt = right_core_move(tt_opt, V, i, tt_opt.ranks)
+                update_G!(tt_opt.cores[i], A.cores[i + 1], G[i], G[i + 1])
             end
             for i in d:(-1):2
-                λ, V = K_eigmin(G[i], H[i], tt_opt.ttv_vec[i]; local_opts...)
+                λ, V = K_eigmin(G[i], H[i], tt_opt.cores[i]; local_opts...)
                 push!(E, λ)
-                tt_opt = left_core_move(tt_opt, V, i, tt_opt.ttv_rks)
-                update_H!(tt_opt.ttv_vec[i], A.tto_vec[i], H[i], H[i - 1])
+                tt_opt = left_core_move(tt_opt, V, i, tt_opt.ranks)
+                update_H!(tt_opt.cores[i], A.cores[i], H[i], H[i - 1])
             end
             eigenvalue = E[end]
-            verbosity ≥ 2 && @info "ALS eigen solve" sweep max_rank = maximum(tt_opt.ttv_rks) eigenvalue
+            verbosity ≥ 2 && @info "ALS eigen solve" sweep max_rank = maximum(tt_opt.ranks) eigenvalue
             next!(progress; showvalues = [("sweep", "$sweep/$(sum(max_sweeps))"), ("eigenvalue", eigenvalue)])
         end
     end
@@ -266,7 +266,7 @@ function eigen_solve(A::AbstractTTOperator, guess::AbstractTTVector, alg::ALS)
     _reject_unused(alg, "eigen_solve", (:return_info,), "every option except `return_info`")
     st = _stages(;
         max_sweeps = alg.max_sweeps,
-        max_bond = something(alg.max_bond, maximum(guess.ttv_rks)),
+        max_bond = something(alg.max_bond, maximum(guess.ranks)),
         noise = alg.noise
     )
     return _als_eigsolve_impl(
@@ -303,7 +303,7 @@ eigenvector, or `nothing` if the schedule is exhausted without a final return.
 """
 function als_gen_eigsolve(
         A::AbstractTTOperator, S::AbstractTTOperator, tt_start::AbstractTTVector;
-        sweep_schedule = [2], rmax_schedule = [maximum(tt_start.ttv_rks)],
+        sweep_schedule = [2], rmax_schedule = [maximum(tt_start.ranks)],
         tol = 1.0e-10, it_solver = false, itslv_thresh = 2500,
         show_progress::Bool = false
     )
@@ -311,10 +311,10 @@ function als_gen_eigsolve(
     d = nsites(A)
     # Initialize the to be returned tensor in its tensor train format
     tt_opt = orthogonalize(tt_start)
-    dims = tt_start.ttv_dims
+    dims = tt_start.dims
     E = zeros(Float64, d * sweep_schedule[end]) #output eigenvalue
     # Define the array of ranks of tt_opt [r_0=1,r_1,...,r_d]
-    rks = tt_start.ttv_rks
+    rks = tt_start.ranks
 
     # Initialize the arrays of G and K
     G = Array{Array{T}}(undef, d)
@@ -322,11 +322,11 @@ function als_gen_eigsolve(
 
     # Initialize G[1]
     for i in 1:d
-        G[i] = zeros(dims[i], rks[i], dims[i], rks[i], A.tto_rks[i + 1])
-        K[i] = zeros(dims[i], rks[i], dims[i], rks[i], S.tto_rks[i + 1])
+        G[i] = zeros(dims[i], rks[i], dims[i], rks[i], A.ranks[i + 1])
+        K[i] = zeros(dims[i], rks[i], dims[i], rks[i], S.ranks[i + 1])
     end
-    G[1] = reshape(A.tto_vec[1][:, :, 1, :], dims[1], 1, dims[1], 1, :)
-    K[1] = reshape(S.tto_vec[1][:, :, 1, :], dims[1], 1, dims[1], 1, :)
+    G[1] = reshape(A.cores[1][:, :, 1, :], dims[1], 1, dims[1], 1, :)
+    K[1] = reshape(S.cores[1][:, :, 1, :], dims[1], 1, dims[1], 1, :)
 
     #Initialize H and H_b
     H = init_H(tt_opt, A)
@@ -344,10 +344,10 @@ function als_gen_eigsolve(
             else
                 tt_opt = increase_ranks(tt_opt, rmax_schedule[i_schedule])
                 tt_opt = orthogonalize(tt_opt)
-                rks = copy(tt_opt.ttv_rks)
+                rks = copy(tt_opt.ranks)
                 for i in 1:(d - 1)
-                    Gtemp = zeros(T, dims[i + 1], rks[i + 1], dims[i + 1], rks[i + 1], A.tto_rks[i + 2])
-                    Ktemp = zeros(T, dims[i + 1], rks[i + 1], dims[i + 1], rks[i + 1], S.tto_rks[i + 2])
+                    Gtemp = zeros(T, dims[i + 1], rks[i + 1], dims[i + 1], rks[i + 1], A.ranks[i + 2])
+                    Ktemp = zeros(T, dims[i + 1], rks[i + 1], dims[i + 1], rks[i + 1], S.ranks[i + 2])
                     Gtemp[1:size(G[i + 1], 1), 1:size(G[i + 1], 2), 1:size(G[i + 1], 3), 1:size(G[i + 1], 4), 1:size(G[i + 1], 5)] = G[i + 1]
                     Ktemp[1:size(K[i + 1], 1), 1:size(K[i + 1], 2), 1:size(K[i + 1], 3), 1:size(K[i + 1], 4), 1:size(K[i + 1], 5)] = K[i + 1]
                     G[i + 1] = Gtemp
@@ -370,31 +370,25 @@ function als_gen_eigsolve(
             if _orthogonality_center(tt_opt) == i
                 # Define V as solution of K*x=Pb in x
                 i_μit += 1
-                E[i_μit], V = K_eiggenmin(G[i], H[i], K[i], L[i], tt_opt.ttv_vec[i]; it_solver = it_solver, itslv_thresh = itslv_thresh)
-                tt_opt = right_core_move(tt_opt, V, i, tt_opt.ttv_rks)
+                E[i_μit], V = K_eiggenmin(G[i], H[i], K[i], L[i], tt_opt.cores[i]; it_solver = it_solver, itslv_thresh = itslv_thresh)
+                tt_opt = right_core_move(tt_opt, V, i, tt_opt.ranks)
             end
 
             #update G and K
-            update_G!(tt_opt.ttv_vec[i], A.tto_vec[i + 1], G[i], G[i + 1])
-            update_G!(tt_opt.ttv_vec[i], S.tto_vec[i + 1], K[i], K[i + 1])
+            update_G!(tt_opt.cores[i], A.cores[i + 1], G[i], G[i + 1])
+            update_G!(tt_opt.cores[i], S.cores[i + 1], K[i], K[i + 1])
         end
 
         # Second half sweep
         for i in d:(-1):2
             # Define V as solution of K*x=Pb in x
             i_μit += 1
-            E[i_μit], V = K_eiggenmin(G[i], H[i], K[i], L[i], tt_opt.ttv_vec[i]; it_solver = it_solver, itslv_thresh = itslv_thresh)
-            tt_opt = left_core_move(tt_opt, V, i, tt_opt.ttv_rks)
-            update_H!(tt_opt.ttv_vec[i], A.tto_vec[i], H[i], H[i - 1])
-            update_H!(tt_opt.ttv_vec[i], S.tto_vec[i], L[i], L[i - 1])
+            E[i_μit], V = K_eiggenmin(G[i], H[i], K[i], L[i], tt_opt.cores[i]; it_solver = it_solver, itslv_thresh = itslv_thresh)
+            tt_opt = left_core_move(tt_opt, V, i, tt_opt.ranks)
+            update_H!(tt_opt.cores[i], A.cores[i], H[i], H[i - 1])
+            update_H!(tt_opt.cores[i], S.cores[i], L[i], L[i - 1])
         end
         next!(progress)
     end
     return E[1:i_μit], tt_opt
-end
-
-# Deprecated: renamed to `als_gen_eigsolve`.
-function als_gen_eigsolv(args...; kwargs...)
-    Base.depwarn("`als_gen_eigsolv` is deprecated, use `als_gen_eigsolve`.", :als_gen_eigsolv)
-    return als_gen_eigsolve(args...; kwargs...)
 end

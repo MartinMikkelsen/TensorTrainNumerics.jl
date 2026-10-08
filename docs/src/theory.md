@@ -64,7 +64,7 @@ v = rand_tt(dims, rks)   # random TT-vector
 z = zeros_tt(dims, rks)  # zero TT-vector
 ```
 
-The fields `v.ttv_dims`, `v.ttv_rks`, and `v.ttv_vec` hold the dimensions, bond dimensions, and array of cores respectively.
+The fields `v.dims`, `v.ranks`, and `v.cores` hold the dimensions, bond dimensions, and array of cores respectively.
 
 ## Constructing TT-operators
 
@@ -145,18 +145,18 @@ H = Δ(4)
 ψ = qtt_sin(4)
 
 function energy(cores)
-    A = TTOperator(cores, H.tto_dims, H.tto_rks; orthogonality = H.orthogonality)
+    A = TTOperator(cores, H.row_dims, H.col_dims, H.ranks; orthogonality = H.orthogonality)
     return real(dot(ψ, A * ψ)) / real(dot(ψ, ψ))
 end
 
-core_gradient = only(Zygote.gradient(energy, H.tto_vec))
+core_gradient = only(Zygote.gradient(energy, H.cores))
 
 diffusion_energy(κ) = real(dot(ψ, (κ * H) * ψ)) / real(dot(ψ, ψ))
 dE_dκ = only(Zygote.gradient(diffusion_energy, 1.0))
-@assert isapprox(dE_dκ, energy(H.tto_vec); rtol = 1.0e-10)
+@assert isapprox(dE_dκ, energy(H.cores); rtol = 1.0e-10)
 ```
 
-`core_gradient[k]` has the shape of `H.tto_vec[k]`. Sums of operators are
+`core_gradient[k]` has the shape of `H.cores[k]`. Sums of operators are
 differentiable too, so the derivatives of an energy with respect to the coupling
 constants of a Hamiltonian are available directly:
 
@@ -188,7 +188,7 @@ center at core `c` and `[1, N]` records nothing.
 vC.orthogonality
 ```
 
-Orthogonalization is a prerequisite for the alternating solvers (ALS, MALS, DMRG) and TDVP, and enables cheap norm computation: `norm(v) == norm(vC.ttv_vec[2])`.
+Orthogonalization is a prerequisite for the alternating solvers (ALS, MALS, DMRG) and TDVP, and enables cheap norm computation: `norm(v) == norm(vC.cores[2])`.
 
 ## Visualization
 

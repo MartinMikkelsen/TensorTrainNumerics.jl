@@ -94,9 +94,9 @@ import TensorTrainNumerics: MaxVolPivot, RandomPivot, MaxVol, Greedy, DMRGcross,
             tt = tt_cross(f, domain, MaxVol(verbosity = 0, show_progress = false, tol = 1.0e-6))
             @test tt isa TTVector
             @test nsites(tt) == 4
-            @test all(tt.ttv_dims .== 10)
-            @test tt.ttv_rks[1] == 1
-            @test tt.ttv_rks[end] == 1
+            @test all(tt.dims .== 10)
+            @test tt.ranks[1] == 1
+            @test tt.ranks[end] == 1
         end
 
         @testset "MaxVol returns usable tensors after iteration exhaustion" begin
@@ -111,8 +111,8 @@ import TensorTrainNumerics: MaxVolPivot, RandomPivot, MaxVol, Greedy, DMRGcross,
                     tt = tt_cross(f, domain, alg; ranks = 1, val_size = 200)
                     dense = ttv_to_tensor(tt)
 
-                    @test tt.ttv_rks[1] == tt.ttv_rks[end] == 1
-                    @test all(size(tt.ttv_vec[k]) == (tt.ttv_dims[k], tt.ttv_rks[k], tt.ttv_rks[k + 1]) for k in 1:nsites(tt))
+                    @test tt.ranks[1] == tt.ranks[end] == 1
+                    @test all(size(tt.cores[k]) == (tt.dims[k], tt.ranks[k], tt.ranks[k + 1]) for k in 1:nsites(tt))
                     @test all(isfinite, dense)
                     @test norm(tt) ≈ norm(dense)
                     @test ttv_to_tensor(orthogonalize(tt)) ≈ dense
@@ -120,7 +120,7 @@ import TensorTrainNumerics: MaxVolPivot, RandomPivot, MaxVol, Greedy, DMRGcross,
                     if kickrank == 1 && max_sweeps == 5
                         # The polynomial has exact TT rank three; reaching it
                         # requires enrichment before convergence.
-                        @test maximum(tt.ttv_rks) > 1
+                        @test maximum(tt.ranks) > 1
                         @test dense ≈ exact atol = 1.0e-11 rtol = 1.0e-11
                     elseif max_sweeps in (1, 2)
                         @test norm(dense - exact) / norm(exact) > alg.tol
@@ -137,7 +137,7 @@ import TensorTrainNumerics: MaxVolPivot, RandomPivot, MaxVol, Greedy, DMRGcross,
 
             tt = tt_cross(f, domain, alg; ranks = 3, val_size = 20)
 
-            @test tt.ttv_rks == [1, 2, 1]
+            @test tt.ranks == [1, 2, 1]
         end
 
         @testset "Greedy algorithm" begin
@@ -212,7 +212,7 @@ import TensorTrainNumerics: MaxVolPivot, RandomPivot, MaxVol, Greedy, DMRGcross,
             exact = [sum(domain[d][I[d]] for d in 1:3)^2 for I in CartesianIndices((8, 8, 8))]
 
             @test norm(approx - exact) / norm(exact) < 1.0e-8
-            @test maximum(tt.ttv_rks) <= 3
+            @test maximum(tt.ranks) <= 3
         end
 
         @testset "Greedy regression: relative tolerance is scale invariant" begin
@@ -297,7 +297,7 @@ import TensorTrainNumerics: MaxVolPivot, RandomPivot, MaxVol, Greedy, DMRGcross,
                 ranks = 1,
             )
 
-            @test maximum(tt_kick.ttv_rks) > maximum(tt_no_kick.ttv_rks)
+            @test maximum(tt_kick.ranks) > maximum(tt_no_kick.ranks)
         end
 
         @testset "5D Wishart Laplace transform (parameterized)" begin
@@ -335,7 +335,7 @@ import TensorTrainNumerics: MaxVolPivot, RandomPivot, MaxVol, Greedy, DMRGcross,
             ncheck = 200
             idx = hcat([rand(1:length(domain[k]), ncheck) for k in 1:d]...)
             ys = f_tt(hcat([domain[k][idx[:, k]] for k in 1:d]...))
-            yhat = TensorTrainNumerics._evaluate_tt(tt.ttv_vec, idx, d)
+            yhat = TensorTrainNumerics._evaluate_tt(tt.cores, idx, d)
             rel_l2 = norm(ys .- yhat) / max(norm(ys), eps())
 
             @test rel_l2 < 1.0e-4
@@ -355,7 +355,7 @@ import TensorTrainNumerics: MaxVolPivot, RandomPivot, MaxVol, Greedy, DMRGcross,
 
             tt = tt_cross(f, dims; alg = MaxVol(verbosity = 0, show_progress = false))
             @test tt isa TTVector
-            @test tt.ttv_dims == dims
+            @test tt.dims == dims
         end
 
         @testset "Vector dimensions" begin
@@ -377,7 +377,7 @@ import TensorTrainNumerics: MaxVolPivot, RandomPivot, MaxVol, Greedy, DMRGcross,
                 idx = hcat([rand(1:length(domain[k]), nsamp) for k in 1:d]...)
                 X = hcat([domain[k][idx[:, k]] for k in 1:d]...)
                 y = f(X)
-                yhat = TensorTrainNumerics._evaluate_tt(tt.ttv_vec, idx, d)
+                yhat = TensorTrainNumerics._evaluate_tt(tt.cores, idx, d)
                 return norm(y .- yhat) / max(norm(y), eps())
             end
 
@@ -575,7 +575,7 @@ import TensorTrainNumerics: MaxVolPivot, RandomPivot, MaxVol, Greedy, DMRGcross,
                     approx = TensorTrainNumerics.ttv_to_tensor(tt)
                     relerr = norm(approx - exact) / max(norm(exact), eps())
                     @test relerr < tol
-                    @test maximum(tt.ttv_rks) <= 4
+                    @test maximum(tt.ranks) <= 4
                 end
             end
         end
@@ -814,7 +814,7 @@ end
     domain = [collect(range(0.0, 1.0, length = 8)) for _ in 1:3]
     for Alg in (MaxVol, DMRGcross, Greedy)
         tt = tt_cross(f, domain, Alg(; tol = 1.0e-8, max_bond = 8, verbosity = 0, show_progress = false))
-        @test maximum(tt.ttv_rks) ≤ 8
+        @test maximum(tt.ranks) ≤ 8
         @test_logs (:warn, r"Max iterations reached") match_mode = :any tt_cross(
             f, domain, Alg(; max_sweeps = 1, max_bond = 2, tol = 1.0e-15, show_progress = false)
         )

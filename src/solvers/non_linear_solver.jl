@@ -184,8 +184,8 @@ function _nl_right_op_envs(u::TTVector{T, N}, A::TTOperator{T, N}) where {T <: R
     H = Vector{Array{T, 3}}(undef, d)
     H[d] = ones(T, 1, 1, 1)
     for i in d:-1:2
-        H[i - 1] = zeros(T, A.tto_rks[i], u.ttv_rks[i], u.ttv_rks[i])
-        update_H!(u.ttv_vec[i], A.tto_vec[i], H[i], H[i - 1])
+        H[i - 1] = zeros(T, A.ranks[i], u.ranks[i], u.ranks[i])
+        update_H!(u.cores[i], A.cores[i], H[i], H[i - 1])
     end
     return H
 end
@@ -239,7 +239,7 @@ function _nl_right_qenvs(u::TTVector{T, N}) where {T <: Real, N}
     E = Vector{Array{T, 4}}(undef, d)
     E[d] = ones(T, 1, 1, 1, 1)
     for i in d:-1:2
-        E[i - 1] = _nl_env4_absorb_right(u.ttv_vec[i], E[i])
+        E[i - 1] = _nl_env4_absorb_right(u.cores[i], E[i])
     end
     return E
 end
@@ -337,7 +337,7 @@ function _nl_site_step(
         g::Real, η::Real, alg::PenaltyALS
     ) where {T <: Real, N}
     Aloc = _nl_effective_op(LAi, Acore, HAi)
-    x0core = u.ttv_vec[i]
+    x0core = u.cores[i]
     dims = size(x0core)
     Q = y -> _nl_quartic(ELi, reshape(y, dims), ERi)
     Qgrad = y -> vec(_nl_quartic_grad(ELi, reshape(y, dims), ERi))
@@ -359,9 +359,9 @@ function _nl_penalty_local(
         g::Real, η::Real
     ) where {T <: Real, N}
     Aloc = _nl_effective_op(LAi, Acore, HAi)
-    dims = size(u.ttv_vec[i])
+    dims = size(u.cores[i])
     Q = y -> _nl_quartic(ELi, reshape(y, dims), ERi)
-    return _nl_penalty(vec(u.ttv_vec[i]), Aloc, Q, g, η)
+    return _nl_penalty(vec(u.cores[i]), Aloc, Q, g, η)
 end
 
 function _penalty_solve_impl(A::TTOperator{T, N}, u0::TTVector{T, N}, alg::PenaltyALS; g::Real = 0.0) where {T, N}
@@ -375,7 +375,7 @@ function _penalty_solve_impl(A::TTOperator{T, N}, u0::TTVector{T, N}, alg::Penal
     # assume admissible ranks. Gauging to the far end first forces the missing left QR pass.
     u = orthogonalize(orthogonalize(u0; i = nsites(u0)); i = 1)
     d = nsites(u)
-    rks = copy(u.ttv_rks)
+    rks = copy(u.ranks)
     # pure environments (never contain the center core)
     HA = _nl_right_op_envs(u, A)
     ER = _nl_right_qenvs(u)
@@ -388,22 +388,22 @@ function _penalty_solve_impl(A::TTOperator{T, N}, u0::TTVector{T, N}, alg::Penal
     penalty = zero(Float64)
     progress = _solver_progress(length(alg.penalty_schedule) * alg.max_sweeps, alg.show_progress; desc = "Nonlinear penalty ALS")
     for (stage, η) in enumerate(alg.penalty_schedule)
-        Pprev = _nl_penalty_local(u, 1, A.tto_vec[1], LA[1], HA[1], EL[1], ER[1], g, η)
+        Pprev = _nl_penalty_local(u, 1, A.cores[1], LA[1], HA[1], EL[1], ER[1], g, η)
         for _ in 1:alg.max_sweeps
             for i in 1:(d - 1)                      # forward half sweep
-                V = _nl_site_step(u, i, A.tto_vec[i], LA[i], HA[i], EL[i], ER[i], g, η, alg)
+                V = _nl_site_step(u, i, A.cores[i], LA[i], HA[i], EL[i], ER[i], g, η, alg)
                 u = right_core_move(u, V, i, rks)
-                LA[i + 1] = _nl_op_absorb_left(u.ttv_vec[i], A.tto_vec[i], LA[i])
-                EL[i + 1] = _nl_env4_absorb_left(u.ttv_vec[i], EL[i])
+                LA[i + 1] = _nl_op_absorb_left(u.cores[i], A.cores[i], LA[i])
+                EL[i + 1] = _nl_env4_absorb_left(u.cores[i], EL[i])
             end
             for i in d:-1:2                         # backward half sweep
-                V = _nl_site_step(u, i, A.tto_vec[i], LA[i], HA[i], EL[i], ER[i], g, η, alg)
+                V = _nl_site_step(u, i, A.cores[i], LA[i], HA[i], EL[i], ER[i], g, η, alg)
                 u = left_core_move(u, V, i, rks)
-                update_H!(u.ttv_vec[i], A.tto_vec[i], HA[i], HA[i - 1])
-                ER[i - 1] = _nl_env4_absorb_right(u.ttv_vec[i], ER[i])
+                update_H!(u.cores[i], A.cores[i], HA[i], HA[i - 1])
+                ER[i - 1] = _nl_env4_absorb_right(u.cores[i], ER[i])
             end
             total_sweeps += 1
-            penalty = _nl_penalty_local(u, 1, A.tto_vec[1], LA[1], HA[1], EL[1], ER[1], g, η)
+            penalty = _nl_penalty_local(u, 1, A.cores[1], LA[1], HA[1], EL[1], ER[1], g, η)
             alg.verbosity ≥ 2 && @info "PenaltyALS sweep" η sweep = total_sweeps penalty
             next!(progress; showvalues = [("sweep", total_sweeps), ("η", η), ("penalty", penalty)])
             abs(penalty - Pprev) ≤ alg.tol * abs(penalty) && break
@@ -515,7 +515,7 @@ function non_linear_solve(
     push!(level_sites, nsites(u0))
     alg.verbosity ≥ 2 && @info "MGR level" sites = nsites(u0)
     alg.return_info && push!(level_energies, gpe_energy(A_builder(nsites(u0)), u; g = g_builder(nsites(u0))))
-    next!(progress; showvalues = [("level", "1/$levels"), ("largest rank", maximum(u.ttv_rks))])
+    next!(progress; showvalues = [("level", "1/$levels"), ("largest rank", maximum(u.ranks))])
     for d in (nsites(u0) + 1):target_sites
         up = qtto_linear_prolongation(d - 1) * u
         tt_compress!(up, alg.max_bond)
@@ -524,7 +524,7 @@ function non_linear_solve(
         push!(level_sites, d)
         alg.verbosity ≥ 2 && @info "MGR level" sites = d
         alg.return_info && push!(level_energies, gpe_energy(A_builder(d), u; g = g_builder(d)))
-        next!(progress; showvalues = [("level", "$(d - nsites(u0) + 1)/$levels"), ("largest rank", maximum(u.ttv_rks))])
+        next!(progress; showvalues = [("level", "$(d - nsites(u0) + 1)/$levels"), ("largest rank", maximum(u.ranks))])
     end
     finish!(progress)
     if alg.return_info

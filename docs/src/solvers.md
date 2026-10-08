@@ -203,7 +203,7 @@ xes = LinRange(0, 1, N)
 
 A    = h^2 * toeplitz_to_qtto(-2.0, 1.0, 1.0, d)
 u0   = qtt_sin(d, λ = π)
-init = rand_tt(u0.ttv_dims, u0.ttv_rks)
+init = rand_tt(u0.dims, u0.ranks)
 
 steps = collect(range(0.0, 5.0, 500))
 

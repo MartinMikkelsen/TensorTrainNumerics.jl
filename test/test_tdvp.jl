@@ -61,7 +61,7 @@ end
     rights = (4, 6, 7)
     A_lsr = [randn(lefts[k], dims[k], rights[k]) for k in 1:N]
     _sync_ranks_from_lsr!(ψ, A_lsr)
-    @test ψ.ttv_rks == [lefts..., rights[end]]
+    @test ψ.ranks == [lefts..., rights[end]]
     @test ψ.orthogonality == [1, nsites(ψ)]
 end
 
@@ -189,7 +189,7 @@ end
 
     ψ_out, F = TensorTrainNumerics.tdvp1sweep!(0.05, ψ, H0, nothing; verbose = false)
 
-    @test ψ_out.ttv_dims == ψ0.ttv_dims
+    @test ψ_out.dims == ψ0.dims
     @test length(F) == d + 2
     @test isfinite(norm(ψ_out))
     @test norm(ψ_out - ψ0) / norm(ψ0) < 1.0e-6
@@ -323,7 +323,7 @@ end
     H0 = (0.0 + 0.0im) * complex(id_tto(d))
     mb = 2
     ψ2, _ = tdvp2sweep!(0.1im, deepcopy(ψ0), H0, nothing; verbose = false, max_bond = mb, trunc_tol = 0.0)
-    @test maximum(ψ2.ttv_rks) ≤ mb
+    @test maximum(ψ2.ranks) ≤ mb
 end
 
 @testset "tdvp2sweep! truncates with trunc_tol" begin
@@ -333,7 +333,7 @@ end
 
     ψ2, _ = tdvp2sweep!(0.1im, ψ0, H0, nothing; verbose = false, trunc_tol = 0.14)   # tail norm 0.139 ≤ 0.14·‖s‖
 
-    @test ψ2.ttv_rks == [1, 1, 1]
+    @test ψ2.ranks == [1, 1, 1]
 end
 
 @testset "tdvp2: basic behavior" begin
@@ -484,11 +484,11 @@ end
     @test info.error isa Real
     ψ2, info2 = tdvp2(H, u0, steps; substeps = 2, max_bond = 4, return_info = true, show_progress = false)
     @test info2.error isa Real
-    @test maximum(ψ2.ttv_rks) ≤ 4
+    @test maximum(ψ2.ranks) ≤ 4
 
     # trunc_tol = √(d − 1) makes δ ≥ ‖s‖ at every bond, so every rank drops to 1.
     ψ1 = tdvp2(H, u0, [0.01]; trunc_tol = sqrt(d - 1), show_progress = false)
-    @test all(==(1), ψ1.ttv_rks)
+    @test all(==(1), ψ1.ranks)
 
     @test_logs tdvp(H, u0, [0.01]; show_progress = false)
     @test_logs (:info, "TDVP sweep:") match_mode = :any tdvp(H, u0, [0.01]; verbosity = 3, show_progress = false)

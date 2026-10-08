@@ -28,7 +28,7 @@ function euler_method(
             solution = (1 / sqrt(norm²)) * solution
         end
         t += h
-        next!(progress; showvalues = [("step", "$step/$(length(steps))"), ("time", t), ("largest rank", maximum(solution.ttv_rks))])
+        next!(progress; showvalues = [("step", "$step/$(length(steps))"), ("time", t), ("largest rank", maximum(solution.ranks))])
     end
 
     if return_info
@@ -88,7 +88,7 @@ function implicit_euler_method(
         solution = max_bond > 0 ? tt_compress!(next, max_bond) : orthogonalize(next)
         guess = solution
         t += h
-        next!(progress; showvalues = [("step", "$step/$(length(steps))"), ("time", t), ("largest rank", maximum(solution.ttv_rks))])
+        next!(progress; showvalues = [("step", "$step/$(length(steps))"), ("time", t), ("largest rank", maximum(solution.ranks))])
     end
 
     if return_info
@@ -145,7 +145,7 @@ function crank_nicolson_method(
         solution = max_bond > 0 ? tt_compress!(next, max_bond) : orthogonalize(next)
         guess = solution
         t += h
-        next!(progress; showvalues = [("step", "$step/$(length(steps))"), ("time", t), ("largest rank", maximum(solution.ttv_rks))])
+        next!(progress; showvalues = [("step", "$step/$(length(steps))"), ("time", t), ("largest rank", maximum(solution.ranks))])
     end
 
     if return_info
@@ -157,12 +157,6 @@ function crank_nicolson_method(
     end
 
     return solution
-end
-
-# Deprecated: renamed to `crank_nicolson_method`.
-function crank_nicholson_method(args...; kwargs...)
-    Base.depwarn("`crank_nicholson_method` is deprecated, use `crank_nicolson_method`.", :crank_nicholson_method)
-    return crank_nicolson_method(args...; kwargs...)
 end
 
 """
@@ -198,7 +192,7 @@ function rk4_method(
         end
         u = u_new
         t += h
-        next!(progress; showvalues = [("step", "$step/$(length(steps))"), ("time", t), ("largest rank", maximum(u.ttv_rks))])
+        next!(progress; showvalues = [("step", "$step/$(length(steps))"), ("time", t), ("largest rank", maximum(u.ranks))])
     end
     if return_info
         isempty(steps) && return u, (; error = 0.0)

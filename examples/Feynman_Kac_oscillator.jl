@@ -41,7 +41,7 @@ for _ in 1:nblk
     record!(u)
 end
 
-@info "FK harmonic oscillator" E_final = E_num[end] E0_exact = 0.5ω L2_max = maximum(errL2) rank = maximum(u.ttv_rks)
+@info "FK harmonic oscillator" E_final = E_num[end] E0_exact = 0.5ω L2_max = maximum(errL2) rank = maximum(u.ranks)
 
 let
     snap = [0.0, 0.2, 0.4, 1.0, 3.0]

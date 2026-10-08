@@ -25,7 +25,7 @@ end
     cores = [rand(2, 2, 1, 2), rand(2, 2, 2, 2), rand(2, 2, 2, 1)]
     rks = [1, 2, 2, 1]
     dims = (2, 2, 2)
-    A = QTTOperator{Float64, 3}(cores, dims, rks, [1, 3], 1, 3, :interleaved)
+    A = QTTOperator{Float64, 3}(cores, dims, dims, rks, [1, 3], 1, 3, :interleaved)
     @test A.n_dims == 1
     @test A.bits_per_dim == 3
     @test A.ordering == :interleaved
@@ -308,7 +308,7 @@ end
             x = function_to_qttv(v -> sin(2v[1]) + cos(3v[2]), 2, d; ordering)
             expected = reshape(reference * vec(qttv_to_array(x)), n, n)
             y = A * x
-            @test first(A.tto_rks) == last(A.tto_rks) == 1
+            @test first(A.ranks) == last(A.ranks) == 1
             @test qttv_to_array(y) ≈ expected atol = 1.0e-9
             @test qttv_to_array(orthogonalize(y)) ≈ expected atol = 1.0e-9
 
@@ -617,9 +617,9 @@ end
     tt_compress!(q_c, 10; trunc_tol = 1.0e-12)
 
     # The cross-dimension bond (site `bits` → `bits+1`) should be rank 1
-    @test q_c.ttv_rks[bits + 1] == 1
+    @test q_c.ranks[bits + 1] == 1
     # All bonds should stay ≤ 1 (exponential is rank-1 in QTT)
-    @test maximum(q_c.ttv_rks) == 1
+    @test maximum(q_c.ranks) == 1
 
     # Values still correct after compression
     n = 2^bits
@@ -642,7 +642,7 @@ end
     @test q_c.ordering == :interleaved
     @test q_c.n_dims == 2
     @test q_c.bits_per_dim == bits
-    @test maximum(q_c.ttv_rks) ≤ 8
+    @test maximum(q_c.ranks) ≤ 8
     @test maximum(abs, qttv_to_array(q_c) .- arr_ref) < 1.0e-8
 end
 
@@ -658,8 +658,8 @@ end
     @test q_up.ordering == q.ordering
     @test q_up.n_dims == q.n_dims
     @test q_up.bits_per_dim == q.bits_per_dim
-    @test maximum(q_up.ttv_rks) ≤ 4
-    @test maximum(q_up.ttv_rks) > maximum(q.ttv_rks)
+    @test maximum(q_up.ranks) ≤ 4
+    @test maximum(q_up.ranks) > maximum(q.ranks)
     @test maximum(abs, qttv_to_array(q_up) .- arr_ref) < 1.0e-12
 end
 

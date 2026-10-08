@@ -88,7 +88,7 @@ using TensorTrainNumerics
 d = 6
 A = id_tto(d)
 b = qtt_sin(d, λ = π)
-x0 = rand_tt(b.ttv_dims, b.ttv_rks)
+x0 = rand_tt(b.dims, b.ranks)
 
 x = linear_solve(A, b, x0, ALS(max_sweeps = 2))
 
@@ -106,12 +106,12 @@ Relative error: 4.560872651853784e-16
 
 ```julia
 A = Δ(d) + id_tto(d)
-x0 = rand_tt(b.ttv_dims, 1)
+x0 = rand_tt(b.dims, 1)
 
 x, info = linear_solve(A, b, x0, AMEn(tol = 1e-8, return_info = true))
 
 println("Converged: ", info.converged, " after ", info.sweeps, " sweeps")
-println("Ranks: ", x.ttv_rks)
+println("Ranks: ", x.ranks)
 ```
 ```julia
 Converged: true after 4 sweeps

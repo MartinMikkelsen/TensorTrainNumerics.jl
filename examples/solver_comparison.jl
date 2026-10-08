@@ -37,7 +37,7 @@ function compare(L)
             Random.seed!(1)
             x0 = rand_tt(dims, rank)
             seconds = @elapsed x = linear_solve(A, b, x0, alg)
-            @info "2D Poisson, L = $L" solver residual = residual(x) max_rank = maximum(x.ttv_rks) seconds
+            @info "2D Poisson, L = $L" solver residual = residual(x) max_rank = maximum(x.ranks) seconds
             (seconds, residual(x))
         end
     end

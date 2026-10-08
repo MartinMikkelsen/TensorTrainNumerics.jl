@@ -28,8 +28,8 @@ dmrg_spd_op(d, shift = 3.0) = Δ(d) + shift * id_tto(d)
 
     @test x isa TTVector{Float64}
     @test nsites(x) == d
-    @test x.ttv_dims == b.ttv_dims
-    @test all(isfinite, x.ttv_rks)
+    @test x.dims == b.dims
+    @test all(isfinite, x.ranks)
 end
 
 @testset "dmrg_linsolve nsites = 2: residual decreases" begin
@@ -52,7 +52,7 @@ end
     x = dmrg_linsolve(A, b, x0; nsites = 2, max_sweeps = [1, 2], max_bond = [2, 8])
 
     @test x isa TTVector{Float64}
-    @test x.ttv_dims == b.ttv_dims
+    @test x.dims == b.dims
 end
 
 @testset "dmrg_linsolve: identity operator → residual near zero" begin
@@ -99,7 +99,7 @@ end
     @test r_hist isa Vector{<:Integer}
     @test length(E) == length(r_hist)
     @test nsites(x_opt) == d
-    @test x_opt.ttv_dims == ntuple(_ -> 2, d)
+    @test x_opt.dims == ntuple(_ -> 2, d)
 end
 
 @testset "dmrg_eigsolve nsites = 2: eigenvalue positive for SPD operator" begin
@@ -126,7 +126,7 @@ end
 
     @test length(E) ≥ 2
     @test x_opt isa TTVector{Float64}
-    @test maximum(x_opt.ttv_rks) ≤ 4
+    @test maximum(x_opt.ranks) ≤ 4
 end
 
 @testset "dmrg_eigsolve: eigenvalues are real and finite" begin
@@ -182,7 +182,7 @@ end
     d = 5
     A = id_tto(d) + 0.1 * Δ(d)
     b = qtt_sin(d)
-    x0 = rand_tt(b.ttv_dims, 2)
+    x0 = rand_tt(b.dims, 2)
     @test_logs min_level = Logging.Info begin
         dmrg_linsolve(A, b, x0; max_sweeps = 1, max_bond = 4)
     end
@@ -255,7 +255,7 @@ end
     @test length(E) == 2 * 2 * (d - 2) + 1
     E, x, r_hist = eigen_solve(A, x0, DMRG(; max_bond = [2, 4], max_sweeps = [1, 1], show_progress = false))
     @test all(≤(2), r_hist[1:(2 * (d - 2))])
-    @test maximum(x.ttv_rks) ≤ 4
+    @test maximum(x.ranks) ≤ 4
 
     @test_logs eigen_solve(A, x0, DMRG(; show_progress = false))
     @test_logs (:info, "DMRG core move") match_mode = :any eigen_solve(A, x0, DMRG(; verbosity = 3, show_progress = false))
@@ -277,5 +277,5 @@ end
     V = reshape(Q1 * Diagonal(s) * Q2', 2, 4, 2)       # (r₂, n₂·n₃, r₄)
     ε = 0.05 / norm(s)
     TTN.right_core_move!(xm, V, zeros(8, 8, 8), 2, ε, typemax(Int))
-    @test xm.ttv_rks[3] == TTN._trunc_rank(s, ε, 4, typemax(Int)) == 2
+    @test xm.ranks[3] == TTN._trunc_rank(s, ε, 4, typemax(Int)) == 2
 end

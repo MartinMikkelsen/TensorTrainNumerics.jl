@@ -113,9 +113,9 @@ most significant bit. The contraction is progressive and never forms the
 """
 function qtt_to_vector(qtt::TTVector{T}) where {T}
     d = nsites(qtt)
-    P = qtt.ttv_vec[1][:, 1, :]
+    P = qtt.cores[1][:, 1, :]
     for k in 2:d
-        G = qtt.ttv_vec[k]
+        G = qtt.cores[k]
         n_prev = size(P, 1)
         P_new = similar(P, 2 * n_prev, size(G, 3))
         @views begin
@@ -160,21 +160,21 @@ function qtt_polynom(coef, d; a = 0.0, b = 1.0)
     out = zeros_tt(2, d, p; r_and_d = false)
     φ(x, s) = sum(coef[k + 1] * x^(k - s) * binomial(k, s) for k in s:(p - 1))
     t₁ = a
-    out.ttv_vec[1][1, 1, :] = [φ(t₁, k) for k in 0:(p - 1)]
+    out.cores[1][1, 1, :] = [φ(t₁, k) for k in 0:(p - 1)]
     t₁ = a + h * 2^(d - 1) #convention : coarsest first
-    out.ttv_vec[1][2, 1, :] = [φ(t₁, k) for k in 0:(p - 1)]
+    out.cores[1][2, 1, :] = [φ(t₁, k) for k in 0:(p - 1)]
     @fastmath for k in 2:(d - 1)
         for j in 0:(p - 1)
-            out.ttv_vec[k][1, j + 1, j + 1] = 1.0
+            out.cores[k][1, j + 1, j + 1] = 1.0
             for i in 0:(p - 1)
                 tₖ = h * 2^(d - k)
-                out.ttv_vec[k][2, i + 1, j + 1] = binomial(i, i - j) * tₖ^(i - j)
+                out.cores[k][2, i + 1, j + 1] = binomial(i, i - j) * tₖ^(i - j)
             end
         end
     end
-    out.ttv_vec[d][1, 1, 1] = 1.0
+    out.cores[d][1, 1, 1] = 1.0
     td = h
-    out.ttv_vec[d][2, :, 1] = [td^k for k in 0:(p - 1)]
+    out.cores[d][2, :, 1] = [td^k for k in 0:(p - 1)]
     return out
 end
 
@@ -187,17 +187,17 @@ function qtt_cos(d; a = 0.0, b = 1.0, λ = 1.0)
     out = zeros_tt(2, d, 2)
     h = (b - a) / (2^d - 1)
     t₁ = a
-    out.ttv_vec[1][1, 1, :] = [cos(λ * π * t₁); -sin(λ * π * t₁)]
+    out.cores[1][1, 1, :] = [cos(λ * π * t₁); -sin(λ * π * t₁)]
     t₁ = a + h * 2^(d - 1) #convention : coarsest first
-    out.ttv_vec[1][2, 1, :] = [cos(λ * π * t₁); -sin(λ * π * t₁)]
+    out.cores[1][2, 1, :] = [cos(λ * π * t₁); -sin(λ * π * t₁)]
     @fastmath for k in 2:(d - 1)
-        out.ttv_vec[k][1, :, :] = [1 0;0 1]
+        out.cores[k][1, :, :] = [1 0;0 1]
         tₖ = h * 2^(d - k)
-        out.ttv_vec[k][2, :, :] = [cos(λ * π * tₖ) -sin(λ * π * tₖ); sin(λ * π * tₖ) cos(λ * π * tₖ)]
+        out.cores[k][2, :, :] = [cos(λ * π * tₖ) -sin(λ * π * tₖ); sin(λ * π * tₖ) cos(λ * π * tₖ)]
     end
-    out.ttv_vec[d][1, 1, 1] = 1.0
+    out.cores[d][1, 1, 1] = 1.0
     td = h
-    out.ttv_vec[d][2, :, 1] = [cos(λ * π * td); sin(λ * π * td)]
+    out.cores[d][2, :, 1] = [cos(λ * π * td); sin(λ * π * td)]
     return out
 end
 
@@ -210,17 +210,17 @@ function qtt_sin(d; a = 0.0, b = 1.0, λ = 1.0)
     out = zeros_tt(2, d, 2)
     h = (b - a) / (2^d - 1)
     t₁ = a
-    out.ttv_vec[1][1, 1, :] = [sin(λ * π * t₁); cos(λ * π * t₁)]
+    out.cores[1][1, 1, :] = [sin(λ * π * t₁); cos(λ * π * t₁)]
     t₁ = a + h * 2^(d - 1) #convention : coarsest first
-    out.ttv_vec[1][2, 1, :] = [sin(λ * π * t₁); cos(λ * π * t₁)]
+    out.cores[1][2, 1, :] = [sin(λ * π * t₁); cos(λ * π * t₁)]
     @fastmath for k in 2:(d - 1)
-        out.ttv_vec[k][1, :, :] = [1 0;0 1]
+        out.cores[k][1, :, :] = [1 0;0 1]
         tₖ = h * 2^(d - k)
-        out.ttv_vec[k][2, :, :] = [cos(λ * π * tₖ) -sin(λ * π * tₖ); sin(λ * π * tₖ) cos(λ * π * tₖ)]
+        out.cores[k][2, :, :] = [cos(λ * π * tₖ) -sin(λ * π * tₖ); sin(λ * π * tₖ) cos(λ * π * tₖ)]
     end
-    out.ttv_vec[d][1, 1, 1] = 1.0
+    out.cores[d][1, 1, 1] = 1.0
     td = h
-    out.ttv_vec[d][2, :, 1] = [cos(λ * π * td); sin(λ * π * td)]
+    out.cores[d][2, :, 1] = [cos(λ * π * td); sin(λ * π * td)]
     return out
 end
 
@@ -233,17 +233,17 @@ function qtt_exp(d; a = 0.0, b = 1.0, α = 1.0, β = 0.0)
     out = zeros_tt(2, d, 1)
     h = (b - a) / (2^d - 1)
     t₁ = a
-    out.ttv_vec[1][1, 1, 1] = exp(α * t₁ + β)
+    out.cores[1][1, 1, 1] = exp(α * t₁ + β)
     t₁ = a + h * 2^(d - 1)
-    out.ttv_vec[1][2, 1, 1] = exp(α * t₁ + β)
+    out.cores[1][2, 1, 1] = exp(α * t₁ + β)
     @fastmath for k in 2:(d - 1)
         tₖ = h * 2^(d - k)
-        out.ttv_vec[k][1, 1, 1] = 1.0
-        out.ttv_vec[k][2, 1, 1] = exp(α * tₖ)
+        out.cores[k][1, 1, 1] = 1.0
+        out.cores[k][2, 1, 1] = exp(α * tₖ)
     end
-    out.ttv_vec[d][1, 1, 1] = 1.0
+    out.cores[d][1, 1, 1] = 1.0
     td = h
-    out.ttv_vec[d][2, 1, 1] = exp(α * td)
+    out.cores[d][2, 1, 1] = exp(α * td)
     return out
 end
 
@@ -269,8 +269,8 @@ function qtt_basis_vector(d, pos::Int, val::Number = 1.0)
     out = zeros_tt(2, d, 1)
     bits = reverse(digits(pos - 1, base = 2, pad = d))
     @inbounds for k in 1:d
-        out.ttv_vec[k][:, 1, 1] .= 0.0
-        out.ttv_vec[k][bits[k] + 1, 1, 1] = val
+        out.cores[k][:, 1, 1] .= 0.0
+        out.cores[k][bits[k] + 1, 1, 1] = val
         val = 1.0
     end
     return out
@@ -288,15 +288,15 @@ function qtt_chebyshev(n, d)
     d == 1 && return _single_site_qtt(cos.(n .* acos.(clamp.(2 .* x_nodes .- 1, -1.0, 1.0))))
     out = zeros_tt(2, d, 2)
     θ = acos.(clamp.(2 .* x_nodes .- 1, -1.0, 1.0))
-    out.ttv_vec[1][1, 1, :] = [cos(n * θ[1]); -sin(n * θ[1])]
-    out.ttv_vec[1][2, 1, :] = [cos(n * θ[2^(d - 1) + 1]); -sin(n * θ[2^(d - 1) + 1])]
+    out.cores[1][1, 1, :] = [cos(n * θ[1]); -sin(n * θ[1])]
+    out.cores[1][2, 1, :] = [cos(n * θ[2^(d - 1) + 1]); -sin(n * θ[2^(d - 1) + 1])]
     @fastmath for k in 2:(d - 1)
-        out.ttv_vec[k][1, :, :] .= [1.0 0.0; 0.0 1.0]
+        out.cores[k][1, :, :] .= [1.0 0.0; 0.0 1.0]
         idx = 2^(d - k) + 1
-        out.ttv_vec[k][2, :, :] .= [cos(n * θ[idx]) -sin(n * θ[idx]);sin(n * θ[idx])  cos(n * θ[idx])]
+        out.cores[k][2, :, :] .= [cos(n * θ[idx]) -sin(n * θ[idx]);sin(n * θ[idx])  cos(n * θ[idx])]
     end
-    out.ttv_vec[d][1, :, 1] .= [1.0, 0.0]
-    out.ttv_vec[d][2, :, 1] .= [cos(n * θ[2]), sin(n * θ[2])]
+    out.cores[d][1, :, 1] .= [1.0, 0.0]
+    out.cores[d][2, :, 1] .= [cos(n * θ[2]), sin(n * θ[2])]
 
     return out
 end
@@ -321,7 +321,7 @@ end
 
 Convert a `TTVector` to QTT format by splitting each core's physical dimension via SVD.
 
-`split_dims[i]` is a list of integers whose product equals `tt.ttv_dims[i]`, specifying
+`split_dims[i]` is a list of integers whose product equals `tt.dims[i]`, specifying
 how to factor that core. The **first** entry is the coarsest (most significant) dimension,
 consistent with the rest of the package's QTT convention.
 
@@ -333,7 +333,7 @@ function to_qtt(
     ) where {T <: Number, N}
     @assert length(split_dims) == N "split_dims must have one entry per TT core"
     for i in 1:N
-        @assert prod(split_dims[i]) == tt.ttv_dims[i] "prod(split_dims[$i]) must equal $(tt.ttv_dims[i])"
+        @assert prod(split_dims[i]) == tt.dims[i] "prod(split_dims[$i]) must equal $(tt.dims[i])"
     end
 
     qtt_cores = Vector{Array{T, 3}}()
@@ -342,10 +342,10 @@ function to_qtt(
 
     for i in 1:N
         # Work in (r_l, n, r_r) layout for easy reshaping
-        core = permutedims(tt.ttv_vec[i], (2, 1, 3))
+        core = permutedims(tt.cores[i], (2, 1, 3))
         rank_prev = new_rks[end]
-        rank_next = tt.ttv_rks[i + 1]
-        remaining = tt.ttv_dims[i]
+        rank_next = tt.ranks[i + 1]
+        remaining = tt.dims[i]
 
         for j in 1:(length(split_dims[i]) - 1)
             split_size = split_dims[i][j]
@@ -404,10 +404,10 @@ function to_ttv(qtt::TTVector{T, M}, merge_numbers::Vector{Int}) where {T <: Num
 
     for count in merge_numbers
         # Work in (r_l, n, r_r) layout
-        core = permutedims(qtt.ttv_vec[k], (2, 1, 3))   # (r_l, n1, r_mid)
+        core = permutedims(qtt.cores[k], (2, 1, 3))   # (r_l, n1, r_mid)
 
         for j in (k + 1):(k + count - 1)
-            G2 = permutedims(qtt.ttv_vec[j], (2, 1, 3))  # (r_mid, n2, r_r)
+            G2 = permutedims(qtt.cores[j], (2, 1, 3))  # (r_mid, n2, r_r)
             r_l, n1, r_mid = size(core, 1), size(core, 2), size(core, 3)
             n2, r_r = size(G2, 2), size(G2, 3)
 
@@ -444,15 +444,15 @@ Identical TT fields as `TTVector` plus:
 - `ordering`: `:interleaved` or `:serial`
 """
 struct QTTVector{T <: Number, M} <: AbstractTTVector
-    ttv_vec::Vector{Array{T, 3}}
-    ttv_dims::NTuple{M, Int64}
-    ttv_rks::Vector{Int64}
+    cores::Vector{Array{T, 3}}
+    dims::NTuple{M, Int64}
+    ranks::Vector{Int64}
     orthogonality::Vector{Int64}
     n_dims::Int
     bits_per_dim::Int
     ordering::Symbol
-    function QTTVector{T, M}(ttv_vec, ttv_dims, ttv_rks, orthogonality, n_dims, bits_per_dim, ordering) where {T <: Number, M}
-        return new{T, M}(ttv_vec, ttv_dims, ttv_rks, _orthogonality_storage(orthogonality, M), n_dims, bits_per_dim, ordering)
+    function QTTVector{T, M}(cores, dims, ranks, orthogonality, n_dims, bits_per_dim, ordering) where {T <: Number, M}
+        return new{T, M}(cores, dims, ranks, _orthogonality_storage(orthogonality, M), n_dims, bits_per_dim, ordering)
     end
 end
 
@@ -460,15 +460,16 @@ end
 A Quantized Tensor Train operator with explicit multi-dimensional ordering metadata.
 """
 struct QTTOperator{T <: Number, M} <: AbstractTTOperator
-    tto_vec::Vector{Array{T, 4}}
-    tto_dims::NTuple{M, Int64}
-    tto_rks::Vector{Int64}
+    cores::Vector{Array{T, 4}}
+    row_dims::NTuple{M, Int64}
+    col_dims::NTuple{M, Int64}
+    ranks::Vector{Int64}
     orthogonality::Vector{Int64}
     n_dims::Int
     bits_per_dim::Int
     ordering::Symbol
-    function QTTOperator{T, M}(tto_vec, tto_dims, tto_rks, orthogonality, n_dims, bits_per_dim, ordering) where {T <: Number, M}
-        return new{T, M}(tto_vec, tto_dims, tto_rks, _orthogonality_storage(orthogonality, M), n_dims, bits_per_dim, ordering)
+    function QTTOperator{T, M}(cores, row_dims, col_dims, ranks, orthogonality, n_dims, bits_per_dim, ordering) where {T <: Number, M}
+        return new{T, M}(cores, row_dims, col_dims, ranks, _orthogonality_storage(orthogonality, M), n_dims, bits_per_dim, ordering)
     end
 end
 
@@ -483,8 +484,8 @@ function Base.show(io::IO, ::MIME"text/plain", q::QTTVector{T, M}) where {T, M}
     println(io, "QTT-MPS{$T} with $(nsites(q)) sites")
     println(io, "  Dimensions    : $(q.n_dims)d × $(q.bits_per_dim) bits/dim  ($(q.n_dims * 2^q.bits_per_dim) grid points per dim)")
     println(io, "  Ordering      : $(q.ordering)")
-    println(io, "  Physical dims : $(q.ttv_dims)")
-    println(io, "  Bond dims     : $(q.ttv_rks)")
+    println(io, "  Physical dims : $(q.dims)")
+    println(io, "  Bond dims     : $(q.ranks)")
     return print(io, "  Orthogonality : $(_orthogonality_description(q))")
 end
 
@@ -496,8 +497,8 @@ function Base.show(io::IO, ::MIME"text/plain", A::QTTOperator{T, M}) where {T, M
     println(io, "QTT-MPO{$T} with $(nsites(A)) sites")
     println(io, "  Dimensions    : $(A.n_dims)d × $(A.bits_per_dim) bits/dim  ($(A.n_dims * 2^A.bits_per_dim) grid points per dim)")
     println(io, "  Ordering      : $(A.ordering)")
-    println(io, "  Physical dims : $(A.tto_dims)")
-    println(io, "  Bond dims     : $(A.tto_rks)")
+    println(io, "  Physical dims : $(_dims_description(A))")
+    println(io, "  Bond dims     : $(A.ranks)")
     return print(io, "  Orthogonality : $(_orthogonality_description(A))")
 end
 
@@ -516,9 +517,9 @@ All physical dimensions in `ttv` must be 2.
 """
 function QTTVector(ttv::TTVector{T, M}, n_dims::Int, bits_per_dim::Int, ordering::Symbol) where {T, M}
     @assert n_dims * bits_per_dim == nsites(ttv) "n_dims * bits_per_dim must equal nsites(ttv) (got $(n_dims)*$(bits_per_dim)=$(n_dims * bits_per_dim) ≠ $(nsites(ttv)))"
-    @assert all(==(2), ttv.ttv_dims) "All physical dimensions must be 2 for QTT (got $(ttv.ttv_dims))"
+    @assert all(==(2), ttv.dims) "All physical dimensions must be 2 for QTT (got $(ttv.dims))"
     @assert ordering ∈ (:interleaved, :serial) "ordering must be :interleaved or :serial (got $ordering)"
-    return QTTVector{T, M}(ttv.ttv_vec, ttv.ttv_dims, ttv.ttv_rks, ttv.orthogonality, n_dims, bits_per_dim, ordering)
+    return QTTVector{T, M}(ttv.cores, ttv.dims, ttv.ranks, ttv.orthogonality, n_dims, bits_per_dim, ordering)
 end
 
 """
@@ -536,9 +537,9 @@ All physical dimensions in `tto` must be 2.
 """
 function QTTOperator(tto::TTOperator{T, M}, n_dims::Int, bits_per_dim::Int, ordering::Symbol) where {T, M}
     @assert n_dims * bits_per_dim == nsites(tto) "n_dims * bits_per_dim must equal nsites(tto) (got $(n_dims)*$(bits_per_dim)=$(n_dims * bits_per_dim) ≠ $(nsites(tto)))"
-    @assert all(==(2), tto.tto_dims) "All physical dimensions must be 2 for QTT (got $(tto.tto_dims))"
+    @assert all(==(2), tto.row_dims) && all(==(2), tto.col_dims) "All physical dimensions must be 2 for QTT (got $(_dims_description(tto)))"
     @assert ordering ∈ (:interleaved, :serial) "ordering must be :interleaved or :serial (got $ordering)"
-    return QTTOperator{T, M}(tto.tto_vec, tto.tto_dims, tto.tto_rks, tto.orthogonality, n_dims, bits_per_dim, ordering)
+    return QTTOperator{T, M}(tto.cores, tto.row_dims, tto.col_dims, tto.ranks, tto.orthogonality, n_dims, bits_per_dim, ordering)
 end
 
 """
@@ -547,7 +548,7 @@ end
 Strip QTT metadata to recover the underlying `TTVector`.
 """
 TTVector(q::QTTVector{T, M}) where {T, M} =
-    TTVector{T, M}(q.ttv_vec, q.ttv_dims, q.ttv_rks; orthogonality = q.orthogonality)
+    TTVector{T, M}(q.cores, q.dims, q.ranks; orthogonality = q.orthogonality)
 
 function entanglement_entropy(q::QTTVector; base::Real = exp(1.0))
     return entanglement_entropy(TTVector(q); base = base)
@@ -559,7 +560,7 @@ end
 Strip QTT metadata to recover the underlying `TTOperator`.
 """
 TTOperator(q::QTTOperator{T, M}) where {T, M} =
-    TTOperator{T, M}(q.tto_vec, q.tto_dims, q.tto_rks; orthogonality = q.orthogonality)
+    TTOperator{T, M}(q.cores, q.row_dims, q.col_dims, q.ranks; orthogonality = q.orthogonality)
 
 """
     check_compat(a::QTTVector, b::QTTVector)
@@ -657,7 +658,7 @@ end
 
 function Base.copy(A::QTTOperator{T, M}) where {T, M}
     tto = TTOperator(A)
-    tto_copy = TTOperator{T, M}(copy.(tto.tto_vec), tto.tto_dims, copy(tto.tto_rks); orthogonality = copy(tto.orthogonality))
+    tto_copy = TTOperator{T, M}(copy.(tto.cores), tto.row_dims, tto.col_dims, copy(tto.ranks); orthogonality = copy(tto.orthogonality))
     return QTTOperator(tto_copy, A.n_dims, A.bits_per_dim, A.ordering)
 end
 
@@ -833,7 +834,7 @@ function reorder(q::QTTVector, new_ordering::Symbol; threshold::Real = 0.0)
     swaps = _bubble_sort_swaps(perm)
 
     # Apply swaps to a mutable copy of the cores
-    cores = deepcopy(q.ttv_vec)
+    cores = deepcopy(q.cores)
     for k in swaps
         new_k, new_kp1 = _swap_adjacent_sites(cores[k], cores[k + 1]; threshold = threshold)
         cores[k] = new_k
@@ -1008,7 +1009,7 @@ function reorder(A::QTTOperator, new_ordering::Symbol; threshold::Real = 0.0)
 
     swaps = _bubble_sort_swaps(perm)
 
-    cores = deepcopy(A.tto_vec)
+    cores = deepcopy(A.cores)
     for k in swaps
         new_k, new_kp1 = _swap_adjacent_sites_op(cores[k], cores[k + 1]; threshold = threshold)
         cores[k] = new_k

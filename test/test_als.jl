@@ -36,7 +36,7 @@ end
 
     @test x isa TTVector{Float64, 3}
     @test nsites(x) == 3
-    @test x.ttv_dims == dims
+    @test x.dims == dims
 end
 
 @testset "als_linsolve: residual decreases for well-conditioned system" begin
@@ -70,7 +70,7 @@ end
     x = als_linsolve(A, b, x0; max_sweeps = 1)
 
     @test x isa TTVector{Float64}
-    @test x.ttv_dims == b.ttv_dims
+    @test x.dims == b.dims
 end
 
 @testset "Ksolve iterative local solve agrees with the dense solve" begin
@@ -151,7 +151,7 @@ end
     @test E isa Vector{Float64}
     @test x_opt isa TTVector{Float64}
     @test nsites(x_opt) == d
-    @test x_opt.ttv_dims == ntuple(_ -> 2, d)
+    @test x_opt.dims == ntuple(_ -> 2, d)
     @test length(E) ≥ 1
     @test all(isfinite, E)
 end
@@ -193,7 +193,7 @@ end
     )
 
     @test x_opt isa TTVector{Float64}
-    @test maximum(x_opt.ttv_rks) ≤ 2
+    @test maximum(x_opt.ranks) ≤ 2
     @test all(isfinite, E)
 end
 
@@ -255,7 +255,7 @@ end
     @test result !== nothing
     E, x_opt = result
     @test x_opt isa TTVector{Float64}
-    @test maximum(x_opt.ttv_rks) ≤ 2
+    @test maximum(x_opt.ranks) ≤ 2
     @test all(isfinite, E)
 end
 
@@ -284,7 +284,7 @@ end
     d = 5
     A = id_tto(d) + 0.1 * Δ(d)
     b = qtt_sin(d)
-    x0 = rand_tt(b.ttv_dims, 4)
+    x0 = rand_tt(b.dims, 4)
     x1, info1 = als_linsolve(A, b, x0; max_sweeps = 1, return_info = true)
     @test info1.residual ≥ 0
     x2, info2 = als_linsolve(A, b, x0; max_sweeps = 2, return_info = true)
@@ -318,7 +318,7 @@ end
     # raises the ranks once.
     g1 = rand_tt(dims, 1; normalize = true)
     E, x = eigen_solve(A, g1, ALS(; max_bond = 4, max_sweeps = [1, 1], noise = 1.0e-3, show_progress = false))
-    @test maximum(x.ttv_rks) == 4
+    @test maximum(x.ranks) == 4
     @test length(E) == 2 * 2 * (d - 1)
     Ad = reshape(tto_to_tensor(A), 2^d, 2^d)
     @test E[end] ≈ eigmin(Symmetric(Ad)) rtol = 1.0e-6

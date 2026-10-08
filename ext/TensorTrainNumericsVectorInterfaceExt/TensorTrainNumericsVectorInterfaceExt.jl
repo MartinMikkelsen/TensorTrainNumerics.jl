@@ -81,7 +81,7 @@ end
 function VectorInterface.scale!(x::TTVector{T}, α::Number) where {T}
     αT = convert(T, α)
     i = TensorTrainNumerics._scale_site(x)
-    @. x.ttv_vec[i] = αT * x.ttv_vec[i]
+    @. x.cores[i] = αT * x.cores[i]
     return x
 end
 function VectorInterface.scale!!(x::TTVector{T}, α::Number) where {T}
@@ -98,7 +98,7 @@ function VectorInterface.scale!!(y::TTVector, x::TTVector, α::Number)
 end
 
 function VectorInterface.zerovector(x::_RankBoundedTTVector, ::Type{S}) where {S <: Number}
-    z = zeros_tt(S, x.tt.ttv_dims, copy(x.tt.ttv_rks))
+    z = zeros_tt(S, x.tt.dims, copy(x.tt.ranks))
     return _RankBoundedTTVector(z, x.max_bond)
 end
 function VectorInterface.zerovector!(x::_RankBoundedTTVector)
@@ -152,13 +152,13 @@ function VectorInterface.add!!(
 end
 
 function VectorInterface.zerovector(a::TTVector, ::Type{S}) where {S <: Number}
-    return zeros_tt(S, a.ttv_dims, copy(a.ttv_rks))
+    return zeros_tt(S, a.dims, copy(a.ranks))
 end
 function VectorInterface.zerovector(a::TTOperator, ::Type{S}) where {S <: Number}
-    return zeros_tto(S, a.tto_dims, copy(a.tto_rks))
+    return zeros_tto(S, a.row_dims, a.col_dims, copy(a.ranks))
 end
 function VectorInterface.zerovector!(a::TTVector)
-    for core in a.ttv_vec
+    for core in a.cores
         fill!(core, zero(eltype(core)))
     end
     return a
@@ -167,10 +167,10 @@ function VectorInterface.zerovector!!(a::TTVector)
     return VectorInterface.zerovector!(a)
 end
 
-VectorInterface.length(a::TTVector) = prod(a.ttv_dims)
-VectorInterface.length(a::TTOperator) = prod(a.tto_dims)^2
+VectorInterface.length(a::TTVector) = prod(a.dims)
+VectorInterface.length(a::TTOperator) = prod(a.row_dims) * prod(a.col_dims)
 
-zero(a::TTVector) = zeros_tt(eltype(a), a.ttv_dims, a.ttv_rks)
+zero(a::TTVector) = zeros_tt(eltype(a), a.dims, a.ranks)
 
 function VectorInterface.inner(a::TTVector, b::TTVector)
     return TensorTrainNumerics.dot(a, b)

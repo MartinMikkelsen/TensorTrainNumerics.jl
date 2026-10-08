@@ -6,7 +6,7 @@ using TensorTrainNumerics
 
 const TTN = TensorTrainNumerics
 
-amen_matrix(A) = reshape(tto_to_tensor(A), prod(A.tto_dims), :)
+amen_matrix(A) = reshape(tto_to_tensor(A), prod(A.row_dims), :)
 amen_vector(x) = vec(ttv_to_tensor(x))
 amen_relres(A, x, b) = norm(amen_matrix(A) * amen_vector(x) - amen_vector(b)) / norm(amen_vector(b))
 
@@ -23,31 +23,31 @@ amen_relres(A, x, b) = norm(amen_matrix(A) * amen_vector(x) - amen_vector(b)) / 
     L3 = [ones(T, 1, 1, 1)]
     L2 = [ones(T, 1, 1)]
     for k in 1:d
-        push!(L3, TTN._left_interface(L3[k], x.ttv_vec[k], A.tto_vec[k], x.ttv_vec[k]))
-        push!(L2, TTN._left_interface(L2[k], x.ttv_vec[k], b.ttv_vec[k]))
+        push!(L3, TTN._left_interface(L3[k], x.cores[k], A.cores[k], x.cores[k]))
+        push!(L2, TTN._left_interface(L2[k], x.cores[k], b.cores[k]))
     end
     R3 = Vector{Array{T, 3}}(undef, d + 1)
     R2 = Vector{Array{T, 2}}(undef, d + 1)
     R3[d + 1] = ones(T, 1, 1, 1)
     R2[d + 1] = ones(T, 1, 1)
     for k in d:-1:1
-        R3[k] = TTN._right_interface(R3[k + 1], x.ttv_vec[k], A.tto_vec[k], x.ttv_vec[k])
-        R2[k] = TTN._right_interface(R2[k + 1], x.ttv_vec[k], b.ttv_vec[k])
+        R3[k] = TTN._right_interface(R3[k + 1], x.cores[k], A.cores[k], x.cores[k])
+        R2[k] = TTN._right_interface(R2[k + 1], x.cores[k], b.cores[k])
     end
 
     for k in 1:(d + 1)
-        @test size(L3[k]) == (x.ttv_rks[k], A.tto_rks[k], x.ttv_rks[k])
-        @test size(L2[k]) == (x.ttv_rks[k], b.ttv_rks[k])
+        @test size(L3[k]) == (x.ranks[k], A.ranks[k], x.ranks[k])
+        @test size(L2[k]) == (x.ranks[k], b.ranks[k])
         @test sum(L3[k] .* R3[k]) ≈ xAx
         @test sum(L2[k] .* R2[k]) ≈ xb
     end
 
     for k in 1:d
-        ΦL, ΦR, Ak, xk = L3[k], R3[k + 1], A.tto_vec[k], x.ttv_vec[k]
+        ΦL, ΦR, Ak, xk = L3[k], R3[k + 1], A.cores[k], x.cores[k]
         v = randn(T, size(xk))
         @test vec(TTN._local_matvec(ΦL, Ak, ΦR, v)) ≈ TTN._local_matrix(ΦL, Ak, ΦR) * vec(v)
         @test dot(xk, TTN._local_matvec(ΦL, Ak, ΦR, xk)) ≈ xAx
-        @test dot(xk, TTN._project(L2[k], b.ttv_vec[k], R2[k + 1])) ≈ xb
+        @test dot(xk, TTN._project(L2[k], b.cores[k], R2[k + 1])) ≈ xb
     end
 end
 
@@ -108,7 +108,7 @@ end
     b = A * x_true
     x = linear_solve(A, b, rand_tt(dims, 1), AMEn(tol = 1.0e-8, show_progress = false))
     @test norm(amen_vector(x) - amen_vector(x_true)) ≤ 1.0e-6
-    @test maximum(x.ttv_rks) ≤ 4
+    @test maximum(x.ranks) ≤ 4
 end
 
 @testset "AMEn solves a non-symmetric system" begin
@@ -150,7 +150,7 @@ end
     A = B' * B + 10.0 * TTN._identity_like(B)
     b = rand_tt(dims, [1, 2, 3, 2, 1])
     x = linear_solve(A, b, rand_tt(dims, [1, 1, 1, 1, 1]), AMEn(tol = 1.0e-8, show_progress = false))
-    @test x.ttv_dims == dims
+    @test x.dims == dims
     @test amen_relres(A, x, b) ≤ 1.0e-7
 end
 
@@ -162,11 +162,11 @@ end
     b = rand_tt(dims, 3; normalize = true)
 
     x = linear_solve(A, b, rand_tt(dims, 1), AMEn(max_bond = 2, max_sweeps = 4, verbosity = 0, show_progress = false))
-    @test maximum(x.ttv_rks) ≤ 2
+    @test maximum(x.ranks) ≤ 2
 
     x0 = rand_tt(dims, 2)
     x = linear_solve(A, b, x0, AMEn(kickrank = 0, max_sweeps = 3, verbosity = 0, show_progress = false))
-    @test all(x.ttv_rks .≤ x0.ttv_rks)
+    @test all(x.ranks .≤ x0.ranks)
 
     x0 = rand_tt(dims, 1)
     xd = linear_solve(A, b, x0, AMEn(tol = 1.0e-8, local_solver = :direct, show_progress = false))
@@ -219,7 +219,7 @@ end
     x, info = linear_solve(A, A * x_true, x_true, AMEn(tol = 1.0e-8, return_info = true, show_progress = false))
     @test info.converged
     @test info.sweeps ≤ 2
-    @test all(c -> all(isfinite, c), x.ttv_vec)
+    @test all(c -> all(isfinite, c), x.cores)
     @test norm(amen_vector(x) - amen_vector(x_true)) ≤ 1.0e-10
 
     Aq = QTTOperator(A, 1, d, :serial)
@@ -355,8 +355,8 @@ end
     # The last core of the guess is orthogonal to the last core of `b`, so the
     # projected right-hand side of every other site is zero in the first sweep.
     x0 = rand_tt(dims, 1)
-    v = vec(b.ttv_vec[4])
-    x0.ttv_vec[4] = reshape([-v[2], v[1]], 2, 1, 1)
+    v = vec(b.cores[4])
+    x0.cores[4] = reshape([-v[2], v[1]], 2, 1, 1)
     @test abs(dot(x0, b)) ≤ 1.0e-12 * norm(x0) * norm(b)
     for local_solver in (:direct, :iterative)
         x = linear_solve(A, b, x0, AMEn(; tol = 1.0e-8, local_solver, show_progress = false))

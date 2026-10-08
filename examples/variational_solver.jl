@@ -19,7 +19,7 @@ function fg(u::TTVector)
     return val, grad
 end
 
-x0 = rand_tt(f.ttv_dims, f.ttv_rks)
+x0 = rand_tt(f.dims, f.ranks)
 
 method = GradientDescent()
 x, fx, gx, numfg, normgradhistor = optimize(fg, x0, method)

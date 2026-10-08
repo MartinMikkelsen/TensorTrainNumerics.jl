@@ -97,10 +97,10 @@ order of the position index, converting between most-significant-bit-first and
 least-significant-bit-first layouts.
 """
 function reverse_qtt_bits(x::TTVector{T, d}) where {T, d}
-    new_vecs = reverse(copy.(x.ttv_vec))
+    new_vecs = reverse(copy.(x.cores))
     new_vecs = map(c -> permutedims(c, (1, 3, 2)), new_vecs)
-    new_dims = reverse(x.ttv_dims)
-    new_rks = [1; reverse(x.ttv_rks[2:(end - 1)]); 1]
+    new_dims = reverse(x.dims)
+    new_rks = [1; reverse(x.ranks[2:(end - 1)]); 1]
     left, right = _orthogonality(x)
     return TTVector{T, d}(new_vecs, new_dims, new_rks; orthogonality = (d + 1 - right, d + 1 - left))
 end

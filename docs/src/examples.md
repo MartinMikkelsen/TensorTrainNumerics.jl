@@ -21,7 +21,7 @@ A  = -(1/h^2) * toeplitz_to_qtto(-2.0, 1.0, 1.0, d)
 
 # RHS and initial guess
 b   = π^2 * qtt_sin(d; a = h, b = 1 - h)
-x0  = rand_tt(b.ttv_dims, b.ttv_rks)
+x0  = rand_tt(b.dims, b.ranks)
 
 u_qtt   = linear_solve(A, b, x0, MALS(trunc_tol = 1e-6, return_info = false))
 u_sol   = qtt_to_function(u_qtt)

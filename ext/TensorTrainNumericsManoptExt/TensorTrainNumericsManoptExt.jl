@@ -10,7 +10,7 @@ struct TTVectorSpace{T <: Real, N} <: ManifoldsBase.AbstractManifold{ManifoldsBa
 end
 
 function TensorTrainNumerics.ttvector_manifold(x::TTVector{T, N}) where {T <: Real, N}
-    return TTVectorSpace{T, N}(x.ttv_dims, copy(x.ttv_rks))
+    return TTVectorSpace{T, N}(x.dims, copy(x.ranks))
 end
 
 _copy_ttvector!(dst::TTVector, src::TTVector) = TensorTrainNumerics._overwrite!(dst, src)
@@ -24,7 +24,7 @@ Manopt.max_stepsize(::TTVectorSpace) = Inf
 function ManifoldsBase.allocate_result(
         ::TTVectorSpace, ::typeof(ManifoldsBase.zero_vector), p::TTVector
     )
-    return zeros_tt(eltype(p), p.ttv_dims, p.ttv_rks)
+    return zeros_tt(eltype(p), p.dims, p.ranks)
 end
 
 function ManifoldsBase.copy(M::TTVectorSpace, p::TTVector)
@@ -40,7 +40,7 @@ function ManifoldsBase.copyto!(::TTVectorSpace, Y::TTVector, ::TTVector, X::TTVe
 end
 
 function ManifoldsBase.zero_vector!(::TTVectorSpace, X::TTVector, ::TTVector)
-    for core in X.ttv_vec
+    for core in X.cores
         fill!(core, zero(eltype(core)))
     end
     return X

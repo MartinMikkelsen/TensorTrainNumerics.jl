@@ -37,10 +37,10 @@ Estar(ω, g) = energy(ground_state(ω, g), K, V, ω, g)
 ω, g = 50.0, 100.0
 u = ground_state(ω, g)
 E = energy(u, K, V, ω, g)
-println("E*(ω = $ω, g = $g) = $E   (TT ranks $(u.ttv_rks))")
+println("E*(ω = $ω, g = $g) = $E   (TT ranks $(u.ranks))")
 
 # Gradient of F with respect to the TT cores, holding ranks and dimensions fixed.
-core_grad(v) = only(Zygote.gradient(cs -> energy(TTVector(cs, v.ttv_dims, v.ttv_rks; orthogonality = v.orthogonality), K, V, ω, g), v.ttv_vec))
+core_grad(v) = only(Zygote.gradient(cs -> energy(TTVector(cs, v.dims, v.ranks; orthogonality = v.orthogonality), K, V, ω, g), v.cores))
 gradnorm(v) = sqrt(sum(sum(abs2, c) for c in core_grad(v)))
 u_trial = orthogonalize(function_to_qtt(x -> sin(π * x), L))
 println("‖∇_cores F‖ at sin(πx): $(gradnorm(u_trial / norm(u_trial)))   at the ground state: $(gradnorm(u))")

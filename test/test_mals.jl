@@ -25,8 +25,8 @@ mals_spd_op(d, shift = 3.0) = Δ(d) + shift * id_tto(d)
 
     @test x isa TTVector{Float64}
     @test nsites(x) == d
-    @test x.ttv_dims == b.ttv_dims
-    @test all(isfinite, x.ttv_rks)
+    @test x.dims == b.dims
+    @test all(isfinite, x.ranks)
 end
 
 @testset "mals_linsolve: residual decreases for well-conditioned system" begin
@@ -60,7 +60,7 @@ end
 
     x = mals_linsolve(A, b, x0; trunc_tol = 1.0e-5, max_bond)
 
-    @test maximum(x.ttv_rks) ≤ max_bond
+    @test maximum(x.ranks) ≤ max_bond
 end
 
 @testset "mals_linsolve: looser trunc_tol gives smaller or equal ranks" begin
@@ -72,7 +72,7 @@ end
     x_loose = mals_linsolve(A, b, x0; trunc_tol = 0.1, max_bond = 8)
     x_tight = mals_linsolve(A, b, x0; trunc_tol = 0.0, max_bond = 8)
 
-    @test maximum(x_loose.ttv_rks) ≤ maximum(x_tight.ttv_rks) + 2
+    @test maximum(x_loose.ranks) ≤ maximum(x_tight.ranks) + 2
 end
 
 
@@ -88,7 +88,7 @@ end
     @test r_hist isa Vector{<:Integer}
     @test length(E) == length(r_hist)
     @test nsites(x_opt) == d
-    @test x_opt.ttv_dims == ntuple(_ -> 2, d)
+    @test x_opt.dims == ntuple(_ -> 2, d)
 end
 
 @testset "mals_eigsolve: eigenvalue positive for SPD operator" begin
@@ -124,7 +124,7 @@ end
 
     @test length(E) ≥ 2
     @test x_opt isa TTVector{Float64}
-    @test maximum(x_opt.ttv_rks) ≤ 4
+    @test maximum(x_opt.ranks) ≤ 4
 end
 
 @testset "mals_eigsolve: rank history is non-empty and positive" begin
@@ -219,5 +219,5 @@ end
     V = reshape(Q1 * Diagonal(s) * Q2', 2, 2, 2, 2)    # (n₂, r₂, n₃, r₄)
     ε = 0.05 / norm(s)                                 # δ = 0.05/√3 for d = 4
     TTN.right_core_move_mals(xm, 2, V, ε, typemax(Int))
-    @test xm.ttv_rks[3] == TTN._trunc_rank(s, ε, 4, typemax(Int)) == 2
+    @test xm.ranks[3] == TTN._trunc_rank(s, ε, 4, typemax(Int)) == 2
 end

@@ -5,12 +5,12 @@ using LinearAlgebra
 
 function _sync_ranks_from_lsr!(ψ::AbstractTTVector, A_lsr::Vector{<:AbstractArray})
     N = nsites(ψ)
-    new_rks = similar(ψ.ttv_rks)
+    new_rks = similar(ψ.ranks)
     @inbounds for k in 1:N
         new_rks[k] = size(A_lsr[k], 1)
     end
     new_rks[N + 1] = size(A_lsr[N], 3)
-    ψ.ttv_rks .= new_rks
+    ψ.ranks .= new_rks
     _forget_orthogonality!(ψ)
     return ψ
 end
@@ -52,8 +52,8 @@ function tdvp1sweep!(
     # single full step at the terminal site.
     dt_half = dt / 2
 
-    A_lsr = [permutedims(ψ.ttv_vec[k], (2, 1, 3)) for k in 1:Nsites]
-    M_asbs = [permutedims(H.tto_vec[k], (3, 1, 4, 2)) for k in 1:Nsites]
+    A_lsr = [permutedims(ψ.cores[k], (2, 1, 3)) for k in 1:Nsites]
+    M_asbs = [permutedims(H.cores[k], (3, 1, 4, 2)) for k in 1:Nsites]
 
     if F === nothing
         F = Vector{Any}(undef, Nsites + 2)
@@ -146,7 +146,7 @@ function tdvp1sweep!(
 
     A_lsr[1] = AC
     for k in 1:Nsites
-        ψ.ttv_vec[k] = permutedims(A_lsr[k], (2, 1, 3))
+        ψ.cores[k] = permutedims(A_lsr[k], (2, 1, 3))
     end
     _sync_ranks_from_lsr!(ψ, A_lsr)
     return ψ, F
@@ -240,7 +240,7 @@ function tdvp(
         F = nothing
         ψ_prev = ψ_prev_step
         t += h
-        next!(progress; showvalues = [("step", "$step/$(length(steps))"), ("time", t), ("largest rank", maximum(ψ.ttv_rks))])
+        next!(progress; showvalues = [("step", "$step/$(length(steps))"), ("time", t), ("largest rank", maximum(ψ.ranks))])
     end
 
     if return_info
@@ -271,8 +271,8 @@ function tdvp2sweep!(
     Nsites = nsites(ψ)
     dt_half = dt / 2
 
-    A_lsr = [permutedims(ψ.ttv_vec[k], (2, 1, 3)) for k in 1:Nsites]
-    M_asbs = [permutedims(H.tto_vec[k], (3, 1, 4, 2)) for k in 1:Nsites]
+    A_lsr = [permutedims(ψ.cores[k], (2, 1, 3)) for k in 1:Nsites]
+    M_asbs = [permutedims(H.cores[k], (3, 1, 4, 2)) for k in 1:Nsites]
 
     if F === nothing
         F = Vector{Any}(undef, Nsites + 2)
@@ -343,7 +343,7 @@ function tdvp2sweep!(
 
     A_lsr[1] = AC
     for k in 1:Nsites
-        ψ.ttv_vec[k] = permutedims(A_lsr[k], (2, 1, 3))
+        ψ.cores[k] = permutedims(A_lsr[k], (2, 1, 3))
     end
     _sync_ranks_from_lsr!(ψ, A_lsr)
     return ψ, F
@@ -434,7 +434,7 @@ function tdvp2(
         t += h
         next!(
             progress; showvalues = [
-                ("step", "$step/$(length(steps))"), ("time", t), ("largest rank", maximum(ψ.ttv_rks)),
+                ("step", "$step/$(length(steps))"), ("time", t), ("largest rank", maximum(ψ.ranks)),
                 ("truncation error", trunc_err[]),
             ]
         )

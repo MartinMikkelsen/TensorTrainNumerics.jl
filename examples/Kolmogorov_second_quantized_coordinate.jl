@@ -31,7 +31,7 @@ readout = tt_compress!(gaussian(0.8) ⊗ gaussian(-0.4) ⊗ gaussian(0.2), max_b
 let
     Am, Adm = qtto_to_matrix(a), qtto_to_matrix(adag)
     Dm, Idm, nm = qtto_to_matrix(D), qtto_to_matrix(I), qtto_to_matrix(adag * a)
-    rv() = (z = rand_tt(a1.tto_dims, 4); (1 / nrm(z)) * z); x, y = rv(), rv()
+    rv() = (z = rand_tt(a1.row_dims, 4); (1 / nrm(z)) * z); x, y = rv(), rv()
     @assert opnorm(Adm - Am') / opnorm(Am) < 1.0e-10                         # a† = aᴴ
     @assert opnorm(Dm + Dm') / opnorm(Dm) < 1.0e-10                          # Dᵀ = -D
     @assert opnorm(nm - nm') / opnorm(nm) < 1.0e-10                          # n̂ = a†a Hermitian
@@ -58,7 +58,7 @@ for _ in 1:nblk
     record!(ψ)
 end
 
-@info "second-quantized KE final" bits T overlap = overlap[end] mass = mass[end] rank = maximum(ψ.ttv_rks)
+@info "second-quantized KE final" bits T overlap = overlap[end] mass = mass[end] rank = maximum(ψ.ranks)
 
 let
     mid = cld(N, 2)

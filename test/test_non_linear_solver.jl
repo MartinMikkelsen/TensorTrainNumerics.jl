@@ -141,14 +141,14 @@ end
 
 # Replace core l of u (shallow copy elsewhere); no orthogonality is recorded.
 function with_core(u::TTVector{T}, l::Int, c::Array{T, 3}) where {T}
-    v = copy(u.ttv_vec)
+    v = copy(u.cores)
     v[l] = c
-    return TTVector{T, length(u.ttv_dims)}(v, u.ttv_dims, copy(u.ttv_rks))
+    return TTVector{T, length(u.dims)}(v, u.dims, copy(u.ranks))
 end
 
 # Dense environment isometry at site l by basis-column densification (u MUST be gauged at l).
 function dense_phi(u::TTVector{Float64}, l::Int)
-    core = u.ttv_vec[l]
+    core = u.cores[l]
     dims = size(core)
     n = prod(dims)
     Φ = zeros(2^nsites(u), n)
@@ -177,25 +177,25 @@ end
             HA = TTN._nl_right_op_envs(u, A)
             LA = ones(1, 1, 1)
             for k in 1:(l - 1)
-                LA = TTN._nl_op_absorb_left(u.ttv_vec[k], A.tto_vec[k], LA)
+                LA = TTN._nl_op_absorb_left(u.cores[k], A.cores[k], LA)
             end
             ER = TTN._nl_right_qenvs(u)
             EL = ones(1, 1, 1, 1)
             for k in 1:(l - 1)
-                EL = TTN._nl_env4_absorb_left(u.ttv_vec[k], EL)
+                EL = TTN._nl_env4_absorb_left(u.cores[k], EL)
             end
             # A gate
-            Aloc = TTN._nl_effective_op(LA, A.tto_vec[l], HA[l])
+            Aloc = TTN._nl_effective_op(LA, A.cores[l], HA[l])
             Adense = Φ' * Ad * Φ
             @test opnorm(Aloc - (Adense + Adense') / 2) < 1.0e-8
             # B gate
             uu = Φ * x0
             Bd = Φ' * (Diagonal(uu .^ 2) * Φ)
-            Bloc = TTN._nl_effective_abs2(EL, u.ttv_vec[l], ER[l])
+            Bloc = TTN._nl_effective_abs2(EL, u.cores[l], ER[l])
             @test opnorm(Bloc - Bd) < 1.0e-10
             # Q and ∇Q gates + internal consistency B·x0 == ∇Q(x0)/4
-            @test abs(TTN._nl_quartic(EL, u.ttv_vec[l], ER[l]) - sum(uu .^ 4)) < 1.0e-10
-            Qg = vec(TTN._nl_quartic_grad(EL, u.ttv_vec[l], ER[l]))
+            @test abs(TTN._nl_quartic(EL, u.cores[l], ER[l]) - sum(uu .^ 4)) < 1.0e-10
+            Qg = vec(TTN._nl_quartic_grad(EL, u.cores[l], ER[l]))
             @test norm(Qg - 4 .* (Φ' * (uu .^ 3))) < 1.0e-10
             @test norm(Bloc * x0 - Qg ./ 4) < 1.0e-10
             # Mutation: |u| instead of u² must be caught by the B gate

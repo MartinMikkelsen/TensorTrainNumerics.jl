@@ -166,13 +166,13 @@ println("Variational (LBFGS) vs DMRG ground state: sites=$n J=$J h=$h E_lbfgs=$E
 # core-wise pairing here.
 using Zygote
 
-shapes_ad = size.(ψ0_ad.ttv_vec)
+shapes_ad = size.(ψ0_ad.cores)
 offsets_ad = cumsum([0; prod.(shapes_ad)])
 unflatten_ad(θ) = [reshape(θ[(offsets_ad[k] + 1):offsets_ad[k + 1]], shapes_ad[k]) for k in 1:n]
-rebuild_ad(θ) = TTVector{Float64, n}(unflatten_ad(θ), ψ0_ad.ttv_dims, ψ0_ad.ttv_rks; orthogonality = ψ0_ad.orthogonality)
+rebuild_ad(θ) = TTVector{Float64, n}(unflatten_ad(θ), ψ0_ad.dims, ψ0_ad.ranks; orthogonality = ψ0_ad.orthogonality)
 loss_ad(θ) = (ψ = rebuild_ad(θ); real(dot(ψ, H_ising * ψ)) / real(dot(ψ, ψ)))
 
-θ0 = vcat(vec.(ψ0_ad.ttv_vec)...)
+θ0 = vcat(vec.(ψ0_ad.cores)...)
 zygote_loss_and_grad(θ) = (loss_ad(θ), Zygote.gradient(loss_ad, θ)[1])
 
 θ_ad, E_zygote, _, _, _ = optimize(zygote_loss_and_grad, θ0, LBFGS(; maxiter = 100, verbosity = 0))

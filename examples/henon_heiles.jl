@@ -56,7 +56,7 @@ function henon_heiles_trajectory(stepper, H, initial, reference, times, eigensys
         norm_drift[k] = abs(norm(state) - 1)
         energy = real(dot(spectral_state, eigensystem.values .* spectral_state)) / sum(abs2, state)
         energy_drift[k] = abs(energy - initial_energy)
-        ranks[k] = maximum(ψ.ttv_rks)
+        ranks[k] = maximum(ψ.ranks)
     end
     return (; correlation, state_error, norm_drift, energy_drift, ranks, final_state = ψ)
 end

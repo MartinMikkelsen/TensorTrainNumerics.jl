@@ -525,7 +525,7 @@ function linear_solve(A, b, guess, alg::MALS)
     return _mals_linsolve_impl(
         A, b, guess;
         max_sweeps = alg.max_sweeps,
-        max_bond = something(alg.max_bond, round(Int, sqrt(prod(guess.ttv_dims)::Int))),
+        max_bond = something(alg.max_bond, round(Int, sqrt(prod(guess.dims)::Int))),
         trunc_tol = alg.trunc_tol,
         return_info = alg.return_info,
         verbosity = alg.verbosity,
@@ -547,7 +547,7 @@ linear_solve(A, b, guess, alg::AMEn) =
 
 # Keyword arguments of `_dmrg_linsolve_impl` and `_dmrg_eigsolve_impl` for `alg`.
 function _dmrg_options(alg::DMRG, guess)
-    st = _stages(; max_sweeps = alg.max_sweeps, max_bond = something(alg.max_bond, isqrt(prod(guess.ttv_dims)::Int)))
+    st = _stages(; max_sweeps = alg.max_sweeps, max_bond = something(alg.max_bond, isqrt(prod(guess.dims)::Int)))
     return (;
         st..., nsites = alg.nsites, trunc_tol = alg.trunc_tol,
         local_solver = alg.local_solver, local_threshold = something(alg.local_threshold, 256),

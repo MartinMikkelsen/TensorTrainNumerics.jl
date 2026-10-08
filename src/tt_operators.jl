@@ -9,11 +9,11 @@ function toeplitz_to_qtto(α, β, γ, d)
     J[1, 2] = 1
     for i in 1:2
         for j in 1:2
-            out.tto_vec[1][i, j, 1, :] = [id[i, j];J[j, i];J[i, j]]
+            out.cores[1][i, j, 1, :] = [id[i, j];J[j, i];J[i, j]]
             for k in 2:(d - 1)
-                out.tto_vec[k][i, j, :, :] = [id[i, j] J[j, i] J[i, j]; 0 J[i, j] 0 ; 0 0 J[j, i]]
+                out.cores[k][i, j, :, :] = [id[i, j] J[j, i] J[i, j]; 0 J[i, j] 0 ; 0 0 J[j, i]]
             end
-            out.tto_vec[d][i, j, :, 1] = [α * id[i, j] + β * J[i, j] + γ * J[j, i]; γ * J[i, j] ; β * J[j, i]]
+            out.cores[d][i, j, :, 1] = [α * id[i, j] + β * J[i, j] + γ * J[j, i]; γ * J[i, j] ; β * J[j, i]]
         end
     end
     return out
@@ -307,11 +307,11 @@ function Δ_DN(d::Int)
     I₂ = [0 0; 0 1]
     for i in 1:2
         for j in 1:2
-            out.tto_vec[1][i, j, 1, :] = [id[i, j]; J[j, i]; J[i, j]; I₂[i, j]]
+            out.cores[1][i, j, 1, :] = [id[i, j]; J[j, i]; J[i, j]; I₂[i, j]]
             for k in 2:(d - 1)
-                out.tto_vec[k][i, j, :, :] = [id[i, j] J[j, i] J[i, j] 0; 0 J[i, j] 0 0; 0 0 J[j, i] 0; 0 0 0 I₂[i, j]]
+                out.cores[k][i, j, :, :] = [id[i, j] J[j, i] J[i, j] 0; 0 J[i, j] 0 0; 0 0 J[j, i] 0; 0 0 0 I₂[i, j]]
             end
-            out.tto_vec[d][i, j, :, 1] = [2 * id[i, j] - J[i, j] - J[j, i]; -J[i, j]; -J[j, i]; -I₂[i, j]]
+            out.cores[d][i, j, :, 1] = [2 * id[i, j] - J[i, j] - J[j, i]; -J[i, j]; -J[j, i]; -I₂[i, j]]
         end
     end
     return out
@@ -328,11 +328,11 @@ function Δ_ND(d::Int)
     I₁ = [1 0; 0 0]
     for i in 1:2
         for j in 1:2
-            out.tto_vec[1][i, j, 1, :] = [id[i, j]; J[j, i]; J[i, j]; I₁[i, j]]
+            out.cores[1][i, j, 1, :] = [id[i, j]; J[j, i]; J[i, j]; I₁[i, j]]
             for k in 2:(d - 1)
-                out.tto_vec[k][i, j, :, :] = [id[i, j] J[j, i] J[i, j] 0; 0 J[i, j] 0 0; 0 0 J[j, i] 0; 0 0 0 I₁[i, j]]
+                out.cores[k][i, j, :, :] = [id[i, j] J[j, i] J[i, j] 0; 0 J[i, j] 0 0; 0 0 J[j, i] 0; 0 0 0 I₁[i, j]]
             end
-            out.tto_vec[d][i, j, :, 1] = [2 * id[i, j] - J[i, j] - J[j, i]; -J[i, j]; -J[j, i]; -I₁[i, j]]
+            out.cores[d][i, j, :, 1] = [2 * id[i, j] - J[i, j] - J[j, i]; -J[i, j]; -J[j, i]; -I₁[i, j]]
         end
     end
     return out
@@ -350,11 +350,11 @@ function Δ_NN(d)
     I₂ = [0 0; 0 1]
     for i in 1:2
         for j in 1:2
-            out.tto_vec[1][i, j, 1, :] = [id[i, j]; J[j, i]; J[i, j]; I₂[i, j]; I₁[i, j]]
+            out.cores[1][i, j, 1, :] = [id[i, j]; J[j, i]; J[i, j]; I₂[i, j]; I₁[i, j]]
             for k in 2:(d - 1)
-                out.tto_vec[k][i, j, :, :] = [id[i, j] J[j, i] J[i, j] 0 0; 0 J[i, j] 0 0 0; 0 0 J[j, i] 0 0; 0 0 0 I₂[i, j] 0; 0 0 0 0 I₁[i, j]]
+                out.cores[k][i, j, :, :] = [id[i, j] J[j, i] J[i, j] 0 0; 0 J[i, j] 0 0 0; 0 0 J[j, i] 0 0; 0 0 0 I₂[i, j] 0; 0 0 0 0 I₁[i, j]]
             end
-            out.tto_vec[d][i, j, :, 1] = [2 * id[i, j] - J[i, j] - J[j, i]; -J[i, j]; -J[j, i]; -I₂[i, j]; -I₁[i, j]]
+            out.cores[d][i, j, :, 1] = [2 * id[i, j] - J[i, j] - J[j, i]; -J[i, j]; -J[j, i]; -I₂[i, j]; -I₁[i, j]]
         end
     end
     return out
@@ -370,9 +370,9 @@ function Δ_P(d)
     J = [0 1; 0 0]
     for i in 1:2
         for j in 1:2
-            out.tto_vec[1][i, j, 1, :] = [id[i, j], J[j, i], J[i, j], J[i, j], J[j, i]]
+            out.cores[1][i, j, 1, :] = [id[i, j], J[j, i], J[i, j], J[i, j], J[j, i]]
             for k in 2:(d - 1)
-                out.tto_vec[k][i, j, :, :] = [
+                out.cores[k][i, j, :, :] = [
                     id[i, j] J[j, i] J[i, j] 0 0;
                     0 J[i, j] 0 0 0;
                     0 0 J[j, i] 0 0;
@@ -380,7 +380,7 @@ function Δ_P(d)
                     0 0 0 0 J[j, i]
                 ]
             end
-            out.tto_vec[d][i, j, :, 1] = [
+            out.cores[d][i, j, :, 1] = [
                 2 * id[i, j] - J[i, j] - J[j, i];
                 -J[i, j];
                 -J[j, i];
@@ -404,16 +404,16 @@ function Δ⁻¹_DN(d::Int)
     J = [0 1; 0 0]
     for i in 1:2
         for j in 1:2
-            out.tto_vec[1][i, j, 1, :] = [id[i, j]; I₂[i, j]; J[i, j]; J[j, i]]
+            out.cores[1][i, j, 1, :] = [id[i, j]; I₂[i, j]; J[i, j]; J[j, i]]
             for k in 2:(d - 1)
-                out.tto_vec[k][i, j, :, :] = [
+                out.cores[k][i, j, :, :] = [
                     id[i, j] I₂[i, j] J[i, j] J[j, i];
                     0 2 * E[i, j] 0 0;
                     0 I₂[i, j] + J[j, i] E[i, j] 0;
                     0 I₂[i, j] + J[i, j] 0 E[i, j];
                 ]
             end
-            out.tto_vec[d][i, j, :, 1] = [
+            out.cores[d][i, j, :, 1] = [
                 E[i, j] + I₂[i, j];
                 2 * E[i, j];
                 E[i, j] + I₂[i, j] + J[j, i];
@@ -434,16 +434,16 @@ function qtto_prolongation(d::Int)
     J = [0.0 1.0; 0.0 0.0]
     for i in 1:2
         for j in 1:2
-            out.tto_vec[1][i, j, 1, :] = 0.5 * [id[i, j]; J[j, i]]
+            out.cores[1][i, j, 1, :] = 0.5 * [id[i, j]; J[j, i]]
             for k in 2:(d - 1)
-                out.tto_vec[k][i, j, :, :] = [id[i, j] J[j, i]; 0 J[i, j]]
+                out.cores[k][i, j, :, :] = [id[i, j] J[j, i]; 0 J[i, j]]
             end
         end
     end
-    out.tto_vec[d][1, 1, 1, 1] = 1.0
-    out.tto_vec[d][2, 1, 1, 1] = 2.0
-    out.tto_vec[d][1, 2, 1, 1] = 1.0
-    out.tto_vec[d][2, 2, 1, 1] = 0.0
+    out.cores[d][1, 1, 1, 1] = 1.0
+    out.cores[d][2, 1, 1, 1] = 2.0
+    out.cores[d][1, 2, 1, 1] = 1.0
+    out.cores[d][2, 2, 1, 1] = 0.0
     return out
 end
 
@@ -456,7 +456,7 @@ function qtto_constant_prolongation(d::Int)
     identity_branch = id_tto(d)
     out = Vector{Array{Float64, 4}}(undef, d + 1)
     @inbounds for k in 1:d
-        out[k] = copy(identity_branch.tto_vec[k])
+        out[k] = copy(identity_branch.cores[k])
     end
     out[d + 1] = ones(Float64, 2, 1, 1, 1)
 
@@ -484,28 +484,28 @@ function qtto_linear_prolongation(d::Int)
     out_rks = Vector{Int64}(undef, d + 2)
     out_rks[1] = 1
     @inbounds for k in 2:(d + 1)
-        out_rks[k] = identity_branch.tto_rks[k] + average_branch.tto_rks[k]
+        out_rks[k] = identity_branch.ranks[k] + average_branch.ranks[k]
     end
     out_rks[d + 2] = 1
 
     out = Vector{Array{Float64, 4}}(undef, d + 1)
     out[1] = zeros(Float64, 2, 2, 1, out_rks[2])
-    r₀ = identity_branch.tto_rks[2]
-    out[1][:, :, 1:1, 1:r₀] .= identity_branch.tto_vec[1]
-    out[1][:, :, 1:1, (r₀ + 1):out_rks[2]] .= average_branch.tto_vec[1]
+    r₀ = identity_branch.ranks[2]
+    out[1][:, :, 1:1, 1:r₀] .= identity_branch.cores[1]
+    out[1][:, :, 1:1, (r₀ + 1):out_rks[2]] .= average_branch.cores[1]
 
     @inbounds for k in 2:d
-        l₀ = identity_branch.tto_rks[k]
-        r₀ = identity_branch.tto_rks[k + 1]
-        l₁ = average_branch.tto_rks[k]
-        r₁ = average_branch.tto_rks[k + 1]
+        l₀ = identity_branch.ranks[k]
+        r₀ = identity_branch.ranks[k + 1]
+        l₁ = average_branch.ranks[k]
+        r₁ = average_branch.ranks[k + 1]
         out[k] = zeros(Float64, 2, 2, out_rks[k], out_rks[k + 1])
-        out[k][:, :, 1:l₀, 1:r₀] .= identity_branch.tto_vec[k]
-        out[k][:, :, (l₀ + 1):(l₀ + l₁), (r₀ + 1):(r₀ + r₁)] .= average_branch.tto_vec[k]
+        out[k][:, :, 1:l₀, 1:r₀] .= identity_branch.cores[k]
+        out[k][:, :, (l₀ + 1):(l₀ + l₁), (r₀ + 1):(r₀ + r₁)] .= average_branch.cores[k]
     end
 
-    l₀ = identity_branch.tto_rks[d + 1]
-    l₁ = average_branch.tto_rks[d + 1]
+    l₀ = identity_branch.ranks[d + 1]
+    l₁ = average_branch.ranks[d + 1]
     out[d + 1] = zeros(Float64, 2, 1, out_rks[d + 1], 1)
     out[d + 1][1, 1, 1:l₀, 1] .= 1.0
     out[d + 1][2, 1, (l₀ + 1):(l₀ + l₁), 1] .= 1.0
@@ -544,7 +544,7 @@ end
 # Identity operator with the element type and physical dimensions of `A`.
 function _identity_like(A::AbstractTTOperator)
     T = eltype(A)
-    dims = A.tto_dims
+    dims = _square_dims(A)
     d = length(dims)
     cores = [reshape(Matrix{T}(I, n, n), n, n, 1, 1) for n in dims]
     return TTOperator{T, d}(cores, dims, ones(Int, d + 1))
@@ -586,12 +586,8 @@ function zeros_tt(dims, rks; kwargs...)
     return zeros_tt(Float64, dims, rks; kwargs...)
 end
 
-function zeros_tt(::Type{T}, dims::NTuple{N, Int64}, rks; orthogonality = (1, N), ot = nothing) where {T, N}
+function zeros_tt(::Type{T}, dims::NTuple{N, Int64}, rks; orthogonality = (1, N)) where {T, N}
     @assert length(dims) + 1 == length(rks) "Dimensions and ranks are not compatible"
-    if ot !== nothing
-        Base.depwarn("the `ot` keyword of `zeros_tt` is deprecated, use `orthogonality = (left, right)`.", :zeros_tt)
-        orthogonality = _flags_to_orthogonality(ot, N)
-    end
     tt_vec = [zeros(T, dims[i], rks[i], rks[i + 1]) for i in eachindex(dims)]
     rks_vec = collect(Int64, rks)
     return TTVector{T, N}(tt_vec, dims, rks_vec; orthogonality)
@@ -613,8 +609,8 @@ function zeros_tt(::Type{T}, dims::Vector{Int}, rks::Vector{Int}; kwargs...) whe
 end
 
 function zeros_tt!(A::TTVector)
-    @assert isa(A.ttv_vec, Vector)
-    for core in A.ttv_vec
+    @assert isa(A.cores, Vector)
+    for core in A.cores
         fill!(core, zero(eltype(core)))
     end
     return A
@@ -638,20 +634,25 @@ end
 
 """
     zeros_tto([T=Float64,] dims, rks) -> TTOperator
+    zeros_tto(T, row_dims, col_dims, rks) -> TTOperator
     zeros_tto(n, d, r) -> TTOperator
 
-Return a [`TTOperator`](@ref) with element type `T`, physical dimensions `dims`,
-TT ranks `rks`, and all cores zero. The second form uses `d` sites of dimension
-`n` and interior ranks `r`, reduced where the dimensions force a smaller rank.
+Return a [`TTOperator`](@ref) with element type `T`, TT ranks `rks`, and all
+cores zero. The first form is square with physical dimensions `dims`; the
+second takes row and column dimensions separately. The third form uses `d`
+sites of dimension `n` and interior ranks `r`, reduced where the dimensions
+force a smaller rank.
 """
 function zeros_tto(dims, rks)
     return zeros_tto(Float64, dims, rks)
 end
 
-function zeros_tto(::Type{T}, dims::NTuple{N, Int64}, rks) where {T, N}
-    @assert length(dims) + 1 == length(rks) "Dimensions and ranks are not compatible"
-    vec = [zeros(T, dims[i], dims[i], rks[i], rks[i + 1]) for i in eachindex(dims)]
-    return TTOperator{T, N}(vec, dims, rks)
+zeros_tto(::Type{T}, dims::NTuple{N, Int64}, rks) where {T, N} = zeros_tto(T, dims, dims, rks)
+
+function zeros_tto(::Type{T}, row_dims::NTuple{N, Int64}, col_dims::NTuple{N, Int64}, rks) where {T, N}
+    @assert N + 1 == length(rks) "Dimensions and ranks are not compatible"
+    vec = [zeros(T, row_dims[i], col_dims[i], rks[i], rks[i + 1]) for i in 1:N]
+    return TTOperator{T, N}(vec, row_dims, col_dims, rks)
 end
 
 function zeros_tto(n, d, r)

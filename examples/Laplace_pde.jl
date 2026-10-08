@@ -13,7 +13,7 @@ A = QTTOperator(A_raw, 2, d, :serial)
 b_raw = -(1 / h^2) * qtt_sin(d; a = h, b = 1 - h) ⊗ qtt_basis_vector(d, 1)
 b = QTTVector(b_raw, 2, d, :serial)
 
-x0 = QTTVector(rand_tt(b_raw.ttv_dims, b_raw.ttv_rks), 2, d, :serial)
+x0 = QTTVector(rand_tt(b_raw.dims, b_raw.ranks), 2, d, :serial)
 
 # Solve with MALS (single sweep) and DMRG (50 sweeps)
 x_mals = linear_solve(A, b, x0, MALS())

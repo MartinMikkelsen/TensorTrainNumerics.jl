@@ -197,7 +197,7 @@ end
     rel_error = norm(sol_tt_vec - sol_dense) / norm(sol_dense)
 
     @test rel_error < 1.0e-7
-    @test maximum(sol_tt.ttv_rks) <= max_bond
+    @test maximum(sol_tt.ranks) <= max_bond
 end
 
 @testset "Krylov solver supports CG selection and rejects unknown solvers" begin
@@ -355,7 +355,7 @@ end
     A = -h_grid^2 * toeplitz_to_qtto(-2.0, 1.0, 1.0, d)
     u₀ = qtt_sin(d)
     Random.seed!(17)
-    guess = rand_tt(u₀.ttv_dims, 4)
+    guess = rand_tt(u₀.dims, 4)
     steps = fill(0.05, 3)
 
     sol_str = implicit_euler_method(A, u₀, guess, steps; alg = ALS(), normalize = false, max_sweeps = 2)
@@ -420,7 +420,7 @@ end
     h = 1 / 2^d
     A = -h^2 * toeplitz_to_qtto(-2.0, 1.0, 1.0, d)
     u₀ = qtt_sin(d)
-    guess = rand_tt(u₀.ttv_dims, u₀.ttv_rks)
+    guess = rand_tt(u₀.dims, u₀.ranks)
     steps = [0.01]
 
     @test euler_method(A, u₀, steps; normalize = false, show_progress = false) isa TTVector
@@ -484,7 +484,7 @@ end
     u, info = euler_method(A, u₀, steps; return_info = true, show_progress = false)
     @test info.error isa Real
     u = rk4_method(A, u₀, steps; max_bond = 4, show_progress = false)
-    @test maximum(u.ttv_rks) ≤ 4
+    @test maximum(u.ranks) ≤ 4
 
     @test_throws MethodError implicit_euler_method(A, u₀, u₀, steps; tt_solver = MALS())
     @test_throws TypeError implicit_euler_method(A, u₀, u₀, steps; alg = "mals")

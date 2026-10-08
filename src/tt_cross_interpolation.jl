@@ -794,7 +794,7 @@ function tt_integrate(
     end
 
     tt = tt_cross(f, nodes, alg; kwargs...)
-    return _contract_with_weights(tt.ttv_vec, weights)
+    return _contract_with_weights(tt.cores, weights)
 end
 
 function tt_integrate(f::Function, d::Int; lower::T = 0.0, upper::T = 1.0, kwargs...) where {T <: Number}

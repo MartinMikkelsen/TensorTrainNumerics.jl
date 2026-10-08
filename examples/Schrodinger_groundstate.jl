@@ -47,7 +47,7 @@ for _ in 1:nblk
 end
 
 ψ0 = qtt_to_function(ψ_cn); ψ0 ./= sqrt(sum(abs2, ψ0) * h)   # ground-state wavefunction on the grid
-@info "ground state" E0_dense = E0_dense E0_CN = E_cn[end] E0_TDVP2 = E_td[end] overlap_CN = abs(sum(ψ0 .* ψ0_dense) * h) rank_CN = maximum(ψ_cn.ttv_rks) rank_TDVP2 = maximum(ψ_td.ttv_rks)
+@info "ground state" E0_dense = E0_dense E0_CN = E_cn[end] E0_TDVP2 = E_td[end] overlap_CN = abs(sum(ψ0 .* ψ0_dense) * h) rank_CN = maximum(ψ_cn.ranks) rank_TDVP2 = maximum(ψ_td.ranks)
 
 # Figure 1: potential, ground-state energy and density
 let

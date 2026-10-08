@@ -18,7 +18,7 @@ using LinearAlgebra
     # For all (i1,i2), (j1,j2): sum over ranks (but all ranks are 1)
     mat = zeros(Float64, 6, 6)
     for i1 in 1:3, i2 in 1:2, j1 in 1:3, j2 in 1:2
-        v = Xdiag.tto_vec[1][i1, j1, 1, 1] * Xdiag.tto_vec[2][i2, j2, 1, 1]
+        v = Xdiag.cores[1][i1, j1, 1, 1] * Xdiag.cores[2][i2, j2, 1, 1]
         mat[(i1 - 1) * 2 + i2, (j1 - 1) * 2 + j2] = v
     end
     # Should be diagonal with full_x on the diagonal
@@ -29,12 +29,12 @@ using LinearAlgebra
     rks3 = [1, 2, 2, 1]
     x3 = rand_tt(dims3, rks3)
     X3diag = ttv_to_diag_tto(x3)
-    @test X3diag.tto_dims == x3.ttv_dims
-    @test X3diag.tto_rks == x3.ttv_rks
-    @test length(X3diag.tto_vec) == 3
-    @test all(size(core, 1) == size(core, 2) == d for (core, d) in zip(X3diag.tto_vec, x3.ttv_dims))
-    @test all(size(core, 3) == r for (core, r) in zip(X3diag.tto_vec, x3.ttv_rks[1:(end - 1)]))
-    @test all(size(core, 4) == r for (core, r) in zip(X3diag.tto_vec, x3.ttv_rks[2:end]))
+    @test X3diag.row_dims == x3.dims
+    @test X3diag.ranks == x3.ranks
+    @test length(X3diag.cores) == 3
+    @test all(size(core, 1) == size(core, 2) == d for (core, d) in zip(X3diag.cores, x3.dims))
+    @test all(size(core, 3) == r for (core, r) in zip(X3diag.cores, x3.ranks[1:(end - 1)]))
+    @test all(size(core, 4) == r for (core, r) in zip(X3diag.cores, x3.ranks[2:end]))
 
 end
 
@@ -111,7 +111,7 @@ end
 
     result = hadamard_ttm(x, y; trunc_tol = 0.12)   # tail norm 0.113 ≤ 0.12·‖s‖
 
-    @test result.ttv_rks == [1, 1, 1]
+    @test result.ranks == [1, 1, 1]
 end
 
 @testset "add!" begin
@@ -120,7 +120,7 @@ end
     expected_tensor = ttv_to_tensor(x + y)
     add!(x, y)
     @test isapprox(ttv_to_tensor(x), expected_tensor; atol = 1.0e-12)
-    @test x.ttv_rks == [1, 5, 1]
+    @test x.ranks == [1, 5, 1]
     @test x.orthogonality == [1, 2]
 end
 
@@ -155,8 +155,8 @@ end
     B_mat = reshape(tto_to_tensor(B), n, n)
     C_mat = reshape(tto_to_tensor(C), n, n)
     @test isapprox(C_mat, A_mat * B_mat; atol = 1.0e-12)
-    @test C.tto_dims == A.tto_dims
-    @test C.tto_rks == A.tto_rks .* B.tto_rks
+    @test C.row_dims == A.row_dims
+    @test C.ranks == A.ranks .* B.ranks
 end
 
 @testset "Inner core product ⨝ (TTOperator)" begin
@@ -170,8 +170,8 @@ end
     A1_mat = reshape(tto_to_tensor(A1), 3, 3)
     B1_mat = reshape(tto_to_tensor(B1), 4, 4)
     C1_mat = reshape(tto_to_tensor(C1), 12, 12)
-    @test C1.tto_dims == (12,)
-    @test C1.tto_rks == [1, 1]
+    @test C1.row_dims == (12,)
+    @test C1.ranks == [1, 1]
     @test isapprox(C1_mat, kron(A1_mat, B1_mat); atol = 1.0e-12)
 
     # Dimensions and ranks: physical dims multiply, ranks multiply elementwise.
@@ -179,8 +179,8 @@ end
     B = rand_tto((2, 2, 2), 3)
     C = A ⨝ B
     @test nsites(C) == 3
-    @test C.tto_dims == (4, 4, 4)
-    @test C.tto_rks == A.tto_rks .* B.tto_rks
+    @test C.row_dims == (4, 4, 4)
+    @test C.ranks == A.ranks .* B.ranks
 
     # Multi-site semantics: (A ⨝ B) interleaves the two operators site-by-site,
     # so every dense entry factorises into the matching entries of A and B.
@@ -210,8 +210,8 @@ end
     C_outer = A ∙ B
     C_mul = A * B
     n = prod(dims)
-    @test C_outer.tto_dims == C_mul.tto_dims
-    @test C_outer.tto_rks == C_mul.tto_rks
+    @test C_outer.row_dims == C_mul.row_dims
+    @test C_outer.ranks == C_mul.ranks
     @test isapprox(reshape(tto_to_tensor(C_outer), n, n), reshape(tto_to_tensor(C_mul), n, n); atol = 1.0e-12)
 end
 
@@ -219,7 +219,7 @@ end
     Random.seed!(7)
     # singular values of the dense operator — invariant under the interleaved-vs-
     # sequential bit reordering, so they make ⨝ and ⊗ directly comparable.
-    svals(M) = sort(LinearAlgebra.svdvals(reshape(tto_to_tensor(M), prod(M.tto_dims), prod(M.tto_dims))))
+    svals(M) = sort(LinearAlgebra.svdvals(reshape(tto_to_tensor(M), prod(M.row_dims), prod(M.row_dims))))
 
     A = rand_tto((2, 2), 2)
     B = rand_tto((2, 2), 2)
@@ -236,18 +236,18 @@ end
     @test maximum(abs, svals(A ⨝ B) - svals((A ⨝ Id) + (Id ⨝ B))) > 1.0e-3
 
     # ⨝ inherits associativity from the Kronecker product (exact, same ordering).
-    n3 = prod((A ⨝ B ⨝ C).tto_dims)
+    n3 = prod((A ⨝ B ⨝ C).row_dims)
     @test isapprox(
         reshape(tto_to_tensor((A ⨝ B) ⨝ C), n3, n3),
         reshape(tto_to_tensor(A ⨝ (B ⨝ C)), n3, n3); atol = 1.0e-12
     )
 
     # ⨝ grows the physical space; ∙ (= operator composition) keeps it.
-    @test (A ⨝ B).tto_dims == (4, 4)
-    @test (A ∙ B).tto_dims == A.tto_dims
+    @test (A ⨝ B).row_dims == (4, 4)
+    @test (A ∙ B).row_dims == A.row_dims
 
     # ∙ is operator composition, so composing with the identity is a no-op.
-    n = prod(A.tto_dims)
+    n = prod(A.row_dims)
     Adense = reshape(tto_to_tensor(A), n, n)
     @test isapprox(reshape(tto_to_tensor(A ∙ Id), n, n), Adense; atol = 1.0e-12)
     @test isapprox(reshape(tto_to_tensor(Id ∙ A), n, n), Adense; atol = 1.0e-12)
@@ -282,15 +282,15 @@ end
     for α in (0.0, 2.0)
         x = rand_tt((2, 3), [1, 2, 1])
         y = α * x
-        @test y.ttv_rks !== x.ttv_rks
+        @test y.ranks !== x.ranks
         @test y.orthogonality !== x.orthogonality
-        @test all(y.ttv_vec[i] !== x.ttv_vec[i] for i in eachindex(x.ttv_vec))
+        @test all(y.cores[i] !== x.cores[i] for i in eachindex(x.cores))
 
         A = rand_tto((2, 3), 2)
         B = α * A
-        @test B.tto_rks !== A.tto_rks
+        @test B.ranks !== A.ranks
         @test B.orthogonality !== A.orthogonality
-        @test all(B.tto_vec[i] !== A.tto_vec[i] for i in eachindex(A.tto_vec))
+        @test all(B.cores[i] !== A.cores[i] for i in eachindex(A.cores))
     end
 end
 
@@ -300,8 +300,8 @@ end
     y = rand_tt(dims, [1, 3, 1])
     M = outer_product(x, y)
 
-    @test M.tto_dims == dims
-    @test M.tto_rks == x.ttv_rks .* y.ttv_rks
+    @test M.row_dims == dims
+    @test M.ranks == x.ranks .* y.ranks
 
     # Full tensor: M[i1,i2, j1,j2] = x[i1,i2] * conj(y[j1,j2])
     Tx = ttv_to_tensor(x)
@@ -322,8 +322,8 @@ end
     b = rand_tt((4, 5), [1, 3, 1])
     c = kron(a, b)
     @test nsites(c) == nsites(a) + nsites(b)
-    @test c.ttv_dims == (2, 3, 4, 5)
-    @test c.ttv_rks[1] == 1 && c.ttv_rks[end] == 1
+    @test c.dims == (2, 3, 4, 5)
+    @test c.ranks[1] == 1 && c.ranks[end] == 1
     Ta = ttv_to_tensor(a)
     Tb = ttv_to_tensor(b)
     Tc = ttv_to_tensor(c)
@@ -337,8 +337,8 @@ end
     B = rand_tto((4, 5), 2)
     C = kron(A, B)
     @test nsites(C) == nsites(A) + nsites(B)
-    @test C.tto_dims == (2, 3, 4, 5)
-    @test C.tto_rks[1] == 1 && C.tto_rks[end] == 1
+    @test C.row_dims == (2, 3, 4, 5)
+    @test C.ranks[1] == 1 && C.ranks[end] == 1
 
     # Property: kron(A, B) * kron(a, b) ≈ kron(A*a, B*b)
     a = rand_tt((2, 3), [1, 2, 1])
@@ -435,7 +435,7 @@ end
     x = rand_tt((2, 2, 2, 2), 3)
     y = rand_tt((2, 2, 2, 2), 3)
     z = hadamard_ttm(x, y; max_bond = 2)
-    @test maximum(z.ttv_rks) ≤ 2
+    @test maximum(z.ranks) ≤ 2
     @test_throws MethodError hadamard_ttm(x, y; rmax = 2)
     @test_throws MethodError hadamard_ttm(x, y; tol = 1.0e-3)
 end
@@ -450,7 +450,7 @@ end
     for trunc_tol in (1.0e-4, 1.0e-8)
         z = hadamard_ttm(f, g; trunc_tol)
         rounded = tt_round!(hadamard(f, g); trunc_tol)
-        @test maximum(z.ttv_rks) ≤ maximum(rounded.ttv_rks) + 2
+        @test maximum(z.ranks) ≤ maximum(rounded.ranks) + 2
         @test err(z) ≤ 5 * trunc_tol * norm(f) * norm(g)
     end
 
@@ -459,7 +459,7 @@ end
     # falls as the cap grows.
     for (max_bond, bound) in ((16, 1.0e-5), (24, 1.0e-7))
         z = hadamard_ttm(f, g; max_bond)
-        @test maximum(z.ttv_rks) ≤ max_bond
+        @test maximum(z.ranks) ≤ max_bond
         @test err(z) ≤ bound * norm(ref)
     end
 
@@ -467,8 +467,8 @@ end
     z = hadamard_ttm(f, g; trunc_tol = 1.0e-8)
     @test z.orthogonality == [1, 1]
     for k in 2:d
-        n, rl, rr = size(z.ttv_vec[k])
-        M = reshape(permutedims(z.ttv_vec[k], (2, 1, 3)), rl, n * rr)
+        n, rl, rr = size(z.cores[k])
+        M = reshape(permutedims(z.cores[k], (2, 1, 3)), rl, n * rr)
         @test M * M' ≈ I
     end
 end

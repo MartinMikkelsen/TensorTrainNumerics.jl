@@ -220,8 +220,8 @@ _check_qtt(a, b) = nothing
 
 function _amen_check(A::AbstractTTOperator, x::AbstractTTVector)
     nsites(A) ≥ 2 || throw(ArgumentError("AMEn needs at least 2 cores; got $(nsites(A))"))
-    A.tto_dims == x.ttv_dims || throw(
-        DimensionMismatch("operator dimensions $(A.tto_dims) and vector dimensions $(x.ttv_dims) do not match")
+    _square_dims(A) == x.dims || throw(
+        DimensionMismatch("operator dimensions $(A.row_dims) and vector dimensions $(x.dims) do not match")
     )
     _check_qtt(A, x)
     return nothing
@@ -240,8 +240,8 @@ function _amen_solve(
         verbosity::Int, show_progress::Bool, name::String
     ) where {T}
     d = nsites(x0)
-    s = _AMEnState([convert(Array{T, 3}, c) for c in x0.ttv_vec], kickrank)
-    cores = [convert(Array{T, 4}, c) for c in A.tto_vec]
+    s = _AMEnState([convert(Array{T, 3}, c) for c in x0.cores], kickrank)
+    cores = [convert(Array{T, 4}, c) for c in A.cores]
     local_opts = (; local_solver, local_threshold, local_maxiter, local_tol)
     progress = _solver_progress(max_sweeps, show_progress; desc = name)
     converged = false
@@ -260,7 +260,7 @@ function _amen_solve(
     sweeps < max_sweeps && finish!(progress)
     converged || verbosity == 0 || @warn "$name did not converge" sweeps residual tol
     rks = [1; [size(c, 3) for c in s.x]]
-    x = TTVector{T, d}(s.x, x0.ttv_dims, rks; orthogonality = (d, d))
+    x = TTVector{T, d}(s.x, x0.dims, rks; orthogonality = (d, d))
     return _rewrap(x0, x), (; converged, sweeps, residual)
 end
 
@@ -272,7 +272,7 @@ function _amen_linsolve_impl(A::AbstractTTOperator, b::AbstractTTVector, x0::Abs
     norm_b = norm(b)
     norm_b > 0 || throw(ArgumentError("the right-hand side is zero"))
     T = float(promote_type(eltype(A), eltype(b), eltype(x0)))
-    problem = _AMEnLinear([convert(Array{T, 3}, c) for c in b.ttv_vec])
+    problem = _AMEnLinear([convert(Array{T, 3}, c) for c in b.cores])
     x, info = _amen_solve(problem, A, x0, T; name = "AMEn linear solve", kwargs...)
     return_info || return x
     # Orthogonalizing first avoids the cancellation in the norm of a difference of
