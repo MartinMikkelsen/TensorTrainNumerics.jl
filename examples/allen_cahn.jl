@@ -24,12 +24,12 @@ wall_profile(x) = tanh(x / (sqrt(2) * ε)) * tanh((1 - x) / (sqrt(2) * ε))
 function allen_cahn_mgr(L0::Int, L::Int, χ::Int)
     seed = function_to_qtt(wall_profile, L0)
     u = orthogonalize(seed + (1.0e-3 * norm(seed)) * rand_tt(ntuple(_ -> 2, L0), 4; normalize = true))
-    u = non_linear_solve(A_builder(L0), u, alg; g = g_ac)
+    u = nonlinear_solve(A_builder(L0), u, alg; g = g_ac)
     println("level d = $L0:  E = $(phi4_energy(u, L0))")
     for d in (L0 + 1):L
         u = qtto_linear_prolongation(d - 1) * u
         tt_compress!(u, χ)
-        u = non_linear_solve(A_builder(d), u, alg; g = g_ac)
+        u = nonlinear_solve(A_builder(d), u, alg; g = g_ac)
         println("level d = $d:  E = $(phi4_energy(u, d))")
     end
     return u

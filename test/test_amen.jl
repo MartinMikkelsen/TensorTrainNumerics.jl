@@ -7,7 +7,7 @@ using TensorTrainNumerics
 const TTN = TensorTrainNumerics
 
 amen_matrix(A) = reshape(tto_to_tensor(A), prod(A.row_dims), :)
-amen_vector(x) = vec(ttv_to_tensor(x))
+amen_vector(x) = vec(tt_to_tensor(x))
 amen_relres(A, x, b) = norm(amen_matrix(A) * amen_vector(x) - amen_vector(b)) / norm(amen_vector(b))
 
 @testset "AMEn interfaces contract to inner products ($T)" for T in (Float64, ComplexF64)
@@ -57,7 +57,7 @@ end
     # Bond ranks 5 and 3 exceed `n * r_right` of the core to their right (4 and 2).
     cores = [randn(T, 2, 1, 5), randn(T, 2, 5, 3), randn(T, 2, 3, 1)]
     as_tt(c) = TTVector{T, 3}(c, dims, [1; [size(ck, 3) for ck in c]])
-    before = ttv_to_tensor(as_tt(copy(cores)))
+    before = tt_to_tensor(as_tt(copy(cores)))
 
     for k in 3:-1:2
         TTN._orthogonalize_right!(cores, k)
@@ -68,7 +68,7 @@ end
     end
     @test size(cores[3], 2) == 2
     @test size(cores[2], 2) == 4
-    @test ttv_to_tensor(as_tt(cores)) ≈ before
+    @test tt_to_tensor(as_tt(cores)) ≈ before
 
     c = randn(T, 2, 3, 4)
     q = TTN._left_orthonormal(c)

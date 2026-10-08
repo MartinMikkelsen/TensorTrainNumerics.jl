@@ -82,7 +82,7 @@ end
     bell_tensor = zeros(Float64, 2, 2)
     bell_tensor[1, 1] = inv(sqrt(2))
     bell_tensor[2, 2] = inv(sqrt(2))
-    q = QTTVector(ttv_decomp(bell_tensor), 1, 2, :serial)
+    q = QTTVector(tt_decomp(bell_tensor), 1, 2, :serial)
 
     @test entanglement_entropy(q) ≈ [log(2)]
     @test entanglement_entropy(q; base = 2) ≈ [1.0]

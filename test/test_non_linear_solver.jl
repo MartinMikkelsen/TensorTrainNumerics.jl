@@ -298,7 +298,7 @@ end
     A = (4.0^L / 2) * Δ(L)
     seed = function_to_qtt(x -> sin(π * x), L)
     u0 = orthogonalize((1 / norm(seed)) * seed)
-    u, info = non_linear_solve(A, u0, PenaltyALS(; return_info = true); g = 0.0)
+    u, info = nonlinear_solve(A, u0, PenaltyALS(; return_info = true); g = 0.0)
     fbox = [sin(π * m / (2^L + 1)) for m in 1:(2^L)]
     @test abs(info.energy - box_energy(L)) / box_energy(L) < 1.0e-9
     @test infidelity(u, fbox) < 1.0e-10
@@ -315,14 +315,14 @@ end
     u05 = (1 / norm(u05)) * u05
     Es = Float64[]
     for solver in (:newton, :cg, :sd)
-        us, is = non_linear_solve(A5, u05, PenaltyALS(; local_solver = solver, return_info = true); g = g_eff)
+        us, is = nonlinear_solve(A5, u05, PenaltyALS(; local_solver = solver, return_info = true); g = g_eff)
         @test abs(is.energy - Ed) / abs(Ed) < 1.0e-4
         push!(Es, is.energy)
     end
     @test maximum(Es) - minimum(Es) < 1.0e-4 * abs(Ed)
 
     # complex input rejected (real path only)
-    @test_throws ArgumentError non_linear_solve(complex(A), complex(u0), PenaltyALS())
+    @test_throws ArgumentError nonlinear_solve(complex(A), complex(u0), PenaltyALS())
 
     # constructor validation: degenerate configs are rejected
     @test_throws ArgumentError PenaltyALS(penalty_schedule = Float64[])
@@ -351,7 +351,7 @@ end
         alg_ac = PenaltyALS(; penalty_schedule = [0.0], tol = 1.0e-10, max_sweeps = 50, return_info = true)
         local uac, iac
         @test_logs match_mode = :all begin
-            uac, iac = non_linear_solve(Aac, u0ac, alg_ac; g = g_ac)
+            uac, iac = nonlinear_solve(Aac, u0ac, alg_ac; g = g_ac)
         end
         E_tt = iac.penalty
         @test abs(E_tt - E_dense) / abs(E_dense) < 1.0e-8
@@ -366,7 +366,7 @@ end
 
     # g = 0: MGR L=3→6 == analytic box GS to machine precision
     mgr0 = MGR(; max_bond = 8, return_info = true)
-    u, info = non_linear_solve(A_builder, u03, mgr0; g_builder = d -> 0.0, target_sites = 6)
+    u, info = nonlinear_solve(A_builder, u03, mgr0; g_builder = d -> 0.0, target_sites = 6)
     fbox = [sin(π * m / (2^6 + 1)) for m in 1:(2^6)]
     @test abs(info.energy - box_energy(6)) / box_energy(6) < 1.0e-9
     @test infidelity(u, fbox) < 1.0e-10
@@ -374,7 +374,7 @@ end
     # g = 100: MGR L=3→6 == dense imaginary-time oracle
     g = 100.0
     f6, E6 = dense_gpe_groundstate(6; g_eff = g * 2.0^6)
-    u6, i6 = non_linear_solve(A_builder, u03, mgr0; g_builder = d -> g * 2.0^d, target_sites = 6)
+    u6, i6 = nonlinear_solve(A_builder, u03, mgr0; g_builder = d -> g * 2.0^d, target_sites = 6)
     @test abs(i6.energy - E6) / abs(E6) < 1.0e-6
     @test infidelity(u6, f6) < 1.0e-9
     @test abs(dot(u6, u6) - 1) < 1.0e-4
@@ -384,23 +384,23 @@ end
     pad6 = rand_tt(ntuple(_ -> 2, 6), 8; normalize = true)
     u06 = orthogonalize(seed6 + (1.0e-3 * norm(seed6)) * pad6)
     u06 = (1 / norm(u06)) * u06
-    _, ifix = non_linear_solve((4.0^6 / 2) * Δ(6), u06, PenaltyALS(; return_info = true); g = g * 2.0^6)
+    _, ifix = nonlinear_solve((4.0^6 / 2) * Δ(6), u06, PenaltyALS(; return_info = true); g = g * 2.0^6)
     @test abs(ifix.energy - E6) / abs(E6) < 1.0e-6
 
     # beyond the densification wall: L=10 vs the dense tridiagonal oracle
     f10, E10 = dense_gpe_groundstate(10; g_eff = g * 2.0^10)
-    u10, i10 = non_linear_solve(A_builder, u03, mgr0; g_builder = d -> g * 2.0^d, target_sites = 10)
+    u10, i10 = nonlinear_solve(A_builder, u03, mgr0; g_builder = d -> g * 2.0^d, target_sites = 10)
     @test abs(i10.energy - E10) / abs(E10) < 1.0e-6
     @test infidelity(u10, f10) < 1.0e-9
 
     # MUTATION (§norm-penalty): minimizing with bare g instead of g_eff = g·2^L must land
     # > 1% off the oracle energy when read out at full g_eff.
-    ubad = non_linear_solve(A_builder, u03, MGR(; max_bond = 8); g_builder = d -> g, target_sites = 6)
+    ubad = nonlinear_solve(A_builder, u03, MGR(; max_bond = 8); g_builder = d -> g, target_sites = 6)
     @test abs(gpe_energy((4.0^6 / 2) * Δ(6), ubad; g = g * 2.0^6) - E6) / abs(E6) > 0.01
 
     # χ-convergence mechanism (Figs 8/9): richer bond ⇒ smaller infidelity
-    u2, _ = non_linear_solve(A_builder, u03, MGR(; max_bond = 2, return_info = true); g_builder = d -> g * 2.0^d, target_sites = 6)
-    u6b, _ = non_linear_solve(A_builder, u03, MGR(; max_bond = 6, return_info = true); g_builder = d -> g * 2.0^d, target_sites = 6)
+    u2, _ = nonlinear_solve(A_builder, u03, MGR(; max_bond = 2, return_info = true); g_builder = d -> g * 2.0^d, target_sites = 6)
+    u6b, _ = nonlinear_solve(A_builder, u03, MGR(; max_bond = 6, return_info = true); g_builder = d -> g * 2.0^d, target_sites = 6)
     @test infidelity(u6b, f6) < 1.0e-11
     @test infidelity(u2, f6) > infidelity(u6b, f6)
 end
@@ -411,10 +411,10 @@ end
     u0 = function_to_qtt(x -> sin(π * x), d)
     u0 = u0 / norm(u0)
     alg = PenaltyALS(; penalty_schedule = [1.0e2, 1.0e4], local_steps = 2, max_sweeps = 5, return_info = true, show_progress = false)
-    u, info = non_linear_solve(A, u0, alg; g = 1.0)
+    u, info = nonlinear_solve(A, u0, alg; g = 1.0)
     @test info.penalty_history == [1.0e2, 1.0e4]
     logs, _ = Test.collect_test_logs() do
-        non_linear_solve(A, u0, PenaltyALS(; penalty_schedule = [1.0e2], max_sweeps = 2, tol = 0.0, verbosity = 2, show_progress = false); g = 1.0)
+        nonlinear_solve(A, u0, PenaltyALS(; penalty_schedule = [1.0e2], max_sweeps = 2, tol = 0.0, verbosity = 2, show_progress = false); g = 1.0)
     end
     @test count(l -> l.message == "PenaltyALS sweep", logs) == 2
 
@@ -432,6 +432,6 @@ end
     u0 = function_to_qtt(x -> sin(π * x), d)
     u0 = 2.0 * u0 / norm(u0)                      # far from unit norm: one weak stage cannot enforce it
     alg(v) = PenaltyALS(; penalty_schedule = [1.0], max_sweeps = 1, verbosity = v, show_progress = false)
-    @test_logs (:warn, r"penalty did not enforce") non_linear_solve(A, u0, alg(1); g = 1.0)
-    @test_logs non_linear_solve(A, u0, alg(0); g = 1.0)
+    @test_logs (:warn, r"penalty did not enforce") nonlinear_solve(A, u0, alg(1); g = 1.0)
+    @test_logs nonlinear_solve(A, u0, alg(0); g = 1.0)
 end

@@ -42,9 +42,9 @@ using LinearAlgebra
 using TensorTrainNumerics
 
 tensor = reshape(collect(1.0:16.0), 2, 2, 2, 2)
-tt = ttv_decomp(tensor; tol = 1.0e-12)
+tt = tt_decomp(tensor; tol = 1.0e-12)
 
-tensor_reconstructed = ttv_to_tensor(tt)
+tensor_reconstructed = tt_to_tensor(tt)
 relerr = norm(tensor - tensor_reconstructed) / norm(tensor)
 
 println("Relative error: ", relerr)
@@ -64,7 +64,7 @@ domain = [collect(range(-1.0, 1.0, length = 8)) for _ in 1:4]
 
 tt = tt_cross(f, domain, MaxVol(verbosity = 0, tol = 1.0e-8); ranks = 2)
 
-approx = ttv_to_tensor(tt)
+approx = tt_to_tensor(tt)
 exact = similar(approx)
 for I in CartesianIndices(exact)
     x = reshape([domain[k][I[k]] for k in 1:4], 1, :)

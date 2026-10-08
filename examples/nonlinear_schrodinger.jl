@@ -22,13 +22,13 @@ alg = MGR(;
     return_info = true,
     show_progress = true,
 )
-u, info = non_linear_solve(A_builder, u0, alg; g_builder = g_builder, target_sites = L)
+u, info = nonlinear_solve(A_builder, u0, alg; g_builder = g_builder, target_sites = L)
 
 println("E(L=$L, χ=$χ) = $(info.energy)   [Table 1: 122.09942]")
 println("per-level energies: ", round.(info.level_energies; digits = 5))
 
 # linear (g = 0) reference on the same grid
-u_lin, info_lin = non_linear_solve(A_builder, u0, alg; g_builder = d -> 0.0, target_sites = L)
+u_lin, info_lin = nonlinear_solve(A_builder, u0, alg; g_builder = d -> 0.0, target_sites = L)
 
 # continuum-normalized wavefunctions: f = √N · u for a discretely normalized u
 x = range(0, 1; length = 2^L)

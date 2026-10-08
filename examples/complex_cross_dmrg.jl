@@ -2,7 +2,7 @@ using LinearAlgebra
 using Random
 using TensorTrainNumerics
 
-println("Complex-domain TT cross (DMRGcross)")
+println("Complex-domain TT cross (DMRGCross)")
 
 d = 4
 n = 6
@@ -15,7 +15,7 @@ function f(X::AbstractMatrix{<:Number})
 end
 
 Random.seed!(30260)
-alg = DMRGcross()
+alg = DMRGCross()
 tt = tt_cross(f, domain, alg)
 println("TT ranks: ", tt.ranks)
 

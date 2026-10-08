@@ -12,7 +12,7 @@ function init_H(x_tt::AbstractTTVector, A_tto::AbstractTTOperator, N::Int, rmax)
     d = nsites(x_tt)
     H = Array{Array{T, 3}, 1}(undef, d + 1 - N)
     H[d + 1 - N] = ones(T, 1, 1, 1)
-    rks = r_and_d_to_rks(vcat(1, rmax * ones(Int, d - 1), 1), x_tt.dims; rmax = rmax)
+    rks = admissible_ranks(vcat(1, rmax * ones(Int, d - 1), 1), x_tt.dims; max_bond = rmax)
     for i in (d + 1 - N):-1:2
         H[i - 1] = zeros(T, A_tto.ranks[i + N - 1], rks[i + N - 1], rks[i + N - 1])
         Hi_view = @view(H[i][:, 1:x_tt.ranks[i + N], 1:x_tt.ranks[i + N]])
@@ -58,7 +58,7 @@ function init_Hb(x_tt::AbstractTTVector, b_tt::AbstractTTVector, N::Integer, rma
     d = nsites(x_tt)
     H_b = Array{Array{T, 2}, 1}(undef, d + 1 - N)
     H_b[d + 1 - N] = ones(T, 1, 1)
-    rks = r_and_d_to_rks(vcat(1, rmax * ones(Int, d - 1), 1), x_tt.dims; rmax = rmax)
+    rks = admissible_ranks(vcat(1, rmax * ones(Int, d - 1), 1), x_tt.dims; max_bond = rmax)
     for i in (d + 1 - N):-1:2
         H_b[i - 1] = zeros(T, rks[i + N - 1], b_tt.ranks[i + N - 1])
         b_vec = b_tt.cores[i + N - 1]
@@ -310,7 +310,7 @@ function _dmrg_linsolve_impl(
     end
     tt_opt = orthogonalize(tt_start)
     dims = tt_start.dims
-    rks = r_and_d_to_rks(vcat(1, rmax * ones(Int, d - 1), 1), dims; rmax = rmax)
+    rks = admissible_ranks(vcat(1, rmax * ones(Int, d - 1), 1), dims; max_bond = rmax)
 
     G, Amid_list, H, V0, V, V_move, V_temp, V0_view = init_dmrg(A, tt_opt, rks, nsites)
     G_b, bmid_list, H_b, Pb_temp = init_dmrg_b(b, tt_opt, rks, nsites)
@@ -362,7 +362,7 @@ function _dmrg_eigsolve_impl(
     tt_opt = orthogonalize(tt_start)
     dims = tt_start.dims
     rmax = maximum(max_bond)
-    rks = r_and_d_to_rks(vcat(1, rmax * ones(Int, d - 1), 1), dims; rmax = rmax)
+    rks = admissible_ranks(vcat(1, rmax * ones(Int, d - 1), 1), dims; max_bond = rmax)
     E = Float64[]
     r_hist = Int64[]
     G, Amid_list, H, V0, V, V_move, V_temp, V0_view = init_dmrg(A, tt_opt, rks, nsites)

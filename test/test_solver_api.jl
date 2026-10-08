@@ -203,8 +203,8 @@ end
     x, info = linear_solve(A, b, x0, Krylov(krylovdim = 16, maxiter = 20, rtol = 1.0e-6, return_info = true))
     @test info.converged
     M = reshape(tto_to_tensor(A), prod(dims), :)
-    bv = vec(ttv_to_tensor(b))
-    @test info.residual ≈ norm(M * vec(ttv_to_tensor(x)) - bv) / norm(bv) rtol = 1.0e-3
+    bv = vec(tt_to_tensor(b))
+    @test info.residual ≈ norm(M * vec(tt_to_tensor(x)) - bv) / norm(bv) rtol = 1.0e-3
     @test info.residual ≤ 1.0e-6
 end
 
@@ -289,9 +289,9 @@ end
     @test occursin(r"step: 3/3", out) && occursin("largest rank:", out)
 
     u0 = function_to_qtt(x -> sin(π * x), d)
-    out = progress_output(() -> non_linear_solve((4.0^d / 2) * Δ(d), u0 / norm(u0), PenaltyALS(; penalty_schedule = [1.0e2], max_sweeps = 3, tol = 0.0); g = 1.0))
+    out = progress_output(() -> nonlinear_solve((4.0^d / 2) * Δ(d), u0 / norm(u0), PenaltyALS(; penalty_schedule = [1.0e2], max_sweeps = 3, tol = 0.0); g = 1.0))
     @test occursin("penalty:", out)
-    out = progress_output(() -> non_linear_solve(k -> (4.0^k / 2) * Δ(k), u0 / norm(u0), MGR(; inner = PenaltyALS(; penalty_schedule = [1.0e2], max_sweeps = 2)); g_builder = k -> 1.0, target_sites = d + 2))
+    out = progress_output(() -> nonlinear_solve(k -> (4.0^k / 2) * Δ(k), u0 / norm(u0), MGR(; inner = PenaltyALS(; penalty_schedule = [1.0e2], max_sweeps = 2)); g_builder = k -> 1.0, target_sites = d + 2))
     @test occursin(r"level: 3/3", out)
 
     f(X) = vec(1 ./ (1 .+ sum(X, dims = 2)))

@@ -15,8 +15,8 @@ xes = collect(range(a, b, N))
 ∂x = (1 / (2h)) * (shift(d) - (id_tto(d) - ∇(d)))   # central first derivative
 ∂xx = -(1 / h^2) * Δ(d)                              # second derivative
 idd = id_tto(d)
-Mx = ttv_to_diag_tto(qtt_polynom([-μx, 1.0], d; a = a, b = b))   # diag(x - μx)
-My = ttv_to_diag_tto(qtt_polynom([-μy, 1.0], d; a = a, b = b))   # diag(y - μy)
+Mx = tt_to_diag_tto(qtt_polynomial([-μx, 1.0], d; a = a, b = b))   # diag(x - μx)
+My = tt_to_diag_tto(qtt_polynomial([-μy, 1.0], d; a = a, b = b))   # diag(y - μy)
 
 A = θ * ((∂x * Mx) ⊗ idd + idd ⊗ (∂x * My)) + D * (∂xx ⊗ idd + idd ⊗ ∂xx)
 

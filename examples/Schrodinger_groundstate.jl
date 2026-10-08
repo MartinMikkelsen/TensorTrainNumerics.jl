@@ -10,7 +10,7 @@ h = (b - a) / (N - 1); xes = collect(range(a, b, N))
 
 ∂xx = -(1 / h^2) * Δ(d)
 Vfun(x) = λ * (x^2 - xa^2)^2
-Vop = ttv_to_diag_tto(function_to_qtt(t -> Vfun(a + (b - a) * t), d))
+Vop = tt_to_diag_tto(function_to_qtt(t -> Vfun(a + (b - a) * t), d))
 H = -0.5 * ∂xx + Vop
 A = (-1.0) * H
 

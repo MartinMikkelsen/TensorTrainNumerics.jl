@@ -10,8 +10,8 @@ h = (hi - lo) / (N - 1); xes = collect(range(lo, hi, N))
 
 ∂xx = -(1 / h^2) * Δ(d)                                       # = d²/dx²
 idd = id_tto(d)
-X2 = ttv_to_diag_tto(qtt_polynom([0.0, 0.0, 1.0], d; a = lo, b = hi))   # diag(x²)
-X1 = ttv_to_diag_tto(qtt_polynom([0.0, 1.0], d; a = lo, b = hi))        # diag(x)
+X2 = tt_to_diag_tto(qtt_polynomial([0.0, 0.0, 1.0], d; a = lo, b = hi))   # diag(x²)
+X1 = tt_to_diag_tto(qtt_polynomial([0.0, 1.0], d; a = lo, b = hi))        # diag(x)
 A = 0.5 * (∂xx ⊗ idd + idd ⊗ ∂xx) -
     (0.5a_ * (X2 ⊗ idd) + 0.5b_ * (idd ⊗ X2) + c_ * (X1 ⊗ X1))
 H = (-1.0) * A                                               # H_HO, for the energy

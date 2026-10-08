@@ -45,7 +45,7 @@ The number of cores (sites) is the type parameter `M`, returned by `nsites(x)`.
 A `Vector{Int64}` passed as `orthogonality` is stored without copying. The
 constructor checks the orthogonality interval but not that the cores, `dims`,
 and `ranks` are consistent with each other or that the cores have the recorded
-orthogonality. Use constructors such as [`ttv_decomp`](@ref), [`rand_tt`](@ref),
+orthogonality. Use constructors such as [`tt_decomp`](@ref), [`rand_tt`](@ref),
 or [`zeros_tt`](@ref) to build valid instances.
 """
 struct TTVector{T <: Number, M} <: AbstractTTVector
@@ -235,45 +235,45 @@ function rand_orthogonal(n, m; T = Float64)
 end
 
 """
-    rand_tt([T=Float64,] dims, rks; normalize=false, orthogonal=false)
-    rand_tt(dims, rmax::Int; normalize=false, orthogonal=false)
+    rand_tt([T=Float64,] dims, ranks; normalize=false, orthogonal=false)
+    rand_tt(dims, max_bond::Int; normalize=false, orthogonal=false)
 
 Generate a random [`TTVector`](@ref) with element type `T`, physical dimensions
-`dims`, and TT ranks `rks` (a vector of length `length(dims) + 1` with
-`rks[1] == rks[end] == 1`). Core entries are drawn from `randn`.
+`dims`, and TT ranks `ranks` (a vector of length `length(dims) + 1` with
+`ranks[1] == ranks[end] == 1`). Core entries are drawn from `randn`.
 
-With an integer `rmax`, every interior rank is set to `rmax`, reduced where the
-dimensions force a smaller rank (see [`r_and_d_to_rks`](@ref)).
+With an integer `max_bond`, every interior rank is set to `max_bond`, reduced where the
+dimensions force a smaller rank (see [`admissible_ranks`](@ref)).
 
 # Keyword arguments
-- `normalize::Bool=false`: scale core `k` by `1/√(dims[k]·rks[k+1])`.
+- `normalize::Bool=false`: scale core `k` by `1/√(dims[k]·ranks[k+1])`.
 - `orthogonal::Bool=false`: when `normalize` is also `true`, replace every core by
   a right-orthogonal core from a QR factorization. Has no effect otherwise.
 """
-function rand_tt(dims, rks; kwargs...)
-    return rand_tt(Float64, dims, rks; kwargs...)
+function rand_tt(dims, ranks; kwargs...)
+    return rand_tt(Float64, dims, ranks; kwargs...)
 end
 
-function rand_tt(::Type{T}, dims, rks; normalize = false, orthogonal = false) where {T}
-    y = zeros_tt(T, dims, rks)
+function rand_tt(::Type{T}, dims, ranks; normalize = false, orthogonal = false) where {T}
+    y = zeros_tt(T, dims, ranks)
     @inbounds for i in eachindex(y.cores)
-        y.cores[i] = randn(T, dims[i], rks[i], rks[i + 1])
+        y.cores[i] = randn(T, dims[i], ranks[i], ranks[i + 1])
         if normalize
-            y.cores[i] *= 1 / sqrt(dims[i] * rks[i + 1])
+            y.cores[i] *= 1 / sqrt(dims[i] * ranks[i + 1])
             if orthogonal
-                q, _ = qr(reshape(permutedims(y.cores[i], (1, 3, 2)), dims[i] * rks[i + 1], rks[i]))
-                y.cores[i] = permutedims(reshape(Matrix(q), dims[i], rks[i + 1], rks[i]), (1, 3, 2))
+                q, _ = qr(reshape(permutedims(y.cores[i], (1, 3, 2)), dims[i] * ranks[i + 1], ranks[i]))
+                y.cores[i] = permutedims(reshape(Matrix(q), dims[i], ranks[i + 1], ranks[i]), (1, 3, 2))
             end
         end
     end
     return y
 end
 
-function rand_tt(dims, rmax::Int; kwargs...)
+function rand_tt(dims, max_bond::Int; kwargs...)
     d = length(dims)
-    rks = rmax * ones(Int, d + 1)
-    rks = r_and_d_to_rks(rks, dims; rmax = rmax)
-    return rand_tt(dims, rks; kwargs...)
+    ranks = max_bond * ones(Int, d + 1)
+    ranks = admissible_ranks(ranks, dims; max_bond = max_bond)
+    return rand_tt(dims, ranks; kwargs...)
 end
 
 """
@@ -311,7 +311,7 @@ Base.copy(x_tt::TTVector{T, N}) where {T <: Number, N} =
     TTVector{T, N}(copy.(x_tt.cores), x_tt.dims, copy(x_tt.ranks); orthogonality = copy(x_tt.orthogonality))
 
 """
-    ttv_decomp(tensor::Array; index=1, tol=1e-12) -> TTVector
+    tt_decomp(tensor::Array; index=1, tol=1e-12) -> TTVector
 
 Decompose a dense `tensor` into a [`TTVector`](@ref) with the TT-SVD
 (hierarchical SVD) algorithm of Oseledets (2011); see also Schollwöck (2011).
@@ -324,7 +324,7 @@ relative to the norm of `tensor`.
 * Oseledets, I. V. (2011). Tensor-train decomposition. *SIAM Journal on Scientific Computing*, 33(5), 2295-2317.
 * Schollwöck, U. (2011). The density-matrix renormalization group in the age of matrix product states. *Annals of Physics*, 326(1), 96-192.
 """
-function ttv_decomp(tensor::Array{T, d}; index = 1, tol = 1.0e-12) where {T <: Number, d}
+function tt_decomp(tensor::Array{T, d}; index = 1, tol = 1.0e-12) where {T <: Number, d}
     # Decomposes a tensor into its tensor train with core matrices at i=index
     dims = size(tensor) #dims = [n_1,...,n_d]
     ttv_vec = Array{Array{T, 3}}(undef, d)
@@ -385,7 +385,7 @@ function ttv_decomp(tensor::Array{T, d}; index = 1, tol = 1.0e-12) where {T <: N
 end
 
 """
-    ttv_to_tensor(x_tt::TTVector{T,N}) where {T<:Number, N}
+    tt_to_tensor(x_tt::TTVector{T,N}) where {T<:Number, N}
 
 Convert a TTVector (Tensor Train vector) to a full tensor.
 
@@ -395,7 +395,7 @@ Convert a TTVector (Tensor Train vector) to a full tensor.
 # Returns
 - A tensor of type `Array{T,N}` with the same dimensions as specified in `x_tt.dims`.
 """
-function ttv_to_tensor(x_tt::TTVector{T, N}) where {T <: Number, N}
+function tt_to_tensor(x_tt::TTVector{T, N}) where {T <: Number, N}
     d = nsites(x_tt)
     # Progressive contraction: P holds the partial contraction of cores 1:k as a
     # (prod(dims[1:k]), r_k) matrix with the first physical index fastest, so the
@@ -416,7 +416,7 @@ function ttv_to_tensor(x_tt::TTVector{T, N}) where {T <: Number, N}
 end
 
 """
-    tto_to_ttv(A::TTOperator{T,N}) where {T<:Number,N}
+    tto_to_tt(A::TTOperator{T,N}) where {T<:Number,N}
 
 Convert a `TTOperator` to a `TTVector`.
 
@@ -431,7 +431,7 @@ This function takes a `TTOperator` and converts it into a `TTVector`. It reshape
 The result owns its cores, ranks, and orthogonality interval; mutating it does not change `A`.
 
 """
-function tto_to_ttv(A::TTOperator{T, N}) where {T <: Number, N}
+function tto_to_tt(A::TTOperator{T, N}) where {T <: Number, N}
     d = nsites(A)
     xtt_vec = Array{Array{T, 3}, 1}(undef, d)
     A_rks = A.ranks
@@ -442,7 +442,7 @@ function tto_to_ttv(A::TTOperator{T, N}) where {T <: Number, N}
 end
 
 """
-    ttv_to_tto(x::TTVector{T,N}) where {T<:Number,N}
+    tt_to_tto(x::TTVector{T,N}) where {T<:Number,N}
 
 Convert a `TTVector` to a `TTOperator`.
 
@@ -459,7 +459,7 @@ Convert a `TTVector` to a `TTOperator`.
 This function converts a `TTVector` to a `TTOperator` by reshaping the core tensors of the `TTVector` into 4-dimensional arrays. The reshaping is done such that the first two dimensions of each core tensor are the square roots of the original dimensions, and the last two dimensions are the ranks of the `TTVector`.
 The result owns its cores, ranks, and orthogonality interval; mutating it does not change `x`.
 """
-function ttv_to_tto(x::TTVector{T, N}) where {T <: Number, N}
+function tt_to_tto(x::TTVector{T, N}) where {T <: Number, N}
     @assert(isqrt.(x.dims) .^ 2 == x.dims, DimensionMismatch)
     d = nsites(x)
     Att_vec = Array{Array{T, 4}, 1}(undef, d)
@@ -477,7 +477,7 @@ end
 Decompose a dense operator into a [`TTOperator`](@ref) with the TT-SVD algorithm.
 `tensor` has `2d` indices ordered `[i₁, …, i_d, j₁, …, j_d]` (output indices
 first, then input indices). The index pairs are interleaved to
-`[(i₁, j₁), …, (i_d, j_d)]` and decomposed with [`ttv_decomp`](@ref) using its
+`[(i₁, j₁), …, (i_d, j_d)]` and decomposed with [`tt_decomp`](@ref) using its
 default tolerance.
 """
 function tto_decomp(tensor::Array{T, N}; index = 1) where {T <: Number, N}
@@ -486,7 +486,7 @@ function tto_decomp(tensor::Array{T, N}; index = 1) where {T <: Number, N}
     col_dims = size(tensor)[(d + 1):(2 * d)]
     fused_dims = row_dims .* col_dims
     index_sorted = vec(Transpose(reshape(1:(2 * d), :, 2)))
-    ttv = ttv_decomp(reshape(permutedims(tensor, index_sorted), fused_dims); index = index)
+    ttv = tt_decomp(reshape(permutedims(tensor, index_sorted), fused_dims); index = index)
     rks = ttv.ranks
     cores = [reshape(ttv.cores[i], row_dims[i], col_dims[i], rks[i], rks[i + 1]) for i in 1:d]
     return TTOperator{T, d}(cores, row_dims, col_dims, rks; orthogonality = ttv.orthogonality)
@@ -507,7 +507,7 @@ function tto_to_tensor(tto::TTOperator{T, N}) where {T <: Number, N}
     d = nsites(tto)
     # Fuse each core's (i, j) pair, contract progressively as a TT vector, then
     # split the fused axes back and sort them into [i_1,…,i_d, j_1,…,j_d].
-    fused = ttv_to_tensor(tto_to_ttv(tto))
+    fused = tt_to_tensor(tto_to_tt(tto))
     pairs = ntuple(i -> isodd(i) ? tto.row_dims[cld(i, 2)] : tto.col_dims[cld(i, 2)], 2 * d)
     split = reshape(fused, pairs)
     perm = (ntuple(k -> 2k - 1, d)..., ntuple(k -> 2k, d)...)
@@ -515,32 +515,30 @@ function tto_to_tensor(tto::TTOperator{T, N}) where {T <: Number, N}
 end
 
 """
-	r_and_d_to_rks(rks, dims; rmax=1024)
+    admissible_ranks(ranks, dims; max_bond=1024)
 
-Adjusts the ranks `rks` based on the dimensions `dims` and an optional maximum rank `rmax`.
+Return a copy of `ranks` in which every rank is reduced to the largest value a
+tensor train with physical dimensions `dims` can have at that bond, and to at
+most `max_bond`.
 
-# Arguments
-- `rks::AbstractVector`: A vector of ranks.
-- `dims::AbstractVector`: A vector of dimensions.
-- `rmax::Int`: An optional maximum rank (default is 1024).
-
-# Returns
-- `new_rks::Vector`: A vector of adjusted ranks.
+`ranks` has length `length(dims) + 1`. Rank `i` is capped by the product of the
+dimensions to its left and by the product of the dimensions to its right; the
+boundary ranks are 1.
 """
-function r_and_d_to_rks(rks, dims; rmax = 1024)
-    new_rks = ones(eltype(rks), length(rks))
+function admissible_ranks(ranks, dims; max_bond = 1024)
+    new_rks = ones(eltype(ranks), length(ranks))
     @simd for i in eachindex(dims)
         if prod(dims[i:end]) > 0
             if prod(dims[1:(i - 1)]) > 0
-                new_rks[i] = min(rks[i], prod(dims[1:(i - 1)]), prod(dims[i:end]), rmax)
+                new_rks[i] = min(ranks[i], prod(dims[1:(i - 1)]), prod(dims[i:end]), max_bond)
             else
-                new_rks[i] = min(rks[i], prod(dims[i:end]), rmax)
+                new_rks[i] = min(ranks[i], prod(dims[i:end]), max_bond)
             end
         else
             if prod(dims[1:(i - 1)]) > 0
-                new_rks[i] = min(rks[i], prod(dims[1:(i - 1)]), rmax)
+                new_rks[i] = min(ranks[i], prod(dims[1:(i - 1)]), max_bond)
             else
-                new_rks[i] = min(rks[i], rmax)
+                new_rks[i] = min(ranks[i], max_bond)
             end
         end
     end
@@ -581,7 +579,7 @@ function increase_ranks_noise(tt_vec, rkm, rk, noise)
 end
 
 """
-    increase_ranks(x_tt::TTVector{T,N}, max_bond::Int; rks=vcat(1, max_bond*ones(Int, length(x_tt.dims)-1), 1), noise=0.0) where {T<:Number, N}
+    increase_ranks(x_tt::TTVector{T,N}, max_bond::Int; ranks=vcat(1, max_bond*ones(Int, length(x_tt.dims)-1), 1), noise=0.0) where {T<:Number, N}
 
 Increase the bond ranks of a Tensor Train (TT) vector `x_tt` up to `max_bond`,
 padding the new rank dimensions with `noise`-scaled random orthogonal values.
@@ -591,21 +589,21 @@ so a fixed-rank solver (e.g. ALS) has room to develop higher-rank structure.
 # Arguments
 - `x_tt::TTVector{T,N}`: The input TT vector.
 - `max_bond::Int`: The maximum bond dimension to increase the ranks to.
-- `rks`: Optional. A vector specifying the target ranks. Defaults to `1` at the boundaries and `max_bond` in between.
+- `ranks`: Optional. A vector specifying the target ranks. Defaults to `1` at the boundaries and `max_bond` in between.
 - `noise::Float64`: Optional. The noise level added to the new rank dimensions. Defaults to `0.0` (exact zero-padding).
 
 # Returns
 - `TTVector{T,N}`: A new TT vector with increased ranks.
 """
-function increase_ranks(x_tt::TTVector{T, N}, max_bond::Int; rks = vcat(1, max_bond * ones(Int, length(x_tt.dims) - 1), 1), noise = 0.0) where {T <: Number, N}
+function increase_ranks(x_tt::TTVector{T, N}, max_bond::Int; ranks = vcat(1, max_bond * ones(Int, length(x_tt.dims) - 1), 1), noise = 0.0) where {T <: Number, N}
     d = nsites(x_tt)
     vec_out = Array{Array{T}}(undef, d)
     @assert(max_bond > maximum(x_tt.ranks), "New bond dimension too low")
-    rks = r_and_d_to_rks(rks, x_tt.dims; rmax = max_bond)
+    ranks = admissible_ranks(ranks, x_tt.dims; max_bond = max_bond)
     for i in 1:d
-        vec_out[i] = increase_ranks_noise(x_tt.cores[i], rks[i], rks[i + 1], noise)
+        vec_out[i] = increase_ranks_noise(x_tt.cores[i], ranks[i], ranks[i + 1], noise)
     end
-    return TTVector{T, N}(vec_out, x_tt.dims, rks)
+    return TTVector{T, N}(vec_out, x_tt.dims, ranks)
 end
 
 """
@@ -624,7 +622,7 @@ Orthogonalizes the given Tensor Train (TT) vector `x_tt` with respect to the `i`
 function orthogonalize(x_tt::TTVector{T, N}; i = 1::Int) where {T <: Number, N}
     d = nsites(x_tt)
     @assert(1 ≤ i ≤ d, DimensionMismatch("Impossible orthogonalization"))
-    y_rks = r_and_d_to_rks(x_tt.ranks, x_tt.dims)
+    y_rks = admissible_ranks(x_tt.ranks, x_tt.dims)
     y_tt = zeros_tt(T, x_tt.dims, y_rks)
     FR = ones(T, 1, 1)
     yleft_temp = zeros(T, maximum(x_tt.ranks), maximum(x_tt.dims), maximum(x_tt.ranks))

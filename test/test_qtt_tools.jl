@@ -56,7 +56,7 @@ end
     @test qtt_to_vector(function_to_qtt(identity, d; a, b)) ≈ x
     @test qtt_to_vector(function_to_qtt(t -> sin(3t), d; a, b)) ≈ sin.(3 .* x)
     @test qtt_to_vector(function_to_qtt(t -> t^2 - 1, d; a, b)) ≈
-        qtt_to_vector(qtt_polynom([-1.0, 0.0, 1.0], d; a, b))
+        qtt_to_vector(qtt_polynomial([-1.0, 0.0, 1.0], d; a, b))
     @test index_to_point((2, 2); L = 3.0) ≈ 3.0
     # bits (2, 1) are j = 2 of 0:3, the point -1 + 2·(2/3)
     @test function_to_tensor(identity, 2; a = -1.0, b = 1.0)[2, 1] ≈ 1 / 3
@@ -72,7 +72,7 @@ end
         # exact for constants and linear functions
         @test sum(weights) ≈ b - a
         @test dot(weights, range(a, b; length = N)) ≈ (b^2 - a^2) / 2
-        @test dot(w, qtt_polynom([0.0, 1.0], d; a, b)) ≈ (b^2 - a^2) / 2
+        @test dot(w, qtt_polynomial([0.0, 1.0], d; a, b)) ≈ (b^2 - a^2) / 2
     end
 end
 
@@ -83,7 +83,7 @@ end
     @test qtt_to_vector(qtt_sin(1; a, b, λ = 1.3)) ≈ sin.(1.3π .* x)
     @test qtt_to_vector(qtt_cos(1; a, b, λ = 1.3)) ≈ cos.(1.3π .* x)
     @test qtt_to_vector(qtt_exp(1; a, b, α = 2.0, β = 0.5)) ≈ exp.(2.0 .* x .+ 0.5)
-    @test qtt_to_vector(qtt_polynom([1.0, -2.0, 3.0], 1; a, b)) ≈ [1 - 2t + 3t^2 for t in x]
+    @test qtt_to_vector(qtt_polynomial([1.0, -2.0, 3.0], 1; a, b)) ≈ [1 - 2t + 3t^2 for t in x]
     @test qtt_to_vector(qtt_chebyshev(3, 1)) ≈ [1.0, -1.0]       # T₃ at the Lobatto nodes x = 1, 0
     @test qtto_to_matrix(toeplitz_to_qtto(2.0, 3.0, 5.0, 1)) ≈ [2.0 3.0; 5.0 2.0]
     @test qtto_to_matrix(shift(1)) ≈ [0.0 1.0; 0.0 0.0]
@@ -118,10 +118,10 @@ end
 end
 
 
-@testset "qtt_polynom" begin
+@testset "qtt_polynomial" begin
     coef = [0.0, 1.0]  # p(x) = x
     d = 3
-    tt = qtt_polynom(coef, d; a = 0.0, b = 1.0)
+    tt = qtt_polynomial(coef, d; a = 0.0, b = 1.0)
     # Check types and shapes
     @test hasproperty(tt, :cores)
     @test length(tt.cores) == d
@@ -273,17 +273,17 @@ end
         qtt = to_qtt(tt, [[2, 3]])
         @test nsites(qtt) == 2
         @test qtt.dims == (2, 3)
-        @test ttv_to_tensor(qtt) ≈ [1.0 2.0 3.0; 4.0 5.0 6.0] atol = 1.0e-12
+        @test tt_to_tensor(qtt) ≈ [1.0 2.0 3.0; 4.0 5.0 6.0] atol = 1.0e-12
 
         merged = to_ttv(qtt, [2])
         @test nsites(merged) == 1
         @test merged.dims == (6,)
-        @test vec(ttv_to_tensor(merged)) ≈ values atol = 1.0e-12
+        @test vec(tt_to_tensor(merged)) ≈ values atol = 1.0e-12
     end
 
     @testset "round-trip preserves multi-core dense tensor" begin
         tensor = reshape(Float64.(1:24), 4, 6)
-        tt = ttv_decomp(tensor)
+        tt = tt_decomp(tensor)
 
         qtt = to_qtt(tt, [[2, 2], [2, 3]])
         @test nsites(qtt) == 4
@@ -292,12 +292,12 @@ end
         merged = to_ttv(qtt, [2, 2])
         @test nsites(merged) == 2
         @test merged.dims == (4, 6)
-        @test ttv_to_tensor(merged) ≈ tensor atol = 1.0e-11
+        @test tt_to_tensor(merged) ≈ tensor atol = 1.0e-11
     end
 
     @testset "to_ttv uses the earlier core as the coarser index" begin
         tensor = reshape(Float64.(1:16), 2, 2, 2, 2)
-        qtt = ttv_decomp(tensor)
+        qtt = tt_decomp(tensor)
 
         merged = to_ttv(qtt, [2, 2])
         expected = zeros(Float64, 4, 4)
@@ -305,7 +305,7 @@ end
             expected[(i1 - 1) * 2 + i2, (i3 - 1) * 2 + i4] = tensor[i1, i2, i3, i4]
         end
 
-        @test ttv_to_tensor(merged) ≈ expected atol = 1.0e-12
+        @test tt_to_tensor(merged) ≈ expected atol = 1.0e-12
     end
 
     @testset "threshold truncates small relative singular values" begin
@@ -317,8 +317,8 @@ end
 
         @test exact.ranks == [1, 2, 1]
         @test truncated.ranks == [1, 1, 1]
-        @test vec(ttv_to_tensor(to_ttv(exact, [2]))) ≈ values atol = 1.0e-12
-        @test vec(ttv_to_tensor(to_ttv(truncated, [2]))) ≈ [1.0, 0.0, 0.0, 0.0] atol = 1.0e-12
+        @test vec(tt_to_tensor(to_ttv(exact, [2]))) ≈ values atol = 1.0e-12
+        @test vec(tt_to_tensor(to_ttv(truncated, [2]))) ≈ [1.0, 0.0, 0.0, 0.0] atol = 1.0e-12
     end
 
     @testset "invalid split and merge metadata throws" begin

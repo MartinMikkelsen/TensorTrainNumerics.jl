@@ -32,7 +32,7 @@ end
     tt = to_ttvector(tt_tci)
 
     # Both representations should evaluate to the same values at random binary indices
-    full = ttv_to_tensor(tt)
+    full = tt_to_tensor(tt)
     for idx in ([1, 1, 1, 1, 1, 1, 1, 1], [2, 1, 2, 1, 2, 1, 2, 1], [1, 2, 1, 2, 1, 2, 1, 2])
         @test full[idx...] ≈ tt_tci(idx) atol = 1.0e-14
     end

@@ -20,17 +20,17 @@ QTTOperator
 ## Construction and conversion
 
 ```@docs
-ttv_decomp
+tt_decomp
 tto_decomp
-ttv_to_tensor
+tt_to_tensor
 tto_to_tensor
-tto_to_ttv
+tto_to_tt
 rand_tt
 rand_tto
 zeros_tt
 zeros_tto
 id_tto
-r_and_d_to_rks
+admissible_ranks
 concatenate
 nsites
 Base.copy(::TTVector{T, N}) where {T <: Number, N}
@@ -59,7 +59,7 @@ Base.kron(::TTVector{T, d1}, ::TTVector{T, d2}) where {T, d1, d2}
 ⊗
 ⨝
 ∙
-ttv_to_diag_tto
+tt_to_diag_tto
 euclidean_distance
 euclidean_distance_normalized
 ```

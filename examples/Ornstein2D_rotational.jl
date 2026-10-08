@@ -16,8 +16,8 @@ function generator(d, ω)
     ∂ = (1 / (2h)) * (shift(d) - (id_tto(d) - ∇(d)))   # central first derivative (∂ᵀ = -∂)
     ∂² = -(1 / h^2) * Δ(d)
     idd = id_tto(d)
-    Mx = ttv_to_diag_tto(qtt_polynom([-μx, 1.0], d; a = a, b = b))
-    My = ttv_to_diag_tto(qtt_polynom([-μy, 1.0], d; a = a, b = b))
+    Mx = tt_to_diag_tto(qtt_polynomial([-μx, 1.0], d; a = a, b = b))
+    My = tt_to_diag_tto(qtt_polynomial([-μy, 1.0], d; a = a, b = b))
     A = θ * ((∂ * Mx) ⊗ idd + idd ⊗ (∂ * My)) +    # diagonal drift
         ω * (∂ ⊗ My - Mx ⊗ ∂) +                    # antisymmetric rotational coupling
         D * (∂² ⊗ idd + idd ⊗ ∂²)                  # isotropic diffusion

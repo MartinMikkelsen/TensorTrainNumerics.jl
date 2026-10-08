@@ -205,7 +205,7 @@ TT-cross algorithms build a TT approximation of a black-box function $f:\{1,\ldo
 | Algorithm | Constructor | Notes |
 |---|---|---|
 | MaxVol | `MaxVol(tol, maxiter)` | Stable pivot selection via maximal-volume submatrices |
-| DMRG-cross | `DMRGcross(tol, maxiter)` | Alternating left–right sweeps |
+| DMRG-cross | `DMRGCross(tol, maxiter)` | Alternating left–right sweeps |
 | Greedy | `Greedy(tol, maxiter)` | Fast but less robust |
 
 ```@example ttcross
@@ -219,7 +219,7 @@ d = 6
 domain = [collect(range(0.0, π, length = n)) for _ in 1:d]
 
 tt_mv = tt_cross(f, domain, MaxVol(tol = 1.0e-8, max_sweeps = 20); ranks = 4)
-tt_dg = tt_cross(f, domain, DMRGcross(tol = 1.0e-8, max_sweeps = 25))
+tt_dg = tt_cross(f, domain, DMRGCross(tol = 1.0e-8, max_sweeps = 25))
 ```
 
 ### Numerical integration
@@ -236,7 +236,7 @@ println("∫sin(x₁+⋯+x₆) dx ≈ ", result)
 For small problems you can convert the TT back to a full array:
 
 ```@example ttcross
-tensor_approx = ttv_to_tensor(tt_mv)
+tensor_approx = tt_to_tensor(tt_mv)
 
 tensor_exact = zeros(ntuple(_ -> n, d)...)
 for idx in CartesianIndices(tensor_exact)

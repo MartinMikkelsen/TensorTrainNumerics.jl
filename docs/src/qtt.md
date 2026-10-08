@@ -42,7 +42,7 @@ The following functions provide exact or near-exact QTT representations [Khoroms
 | `qtt_exp(L)` | $e^x$ on $[0,1]$ |
 | `qtt_sin(L; λ)` | $\sin(\lambda x)$ |
 | `qtt_cos(L; λ)` | $\cos(\lambda x)$ |
-| `qtt_polynom(coeffs, L; a, b)` | Polynomial with given coefficients on $[a,b]$ |
+| `qtt_polynomial(coeffs, L; a, b)` | Polynomial with given coefficients on $[a,b]$ |
 | `qtt_chebyshev(n, L)` | Chebyshev polynomial $T_n$ |
 
 ### Constructing a QTT from an arbitrary function

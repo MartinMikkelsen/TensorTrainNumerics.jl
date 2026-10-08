@@ -16,10 +16,10 @@ Random.seed!(42)
             [reshape(A, 2, 2, 1, 1) for A in local_ops],
             ntuple(_ -> 2, nsites), ones(Int, nsites + 1)
         )
-        # Site 1 is the fastest physical index in ttv_to_tensor.
+        # Site 1 is the fastest physical index in tt_to_tensor.
         H_dense = reduce(kron, reverse(local_ops))
         initial = fill(1 / sqrt(2^nsites), ntuple(_ -> 2, nsites))
-        u0 = ttv_decomp(initial)
+        u0 = tt_decomp(initial)
         total_time = 0.1
         for imaginary_time in (false, true), nsteps in (1, 4)
             generator = imaginary_time ? H_dense : -im * H_dense
@@ -28,8 +28,8 @@ Random.seed!(42)
                 H, u0, fill(total_time / nsteps, nsteps);
                 imaginary_time, normalize = false, show_progress = false
             )
-            @test vec(ttv_to_tensor(u)) ≈ expected atol = 1.0e-11 rtol = 1.0e-11
-            @test ttv_to_tensor(u0) ≈ initial
+            @test vec(tt_to_tensor(u)) ≈ expected atol = 1.0e-11 rtol = 1.0e-11
+            @test tt_to_tensor(u0) ≈ initial
         end
     end
 end
@@ -43,11 +43,11 @@ end
     ]
     H = tto_decomp(reshape(H_dense, 2, 2, 2, 2))
     initial = normalize(ComplexF64[1, 2 + im, -im, -1])
-    u0 = ttv_decomp(reshape(initial, 2, 2))
+    u0 = tt_decomp(reshape(initial, 2, 2))
     expected = exp(-0.08im * H_dense) * initial
     for steps in ([0.08], fill(0.02, 4))
         u = tdvp(H, u0, steps; normalize = false, show_progress = false)
-        @test vec(ttv_to_tensor(u)) ≈ expected atol = 1.0e-10 rtol = 1.0e-10
+        @test vec(tt_to_tensor(u)) ≈ expected atol = 1.0e-10 rtol = 1.0e-10
         @test norm(u) ≈ 1.0 atol = 1.0e-11
     end
 end
@@ -196,8 +196,8 @@ end
 end
 
 function dense_relerr(x::TensorTrainNumerics.TTVector, y::TensorTrainNumerics.TTVector)
-    x_dense = vec(ttv_to_tensor(x))
-    y_dense = vec(ttv_to_tensor(y))
+    x_dense = vec(tt_to_tensor(x))
+    y_dense = vec(tt_to_tensor(y))
     y_norm = norm(y_dense)
     return norm(x_dense - y_dense) / max(y_norm, eps(typeof(y_norm)))
 end
@@ -302,7 +302,7 @@ end
     @test length(F1) == nsites(ψ0) + 2
     @test size(F1[1]) == (1, 1, 1)
     @test size(F1[end]) == (1, 1, 1)
-    @test isapprox(ttv_to_tensor(ψ1), ttv_to_tensor(ψ0); atol = 1.0e-10, rtol = 1.0e-10)
+    @test isapprox(tt_to_tensor(ψ1), tt_to_tensor(ψ0); atol = 1.0e-10, rtol = 1.0e-10)
 end
 
 @testset "tdvp2sweep! real-time & imaginary-time dt (H=0)" begin
@@ -313,8 +313,8 @@ end
     ψa, _ = tdvp2sweep!(0.05, deepcopy(ψ0), H0, nothing; verbose = false)
     ψb, _ = tdvp2sweep!(0.05im, deepcopy(ψ0), H0, nothing; verbose = false)
 
-    @test isapprox(ttv_to_tensor(ψa), ttv_to_tensor(ψ0); atol = 1.0e-10, rtol = 1.0e-10)
-    @test isapprox(ttv_to_tensor(ψb), ttv_to_tensor(ψ0); atol = 1.0e-10, rtol = 1.0e-10)
+    @test isapprox(tt_to_tensor(ψa), tt_to_tensor(ψ0); atol = 1.0e-10, rtol = 1.0e-10)
+    @test isapprox(tt_to_tensor(ψb), tt_to_tensor(ψ0); atol = 1.0e-10, rtol = 1.0e-10)
 end
 
 @testset "tdvp2sweep! respects max_bond" begin
@@ -328,7 +328,7 @@ end
 
 @testset "tdvp2sweep! truncates with trunc_tol" begin
     spectrum = [1.0, 0.08, 0.08, 0.08]
-    ψ0 = ttv_decomp(Matrix(Diagonal(spectrum)))
+    ψ0 = tt_decomp(Matrix(Diagonal(spectrum)))
     H0 = zeros_tto(Float64, (4, 4), [1, 1, 1])
 
     ψ2, _ = tdvp2sweep!(0.1im, ψ0, H0, nothing; verbose = false, trunc_tol = 0.14)   # tail norm 0.139 ≤ 0.14·‖s‖

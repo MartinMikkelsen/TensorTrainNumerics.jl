@@ -7,7 +7,7 @@ h = (b - a) / (N - 1); xes = collect(range(a, b, N))
 
 # Operators:  A = ½∂ₓₓ − ½ω²x²  (= −H_HO)
 ∂xx = -(1 / h^2) * Δ(d)                                                # = d²/dx²
-V = ttv_to_diag_tto(qtt_polynom([0.0, 0.0, 0.5 * ω^2], d; a = a, b = b))   # ½ω²x²
+V = tt_to_diag_tto(qtt_polynomial([0.0, 0.0, 0.5 * ω^2], d; a = a, b = b))   # ½ω²x²
 A = 0.5 * ∂xx - V                                                   # ∂u/∂τ = A u
 H = -0.5 * ∂xx + V                                                  # H_HO (= −A), for the energy
 

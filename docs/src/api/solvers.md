@@ -36,8 +36,8 @@ KrylovSolver
 ## Nonlinear solver
 
 ```@docs
-non_linear_solve
-NonLinearSolverAlgorithm
+nonlinear_solve
+NonlinearSolverAlgorithm
 PenaltyALS
 MGR
 gpe_energy
@@ -60,6 +60,6 @@ tdvp2
 tt_cross
 tt_integrate
 MaxVol
-DMRGcross
+DMRGCross
 Greedy
 ```

@@ -383,7 +383,7 @@ end
 """
 Creates a diagonal TTOperator from a TTVector.
 """
-function ttv_to_diag_tto(x::TTVector{T, M}) where {T <: Number, M}
+function tt_to_diag_tto(x::TTVector{T, M}) where {T <: Number, M}
     d = nsites(x)                              # number of dimensions (cores)
     dims = x.dims                       # (n₁, n₂, …, n_d)
     rks = x.ranks                        # (r₀=1, r₁, …, r_d=1)

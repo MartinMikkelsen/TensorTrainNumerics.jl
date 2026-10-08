@@ -135,8 +135,8 @@ end
         local_tol = 1.0e-12,
     )
 
-    dense_values = vec(ttv_to_tensor(dense))
-    iterative_values = vec(ttv_to_tensor(iterative))
+    dense_values = vec(tt_to_tensor(dense))
+    iterative_values = vec(tt_to_tensor(iterative))
     @test norm(iterative_values - dense_values) / norm(dense_values) < 1.0e-10
 end
 
@@ -219,7 +219,7 @@ end
     S = id_tto(d)
     x0 = rand_tt(ntuple(_ -> 2, d), [1, 2, 2, 2, 1]; normalize = true)
 
-    result = als_gen_eigsolve(A, S, x0; sweep_schedule = [2], rmax_schedule = [2])
+    result = als_gen_eigsolve(A, S, x0; sweep_schedule = [2], max_bond = [2])
 
     @test result !== nothing
     E, x_opt = result
@@ -235,7 +235,7 @@ end
     S = id_tto(d)
     x0 = rand_tt(ntuple(_ -> 2, d), [1, 2, 2, 2, 1]; normalize = true)
 
-    result = als_gen_eigsolve(A, S, x0; sweep_schedule = [2], rmax_schedule = [2])
+    result = als_gen_eigsolve(A, S, x0; sweep_schedule = [2], max_bond = [2])
     @test result !== nothing
     E_gen, _ = result
 
@@ -250,7 +250,7 @@ end
     S = id_tto(d)
     x0 = rand_tt(ntuple(_ -> 2, d), [1, 1, 1, 1]; normalize = true)
 
-    result = als_gen_eigsolve(A, S, x0; sweep_schedule = [1, 2], rmax_schedule = [1, 2])
+    result = als_gen_eigsolve(A, S, x0; sweep_schedule = [1, 2], max_bond = [1, 2])
 
     @test result !== nothing
     E, x_opt = result
@@ -268,9 +268,8 @@ end
     result = als_gen_eigsolve(
         A, S, x0;
         sweep_schedule = [2],
-        rmax_schedule = [2],
-        it_solver = true,
-        itslv_thresh = 1,
+        max_bond = [2],
+        local_solver = :iterative,
     )
 
     @test result !== nothing

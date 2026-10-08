@@ -56,7 +56,7 @@ d      = 6
 domain = [collect(range(0.0, π, length = n)) for _ in 1:d]
 
 tt_mv = tt_cross(f, domain, MaxVol(tol = 1e-8, max_sweeps = 20, verbosity = 0); ranks = 4)
-tt_dg = tt_cross(f, domain, DMRGcross(tol  = 1e-8, max_sweeps = 25, verbosity = 0); ranks = 4)
+tt_dg = tt_cross(f, domain, DMRGCross(tol  = 1e-8, max_sweeps = 25, verbosity = 0); ranks = 4)
 ```
 
 Verify accuracy against the full reference tensor:
@@ -67,8 +67,8 @@ for idx in CartesianIndices(tensor_exact)
     tensor_exact[idx] = sin(sum(domain[k][idx[k]] for k in 1:d))
 end
 
-println("MaxVol relative error: ", norm(ttv_to_tensor(tt_mv) .- tensor_exact) / norm(tensor_exact))
-println("DMRGcross relative error: ", norm(ttv_to_tensor(tt_dg) .- tensor_exact) / norm(tensor_exact))
+println("MaxVol relative error: ", norm(tt_to_tensor(tt_mv) .- tensor_exact) / norm(tensor_exact))
+println("DMRGCross relative error: ", norm(tt_to_tensor(tt_dg) .- tensor_exact) / norm(tensor_exact))
 ```
 
 

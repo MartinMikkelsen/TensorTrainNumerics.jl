@@ -116,7 +116,7 @@ function Greedy(;
 end
 
 """
-    DMRGcross(; max_sweeps=50, tol=1e-10, max_bond=500, kickrank=5, verbosity=1, show_progress=true, pivot=MaxVolPivot())
+    DMRGCross(; max_sweeps=50, tol=1e-10, max_bond=500, kickrank=5, verbosity=1, show_progress=true, pivot=MaxVolPivot())
 
 Two-site (DMRG-style) TT-cross interpolation (Savostyanov & Oseledets 2011).
 Each micro-step samples a two-core superblock, splits it with an SVD truncated
@@ -135,7 +135,7 @@ selects new pivots with the maxvol algorithm, so the ranks adapt to the function
   to explore beyond the truncated rank; `nothing` disables this.
 - `pivot::MaxVolPivot`: maxvol settings (`tol=1.05`, `maxiter=100`).
 """
-struct DMRGcross{T <: Real, P <: MaxVolPivot} <: CrossAlgorithm
+struct DMRGCross{T <: Real, P <: MaxVolPivot} <: CrossAlgorithm
     max_sweeps::Int
     tol::T
     max_bond::Int
@@ -145,7 +145,7 @@ struct DMRGcross{T <: Real, P <: MaxVolPivot} <: CrossAlgorithm
     pivot::P
 end
 
-function DMRGcross(;
+function DMRGCross(;
         max_sweeps::Int = CROSS_MAX_SWEEPS[],
         tol::Real = CROSS_TOL[],
         max_bond::Int = CROSS_MAX_BOND[],
@@ -154,7 +154,7 @@ function DMRGcross(;
         show_progress::Bool = true,
         pivot::MaxVolPivot = MaxVolPivot()
     )
-    return DMRGcross(max_sweeps, tol, max_bond, kickrank, verbosity, show_progress, pivot)
+    return DMRGCross(max_sweeps, tol, max_bond, kickrank, verbosity, show_progress, pivot)
 end
 
 """
@@ -172,11 +172,11 @@ grid by cross interpolation, evaluating `f` only at selected points.
 and it must return `n` values (any array that `vec` flattens to length `n`).
 The element type of the result is inferred from one evaluation of `f`.
 
-`alg` is one of [`MaxVol`](@ref), [`DMRGcross`](@ref), or [`Greedy`](@ref).
+`alg` is one of [`MaxVol`](@ref), [`DMRGCross`](@ref), or [`Greedy`](@ref).
 
 # Keyword arguments
 - `ranks::Union{Int,Vector{Int}}=2`: initial interior ranks (`MaxVol` and
-  `DMRGcross` only; `Greedy` always starts at rank 1).
+  `DMRGCross` only; `Greedy` always starts at rank 1).
 - `val_size::Int=1000`: number of random grid points used to measure the
   relative error `‖f − f̃‖ / ‖f‖` that is compared with `alg.tol`.
 
@@ -650,7 +650,7 @@ end
 function tt_cross(
         f::Function,
         domain::Vector{<:AbstractVector{T}},
-        alg::DMRGcross;
+        alg::DMRGCross;
         ranks::Union{Int, Vector{Int}} = 2,
         val_size::Int = 1000
     ) where {T <: Number}
@@ -685,12 +685,12 @@ function tt_cross(
     Xs_val = hcat([rand(1:Is[d], val_size) for d in 1:N]...)::Matrix{Int}
     ys_val = _evaluate_on_domain(f, domain, Xs_val)
 
-    alg.verbosity ≥ 2 && @info "DMRGcross cross-interpolation over $(N)D domain with $(prod(Is)) grid points"
+    alg.verbosity ≥ 2 && @info "DMRGCross cross-interpolation over $(N)D domain with $(prod(Is)) grid points"
 
     converged = false
     val_eps = Inf
 
-    progress = _solver_progress(alg.max_sweeps, alg.show_progress; desc = "DMRGcross")
+    progress = _solver_progress(alg.max_sweeps, alg.show_progress; desc = "DMRGCross")
     for iter in 1:alg.max_sweeps
         for k in 1:(N - 1)
             superblock = _sample_superblock(f, domain, I_l, I_g, k, Is, N)

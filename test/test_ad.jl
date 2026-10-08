@@ -129,15 +129,15 @@ end
     _, pullback = Zygote.pullback(
         (ac, bc) -> dot(build_tt(ac, A), build_tt(bc, B)), A.cores, B.cores
     )
-    a_dense = vec(ttv_to_tensor(A))
-    b_dense = vec(ttv_to_tensor(B))
+    a_dense = vec(tt_to_tensor(A))
+    b_dense = vec(tt_to_tensor(B))
 
     for seed in (1.0 + 0im, 1.0im, 0.3 - 0.7im)
         # Re(conj(seed) * dot(A, B)) supplies this cotangent: seed=1 and
         # seed=im are the real and imaginary objectives respectively.
         ga, gb = pullback(seed)
-        fa(ac) = real(conj(seed) * ladot(vec(ttv_to_tensor(build_tt(ac, A))), b_dense))
-        fb(bc) = real(conj(seed) * ladot(a_dense, vec(ttv_to_tensor(build_tt(bc, B)))))
+        fa(ac) = real(conj(seed) * ladot(vec(tt_to_tensor(build_tt(ac, A))), b_dense))
+        fb(bc) = real(conj(seed) * ladot(a_dense, vec(tt_to_tensor(build_tt(bc, B)))))
         @test sum(real(ladot(ga[k], da[k])) for k in eachindex(da)) ≈ fd_directional(fa, A.cores, da) rtol = 1.0e-5 atol = 1.0e-7
         @test sum(real(ladot(gb[k], db[k])) for k in eachindex(db)) ≈ fd_directional(fb, B.cores, db) rtol = 1.0e-5 atol = 1.0e-7
     end
@@ -178,8 +178,8 @@ using LinearAlgebra: norm as lanorm
         c = TTVector([randn(rng, T, d, 1, 1) for d in dims], dims, ones(Int, n + 1))
         dh = [randn(rng, T, size(core)) for core in H.cores]
         dp = [randn(rng, T, size(core)) for core in ψ.cores]
-        cdense = vec(ttv_to_tensor(c))
-        dense_output(hc, pc) = reshape(tto_to_tensor(build_tto(hc, H)), prod(dims), :) * vec(ttv_to_tensor(build_tt(pc, ψ)))
+        cdense = vec(tt_to_tensor(c))
+        dense_output(hc, pc) = reshape(tto_to_tensor(build_tto(hc, H)), prod(dims), :) * vec(tt_to_tensor(build_tt(pc, ψ)))
         value, pullback = Zygote.pullback(
             (hc, pc) -> dot(c, build_tto(hc, H) * build_tt(pc, ψ)), H.cores, ψ.cores
         )
@@ -220,8 +220,8 @@ end
         c = TTVector([randn(rng, T, d, 1, 1) for d in dims], dims, ones(Int, n + 1))
         dx = [randn(rng, T, size(core)) for core in x.cores]
         dy = [randn(rng, T, size(core)) for core in y.cores]
-        cdense = vec(ttv_to_tensor(c))
-        dense_output(xc, yc) = vec(ttv_to_tensor(build_tt(xc, x))) .* vec(ttv_to_tensor(build_tt(yc, y)))
+        cdense = vec(tt_to_tensor(c))
+        dense_output(xc, yc) = vec(tt_to_tensor(build_tt(xc, x))) .* vec(tt_to_tensor(build_tt(yc, y)))
         value, pullback = Zygote.pullback(
             (xc, yc) -> dot(c, hadamard(build_tt(xc, x), build_tt(yc, y))), x.cores, y.cores
         )
@@ -237,7 +237,7 @@ end
         # Both occurrences must contribute when a core is reused (Cookbook Theorem 20).
         square_loss(xc) = real(dot(c, hadamard(build_tt(xc, x), build_tt(xc, x))))
         gx = only(Zygote.gradient(square_loss, x.cores))
-        dense_square(xc) = real(ladot(cdense, vec(ttv_to_tensor(build_tt(xc, x))) .^ 2))
+        dense_square(xc) = real(ladot(cdense, vec(tt_to_tensor(build_tt(xc, x))) .^ 2))
         @test sum(real(ladot(gx[k], dx[k])) for k in 1:n) ≈ fd_directional(dense_square, x.cores, dx) rtol = 1.0e-5 atol = 1.0e-7
         Y, pullback_zero = rrule(hadamard, x, y)
         for seed in (ZeroTangent(), NoTangent(), Tangent{typeof(Y)}(; ttv_vec = ZeroTangent()))
@@ -271,8 +271,8 @@ end
         x = TTVector([randn(rng, T, dims[k], rx[k], rx[k + 1]) for k in 1:n], dims, rx)
         y = TTVector([randn(rng, T, dims[k], ry[k], ry[k + 1]) for k in 1:n], dims, ry)
         c = TTVector([randn(rng, T, d, 1, 1) for d in dims], dims, ones(Int, n + 1))
-        cdense = vec(ttv_to_tensor(c))
-        dense(cores, tmpl) = vec(ttv_to_tensor(build_tt(cores, tmpl)))
+        cdense = vec(tt_to_tensor(c))
+        dense(cores, tmpl) = vec(tt_to_tensor(build_tt(cores, tmpl)))
         dx = [randn(rng, T, size(core)) for core in x.cores]
         dy = [randn(rng, T, size(core)) for core in y.cores]
         complex_seeds = (1.0 + 0im, 1.0im, 0.3 - 0.7im)

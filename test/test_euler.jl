@@ -455,15 +455,15 @@ end
     A = -1.0 * (B' * B)                       # symmetric negative semidefinite
     Ad = reshape(tto_to_tensor(A), prod(dims), :)
     u₀ = rand_tt(dims, [1, 3, 3, 1])          # full TT ranks: ALS solves exactly
-    v₀ = vec(ttv_to_tensor(u₀))
+    v₀ = vec(tt_to_tensor(u₀))
     h = 0.1
     Id = Matrix(1.0I, prod(dims), prod(dims))
     ie = implicit_euler_method(A, u₀, u₀, [h]; alg = ALS(max_sweeps = 3), show_progress = false)
-    @test vec(ttv_to_tensor(ie)) ≈ (Id - h * Ad) \ v₀
+    @test vec(tt_to_tensor(ie)) ≈ (Id - h * Ad) \ v₀
     cn = crank_nicolson_method(A, u₀, u₀, [h]; alg = ALS(max_sweeps = 3), show_progress = false)
-    @test vec(ttv_to_tensor(cn)) ≈ (Id - (h / 2) * Ad) \ ((Id + (h / 2) * Ad) * v₀)
+    @test vec(tt_to_tensor(cn)) ≈ (Id - (h / 2) * Ad) \ ((Id + (h / 2) * Ad) * v₀)
     ee, info = euler_method(A, u₀, [h]; return_info = true, show_progress = false)
-    @test vec(ttv_to_tensor(ee)) ≈ (Id + h * Ad) * v₀
+    @test vec(tt_to_tensor(ee)) ≈ (Id + h * Ad) * v₀
     @test info.error < 1.0e-12
 end
 

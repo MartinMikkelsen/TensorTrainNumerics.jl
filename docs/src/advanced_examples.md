@@ -84,13 +84,13 @@ In code, the one-dimensional blocks are:
 ∂xx = -(1 / h^2) * Δ(d)                              # second derivative
 idd = id_tto(d)
 
-Mx = ttv_to_diag_tto(qtt_polynom([-μx, 1.0], d; a = a, b = b))
-My = ttv_to_diag_tto(qtt_polynom([-μy, 1.0], d; a = a, b = b))
+Mx = tt_to_diag_tto(qtt_polynomial([-μx, 1.0], d; a = a, b = b))
+My = tt_to_diag_tto(qtt_polynomial([-μy, 1.0], d; a = a, b = b))
 
 Mx
 ```
 
-Here `qtt_polynom([-μx, 1.0], d; a, b)` represents the sampled function $x-\mu_x$ in QTT format, and `ttv_to_diag_tto` turns it into a diagonal QTT operator. The output is the compact MPO summary produced by the tensor-train `show` method.
+Here `qtt_polynomial([-μx, 1.0], d; a, b)` represents the sampled function $x-\mu_x$ in QTT format, and `tt_to_diag_tto` turns it into a diagonal QTT operator. The output is the compact MPO summary produced by the tensor-train `show` method.
 
 ### 3. Assemble The Two-Dimensional Generator
 

@@ -10,8 +10,8 @@ h = (b - a) / (N - 1); rs = collect(range(a, b, N))
 # Discounted backward generator  L_FK = -θ M ∂_r + D ∂_rr - X
 ∂r = (1 / (2h)) * (shift(d) - (id_tto(d) - ∇(d)))      # central first derivative
 ∂rr = -(1 / h^2) * Δ(d)                                 # second derivative
-M = ttv_to_diag_tto(qtt_polynom([-μ, 1.0], d; a = a, b = b))   # diag(r-μ)  (drift)
-X = ttv_to_diag_tto(qtt_polynom([0.0, 1.0], d; a = a, b = b))  # diag(r)    (discount)
+M = tt_to_diag_tto(qtt_polynomial([-μ, 1.0], d; a = a, b = b))   # diag(r-μ)  (drift)
+X = tt_to_diag_tto(qtt_polynomial([0.0, 1.0], d; a = a, b = b))  # diag(r)    (discount)
 L_FK = -θ * (M * ∂r) + D * ∂rr - X
 
 # Terminal payoff P(r,0)=1, rank-enriched so ALS can grow the bond profile

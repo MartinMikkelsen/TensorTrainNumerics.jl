@@ -1,6 +1,6 @@
 using Test
 using TensorTrainNumerics
-import TensorTrainNumerics: rand_orthogonal, tto_to_ttv, ttv_to_tto
+import TensorTrainNumerics: rand_orthogonal, tto_to_tt, tt_to_tto
 using LinearAlgebra
 using Random
 
@@ -9,7 +9,7 @@ using Random
     xc = complex(x)
     xcc = complex(xc)
     @test xcc isa TTVector{ComplexF64}
-    @test ttv_to_tensor(xcc) == complex.(ttv_to_tensor(x))
+    @test tt_to_tensor(xcc) == complex.(tt_to_tensor(x))
     @test xc.ranks !== x.ranks
     @test xc.orthogonality !== x.orthogonality
 
@@ -304,7 +304,7 @@ end
     A = tensor_train_decomposition(tensor, 10)
 
 
-    B = ttv_decomp(tensor)
+    B = tt_decomp(tensor)
 
     size(A.tensors) == size(B.cores)
 
@@ -317,7 +317,7 @@ end
     A_rand = tensor_train_decomposition(tensor, 10)
 
 
-    B_rand = ttv_decomp(tensor)
+    B_rand = tt_decomp(tensor)
 
     size(A_rand.tensors) == size(B_rand.cores)
 
@@ -326,9 +326,9 @@ end
     end
 
     tensor_centered = randn(2, 3, 2)
-    tt_centered = ttv_decomp(tensor_centered; index = 2)
+    tt_centered = tt_decomp(tensor_centered; index = 2)
     @test tt_centered.orthogonality == [2, 2]
-    @test isapprox(ttv_to_tensor(tt_centered), tensor_centered; atol = 1.0e-10)
+    @test isapprox(tt_to_tensor(tt_centered), tensor_centered; atol = 1.0e-10)
 
 end
 
@@ -359,8 +359,8 @@ end
         @test isapprox(reshape(tto_to_tensor(A_tt), n, n), A_mat; rtol = 1.0e-10)
 
         v = randn(n)
-        v_tt = ttv_decomp(reshape(v, dims...))
-        Av = ttv_to_tensor(A_tt * v_tt)
+        v_tt = tt_decomp(reshape(v, dims...))
+        Av = tt_to_tensor(A_tt * v_tt)
         @test isapprox(vec(Av), A_mat * v; rtol = 1.0e-10)
     end
 
@@ -481,12 +481,12 @@ end
         # rank cap finds the exact rank-1 structure
         t1 = tt_compress!(copy(tt), 1)
         @test t1.ranks[2] == 1
-        @test ttv_to_tensor(t1) ≈ expected
+        @test tt_to_tensor(t1) ≈ expected
 
         # tolerance-based rounding detects the zero singular value on its own
         t2 = tt_round!(copy(tt); trunc_tol = 1.0e-13)
         @test t2.ranks[2] == 1
-        @test ttv_to_tensor(t2) ≈ expected
+        @test tt_to_tensor(t2) ≈ expected
     end
 end
 
@@ -588,7 +588,7 @@ end
             for ε in (0.0, 1.0e-3)
                 x = orthogonalize(rand_tt(T, (2, 2, 2), [1, 2, 2, 1]); i = 2)
                 before = copy(x)
-                dense = ttv_to_tensor(x)
+                dense = tt_to_tensor(x)
                 y = rand_tt(x; ε)
                 y.cores[1][1, 1, 1] += one(T)
                 tt_round!(y; max_bond = 1)
@@ -604,7 +604,7 @@ end
             dense = tto_to_tensor(A)
             ranks = copy(A.ranks)
             flags = copy(A.orthogonality)
-            x = tto_to_ttv(A)
+            x = tto_to_tt(A)
             x.cores[1][1, 1, 1] += one(T)
             x.orthogonality[1] = 2
             @test tto_to_tensor(A) == dense
@@ -618,13 +618,13 @@ end
         @testset "vector to operator: $T" begin
             x = rand_tt(T, (4, 4, 4), [1, 2, 2, 1])
             before = copy(x)
-            A = ttv_to_tto(x)
+            A = tt_to_tto(x)
             A.cores[1][1, 1, 1, 1] += one(T)
             A.orthogonality[1] = 2
             @test x.cores == before.cores
             @test x.orthogonality == before.orthogonality
 
-            A = ttv_to_tto(x)
+            A = tt_to_tto(x)
             dense = tto_to_tensor(A)
             tt_round!(x; max_bond = 1)
             @test A.ranks == before.ranks
@@ -678,7 +678,7 @@ end
     @test !all(isapprox(tt_noisy1.cores[i], tt_noisy2.cores[i]) for i in eachindex(tt.cores))
 end
 
-@testset "tto_to_ttv conversion" begin
+@testset "tto_to_tt conversion" begin
     @testset "basic conversion preserves structure" begin
         N = 3
         dims = (2, 3, 2)
@@ -686,7 +686,7 @@ end
         tto_vec = [randn(2, 2, 1, 2), randn(3, 3, 2, 3), randn(2, 2, 3, 1)]
         tto = TTOperator{Float64, 3}(tto_vec, dims, rks)
 
-        ttv = tto_to_ttv(tto)
+        ttv = tto_to_tt(tto)
 
         @test nsites(ttv) == nsites(tto)
         @test ttv.dims == tto.row_dims .^ 2
@@ -702,7 +702,7 @@ end
         tto_vec = [randn(2, 2, 1, 2), randn(3, 3, 2, 1)]
         tto = TTOperator{Float64, 2}(tto_vec, dims, rks)
 
-        ttv = tto_to_ttv(tto)
+        ttv = tto_to_tt(tto)
 
         for i in 1:N
             @test size(ttv.cores[i], 1) == dims[i]^2
@@ -718,7 +718,7 @@ end
         tto_vec = [randn(2, 2, 1, 2), randn(2, 2, 2, 1)]
         tto = TTOperator{Float64, 2}(tto_vec, dims, rks)
 
-        ttv = tto_to_ttv(tto)
+        ttv = tto_to_tt(tto)
 
         for i in 1:N
             tto_flat = reshape(tto.cores[i], dims[i]^2, rks[i], rks[i + 1])
@@ -733,7 +733,7 @@ end
         tto_vec_f32 = [randn(Float32, 2, 2, 1, 2), randn(Float32, 2, 2, 2, 1)]
         tto_f32 = TTOperator{Float32, 2}(tto_vec_f32, dims, rks)
 
-        ttv_f32 = tto_to_ttv(tto_f32)
+        ttv_f32 = tto_to_tt(tto_f32)
 
         @test eltype(ttv_f32) == Float32
         @test all(eltype(core) == Float32 for core in ttv_f32.cores)
@@ -746,7 +746,7 @@ end
         tto_vec = [randn(2, 2, 1, 2), randn(2, 2, 2, 2), randn(2, 2, 2, 1)]
         tto = TTOperator{Float64, 3}(tto_vec, dims, rks; orthogonality = (2, 2))
 
-        ttv = tto_to_ttv(tto)
+        ttv = tto_to_tt(tto)
 
         @test ttv.orthogonality == tto.orthogonality
     end
@@ -758,7 +758,7 @@ end
         tto_vec = [randn(3, 3, 1, 1)]
         tto = TTOperator{Float64, 1}(tto_vec, dims, rks)
 
-        ttv = tto_to_ttv(tto)
+        ttv = tto_to_tt(tto)
 
         @test nsites(ttv) == 1
         @test ttv.dims == (9,)
@@ -772,7 +772,7 @@ end
         tto_vec = [randn(2, 2, rks[i], rks[i + 1]) for i in 1:N]
         tto = TTOperator{Float64, 4}(tto_vec, dims, rks)
 
-        ttv = tto_to_ttv(tto)
+        ttv = tto_to_tt(tto)
 
         @test nsites(ttv) == 4
         @test all(ttv.dims .== 4)
@@ -780,7 +780,7 @@ end
     end
 end
 
-@testset "ttv_to_tto conversion" begin
+@testset "tt_to_tto conversion" begin
     @testset "basic conversion preserves structure" begin
         N = 3
         dims = (4, 9, 16)
@@ -788,7 +788,7 @@ end
         ttv_vec = [randn(4, 1, 2), randn(9, 2, 3), randn(16, 3, 1)]
         ttv = TTVector{Float64, 3}(ttv_vec, dims, rks)
 
-        tto = ttv_to_tto(ttv)
+        tto = tt_to_tto(ttv)
 
         @test nsites(tto) == nsites(ttv)
         @test tto.row_dims == (2, 3, 4)
@@ -804,7 +804,7 @@ end
         ttv_vec = [randn(4, 1, 2), randn(9, 2, 1)]
         ttv = TTVector{Float64, 2}(ttv_vec, dims, rks)
 
-        tto = ttv_to_tto(ttv)
+        tto = tt_to_tto(ttv)
 
         @test size(tto.cores[1]) == (2, 2, 1, 2)
         @test size(tto.cores[2]) == (3, 3, 2, 1)
@@ -817,7 +817,7 @@ end
         ttv_vec = [randn(4, 1, 2), randn(4, 2, 1)]
         ttv = TTVector{Float64, 2}(ttv_vec, dims, rks)
 
-        tto = ttv_to_tto(ttv)
+        tto = tt_to_tto(ttv)
 
         for i in 1:N
             ttv_flat = reshape(ttv.cores[i], isqrt(dims[i]), isqrt(dims[i]), rks[i], rks[i + 1])
@@ -832,7 +832,7 @@ end
         ttv_vec_f32 = [randn(Float32, 4, 1, 2), randn(Float32, 4, 2, 1)]
         ttv_f32 = TTVector{Float32, 2}(ttv_vec_f32, dims, rks)
 
-        tto_f32 = ttv_to_tto(ttv_f32)
+        tto_f32 = tt_to_tto(ttv_f32)
 
         @test eltype(tto_f32) == Float32
         @test all(eltype(core) == Float32 for core in tto_f32.cores)
@@ -845,7 +845,7 @@ end
         ttv_vec = [randn(4, 1, 2), randn(4, 2, 2), randn(4, 2, 1)]
         ttv = TTVector{Float64, 3}(ttv_vec, dims, rks; orthogonality = (2, 2))
 
-        tto = ttv_to_tto(ttv)
+        tto = tt_to_tto(ttv)
 
         @test tto.orthogonality == ttv.orthogonality
     end
@@ -857,7 +857,7 @@ end
         ttv_vec = [randn(9, 1, 1)]
         ttv = TTVector{Float64, 1}(ttv_vec, dims, rks)
 
-        tto = ttv_to_tto(ttv)
+        tto = tt_to_tto(ttv)
 
         @test nsites(tto) == 1
         @test tto.row_dims == (3,)
@@ -871,7 +871,7 @@ end
         ttv_vec = [randn(4, 1, 2), randn(5, 2, 1)]
         ttv = TTVector{Float64, 2}(ttv_vec, dims, rks)
 
-        @test_throws AssertionError ttv_to_tto(ttv)
+        @test_throws AssertionError tt_to_tto(ttv)
     end
 
     @testset "large operator conversion" begin
@@ -881,7 +881,7 @@ end
         ttv_vec = [randn(4, rks[i], rks[i + 1]) for i in 1:N]
         ttv = TTVector{Float64, 4}(ttv_vec, dims, rks)
 
-        tto = ttv_to_tto(ttv)
+        tto = tt_to_tto(ttv)
 
         @test nsites(tto) == 4
         @test tto.row_dims == (2, 2, 2, 2)
@@ -895,22 +895,22 @@ end
         ttv_vec = [randn(ComplexF64, 4, 1, 2), randn(ComplexF64, 9, 2, 1)]
         ttv = TTVector{ComplexF64, 2}(ttv_vec, dims, rks)
 
-        tto = ttv_to_tto(ttv)
+        tto = tt_to_tto(ttv)
 
         @test eltype(tto) == ComplexF64
         @test tto.row_dims == (2, 3)
         @test all(eltype(core) == ComplexF64 for core in tto.cores)
     end
 
-    @testset "round-trip conversion tto_to_ttv → ttv_to_tto" begin
+    @testset "round-trip conversion tto_to_tt → tt_to_tto" begin
         N = 2
         dims = (2, 3)
         rks = [1, 2, 1]
         tto_vec = [randn(2, 2, 1, 2), randn(3, 3, 2, 1)]
         tto_orig = TTOperator{Float64, 2}(tto_vec, dims, rks)
 
-        ttv = tto_to_ttv(tto_orig)
-        tto_back = ttv_to_tto(ttv)
+        ttv = tto_to_tt(tto_orig)
+        tto_back = tt_to_tto(ttv)
 
         @test nsites(tto_back) == nsites(tto_orig)
         @test tto_back.row_dims == tto_orig.row_dims
@@ -922,16 +922,16 @@ end
     end
 end
 
-@testset "ttv_to_tensor roundtrip" begin
+@testset "tt_to_tensor roundtrip" begin
     tensor = rand(3, 4, 5)
-    tt = ttv_decomp(tensor)
-    @test isapprox(ttv_to_tensor(tt), tensor; atol = 1.0e-12)
+    tt = tt_decomp(tensor)
+    @test isapprox(tt_to_tensor(tt), tensor; atol = 1.0e-12)
 
     # Rank-1 trivial case
     v = rand(Float64, 4)
     core = reshape(v, 4, 1, 1)
     tt1 = TTVector{Float64, 1}([core], (4,), [1, 1])
-    @test vec(ttv_to_tensor(tt1)) ≈ v
+    @test vec(tt_to_tensor(tt1)) ≈ v
 end
 
 @testset "tto_to_tensor" begin
@@ -947,11 +947,11 @@ end
     @test size(M1) == (3, 3)
 end
 
-@testset "r_and_d_to_rks" begin
+@testset "admissible_ranks" begin
     dims = (2, 3, 4)
     # Request ranks higher than the matrix rank bound
     rks_in = [1, 100, 100, 1]
-    rks_out = r_and_d_to_rks(rks_in, dims)
+    rks_out = admissible_ranks(rks_in, dims)
     @test rks_out[1] == 1
     @test rks_out[end] == 1
     # rank[2] ≤ min(prod(dims[1:1]), prod(dims[2:3])) = min(2, 12) = 2
@@ -961,22 +961,22 @@ end
 
     # Requested ranks below bounds are preserved
     rks_small = [1, 1, 1, 1]
-    @test r_and_d_to_rks(rks_small, dims) == [1, 1, 1, 1]
+    @test admissible_ranks(rks_small, dims) == [1, 1, 1, 1]
 
-    @test r_and_d_to_rks([5, 5, 5], (0, 2); rmax = 4) == [1, 2, 1]
-    @test r_and_d_to_rks([5, 5, 5], (0, 0); rmax = 4) == [1, 4, 1]
+    @test admissible_ranks([5, 5, 5], (0, 2); max_bond = 4) == [1, 2, 1]
+    @test admissible_ranks([5, 5, 5], (0, 0); max_bond = 4) == [1, 4, 1]
 end
 
 @testset "increase_ranks preserves represented tensor and validates rank growth" begin
     dims = (2, 2, 2)
     tt = rand_tt(dims, [1, 1, 1, 1])
-    dense = ttv_to_tensor(tt)
+    dense = tt_to_tensor(tt)
 
     enlarged = TensorTrainNumerics.increase_ranks(tt, 3; noise = 0.0)
     @test enlarged isa TTVector{Float64, 3}
     @test maximum(enlarged.ranks) <= 3
     @test maximum(enlarged.ranks) > maximum(tt.ranks)
-    @test ttv_to_tensor(enlarged) ≈ dense
+    @test tt_to_tensor(enlarged) ≈ dense
 
     noisy = TensorTrainNumerics.increase_ranks(tt, 2; noise = 1.0e-3)
     @test noisy isa TTVector{Float64, 3}
@@ -1001,13 +1001,13 @@ end
 @testset "orthogonalize" begin
     dims = (2, 3, 4)
     tt = rand_tt(dims, [1, 2, 3, 1])
-    original_tensor = ttv_to_tensor(tt)
+    original_tensor = tt_to_tensor(tt)
 
     for center in 1:3
         orth = orthogonalize(tt; i = center)
 
         # Reconstruction is preserved
-        @test isapprox(ttv_to_tensor(orth), original_tensor; atol = 1.0e-12)
+        @test isapprox(tt_to_tensor(orth), original_tensor; atol = 1.0e-12)
 
         @test orth.orthogonality == [center, center]
 
@@ -1036,14 +1036,14 @@ end
     bell_tensor = zeros(Float64, 2, 2)
     bell_tensor[1, 1] = inv(sqrt(2))
     bell_tensor[2, 2] = inv(sqrt(2))
-    bell_state = ttv_decomp(bell_tensor)
+    bell_state = tt_decomp(bell_tensor)
     @test entanglement_entropy(bell_state) ≈ [log(2)]
     @test entanglement_entropy(bell_state; base = 2) ≈ [1.0]
 
     ghz_tensor = zeros(ComplexF64, 2, 2, 2)
     ghz_tensor[1, 1, 1] = inv(sqrt(2))
     ghz_tensor[2, 2, 2] = im / sqrt(2)
-    ghz_state = ttv_decomp(ghz_tensor)
+    ghz_state = tt_decomp(ghz_tensor)
     @test entanglement_entropy(ghz_state) ≈ fill(log(2), 2)
 end
 
@@ -1107,9 +1107,9 @@ end
 
 @testset "ones_tt" begin
     o = TensorTrainNumerics.ones_tt(2, 3)
-    @test ttv_to_tensor(o) ≈ ones(2, 2, 2)
+    @test tt_to_tensor(o) ≈ ones(2, 2, 2)
     o2 = TensorTrainNumerics.ones_tt(Float64, (2, 3))
-    @test ttv_to_tensor(o2) ≈ ones(2, 3)
+    @test tt_to_tensor(o2) ≈ ones(2, 3)
 end
 
 @testset "tt_round!" begin
@@ -1132,9 +1132,9 @@ end
 
     # exact rounding with tol = 0 and no cap preserves the tensor
     w = rand_tt((2, 3, 2, 3), 3; normalize = true)
-    before_w = ttv_to_tensor(w)
+    before_w = tt_to_tensor(w)
     tt_round!(w)
-    @test ttv_to_tensor(w) ≈ before_w
+    @test tt_to_tensor(w) ≈ before_w
 
     # non-mutating variant leaves the input untouched
     v = qtt_sin(d) + 0.0 * rand_tt(y.dims, 5)
@@ -1158,7 +1158,7 @@ end
     Random.seed!(5)
     dims = (2, 3, 4)
     x = rand_tt(dims, [1, 2, 3, 1])
-    dense = ttv_to_tensor(x)
+    dense = tt_to_tensor(x)
     for t in CartesianIndices(dense)
         v = x.cores[1][t[1], :, :] * x.cores[2][t[2], :, :] * x.cores[3][t[3], :, :]
         @test dense[t] ≈ v[1, 1]
@@ -1174,8 +1174,8 @@ end
 
 @testset "matricize agrees with dense extraction" begin
     d = 5
-    x = qtt_sin(d) + qtt_polynom([0.5, 1.0], d)
-    dense = ttv_to_tensor(x)
+    x = qtt_sin(d) + qtt_polynomial([0.5, 1.0], d)
+    dense = tt_to_tensor(x)
     for core in (2, d)
         vals = matricize(x, core)
         @test length(vals) == 2^core
@@ -1287,7 +1287,7 @@ end
         tensor = randn(dims)
         for i in 1:4
             @test verified_orthogonality(orthogonalize(x; i)) == (i, i)
-            @test verified_orthogonality(ttv_decomp(tensor; index = i)) == (i, i)
+            @test verified_orthogonality(tt_decomp(tensor; index = i)) == (i, i)
             @test verified_orthogonality(2.0 * orthogonalize(x; i)) == (i, i)
             @test verified_orthogonality(reverse_qtt_bits(orthogonalize(x; i))) == (5 - i, 5 - i)
         end
@@ -1354,7 +1354,7 @@ end
     x = rand_tt(col_dims, 2)
     y = A * x
     @test y.dims == row_dims
-    @test vec(ttv_to_tensor(y)) ≈ Amat * vec(ttv_to_tensor(x))
+    @test vec(tt_to_tensor(y)) ≈ Amat * vec(tt_to_tensor(x))
     @test_throws AssertionError A * rand_tt(row_dims, 2)
 
     At = A'
@@ -1377,7 +1377,7 @@ end
     @test back.row_dims == row_dims
     @test back.col_dims == col_dims
     @test tto_to_tensor(back) ≈ dense
-    @test tto_to_ttv(A).dims == row_dims .* col_dims
+    @test tto_to_tt(A).dims == row_dims .* col_dims
 
     K = kron(A, At)
     @test K.row_dims == (row_dims..., col_dims...)

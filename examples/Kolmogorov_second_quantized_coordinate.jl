@@ -6,7 +6,7 @@ bits = 8; N = 2^bits; lo, hi = -4.0, 4.0
 h = (hi - lo) / (N - 1); q = 1.0
 max_bond = 8; trunc_tol = 1.0e-8
 
-X = ttv_to_diag_tto(qtt_polynom([0.0, 1.0], bits; a = lo, b = hi))   # diag(x)
+X = tt_to_diag_tto(qtt_polynomial([0.0, 1.0], bits; a = lo, b = hi))   # diag(x)
 D = (1 / (2h)) * (shift(bits) - (id_tto(bits) - ∇(bits)))            # central ∂ₓ
 a = (1 / sqrt(2)) * (X + D); adag = (1 / sqrt(2)) * (X - D)          # ladder operators
 I = id_tto(bits)

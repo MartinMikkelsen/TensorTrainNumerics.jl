@@ -268,7 +268,7 @@ end
 
             for T in (Float64, ComplexF64)
                 values = T <: Complex ? sin.(1:n) + im * cos.(2 .* (1:n)) : sin.(1:n)
-                x = ttv_decomp(reshape(values, ntuple(_ -> 2, d)))
+                x = tt_decomp(reshape(values, ntuple(_ -> 2, d)))
                 expected = reference * qtt_to_function(x)
                 y = A * x
                 @test first(y.ranks) == last(y.ranks) == 1
@@ -559,5 +559,5 @@ end
     @test A.row_dims == (3, 3)
     @test all(size(c) == (3, 3, 1, 1) for c in A.cores)
     v = rand_tt((3, 3), [1, 2, 1])
-    @test ttv_to_tensor(A * v) ≈ ttv_to_tensor(v)
+    @test tt_to_tensor(A * v) ≈ tt_to_tensor(v)
 end

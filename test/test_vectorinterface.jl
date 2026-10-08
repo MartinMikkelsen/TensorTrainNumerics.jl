@@ -5,7 +5,7 @@ using Random
 using TensorTrainNumerics
 using VectorInterface
 
-_dense(x::TTVector) = vec(ttv_to_tensor(x))
+_dense(x::TTVector) = vec(tt_to_tensor(x))
 
 mutable struct BlockingIdentityOperator <: AbstractTTOperator
     entered::Channel{Nothing}
@@ -335,8 +335,8 @@ end
         x = rand_tt(dims, [1, 2, 2, 2, 1])
         y = rand_tt(dims, [1, 2, 2, 2, 1])
         z = VectorInterface.add(x, y)
-        expected = vec(ttv_to_tensor(x)) + vec(ttv_to_tensor(y))
-        actual = vec(ttv_to_tensor(z))
+        expected = vec(tt_to_tensor(x)) + vec(tt_to_tensor(y))
+        actual = vec(tt_to_tensor(z))
 
         @test norm(actual - expected) / norm(expected) < 1.0e-12
     finally
@@ -354,7 +354,7 @@ end
     A = id_tto(3)
     b = rand_tt(dims, ranks)
     guess = zeros_tt(Float64, dims, ranks)
-    expected = vec(ttv_to_tensor(b))
+    expected = vec(tt_to_tensor(b))
 
     for solver in (:cg, :gmres, :bicgstab)
         x = linear_solve(
@@ -371,7 +371,7 @@ end
                 isposdef = true,
             ),
         )
-        actual = vec(ttv_to_tensor(x))
+        actual = vec(tt_to_tensor(x))
 
         @test norm(actual - expected) / norm(expected) < 1.0e-12
         @test maximum(x.ranks) <= 2
@@ -384,15 +384,15 @@ end
     ranks = [1, 2, 2, 1]
     source = rand_tt(dims, ranks)
     destination = rand_tt(dims, ranks)
-    destination_before = vec(ttv_to_tensor(destination))
-    source_dense = vec(ttv_to_tensor(source))
+    destination_before = vec(tt_to_tensor(destination))
+    source_dense = vec(tt_to_tensor(source))
     bounded_source = TensorTrainNumerics._RankBoundedTTVector(source, 2)
     bounded_destination = TensorTrainNumerics._RankBoundedTTVector(destination, 2)
 
     added = VectorInterface.add!(bounded_destination, bounded_source, 0.25, 0.5)
 
     @test added.tt === bounded_destination.tt
-    @test vec(ttv_to_tensor(bounded_destination.tt)) ≈ 0.5 * destination_before + 0.25 * source_dense
+    @test vec(tt_to_tensor(bounded_destination.tt)) ≈ 0.5 * destination_before + 0.25 * source_dense
     @test maximum(bounded_destination.tt.ranks) <= 2
 
     scaled_destination = zeros_tt(Float64, dims, ranks)
@@ -400,6 +400,6 @@ end
     scaled = VectorInterface.scale!(bounded_scaled, bounded_source, 1.5)
 
     @test scaled.tt === bounded_scaled.tt
-    @test vec(ttv_to_tensor(bounded_scaled.tt)) ≈ 1.5 * source_dense
+    @test vec(tt_to_tensor(bounded_scaled.tt)) ≈ 1.5 * source_dense
     @test maximum(bounded_scaled.tt.ranks) <= 2
 end

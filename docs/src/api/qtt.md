@@ -18,7 +18,7 @@ qtt_to_function
 qtt_to_vector
 tensor_to_grid
 matricize
-qtt_polynom
+qtt_polynomial
 qtt_sin
 qtt_cos
 qtt_exp

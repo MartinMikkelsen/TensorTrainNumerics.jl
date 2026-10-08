@@ -551,19 +551,19 @@ function _identity_like(A::AbstractTTOperator)
 end
 
 """
-    rand_tto(dims, rmax::Int; T=Float64) -> TTOperator
+    rand_tto(dims, max_bond::Int; T=Float64) -> TTOperator
 
 Return a random [`TTOperator`](@ref) with physical dimensions `dims` and entries
-drawn from `randn`. Every interior rank is `rmax`, reduced where the dimensions
+drawn from `randn`. Every interior rank is `max_bond`, reduced where the dimensions
 force a smaller rank.
 """
-function rand_tto(dims, rmax::Int; T = Float64)
+function rand_tto(dims, max_bond::Int; T = Float64)
     d = length(dims)
     tt_vec = Vector{Array{T, 4}}(undef, d)
     rks = ones(Int, d + 1)
     for i in eachindex(tt_vec)
-        ri = min(prod(dims[1:(i - 1)]), prod(dims[i:d]), rmax)
-        rip = min(prod(dims[1:i]), prod(dims[(i + 1):d]), rmax)
+        ri = min(prod(dims[1:(i - 1)]), prod(dims[i:d]), max_bond)
+        rip = min(prod(dims[1:i]), prod(dims[(i + 1):d]), max_bond)
         rks[i + 1] = rip
         tt_vec[i] = randn(T, dims[i], dims[i], ri, rip)
     end
@@ -571,41 +571,41 @@ function rand_tto(dims, rmax::Int; T = Float64)
 end
 
 """
-    zeros_tt([T=Float64,] dims, rks; orthogonality=(1, length(dims))) -> TTVector
-    zeros_tt(n::Integer, d::Integer, r; orthogonality=(1, d), r_and_d=true) -> TTVector
+    zeros_tt([T=Float64,] dims, ranks; orthogonality=(1, length(dims))) -> TTVector
+    zeros_tt(n::Integer, d::Integer, r; orthogonality=(1, d), admissible=true) -> TTVector
 
 Return a [`TTVector`](@ref) with element type `T`, physical dimensions `dims`,
-TT ranks `rks` (length `length(dims) + 1`), and all cores zero. `orthogonality`
+TT ranks `ranks` (length `length(dims) + 1`), and all cores zero. `orthogonality`
 sets the orthogonality interval `(left, right)` recorded on the result.
 
 The second form uses `d` sites of dimension `n` and interior ranks `r`. With
-`r_and_d = true`, ranks are reduced where the dimensions force a smaller rank
-(see [`r_and_d_to_rks`](@ref)); otherwise every interior rank is `r`.
+`admissible = true`, ranks are reduced where the dimensions force a smaller rank
+(see [`admissible_ranks`](@ref)); otherwise every interior rank is `r`.
 """
-function zeros_tt(dims, rks; kwargs...)
-    return zeros_tt(Float64, dims, rks; kwargs...)
+function zeros_tt(dims, ranks; kwargs...)
+    return zeros_tt(Float64, dims, ranks; kwargs...)
 end
 
-function zeros_tt(::Type{T}, dims::NTuple{N, Int64}, rks; orthogonality = (1, N)) where {T, N}
-    @assert length(dims) + 1 == length(rks) "Dimensions and ranks are not compatible"
-    tt_vec = [zeros(T, dims[i], rks[i], rks[i + 1]) for i in eachindex(dims)]
-    rks_vec = collect(Int64, rks)
-    return TTVector{T, N}(tt_vec, dims, rks_vec; orthogonality)
+function zeros_tt(::Type{T}, dims::NTuple{N, Int64}, ranks; orthogonality = (1, N)) where {T, N}
+    @assert length(dims) + 1 == length(ranks) "Dimensions and ranks are not compatible"
+    tt_vec = [zeros(T, dims[i], ranks[i], ranks[i + 1]) for i in eachindex(dims)]
+    ranks_vec = collect(Int64, ranks)
+    return TTVector{T, N}(tt_vec, dims, ranks_vec; orthogonality)
 end
 
-function zeros_tt(n::Integer, d::Integer, r; r_and_d = true, kwargs...)
+function zeros_tt(n::Integer, d::Integer, r; admissible = true, kwargs...)
     dims = ntuple(x -> n, d)
-    if r_and_d
-        rks = r_and_d_to_rks(r * ones(Int64, d + 1), dims)
+    if admissible
+        ranks = admissible_ranks(r * ones(Int64, d + 1), dims)
     else
-        rks = r * ones(Int64, d + 1)
-        rks[1], rks[end] = 1, 1
+        ranks = r * ones(Int64, d + 1)
+        ranks[1], ranks[end] = 1, 1
     end
-    return zeros_tt(Float64, dims, rks; kwargs...)
+    return zeros_tt(Float64, dims, ranks; kwargs...)
 end
 
-function zeros_tt(::Type{T}, dims::Vector{Int}, rks::Vector{Int}; kwargs...) where {T}
-    return zeros_tt(T, Tuple(dims), Tuple(rks); kwargs...)
+function zeros_tt(::Type{T}, dims::Vector{Int}, ranks::Vector{Int}; kwargs...) where {T}
+    return zeros_tt(T, Tuple(dims), Tuple(ranks); kwargs...)
 end
 
 function zeros_tt!(A::TTVector)
@@ -633,33 +633,33 @@ function ones_tt(n::Integer, d::Integer)
 end
 
 """
-    zeros_tto([T=Float64,] dims, rks) -> TTOperator
-    zeros_tto(T, row_dims, col_dims, rks) -> TTOperator
+    zeros_tto([T=Float64,] dims, ranks) -> TTOperator
+    zeros_tto(T, row_dims, col_dims, ranks) -> TTOperator
     zeros_tto(n, d, r) -> TTOperator
 
-Return a [`TTOperator`](@ref) with element type `T`, TT ranks `rks`, and all
+Return a [`TTOperator`](@ref) with element type `T`, TT ranks `ranks`, and all
 cores zero. The first form is square with physical dimensions `dims`; the
 second takes row and column dimensions separately. The third form uses `d`
 sites of dimension `n` and interior ranks `r`, reduced where the dimensions
 force a smaller rank.
 """
-function zeros_tto(dims, rks)
-    return zeros_tto(Float64, dims, rks)
+function zeros_tto(dims, ranks)
+    return zeros_tto(Float64, dims, ranks)
 end
 
-zeros_tto(::Type{T}, dims::NTuple{N, Int64}, rks) where {T, N} = zeros_tto(T, dims, dims, rks)
+zeros_tto(::Type{T}, dims::NTuple{N, Int64}, ranks) where {T, N} = zeros_tto(T, dims, dims, ranks)
 
-function zeros_tto(::Type{T}, row_dims::NTuple{N, Int64}, col_dims::NTuple{N, Int64}, rks) where {T, N}
-    @assert N + 1 == length(rks) "Dimensions and ranks are not compatible"
-    vec = [zeros(T, row_dims[i], col_dims[i], rks[i], rks[i + 1]) for i in 1:N]
-    return TTOperator{T, N}(vec, row_dims, col_dims, rks)
+function zeros_tto(::Type{T}, row_dims::NTuple{N, Int64}, col_dims::NTuple{N, Int64}, ranks) where {T, N}
+    @assert N + 1 == length(ranks) "Dimensions and ranks are not compatible"
+    vec = [zeros(T, row_dims[i], col_dims[i], ranks[i], ranks[i + 1]) for i in 1:N]
+    return TTOperator{T, N}(vec, row_dims, col_dims, ranks)
 end
 
 function zeros_tto(n, d, r)
     dims = ntuple(x -> n, d)
-    rks = r * ones(Int64, d + 1)
-    rks = r_and_d_to_rks(rks, dims .^ 2; rmax = r)
-    return zeros_tto(Float64, dims, rks)
+    ranks = r * ones(Int64, d + 1)
+    ranks = admissible_ranks(ranks, dims .^ 2; max_bond = r)
+    return zeros_tto(Float64, dims, ranks)
 end
 
 """

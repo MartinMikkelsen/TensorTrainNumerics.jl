@@ -46,14 +46,14 @@ domain = [collect(range(0.0, π, length = n)) for _ in 1:d]
 
 tt_maxvol = tt_cross(sin_6d, domain, MaxVol(tol = 1.0e-12, verbosity = 2); ranks = 25);
 
-tt_dmrg = tt_cross(sin_6d, domain, DMRGcross(tol = 1.0e-8, max_sweeps = 25, verbosity = 2); ranks = 4);
+tt_dmrg = tt_cross(sin_6d, domain, DMRGCross(tol = 1.0e-8, max_sweeps = 25, verbosity = 2); ranks = 4);
 
 tt_greedy = tt_cross(sin_6d, domain, Greedy(tol = 1.0e-12, verbosity = 2));
 
 println("\nResulting TT ranks: $(tt_greedy.ranks)")
 
 println("\nConverting TT back to full tensor...")
-tensor_approx = ttv_to_tensor(tt_greedy);
+tensor_approx = tt_to_tensor(tt_greedy);
 
 println("Building reference tensor...")
 tensor_exact = zeros(Float64, ntuple(_ -> n, d));

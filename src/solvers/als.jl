@@ -115,12 +115,12 @@ function K_eigmin(Gi::Array{T, 5}, Hi::Array{T, 3}, ttv_vec::Array{T, 3}; local_
     end
 end
 
-function K_eiggenmin(Gi, Hi, Ki, Li, ttv_vec; it_solver = false, itslv_thresh = 2500)
+function K_eiggenmin(Gi, Hi, Ki, Li, ttv_vec; local_solver::Symbol = :auto, local_threshold::Int = 2500)
     @tensor begin
         K[a, b, c, d, e, f] := Gi[d, e, a, b, z] * Hi[z, f, c] #size (ni,rim,ri,ni,rim,ri)
         S[a, b, c, d, e, f] := Ki[d, e, a, b, z] * Li[z, f, c] #size (ni,rim,ri,ni,rim,ri)
     end
-    if it_solver || prod(size(K)[1:3]) > itslv_thresh
+    if _use_iterative(local_solver, prod(size(K)[1:3]), local_threshold)
         r = lobpcg(reshape(K, prod(size(K)[1:3]), :), reshape(S, prod(size(S)[1:3]), :), false, ttv_vec[:], 1; maxiter = 500, tol = 1.0e-8)
         return r.λ[1], reshape(r.X[:, 1], size(K)[1:3])
     else
@@ -281,7 +281,7 @@ function eigen_solve(A::AbstractTTOperator, guess::AbstractTTVector, alg::ALS)
 end
 
 """
-    als_gen_eigsolve(A, S, tt_start; sweep_schedule, rmax_schedule, tol, it_solver, itslv_thresh)
+    als_gen_eigsolve(A, S, tt_start; sweep_schedule, max_bond, tol, local_solver, local_threshold)
 
 Find the smallest generalized eigenpair `Ax = λ S x` using the ALS algorithm.
 
@@ -292,10 +292,11 @@ Find the smallest generalized eigenpair `Ax = λ S x` using the ALS algorithm.
 
 # Keyword arguments
 - `sweep_schedule::Vector{Int}=[2]`: sweep count at which each rank stage ends.
-- `rmax_schedule::Vector{Int}`: maximum bond dimension at each stage.
+- `max_bond::Vector{Int}`: maximum bond dimension at each stage.
 - `tol::Float64=1e-10`: tolerance for the local generalized eigensolver.
-- `it_solver::Bool=false`: use an iterative solver for local subproblems.
-- `itslv_thresh::Int=2500`: local problem size above which iterative solve activates.
+- `local_solver::Symbol=:auto`: solver for the local eigenproblems: `:direct`,
+  `:iterative`, or `:auto` (direct up to `local_threshold` unknowns).
+- `local_threshold::Int=2500`: local problem size above which `:auto` solves iteratively.
 
 # Returns
 `(E, tt_opt)` where `E` is the eigenvalue history and `tt_opt` is the approximate
@@ -303,8 +304,8 @@ eigenvector, or `nothing` if the schedule is exhausted without a final return.
 """
 function als_gen_eigsolve(
         A::AbstractTTOperator, S::AbstractTTOperator, tt_start::AbstractTTVector;
-        sweep_schedule = [2], rmax_schedule = [maximum(tt_start.ranks)],
-        tol = 1.0e-10, it_solver = false, itslv_thresh = 2500,
+        sweep_schedule = [2], max_bond = [maximum(tt_start.ranks)],
+        tol = 1.0e-10, local_solver::Symbol = :auto, local_threshold::Int = 2500,
         show_progress::Bool = false
     )
     T = eltype(tt_start)
@@ -342,7 +343,7 @@ function als_gen_eigsolve(
             if i_schedule > length(sweep_schedule)
                 return E[1:i_μit], tt_opt
             else
-                tt_opt = increase_ranks(tt_opt, rmax_schedule[i_schedule])
+                tt_opt = increase_ranks(tt_opt, max_bond[i_schedule])
                 tt_opt = orthogonalize(tt_opt)
                 rks = copy(tt_opt.ranks)
                 for i in 1:(d - 1)
@@ -370,7 +371,7 @@ function als_gen_eigsolve(
             if _orthogonality_center(tt_opt) == i
                 # Define V as solution of K*x=Pb in x
                 i_μit += 1
-                E[i_μit], V = K_eiggenmin(G[i], H[i], K[i], L[i], tt_opt.cores[i]; it_solver = it_solver, itslv_thresh = itslv_thresh)
+                E[i_μit], V = K_eiggenmin(G[i], H[i], K[i], L[i], tt_opt.cores[i]; local_solver, local_threshold)
                 tt_opt = right_core_move(tt_opt, V, i, tt_opt.ranks)
             end
 
@@ -383,7 +384,7 @@ function als_gen_eigsolve(
         for i in d:(-1):2
             # Define V as solution of K*x=Pb in x
             i_μit += 1
-            E[i_μit], V = K_eiggenmin(G[i], H[i], K[i], L[i], tt_opt.cores[i]; it_solver = it_solver, itslv_thresh = itslv_thresh)
+            E[i_μit], V = K_eiggenmin(G[i], H[i], K[i], L[i], tt_opt.cores[i]; local_solver, local_threshold)
             tt_opt = left_core_move(tt_opt, V, i, tt_opt.ranks)
             update_H!(tt_opt.cores[i], A.cores[i], H[i], H[i - 1])
             update_H!(tt_opt.cores[i], S.cores[i], L[i], L[i - 1])

@@ -30,7 +30,7 @@ end
 
 function henon_heiles_trajectory(stepper, H, initial, reference, times, eigensystem; kwargs...)
     ψ = initial
-    ψ0 = vec(ttv_to_tensor(reference))
+    ψ0 = vec(tt_to_tensor(reference))
     coefficients = eigensystem.vectors' * ψ0
     initial_energy = real(dot(coefficients, eigensystem.values .* coefficients))
     correlation = zeros(ComplexF64, length(times))
@@ -48,7 +48,7 @@ function henon_heiles_trajectory(stepper, H, initial, reference, times, eigensys
             )
         end
         # Dense diagnostics are affordable here (only n² amplitudes).
-        state = vec(ttv_to_tensor(ψ))
+        state = vec(tt_to_tensor(ψ))
         exact = eigensystem.vectors * (coefficients .* cis.(-times[k] .* eigensystem.values))
         spectral_state = eigensystem.vectors' * state
         correlation[k] = dot(ψ0, state)
@@ -82,7 +82,7 @@ function henon_heiles_example(; n = 16, λ = 0.111803, q0 = 0.7, fixed_rank = mi
     # With only two TT sites, tdvp2 evolves the whole pair; its remaining errors
     # come from Krylov exponentiation and SVD truncation, rather than splitting.
     adaptive = henon_heiles_trajectory(tdvp2, H, ψ0, ψ0, times, eigensystem; max_bond = n, trunc_tol = 1.0e-12)
-    weights = abs2.(eigensystem.vectors' * vec(ttv_to_tensor(ψ0)))
+    weights = abs2.(eigensystem.vectors' * vec(tt_to_tensor(ψ0)))
     energies = eigensystem.values
     exact_correlation = [sum(weights .* cis.(-t .* energies)) for t in times]
     return (; times, fixed, adaptive, exact_correlation, energies, weights, n, λ)

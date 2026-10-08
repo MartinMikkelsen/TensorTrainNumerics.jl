@@ -283,12 +283,12 @@ end
 
 
 """
-    NonLinearSolverAlgorithm
+    NonlinearSolverAlgorithm
 
-Supertype of algorithm objects accepted by [`non_linear_solve`](@ref):
+Supertype of algorithm objects accepted by [`nonlinear_solve`](@ref):
 [`PenaltyALS`](@ref) and [`MGR`](@ref).
 """
-abstract type NonLinearSolverAlgorithm end
+abstract type NonlinearSolverAlgorithm end
 
 """
     PenaltyALS(; local_solver=:newton, local_steps=4, penalty_schedule=[1e2,1e4,1e6,1e8],
@@ -302,7 +302,7 @@ site for `:cg`/`:sd`. Each stage sweeps until the relative penalty change is bel
 `max_sweeps` sweeps are done. `verbosity ≥ 2` logs one line per sweep; `show_progress`
 displays a progress bar.
 """
-struct PenaltyALS <: NonLinearSolverAlgorithm
+struct PenaltyALS <: NonlinearSolverAlgorithm
     local_solver::Symbol
     local_steps::Int
     penalty_schedule::Vector{Float64}
@@ -365,8 +365,8 @@ function _nl_penalty_local(
 end
 
 function _penalty_solve_impl(A::TTOperator{T, N}, u0::TTVector{T, N}, alg::PenaltyALS; g::Real = 0.0) where {T, N}
-    T <: Real || throw(ArgumentError("non_linear_solve implements the real path only; got eltype $T"))
-    nsites(u0) ≥ 2 || throw(ArgumentError("non_linear_solve needs at least 2 TT cores"))
+    T <: Real || throw(ArgumentError("nonlinear_solve implements the real path only; got eltype $T"))
+    nsites(u0) ≥ 2 || throw(ArgumentError("nonlinear_solve needs at least 2 TT cores"))
     # Round-trip gauge (far end, then back to site 1): orthogonalize(u0) alone only
     # right-canonicalizes sites 2..d and never QR-checks site 1's own local admissibility
     # (rks[2] ≤ dims[1]·rks[1]) against what's actually reachable from the left boundary.
@@ -426,8 +426,8 @@ function _penalty_solve_impl(A::TTOperator{T, N}, u0::TTVector{T, N}, alg::Penal
 end
 
 """
-    non_linear_solve(A, u0; alg = PenaltyALS(), g = 0.0)
-    non_linear_solve(A, u0, alg::PenaltyALS; g = 0.0)
+    nonlinear_solve(A, u0; alg = PenaltyALS(), g = 0.0)
+    nonlinear_solve(A, u0, alg::PenaltyALS; g = 0.0)
 
 Ground state of the discrete Gross–Pitaevskii functional
 `P(u) = ⟨u|A|u⟩ + (g/2)Σ_m u_m⁴ + η(⟨u|u⟩−1)²` in TT/QTT format (arXiv:1802.07259).
@@ -435,10 +435,10 @@ Ground state of the discrete Gross–Pitaevskii functional
 coefficient (`g_physical · 2^L` in the QTT convention). Real TT only. Returns the
 discretely normalized minimizer, or `(u, info)` when `alg.return_info`.
 """
-non_linear_solve(A::TTOperator, u0::TTVector; alg::PenaltyALS = PenaltyALS(), g::Real = 0.0) =
-    non_linear_solve(A, u0, alg; g = g)
+nonlinear_solve(A::TTOperator, u0::TTVector; alg::PenaltyALS = PenaltyALS(), g::Real = 0.0) =
+    nonlinear_solve(A, u0, alg; g = g)
 
-non_linear_solve(A::TTOperator{T, N}, u0::TTVector{T, N}, alg::PenaltyALS; g::Real = 0.0) where {T, N} =
+nonlinear_solve(A::TTOperator{T, N}, u0::TTVector{T, N}, alg::PenaltyALS; g::Real = 0.0) where {T, N} =
     _penalty_solve_impl(A, u0, alg; g = g)
 
 """
@@ -463,7 +463,7 @@ repeatedly prolong to one more QTT site (`qtto_linear_prolongation`), truncate t
 `inner`, up to the target grid. `verbosity ≥ 2` logs one line per grid level; `show_progress`
 displays a progress bar over the levels.
 """
-struct MGR <: NonLinearSolverAlgorithm
+struct MGR <: NonlinearSolverAlgorithm
     inner::PenaltyALS
     max_bond::Int
     return_info::Bool
@@ -494,14 +494,14 @@ _mgr_level(A::TTOperator{T, N}, u::TTVector{T, N}, inner::PenaltyALS, g::Real) w
     _penalty_solve_impl(A, u, inner; g = g)
 
 """
-    non_linear_solve(A_builder, u0, alg::MGR; g_builder, target_sites)
+    nonlinear_solve(A_builder, u0, alg::MGR; g_builder, target_sites)
 
 MGR ground-state solve from the coarse grid `nsites(u0)` up to `target_sites` QTT sites.
 `A_builder(d)::TTOperator` returns the discrete linear operator on `d` sites and
 `g_builder(d)::Real` the discrete interaction coefficient (e.g. `g · 2^d`).
 Returns `u`, or `(u, info)` with `info = (; energy, level_sites, level_energies)`.
 """
-function non_linear_solve(
+function nonlinear_solve(
         A_builder::Function, u0::TTVector{T, M}, alg::MGR;
         g_builder::Function, target_sites::Int
     ) where {T, M}

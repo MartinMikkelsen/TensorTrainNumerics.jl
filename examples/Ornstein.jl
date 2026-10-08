@@ -20,7 +20,7 @@ xes = collect(range(a, b, N))
 # ∂²/∂x²: Δ(d) is the positive-definite stencil tridiag(-1,2,-1) ≈ -h² ∂²/∂x².
 Δ₁ = -(1 / h^2) * Δ(d)
 # multiplication operator  M = diag(x - μ)
-M = ttv_to_diag_tto(qtt_polynom([-μ, 1.0], d; a = a, b = b))
+M = tt_to_diag_tto(qtt_polynomial([-μ, 1.0], d; a = a, b = b))
 
 A = θ * (∇₁ * M) + D * Δ₁
 

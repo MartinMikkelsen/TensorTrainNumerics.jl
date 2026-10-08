@@ -11,7 +11,7 @@ kinetic(d) = (4.0^d / 2) * Δ(d)            # −½∂²ₓ with Dirichlet walls
 function trap(d)                            # diag((x − x₀)²) on xⱼ = j·h, j = 1, …, 2ᵈ
     h = 2.0^-d
     x0 = (1 + h) / 2                        # center of the box [0, 1 + h]
-    return ttv_to_diag_tto(qtt_polynom([x0^2, -2x0, 1.0], d; a = h, b = 1.0))
+    return tt_to_diag_tto(qtt_polynomial([x0^2, -2x0, 1.0], d; a = h, b = 1.0))
 end
 
 function energy(u, K, V, ω, g)
@@ -25,7 +25,7 @@ end
 function ground_state(ω, g)
     seed = function_to_qtt(x -> sin(π * x), L0)
     alg = MGR(; inner = PenaltyALS(; tol = 1.0e-10), max_bond = χ)
-    return non_linear_solve(
+    return nonlinear_solve(
         d -> kinetic(d) + (ω^2 / 2) * trap(d), seed / norm(seed), alg;
         g_builder = d -> g * 2.0^d, target_sites = L
     )

@@ -84,14 +84,14 @@ end
 
 Sample the univariate function `f` on the `2^d` uniform grid points of
 `[a, b]` (both endpoints included; see [`function_to_tensor`](@ref)) and
-compress the samples with [`ttv_decomp`](@ref). This is the grid used by
-[`qtt_polynom`](@ref), [`qtt_sin`](@ref), and the other closed-form QTT
+compress the samples with [`tt_decomp`](@ref). This is the grid used by
+[`qtt_polynomial`](@ref), [`qtt_sin`](@ref), and the other closed-form QTT
 constructors. The dense `2^d` samples are formed first, so this is practical
 only for moderate `d`; [`tt_cross`](@ref) avoids that.
 """
 function function_to_qtt(f, d; a = 0.0, b = 1.0)
     tensor = function_to_tensor(f, d; a = a, b = b)
-    return ttv_decomp(tensor)
+    return tt_decomp(tensor)
 end
 
 """
@@ -131,7 +131,7 @@ end
     function_to_qtt_uniform(f, d::Int) -> TTVector
 
 Sample `f` at the periodic grid `x_n = n/2^d`, `n = 0, …, 2^d − 1` (the right
-endpoint `1` is excluded), and compress the samples with [`ttv_decomp`](@ref).
+endpoint `1` is excluded), and compress the samples with [`tt_decomp`](@ref).
 
 Site 1 of the result holds the *least* significant bit of `n`, which is the
 input layout expected by [`fourier_qtto`](@ref). The other QTT constructors and
@@ -146,18 +146,18 @@ function function_to_qtt_uniform(f, d::Int)
         bits = (digits(n, base = 2, pad = d)) .+ 1
         A[CartesianIndex(Tuple(bits))] = y[n + 1]
     end
-    return ttv_decomp(A)
+    return tt_decomp(A)
 end
 
 """
 Constructs a Quantized Tensor Train (QTT) representation a polynomial with given coefficients
 over a uniform grid in the interval `[a, b]` with `2^d` points.
 """
-function qtt_polynom(coef, d; a = 0.0, b = 1.0)
+function qtt_polynomial(coef, d; a = 0.0, b = 1.0)
     d == 1 && return _single_site_qtt([evalpoly(t, coef) for t in (a, b)])
     p = length(coef)
     h = (b - a) / (2^d - 1)
-    out = zeros_tt(2, d, p; r_and_d = false)
+    out = zeros_tt(2, d, p; admissible = false)
     φ(x, s) = sum(coef[k + 1] * x^(k - s) * binomial(k, s) for k in s:(p - 1))
     t₁ = a
     out.cores[1][1, 1, :] = [φ(t₁, k) for k in 0:(p - 1)]
@@ -925,7 +925,7 @@ function function_to_qttv(
         tensor[idx] = f(coords)
     end
 
-    ttv = ttv_decomp(tensor)
+    ttv = tt_decomp(tensor)
     return QTTVector(ttv, n_dims, bits_per_dim, ordering)
 end
 
@@ -1038,7 +1038,7 @@ function qttv_to_array(q::QTTVector)
     ordering = q.ordering
     n_pts = 2^bits_per_dim
 
-    full_tensor = ttv_to_tensor(TTVector(q))
+    full_tensor = tt_to_tensor(TTVector(q))
     out = zeros(eltype(full_tensor), ntuple(_ -> n_pts, n_dims))
     grid_idx = zeros(Int, n_dims)
 
