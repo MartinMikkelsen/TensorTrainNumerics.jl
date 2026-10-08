@@ -117,13 +117,13 @@ In the script both spatial directions use the same one-dimensional derivative bl
 A = θ * ((∂x * Mx) ⊗ idd + idd ⊗ (∂x * My)) +
     D * (∂xx ⊗ idd + idd ⊗ ∂xx)
 
-toarr(v) = qttv_to_array(QTTvector(v, 2, d, :serial))
+toarr(v) = qttv_to_array(QTTVector(v, 2, d, :serial))
 mass(P) = sum(P) * h^2
 
 A
 ```
 
-This is a plain `TToperator` with $2d$ sites. Since the sites are ordered serially, we can view vectors as two-dimensional QTT arrays by wrapping them with `QTTvector(v, 2, d, :serial)`.
+This is a plain `TTOperator` with $2d$ sites. Since the sites are ordered serially, we can view vectors as two-dimensional QTT arrays by wrapping them with `QTTVector(v, 2, d, :serial)`.
 
 ### 4. Construct And Normalize The Initial Density
 

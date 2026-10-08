@@ -23,7 +23,7 @@ mals_spd_op(d, shift = 3.0) = Δ(d) + shift * id_tto(d)
 
     x = mals_linsolve(A, b, x0)
 
-    @test x isa TTvector{Float64}
+    @test x isa TTVector{Float64}
     @test nsites(x) == d
     @test x.ttv_dims == b.ttv_dims
     @test all(isfinite, x.ttv_rks)
@@ -84,7 +84,7 @@ end
     E, x_opt, r_hist = mals_eigsolve(A, x0; max_sweeps = 1, max_bond = 4)
 
     @test E isa Vector{Float64}
-    @test x_opt isa TTvector{Float64}
+    @test x_opt isa TTVector{Float64}
     @test r_hist isa Vector{<:Integer}
     @test length(E) == length(r_hist)
     @test nsites(x_opt) == d
@@ -123,7 +123,7 @@ end
     E, x_opt, r_hist = mals_eigsolve(A, x0; max_sweeps = [1, 2], max_bond = [2, 4])
 
     @test length(E) ≥ 2
-    @test x_opt isa TTvector{Float64}
+    @test x_opt isa TTVector{Float64}
     @test maximum(x_opt.ttv_rks) ≤ 4
 end
 
@@ -150,7 +150,7 @@ end
         local_solver = :auto, local_threshold = 1
     )
 
-    @test x_opt isa TTvector{Float64}
+    @test x_opt isa TTVector{Float64}
     @test isfinite(E[end])
 end
 

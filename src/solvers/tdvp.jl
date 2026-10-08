@@ -3,7 +3,7 @@ using ProgressMeter
 using TensorOperations
 using LinearAlgebra
 
-function _sync_ranks_from_lsr!(ψ::AbstractTTvector, A_lsr::Vector{<:AbstractArray})
+function _sync_ranks_from_lsr!(ψ::AbstractTTVector, A_lsr::Vector{<:AbstractArray})
     N = nsites(ψ)
     new_rks = similar(ψ.ttv_rks)
     @inbounds for k in 1:N
@@ -41,7 +41,7 @@ function _update_right_env(A, M, FR)
 end
 
 function tdvp1sweep!(
-        dt, ψ::AbstractTTvector, H::AbstractTToperator, F::Union{Nothing, Vector{Any}} = nothing;
+        dt, ψ::AbstractTTVector, H::AbstractTTOperator, F::Union{Nothing, Vector{Any}} = nothing;
         verbose::Bool = true, ishermitian::Bool = true, kwargs...
     )
 
@@ -167,8 +167,8 @@ function _check_exponentiate_kwargs(caller::AbstractString, kwargs)
 end
 
 """
-    tdvp(H, u₀, steps; kwargs...) -> TTvector
-    tdvp(H, u₀, steps; return_info=true, kwargs...) -> (TTvector, info)
+    tdvp(H, u₀, steps; kwargs...) -> TTVector
+    tdvp(H, u₀, steps; return_info=true, kwargs...) -> (TTVector, info)
 
 Evolve `u₀` with the one-site time-dependent variational principle (Haegeman et
 al. 2016), using a symmetric (second-order) projector splitting. The TT ranks
@@ -199,8 +199,8 @@ The generator is applied as follows:
   (for example `ishermitian=false`, `tol`, or `krylovdim`).
 """
 function tdvp(
-        H::AbstractTToperator,
-        u₀::AbstractTTvector,
+        H::AbstractTTOperator,
+        u₀::AbstractTTVector,
         steps::Vector{Float64};
         normalize::Bool = false,
         return_info::Bool = false,
@@ -261,7 +261,7 @@ function _applyH2_lsr(AAC, FL, FR, M1, M2)
 end
 
 function tdvp2sweep!(
-        dt, ψ::AbstractTTvector, H::AbstractTToperator, F::Union{Nothing, Vector{Any}} = nothing;
+        dt, ψ::AbstractTTVector, H::AbstractTTOperator, F::Union{Nothing, Vector{Any}} = nothing;
         verbose::Bool = true, max_bond::Int = typemax(Int), trunc_tol::Real = 0.0, trunc_err = nothing,
         ishermitian::Bool = true, kwargs...
     )
@@ -350,8 +350,8 @@ function tdvp2sweep!(
 end
 
 """
-    tdvp2(H, u₀, steps; kwargs...) -> TTvector
-    tdvp2(H, u₀, steps; return_info=true, kwargs...) -> (TTvector, info)
+    tdvp2(H, u₀, steps; kwargs...) -> TTVector
+    tdvp2(H, u₀, steps; return_info=true, kwargs...) -> (TTVector, info)
 
 Evolve `u₀` with the two-site time-dependent variational principle (Haegeman et
 al. 2016). Each two-site update is split by a truncated SVD, so the TT ranks
@@ -384,8 +384,8 @@ The generator is applied as follows:
 - Remaining keyword arguments are passed to `KrylovKit.exponentiate`.
 """
 function tdvp2(
-        H::AbstractTToperator,
-        u₀::AbstractTTvector,
+        H::AbstractTTOperator,
+        u₀::AbstractTTVector,
         steps::Vector{Float64};
         normalize::Bool = false,
         return_info::Bool = false,

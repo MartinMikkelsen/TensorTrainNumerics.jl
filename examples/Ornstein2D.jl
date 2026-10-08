@@ -20,7 +20,7 @@ My = ttv_to_diag_tto(qtt_polynom([-μy, 1.0], d; a = a, b = b))   # diag(y - μy
 
 A = θ * ((∂x * Mx) ⊗ idd + idd ⊗ (∂x * My)) + D * (∂xx ⊗ idd + idd ⊗ ∂xx)
 
-toarr(v) = qttv_to_array(QTTvector(v, 2, d, :serial))   # raw 2d-site TT -> N×N grid
+toarr(v) = qttv_to_array(QTTVector(v, 2, d, :serial))   # raw 2d-site TT -> N×N grid
 mass(P) = sum(P) * h^2
 gx = function_to_qtt(t -> exp(-(a + (b - a) * t)^2 / 2), d)   # samples on [0,1]
 gy = function_to_qtt(t -> exp(-(a + (b - a) * t)^2 / 2), d)

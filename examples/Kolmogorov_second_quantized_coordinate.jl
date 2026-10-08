@@ -46,7 +46,7 @@ end
 blk = round(Int, record_dt / τstep); nblk = round(Int, T / record_dt)
 times = collect(0.0:record_dt:T)
 
-snaps = TTvector[]; overlap = Float64[]; mass = Float64[]
+snaps = TTVector[]; overlap = Float64[]; mass = Float64[]
 function record!(ψ)
     push!(snaps, copy(ψ)); push!(overlap, ip(readout, ψ)); return push!(mass, nrm(ψ))
 end

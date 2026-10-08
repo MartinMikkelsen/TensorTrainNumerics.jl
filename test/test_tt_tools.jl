@@ -8,7 +8,7 @@ using Random
     x = rand_tt((2, 3), [1, 2, 1])
     xc = complex(x)
     xcc = complex(xc)
-    @test xcc isa TTvector{ComplexF64}
+    @test xcc isa TTVector{ComplexF64}
     @test ttv_to_tensor(xcc) == complex.(ttv_to_tensor(x))
     @test xc.ttv_rks !== x.ttv_rks
     @test xc.orthogonality !== x.orthogonality
@@ -16,31 +16,31 @@ using Random
     A = rand_tto((2, 3), 2)
     Ac = complex(A)
     Acc = complex(Ac)
-    @test Acc isa TToperator{ComplexF64}
+    @test Acc isa TTOperator{ComplexF64}
     @test tto_to_tensor(Acc) == complex.(tto_to_tensor(A))
     @test Ac.tto_rks !== A.tto_rks
     @test Ac.orthogonality !== A.orthogonality
 end
 
 @testset "TT constructors and properties" begin
-    # Test TTvector constructor
+    # Test TTVector constructor
     N = 3
     vec = [randn(2, 1, 2), randn(2, 2, 2), randn(2, 2, 1)]
     dims = (2, 2, 2)
     rks = [1, 2, 2, 1]
-    tt = TTvector{Float64, 3}(vec, dims, rks)
+    tt = TTVector{Float64, 3}(vec, dims, rks)
     @test nsites(tt) == N
     @test tt.ttv_vec == vec
     @test tt.ttv_dims == dims
     @test tt.ttv_rks == rks
     @test tt.orthogonality == [1, nsites(tt)]
 
-    # Test TToperator constructor
+    # Test TTOperator constructor
     N = 3
     vec = [randn(2, 2, 1, 2), randn(2, 2, 2, 2), randn(2, 2, 2, 1)]
     dims = (2, 2, 2)
     rks = [1, 2, 2, 1]
-    tto = TToperator{Float64, 3}(vec, dims, rks)
+    tto = TTOperator{Float64, 3}(vec, dims, rks)
     @test nsites(tto) == N
     @test tto.tto_vec == vec
     @test tto.tto_dims == dims
@@ -50,24 +50,24 @@ end
 end
 
 @testset "TT constructors and properties" begin
-    # Test TTvector constructor
+    # Test TTVector constructor
     N = 3
     vec = [randn(2, 1, 2), randn(2, 2, 2), randn(2, 2, 1)]
     dims = (2, 2, 2)
     rks = [1, 2, 2, 1]
-    tt = TTvector{Float64, 3}(vec, dims, rks)
+    tt = TTVector{Float64, 3}(vec, dims, rks)
     @test nsites(tt) == N
     @test tt.ttv_vec == vec
     @test tt.ttv_dims == dims
     @test tt.ttv_rks == rks
     @test tt.orthogonality == [1, nsites(tt)]
 
-    # Test TToperator constructor
+    # Test TTOperator constructor
     N = 3
     vec = [randn(2, 2, 1, 2), randn(2, 2, 2, 2), randn(2, 2, 2, 1)]
     dims = (2, 2, 2)
     rks = [1, 2, 2, 1]
-    tto = TToperator{Float64, 3}(vec, dims, rks)
+    tto = TTOperator{Float64, 3}(vec, dims, rks)
     @test nsites(tto) == N
     @test tto.tto_vec == vec
     @test tto.tto_dims == dims
@@ -78,24 +78,24 @@ end
 
 
 @testset "TT constructors and properties" begin
-    # Test TTvector constructor
+    # Test TTVector constructor
     N = 3
     vec = [randn(2, 1, 2), randn(2, 2, 2), randn(2, 2, 1)]
     dims = (2, 2, 2)
     rks = [1, 2, 2, 1]
-    tt = TTvector{Float64, 3}(vec, dims, rks)
+    tt = TTVector{Float64, 3}(vec, dims, rks)
     @test nsites(tt) == N
     @test tt.ttv_vec == vec
     @test tt.ttv_dims == dims
     @test tt.ttv_rks == rks
     @test tt.orthogonality == [1, nsites(tt)]
 
-    # Test TToperator constructor
+    # Test TTOperator constructor
     N = 3
     vec = [randn(2, 2, 1, 2), randn(2, 2, 2, 2), randn(2, 2, 2, 1)]
     dims = (2, 2, 2)
     rks = [1, 2, 2, 1]
-    tto = TToperator{Float64, 3}(vec, dims, rks)
+    tto = TTOperator{Float64, 3}(vec, dims, rks)
     @test nsites(tto) == N
     @test tto.tto_vec == vec
     @test tto.tto_dims == dims
@@ -104,7 +104,7 @@ end
 
 end
 
-@testset "TTvector and TToperator functions" begin
+@testset "TTVector and TTOperator functions" begin
     dims1 = (2, 2)
     rks1 = [1, 2, 1]
     tt1 = rand_tt(dims1, rks1)
@@ -117,7 +117,7 @@ end
     @test tt_concat.ttv_rks == vcat(tt1.ttv_rks[1:(end - 1)], tt2.ttv_rks)
     @test tt_concat.orthogonality == [tt1.orthogonality[1], nsites(tt1) + tt2.orthogonality[2]]
 
-    # Test concatenate function for TToperator
+    # Test concatenate function for TTOperator
     dims_op1 = (2, 2)
     tto1 = rand_tto(dims_op1, 3)
     dims_op2 = (2, 2)
@@ -143,24 +143,24 @@ end
 end
 
 @testset "TT constructors and properties" begin
-    # Test TTvector constructor
+    # Test TTVector constructor
     N = 3
     vec = [randn(2, 1, 2), randn(2, 2, 2), randn(2, 2, 1)]
     dims = (2, 2, 2)
     rks = [1, 2, 2, 1]
-    tt = TTvector{Float64, 3}(vec, dims, rks)
+    tt = TTVector{Float64, 3}(vec, dims, rks)
     @test nsites(tt) == N
     @test tt.ttv_vec == vec
     @test tt.ttv_dims == dims
     @test tt.ttv_rks == rks
     @test tt.orthogonality == [1, nsites(tt)]
 
-    # Test TToperator constructor
+    # Test TTOperator constructor
     N = 3
     vec = [randn(2, 2, 1, 2), randn(2, 2, 2, 2), randn(2, 2, 2, 1)]
     dims = (2, 2, 2)
     rks = [1, 2, 2, 1]
-    tto = TToperator{Float64, 3}(vec, dims, rks)
+    tto = TTOperator{Float64, 3}(vec, dims, rks)
     @test nsites(tto) == N
     @test tto.tto_vec == vec
     @test tto.tto_dims == dims
@@ -169,7 +169,7 @@ end
 
 end
 
-@testset "TTvector and TToperator functions" begin
+@testset "TTVector and TTOperator functions" begin
     dims1 = (2, 2)
     rks1 = [1, 2, 1]
     tt1 = rand_tt(dims1, rks1)
@@ -182,7 +182,7 @@ end
     @test tt_concat.ttv_rks == vcat(tt1.ttv_rks[1:(end - 1)], tt2.ttv_rks)
     @test tt_concat.orthogonality == [tt1.orthogonality[1], nsites(tt1) + tt2.orthogonality[2]]
 
-    # Test concatenate function for TToperator
+    # Test concatenate function for TTOperator
     dims_op1 = (2, 2)
     tto1 = rand_tto(dims_op1, 3)
     dims_op2 = (2, 2)
@@ -195,34 +195,34 @@ end
 end
 
 
-@testset "Base.eltype and Base.complex for TTvector and TToperator" begin
-    # Test eltype for TTvector
+@testset "Base.eltype and Base.complex for TTVector and TTOperator" begin
+    # Test eltype for TTVector
     N = 2
     vec = [randn(2, 1, 2), randn(2, 2, 1)]
     dims = (2, 2)
     rks = [1, 2, 1]
-    tt = TTvector{Float64, 2}(vec, dims, rks)
+    tt = TTVector{Float64, 2}(vec, dims, rks)
     @test eltype(tt) == Float64
 
-    # Test eltype for TToperator
+    # Test eltype for TTOperator
     op_vec = [randn(2, 2, 1, 2), randn(2, 2, 2, 1)]
     op_dims = (2, 2)
     op_rks = [1, 2, 1]
-    tto = TToperator{Float64, 2}(op_vec, op_dims, op_rks)
+    tto = TTOperator{Float64, 2}(op_vec, op_dims, op_rks)
     @test eltype(tto) == Float64
 
-    # Test Base.complex for TTvector
-    tt_c = TTvector{ComplexF64, 2}([complex.(core) for core in tt.ttv_vec], tt.ttv_dims, tt.ttv_rks; orthogonality = tt.orthogonality)
-    @test typeof(tt_c) == TTvector{ComplexF64, 2}
+    # Test Base.complex for TTVector
+    tt_c = TTVector{ComplexF64, 2}([complex.(core) for core in tt.ttv_vec], tt.ttv_dims, tt.ttv_rks; orthogonality = tt.orthogonality)
+    @test typeof(tt_c) == TTVector{ComplexF64, 2}
     @test nsites(tt_c) == nsites(tt)
     @test tt_c.ttv_dims == tt.ttv_dims
     @test tt_c.ttv_rks == tt.ttv_rks
     @test tt_c.orthogonality == tt.orthogonality
     @test all(eltype(core) == ComplexF64 for core in tt_c.ttv_vec)
 
-    # Test Base.complex for TToperator
-    tto_c = TToperator{ComplexF64, 2}([complex.(core) for core in tto.tto_vec], tto.tto_dims, tto.tto_rks; orthogonality = tto.orthogonality)
-    @test typeof(tto_c) == TToperator{ComplexF64, 2}
+    # Test Base.complex for TTOperator
+    tto_c = TTOperator{ComplexF64, 2}([complex.(core) for core in tto.tto_vec], tto.tto_dims, tto.tto_rks; orthogonality = tto.orthogonality)
+    @test typeof(tto_c) == TTOperator{ComplexF64, 2}
     @test nsites(tto_c) == nsites(tto)
     @test tto_c.tto_dims == tto.tto_dims
     @test tto_c.tto_rks == tto.tto_rks
@@ -231,23 +231,23 @@ end
 end
 
 
-@testset "Base.eltype for TTvector" begin
+@testset "Base.eltype for TTVector" begin
     # Test with Float64
     N = 2
     vec = [randn(2, 1, 2), randn(2, 2, 1)]
     dims = (2, 2)
     rks = [1, 2, 1]
-    tt_float = TTvector{Float64, 2}(vec, dims, rks)
+    tt_float = TTVector{Float64, 2}(vec, dims, rks)
     @test eltype(tt_float) == Float64
 
     # Test with Int
     vec_int = [rand(Int, 2, 1, 2), rand(Int, 2, 2, 1)]
-    tt_int = TTvector{Int, 2}(vec_int, dims, rks)
+    tt_int = TTVector{Int, 2}(vec_int, dims, rks)
     @test eltype(tt_int) == Int
 
     # Test with ComplexF64
     vec_c = [randn(ComplexF64, 2, 1, 2), randn(ComplexF64, 2, 2, 1)]
-    tt_c = TTvector{ComplexF64, 2}(vec_c, dims, rks)
+    tt_c = TTVector{ComplexF64, 2}(vec_c, dims, rks)
     @test eltype(tt_c) == ComplexF64
 end
 
@@ -339,7 +339,7 @@ end
         dims = (2, 2, 2)
         rks = [1, 2, 2, 1]
         tto_vec = [randn(2, 2, 1, 2), randn(2, 2, 2, 2), randn(2, 2, 2, 1)]
-        tto = TToperator{Float64, N}(tto_vec, dims, rks)
+        tto = TTOperator{Float64, N}(tto_vec, dims, rks)
 
         M = tto_to_tensor(tto)
         tto2 = tto_decomp(M)
@@ -446,7 +446,7 @@ end
         vec[1] = randn(2, 1, 4)
         vec[2] = randn(2, 4, 4)
         vec[3] = randn(2, 4, 1)
-        tt = TTvector{Float64, 3}(vec, dims, rks)
+        tt = TTVector{Float64, 3}(vec, dims, rks)
 
         y = tt_compress!(tt, 2)
         @test y === tt
@@ -475,7 +475,7 @@ end
             core2[s2, γ, 1] = q[γ] * v[s2]
         end
 
-        tt = TTvector{Float64, 2}([core1, core2], (n1, n2), rks)
+        tt = TTVector{Float64, 2}([core1, core2], (n1, n2), rks)
         expected = (p' * q) .* (u * v')
 
         # rank cap finds the exact rank-1 structure
@@ -499,7 +499,7 @@ end
         vec[1] = randn(dims[1], rks[1], rks[2])
         vec[2] = randn(dims[2], rks[2], rks[3])
         vec[3] = randn(dims[3], rks[3], rks[4])
-        tt = TTvector{Float64, N}(vec, dims, rks)
+        tt = TTVector{Float64, N}(vec, dims, rks)
 
         before_rks = copy(tt.ttv_rks)
         y = TensorTrainNumerics.tt_compress!(tt, 10; sweeps = 1)
@@ -515,7 +515,7 @@ end
         for i in 1:N
             vec[i] = randn(dims[i], rks[i], rks[i + 1])
         end
-        tt = TTvector{Float64, N}(vec, dims, rks)
+        tt = TTVector{Float64, N}(vec, dims, rks)
 
         y = TensorTrainNumerics.tt_compress!(tt, 2; sweeps = 1)
         @test y === tt
@@ -533,7 +533,7 @@ end
         dims = (2, 2, 2)
         rks = [1, 2, 2, 1]
         vec = [randn(dims[1], rks[1], rks[2]), randn(dims[2], rks[2], rks[3]), randn(dims[3], rks[3], rks[4])]
-        tt = TTvector{Float64, N}(vec, dims, rks)
+        tt = TTVector{Float64, N}(vec, dims, rks)
 
         @test_throws "`sweeps` must be ≥ 1; got 0" TensorTrainNumerics.tt_compress!(tt, 2; sweeps = 0)
     end
@@ -543,7 +543,7 @@ end
         dims = (2, 2, 2)
         rks = [1, 3, 3, 1]
         vec = [randn(dims[1], rks[1], rks[2]), randn(dims[2], rks[2], rks[3]), randn(dims[3], rks[3], rks[4])]
-        tt = TTvector{Float64, N}(vec, dims, rks)
+        tt = TTVector{Float64, N}(vec, dims, rks)
 
         y = TensorTrainNumerics.tt_compress!(tt, 3; sweeps = 2, trunc_tol = 0.0)
         @test typeof(y) == typeof(tt)
@@ -555,30 +555,30 @@ end
         dims = (2, 2, 2)
         rks = [1, 2, 2, 1]
         vec = [randn(dims[1], rks[1], rks[2]), randn(dims[2], rks[2], rks[3]), randn(dims[3], rks[3], rks[4])]
-        tt = TTvector{Float64, N}(vec, dims, rks)
+        tt = TTVector{Float64, N}(vec, dims, rks)
 
         @test_logs (:info, r"TT compress: sweep 1") TensorTrainNumerics.tt_compress!(tt, 2; verbosity = 2)
     end
 end
 
-@testset "Base.eltype for TTvector" begin
+@testset "Base.eltype for TTVector" begin
     N = 3
     vec = [randn(2, 1, 2), randn(2, 2, 2), randn(2, 2, 1)]
     dims = (2, 2, 2)
     rks = [1, 2, 2, 1]
-    tt_float = TTvector{Float64, 3}(vec, dims, rks)
+    tt_float = TTVector{Float64, 3}(vec, dims, rks)
     @test eltype(tt_float) == Float64
 
     vec_int = [rand(Int, 2, 1, 2), rand(Int, 2, 2, 2), rand(Int, 2, 2, 1)]
-    tt_int = TTvector{Int, 3}(vec_int, dims, rks)
+    tt_int = TTVector{Int, 3}(vec_int, dims, rks)
     @test eltype(tt_int) == Int
 
     vec_complex = [randn(ComplexF64, 2, 1, 2), randn(ComplexF64, 2, 2, 2), randn(ComplexF64, 2, 2, 1)]
-    tt_complex = TTvector{ComplexF64, 3}(vec_complex, dims, rks)
+    tt_complex = TTVector{ComplexF64, 3}(vec_complex, dims, rks)
     @test eltype(tt_complex) == ComplexF64
 
     vec_complex32 = [randn(Complex{Float32}, 2, 1, 2), randn(Complex{Float32}, 2, 2, 2), randn(Complex{Float32}, 2, 2, 1)]
-    tt_complex32 = TTvector{Complex{Float32}, 3}(vec_complex32, dims, rks)
+    tt_complex32 = TTVector{Complex{Float32}, 3}(vec_complex32, dims, rks)
     @test eltype(tt_complex32) == Complex{Float32}
 end
 
@@ -634,12 +634,12 @@ end
     end
 end
 
-@testset "rand_tt with TTvector noise addition" begin
+@testset "rand_tt with TTVector noise addition" begin
     N = 3
     vec = [randn(2, 1, 2), randn(2, 2, 2), randn(2, 2, 1)]
     dims = (2, 2, 2)
     rks = [1, 2, 2, 1]
-    tt = TTvector{Float64, 3}(vec, dims, rks)
+    tt = TTVector{Float64, 3}(vec, dims, rks)
 
     tt_noisy = rand_tt(tt)
 
@@ -664,7 +664,7 @@ end
     @test all(isapprox(tt_copy.ttv_vec[i], tt.ttv_vec[i]) for i in eachindex(tt.ttv_vec))
 
     vec_c = [randn(ComplexF64, 2, 1, 2), randn(ComplexF64, 2, 2, 2), randn(ComplexF64, 2, 2, 1)]
-    tt_c = TTvector{ComplexF64, 3}(vec_c, dims, rks)
+    tt_c = TTVector{ComplexF64, 3}(vec_c, dims, rks)
 
     tt_noisy_c = rand_tt(tt_c; ε = convert(ComplexF64, 1.0e-3))
 
@@ -684,7 +684,7 @@ end
         dims = (2, 3, 2)
         rks = [1, 2, 3, 1]
         tto_vec = [randn(2, 2, 1, 2), randn(3, 3, 2, 3), randn(2, 2, 3, 1)]
-        tto = TToperator{Float64, 3}(tto_vec, dims, rks)
+        tto = TTOperator{Float64, 3}(tto_vec, dims, rks)
 
         ttv = tto_to_ttv(tto)
 
@@ -700,7 +700,7 @@ end
         dims = (2, 3)
         rks = [1, 2, 1]
         tto_vec = [randn(2, 2, 1, 2), randn(3, 3, 2, 1)]
-        tto = TToperator{Float64, 2}(tto_vec, dims, rks)
+        tto = TTOperator{Float64, 2}(tto_vec, dims, rks)
 
         ttv = tto_to_ttv(tto)
 
@@ -716,7 +716,7 @@ end
         dims = (2, 2)
         rks = [1, 2, 1]
         tto_vec = [randn(2, 2, 1, 2), randn(2, 2, 2, 1)]
-        tto = TToperator{Float64, 2}(tto_vec, dims, rks)
+        tto = TTOperator{Float64, 2}(tto_vec, dims, rks)
 
         ttv = tto_to_ttv(tto)
 
@@ -731,7 +731,7 @@ end
         dims = (2, 2)
         rks = [1, 2, 1]
         tto_vec_f32 = [randn(Float32, 2, 2, 1, 2), randn(Float32, 2, 2, 2, 1)]
-        tto_f32 = TToperator{Float32, 2}(tto_vec_f32, dims, rks)
+        tto_f32 = TTOperator{Float32, 2}(tto_vec_f32, dims, rks)
 
         ttv_f32 = tto_to_ttv(tto_f32)
 
@@ -744,7 +744,7 @@ end
         dims = (2, 2, 2)
         rks = [1, 2, 2, 1]
         tto_vec = [randn(2, 2, 1, 2), randn(2, 2, 2, 2), randn(2, 2, 2, 1)]
-        tto = TToperator{Float64, 3}(tto_vec, dims, rks; orthogonality = (2, 2))
+        tto = TTOperator{Float64, 3}(tto_vec, dims, rks; orthogonality = (2, 2))
 
         ttv = tto_to_ttv(tto)
 
@@ -756,7 +756,7 @@ end
         dims = (3,)
         rks = [1, 1]
         tto_vec = [randn(3, 3, 1, 1)]
-        tto = TToperator{Float64, 1}(tto_vec, dims, rks)
+        tto = TTOperator{Float64, 1}(tto_vec, dims, rks)
 
         ttv = tto_to_ttv(tto)
 
@@ -770,7 +770,7 @@ end
         dims = (2, 2, 2, 2)
         rks = [1, 2, 3, 2, 1]
         tto_vec = [randn(2, 2, rks[i], rks[i + 1]) for i in 1:N]
-        tto = TToperator{Float64, 4}(tto_vec, dims, rks)
+        tto = TTOperator{Float64, 4}(tto_vec, dims, rks)
 
         ttv = tto_to_ttv(tto)
 
@@ -786,7 +786,7 @@ end
         dims = (4, 9, 16)
         rks = [1, 2, 3, 1]
         ttv_vec = [randn(4, 1, 2), randn(9, 2, 3), randn(16, 3, 1)]
-        ttv = TTvector{Float64, 3}(ttv_vec, dims, rks)
+        ttv = TTVector{Float64, 3}(ttv_vec, dims, rks)
 
         tto = ttv_to_tto(ttv)
 
@@ -802,7 +802,7 @@ end
         dims = (4, 9)
         rks = [1, 2, 1]
         ttv_vec = [randn(4, 1, 2), randn(9, 2, 1)]
-        ttv = TTvector{Float64, 2}(ttv_vec, dims, rks)
+        ttv = TTVector{Float64, 2}(ttv_vec, dims, rks)
 
         tto = ttv_to_tto(ttv)
 
@@ -815,7 +815,7 @@ end
         dims = (4, 4)
         rks = [1, 2, 1]
         ttv_vec = [randn(4, 1, 2), randn(4, 2, 1)]
-        ttv = TTvector{Float64, 2}(ttv_vec, dims, rks)
+        ttv = TTVector{Float64, 2}(ttv_vec, dims, rks)
 
         tto = ttv_to_tto(ttv)
 
@@ -830,7 +830,7 @@ end
         dims = (4, 4)
         rks = [1, 2, 1]
         ttv_vec_f32 = [randn(Float32, 4, 1, 2), randn(Float32, 4, 2, 1)]
-        ttv_f32 = TTvector{Float32, 2}(ttv_vec_f32, dims, rks)
+        ttv_f32 = TTVector{Float32, 2}(ttv_vec_f32, dims, rks)
 
         tto_f32 = ttv_to_tto(ttv_f32)
 
@@ -843,7 +843,7 @@ end
         dims = (4, 4, 4)
         rks = [1, 2, 2, 1]
         ttv_vec = [randn(4, 1, 2), randn(4, 2, 2), randn(4, 2, 1)]
-        ttv = TTvector{Float64, 3}(ttv_vec, dims, rks; orthogonality = (2, 2))
+        ttv = TTVector{Float64, 3}(ttv_vec, dims, rks; orthogonality = (2, 2))
 
         tto = ttv_to_tto(ttv)
 
@@ -855,7 +855,7 @@ end
         dims = (9,)
         rks = [1, 1]
         ttv_vec = [randn(9, 1, 1)]
-        ttv = TTvector{Float64, 1}(ttv_vec, dims, rks)
+        ttv = TTVector{Float64, 1}(ttv_vec, dims, rks)
 
         tto = ttv_to_tto(ttv)
 
@@ -869,7 +869,7 @@ end
         dims = (4, 5)
         rks = [1, 2, 1]
         ttv_vec = [randn(4, 1, 2), randn(5, 2, 1)]
-        ttv = TTvector{Float64, 2}(ttv_vec, dims, rks)
+        ttv = TTVector{Float64, 2}(ttv_vec, dims, rks)
 
         @test_throws AssertionError ttv_to_tto(ttv)
     end
@@ -879,7 +879,7 @@ end
         dims = (4, 4, 4, 4)
         rks = [1, 2, 3, 2, 1]
         ttv_vec = [randn(4, rks[i], rks[i + 1]) for i in 1:N]
-        ttv = TTvector{Float64, 4}(ttv_vec, dims, rks)
+        ttv = TTVector{Float64, 4}(ttv_vec, dims, rks)
 
         tto = ttv_to_tto(ttv)
 
@@ -893,7 +893,7 @@ end
         dims = (4, 9)
         rks = [1, 2, 1]
         ttv_vec = [randn(ComplexF64, 4, 1, 2), randn(ComplexF64, 9, 2, 1)]
-        ttv = TTvector{ComplexF64, 2}(ttv_vec, dims, rks)
+        ttv = TTVector{ComplexF64, 2}(ttv_vec, dims, rks)
 
         tto = ttv_to_tto(ttv)
 
@@ -907,7 +907,7 @@ end
         dims = (2, 3)
         rks = [1, 2, 1]
         tto_vec = [randn(2, 2, 1, 2), randn(3, 3, 2, 1)]
-        tto_orig = TToperator{Float64, 2}(tto_vec, dims, rks)
+        tto_orig = TTOperator{Float64, 2}(tto_vec, dims, rks)
 
         ttv = tto_to_ttv(tto_orig)
         tto_back = ttv_to_tto(ttv)
@@ -930,12 +930,12 @@ end
     # Rank-1 trivial case
     v = rand(Float64, 4)
     core = reshape(v, 4, 1, 1)
-    tt1 = TTvector{Float64, 1}([core], (4,), [1, 1])
+    tt1 = TTVector{Float64, 1}([core], (4,), [1, 1])
     @test vec(ttv_to_tensor(tt1)) ≈ v
 end
 
 @testset "tto_to_tensor" begin
-    # Build a known rank-1 TToperator and verify contraction
+    # Build a known rank-1 TTOperator and verify contraction
     # tto_vec cores have layout (row_dim, col_dim, left_rank, right_rank)
     tto = rand_tto((2, 3, 4), 3)
     M = tto_to_tensor(tto)
@@ -973,13 +973,13 @@ end
     dense = ttv_to_tensor(tt)
 
     enlarged = TensorTrainNumerics.increase_ranks(tt, 3; noise = 0.0)
-    @test enlarged isa TTvector{Float64, 3}
+    @test enlarged isa TTVector{Float64, 3}
     @test maximum(enlarged.ttv_rks) <= 3
     @test maximum(enlarged.ttv_rks) > maximum(tt.ttv_rks)
     @test ttv_to_tensor(enlarged) ≈ dense
 
     noisy = TensorTrainNumerics.increase_ranks(tt, 2; noise = 1.0e-3)
-    @test noisy isa TTvector{Float64, 3}
+    @test noisy isa TTVector{Float64, 3}
     @test noisy.ttv_rks == [1, 2, 2, 1]
     @test any(!iszero, noisy.ttv_vec[1][:, :, 2])
     @test any(!iszero, noisy.ttv_vec[2][:, 2, 2])
@@ -994,8 +994,8 @@ end
     tt2 = rand_tt((2, 2), [1, 2, 1])
     @test_throws ArgumentError concatenate(tt1, tt2)
 
-    A1 = TToperator{Float64, 1}([randn(2, 2, 1, 2)], (2,), [1, 2])
-    A2 = TToperator{Float64, 1}([randn(2, 2, 1, 1)], (2,), [1, 1])
+    A1 = TTOperator{Float64, 1}([randn(2, 2, 1, 2)], (2,), [1, 2])
+    A2 = TTOperator{Float64, 1}([randn(2, 2, 1, 1)], (2,), [1, 1])
     @test_throws ArgumentError concatenate(A1, A2)
 end
 
@@ -1062,7 +1062,7 @@ end
     end
 end
 
-@testset "Base.show for TTvector and TToperator" begin
+@testset "Base.show for TTVector and TTOperator" begin
     tt = rand_tt((2, 3, 4), [1, 2, 3, 1])
 
     # Compact show: MPS{T}(N sites)
@@ -1083,13 +1083,13 @@ end
     s_orth = sprint(show, MIME("text/plain"), orth)
     @test occursin("center @ site 2", s_orth)
 
-    tt_partial = TTvector{Float64, 3}(tt.ttv_vec, tt.ttv_dims, tt.ttv_rks; orthogonality = (2, 3))
+    tt_partial = TTVector{Float64, 3}(tt.ttv_vec, tt.ttv_dims, tt.ttv_rks; orthogonality = (2, 3))
     @test occursin("center within sites 2:3", sprint(show, MIME("text/plain"), tt_partial))
 
-    tt_none = TTvector{Float64, 3}(tt.ttv_vec, tt.ttv_dims, tt.ttv_rks)
+    tt_none = TTVector{Float64, 3}(tt.ttv_vec, tt.ttv_dims, tt.ttv_rks)
     @test occursin("none", sprint(show, MIME("text/plain"), tt_none))
 
-    # TToperator
+    # TTOperator
     tto = rand_tto((2, 3), 2)
     s_op = sprint(show, tto)
     @test occursin("MPO", s_op)
@@ -1148,7 +1148,7 @@ end
 @testset "tt_compress! and tt_round! mutate through the QTT wrapper" begin
     d = 6
     x = qtt_sin(d) + 0.0 * rand_tt(qtt_sin(d).ttv_dims, 5)
-    q = QTTvector(x, 1, d, :serial)
+    q = QTTVector(x, 1, d, :serial)
     tt_compress!(q, 3)
     @test maximum(q.ttv_rks) ≤ 3
     tt_round!(q; trunc_tol = 1.0e-12)
@@ -1212,25 +1212,33 @@ end
 end
 
 @testset "deprecated names" begin
+    for (old, new) in (
+            :AbstractTTvector => AbstractTTVector, :AbstractTToperator => AbstractTTOperator,
+            :TTvector => TTVector, :TToperator => TTOperator,
+            :QTTvector => QTTVector, :QTToperator => QTTOperator,
+        )
+        @test Base.isdeprecated(TensorTrainNumerics, old)
+        @test getglobal(TensorTrainNumerics, old) === new
+    end
     x = rand_tt((2, 3, 2), 2)
     A = id_tto(3)
     @test nsites(x) == 3
     @test nsites(A) == 3
     @test (@test_deprecated x.N) == 3
     @test (@test_deprecated A.N) == 3
-    y = @test_deprecated TTvector{Float64, 3}(3, x.ttv_vec, x.ttv_dims, x.ttv_rks, [1, 0, -1])
+    y = @test_deprecated TTVector{Float64, 3}(3, x.ttv_vec, x.ttv_dims, x.ttv_rks, [1, 0, -1])
     @test y.ttv_vec === x.ttv_vec
     @test y.orthogonality == [2, 2]
-    y = @test_deprecated TTvector(3, x.ttv_vec, x.ttv_dims, x.ttv_rks, [0, 0, 0])
-    @test y isa TTvector{Float64, 3}
-    B = @test_deprecated TToperator{Float64, 3}(3, A.tto_vec, A.tto_dims, A.tto_rks, [1, 1, 1])
+    y = @test_deprecated TTVector(3, x.ttv_vec, x.ttv_dims, x.ttv_rks, [0, 0, 0])
+    @test y isa TTVector{Float64, 3}
+    B = @test_deprecated TTOperator{Float64, 3}(3, A.tto_vec, A.tto_dims, A.tto_rks, [1, 1, 1])
     @test B.tto_vec === A.tto_vec
     @test B.orthogonality == [3, 3]
-    B = @test_deprecated TToperator(3, A.tto_vec, A.tto_dims, A.tto_rks, [0, 0, 0])
-    @test B isa TToperator{Float64, 3}
+    B = @test_deprecated TTOperator(3, A.tto_vec, A.tto_dims, A.tto_rks, [0, 0, 0])
+    @test B isa TTOperator{Float64, 3}
     @test (@test_deprecated entanglemententropy(x)) == entanglement_entropy(x)
     z = @test_deprecated rand_tt((2, 2), 2; normalise = true)
-    @test z isa TTvector{Float64, 2}
+    @test z isa TTVector{Float64, 2}
 end
 
 # The orthogonality interval of `x` if its cores have the recorded
@@ -1258,18 +1266,18 @@ end
     @test x.orthogonality == [1, 4]
 
     @testset "constructor" begin
-        y = TTvector{Float64, 4}(x.ttv_vec, x.ttv_dims, x.ttv_rks; orthogonality = (2, 3))
+        y = TTVector{Float64, 4}(x.ttv_vec, x.ttv_dims, x.ttv_rks; orthogonality = (2, 3))
         @test y.orthogonality == [2, 3]
         shared = [2, 2]
-        y = TTvector(x.ttv_vec, x.ttv_dims, x.ttv_rks; orthogonality = shared)
+        y = TTVector(x.ttv_vec, x.ttv_dims, x.ttv_rks; orthogonality = shared)
         @test y.orthogonality === shared
-        @test_throws "1 ≤ left ≤ right ≤ 4" TTvector{Float64, 4}(x.ttv_vec, x.ttv_dims, x.ttv_rks; orthogonality = (3, 2))
-        @test_throws "1 ≤ left ≤ right ≤ 4" TTvector{Float64, 4}(x.ttv_vec, x.ttv_dims, x.ttv_rks; orthogonality = (1, 5))
-        @test_throws "orthogonality must be an interval (left, right)" TTvector{Float64, 4}(x.ttv_vec, x.ttv_dims, x.ttv_rks; orthogonality = [0, 0, 0, 0])
+        @test_throws "1 ≤ left ≤ right ≤ 4" TTVector{Float64, 4}(x.ttv_vec, x.ttv_dims, x.ttv_rks; orthogonality = (3, 2))
+        @test_throws "1 ≤ left ≤ right ≤ 4" TTVector{Float64, 4}(x.ttv_vec, x.ttv_dims, x.ttv_rks; orthogonality = (1, 5))
+        @test_throws "orthogonality must be an interval (left, right)" TTVector{Float64, 4}(x.ttv_vec, x.ttv_dims, x.ttv_rks; orthogonality = [0, 0, 0, 0])
         A = rand_tto((2, 2, 2), 2)
-        B = TToperator(A.tto_vec, A.tto_dims, A.tto_rks; orthogonality = (2, 2))
+        B = TTOperator(A.tto_vec, A.tto_dims, A.tto_rks; orthogonality = (2, 2))
         @test B.orthogonality == [2, 2]
-        @test_throws "1 ≤ left ≤ right ≤ 3" TToperator(A.tto_vec, A.tto_dims, A.tto_rks; orthogonality = (0, 2))
+        @test_throws "1 ≤ left ≤ right ≤ 3" TTOperator(A.tto_vec, A.tto_dims, A.tto_rks; orthogonality = (0, 2))
     end
 
     @testset "legacy flags" begin
@@ -1284,11 +1292,11 @@ end
         @test TTN._flags_to_orthogonality([1, 0, 1, -1], 4) == (2, 3)
         @test_throws "expected 3 orthogonality flags" TTN._flags_to_orthogonality([1, 0], 3)
 
-        y = @test_deprecated TTvector{Float64, 4}(x.ttv_vec, x.ttv_dims, x.ttv_rks, [1, 1, 0, -1])
+        y = @test_deprecated TTVector{Float64, 4}(x.ttv_vec, x.ttv_dims, x.ttv_rks, [1, 1, 0, -1])
         @test y.orthogonality == [3, 3]
         @test (@test_deprecated y.ttv_ot) == [1, 1, 0, -1]
         A = rand_tto((2, 2, 2), 2)
-        B = @test_deprecated TToperator(A.tto_vec, A.tto_dims, A.tto_rks, [1, 0, 0])
+        B = @test_deprecated TTOperator(A.tto_vec, A.tto_dims, A.tto_rks, [1, 0, 0])
         @test B.orthogonality == [2, 3]
         @test (@test_deprecated B.tto_ot) == [1, 0, 0]
         z = @test_deprecated zeros_tt(dims, x.ttv_rks; ot = [1, 0, -1, -1])
@@ -1337,8 +1345,8 @@ end
         @test verified_orthogonality(a + b) == (1, 4)
         @test verified_orthogonality(hadamard_ttm(a, b)) == (1, 1)
 
-        q = QTTvector(orthogonalize(rand_tt((2, 2, 2, 2), 2); i = 3), 1, 4, :serial)
-        @test q.orthogonality === TTvector(q).orthogonality
+        q = QTTVector(orthogonalize(rand_tt((2, 2, 2, 2), 2); i = 3), 1, 4, :serial)
+        @test q.orthogonality === TTVector(q).orthogonality
         tt_round!(q)
         @test verified_orthogonality(q) == (4, 4)
     end

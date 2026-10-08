@@ -1,10 +1,10 @@
 module TensorTrainNumerics
 
-export AbstractTTvector, AbstractTToperator, TTvector, TToperator, nsites, eltype, complex, ttv_decomp, tto_decomp, ttv_to_tensor, tto_to_tensor, tto_to_ttv, visualize, matricize, concatenate, orthogonalize, entanglement_entropy, entanglemententropy, copy, r_and_d_to_rks, tt_compress!, tt_round!, tt_round, ttvector_manifold
+export AbstractTTVector, AbstractTTOperator, TTVector, TTOperator, nsites, eltype, complex, ttv_decomp, tto_decomp, ttv_to_tensor, tto_to_tensor, tto_to_ttv, visualize, matricize, concatenate, orthogonalize, entanglement_entropy, entanglemententropy, copy, r_and_d_to_rks, tt_compress!, tt_round!, tt_round, ttvector_manifold
 """
-    ttvector_manifold(x::TTvector)
+    ttvector_manifold(x::TTVector)
 
-Return a ManifoldsBase.jl manifold whose points are `TTvector`s with the
+Return a ManifoldsBase.jl manifold whose points are `TTVector`s with the
 physical dimensions of `x`, for use with Manopt.jl solvers. The space is flat:
 the inner product is `real(dot(X, Y))`, and the retraction is
 `orthogonalize(p + t X)`, which does not truncate ranks.
@@ -45,9 +45,9 @@ include("solvers/tdvp.jl")
 
 export to_ttvector
 """
-    to_ttvector(tt::TensorCrossInterpolation.TensorTrain) -> TTvector
+    to_ttvector(tt::TensorCrossInterpolation.TensorTrain) -> TTVector
 
-Convert a tensor train from TensorCrossInterpolation.jl to a [`TTvector`](@ref).
+Convert a tensor train from TensorCrossInterpolation.jl to a [`TTVector`](@ref).
 Defined in the extension that loads when InterpolativeQTT.jl and
 TensorCrossInterpolation.jl are loaded.
 """
@@ -57,7 +57,7 @@ export toeplitz_to_qtto, qtto_prolongation, qtto_constant_prolongation, qtto_lin
 include("tt_operators.jl")
 
 export gauss_chebyshev_lobatto
-export index_to_point, tuple_to_index, function_to_tensor, tensor_to_grid, function_to_qtt, qtt_to_function, qtt_to_vector, function_to_qtt_uniform, qtt_polynom, qtt_cos, qtt_sin, qtt_exp, qtto_to_matrix, qtt_basis_vector, qtt_chebyshev, qtt_trapezoidal, to_qtt, to_ttv, QTTvector, QTToperator, check_compat, function_to_qttv, qttv_to_array, reorder
+export index_to_point, tuple_to_index, function_to_tensor, tensor_to_grid, function_to_qtt, qtt_to_function, qtt_to_vector, function_to_qtt_uniform, qtt_polynom, qtt_cos, qtt_sin, qtt_exp, qtto_to_matrix, qtt_basis_vector, qtt_chebyshev, qtt_trapezoidal, to_qtt, to_ttv, QTTVector, QTTOperator, check_compat, function_to_qttv, qttv_to_array, reorder
 include("qtt_tools.jl")
 
 export euler_method, implicit_euler_method, crank_nicolson_method, crank_nicholson_method, rk4_method
@@ -68,5 +68,13 @@ include("tt_transformations.jl")
 
 export tt_cross, tt_integrate, MaxVol, DMRGcross, Greedy
 include("tt_cross_interpolation.jl")
+
+# Deprecated spellings of the type names.
+Base.@deprecate_binding AbstractTTvector AbstractTTVector
+Base.@deprecate_binding AbstractTToperator AbstractTTOperator
+Base.@deprecate_binding TTvector TTVector
+Base.@deprecate_binding TToperator TTOperator
+Base.@deprecate_binding QTTvector QTTVector
+Base.@deprecate_binding QTToperator QTTOperator
 
 end

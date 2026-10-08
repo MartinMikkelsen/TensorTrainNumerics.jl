@@ -12,7 +12,7 @@ function updateH_mals!(x_vec::Array{T, 3}, A_vec::Array{T, 4}, Hi::AbstractArray
     return nothing
 end
 
-function init_H_mals(x_tt::AbstractTTvector, A::AbstractTToperator, rmax::Int)
+function init_H_mals(x_tt::AbstractTTVector, A::AbstractTTOperator, rmax::Int)
     T = eltype(x_tt)
     d = nsites(x_tt)
     H = Array{Array{T, 5}}(undef, d - 1)
@@ -49,7 +49,7 @@ function updateHb_mals!(
     return nothing
 end
 
-function init_Hb_mals(x_tt::AbstractTTvector, b::AbstractTTvector, rmax::Int)
+function init_Hb_mals(x_tt::AbstractTTVector, b::AbstractTTVector, rmax::Int)
     T = eltype(x_tt)
     d = nsites(x_tt)
     Hb = Array{Array{T, 3}}(undef, d - 1)
@@ -76,7 +76,7 @@ function init_Hb_mals(x_tt::AbstractTTvector, b::AbstractTTvector, rmax::Int)
 end
 
 function left_core_move_mals(
-        xtt::AbstractTTvector, i::Integer, V::Array{T, 4},
+        xtt::AbstractTTVector, i::Integer, V::Array{T, 4},
         trunc_tol::Real, max_bond::Integer; trunc_err = nothing
     ) where {T <: Number}
     u_V, s_V, v_V = svd(reshape(V, prod(size(V)[1:2]), :))
@@ -101,7 +101,7 @@ function left_core_move_mals(
 end
 
 function right_core_move_mals(
-        xtt::AbstractTTvector, i::Integer, V::Array{T, 4},
+        xtt::AbstractTTVector, i::Integer, V::Array{T, 4},
         trunc_tol::Real, max_bond::Integer; trunc_err = nothing
     ) where {T <: Number}
     u_V, s_V, v_V = svd(reshape(V, prod(size(V)[1:2]), :))
@@ -200,7 +200,7 @@ end
 
 # Implementation of `linear_solve(A, b, tt_start, ::MALS)`; see [`MALS`](@ref).
 function _mals_linsolve_impl(
-        A::AbstractTToperator, b::AbstractTTvector, tt_start::AbstractTTvector;
+        A::AbstractTTOperator, b::AbstractTTVector, tt_start::AbstractTTVector;
         max_sweeps::Int, max_bond::Int, trunc_tol::Real,
         return_info::Bool, verbosity::Int, show_progress::Bool
     )
@@ -270,7 +270,7 @@ end
 
 # Implementation of `eigen_solve(A, tt_start, ::MALS)`; see [`MALS`](@ref).
 function _mals_eigsolve_impl(
-        A::AbstractTToperator, tt_start::AbstractTTvector;
+        A::AbstractTTOperator, tt_start::AbstractTTVector;
         max_sweeps::Vector{Int}, max_bond::Vector{Int}, trunc_tol::Real,
         local_solver::Symbol, local_threshold::Int, local_maxiter::Int, local_tol::Real,
         verbosity::Int, show_progress::Bool
@@ -328,7 +328,7 @@ function _mals_eigsolve_impl(
     return E, tt_opt, r_hist
 end
 
-function eigen_solve(A::AbstractTToperator, guess::AbstractTTvector, alg::MALS)
+function eigen_solve(A::AbstractTTOperator, guess::AbstractTTVector, alg::MALS)
     _reject_unused(alg, "eigen_solve", (:return_info,), "every option except `return_info`")
     st = _stages(;
         max_sweeps = alg.max_sweeps,

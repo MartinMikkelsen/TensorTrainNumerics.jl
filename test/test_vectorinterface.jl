@@ -5,15 +5,15 @@ using Random
 using TensorTrainNumerics
 using VectorInterface
 
-_dense(x::TTvector) = vec(ttv_to_tensor(x))
+_dense(x::TTVector) = vec(ttv_to_tensor(x))
 
-mutable struct BlockingIdentityOperator <: AbstractTToperator
+mutable struct BlockingIdentityOperator <: AbstractTTOperator
     entered::Channel{Nothing}
     release::Channel{Nothing}
     blocked::Bool
 end
 
-function Base.:*(A::BlockingIdentityOperator, x::TTvector)
+function Base.:*(A::BlockingIdentityOperator, x::TTVector)
     if !A.blocked
         A.blocked = true
         put!(A.entered, nothing)
@@ -22,7 +22,7 @@ function Base.:*(A::BlockingIdentityOperator, x::TTvector)
     return copy(x)
 end
 
-@testset "VectorInterface TTvector zeroing and scalar metadata" begin
+@testset "VectorInterface TTVector zeroing and scalar metadata" begin
     Random.seed!(101)
     dims = (2, 3, 2)
     ranks = [1, 2, 2, 1]
@@ -38,7 +38,7 @@ end
     @test z.ttv_rks == ranks
     @test z.ttv_rks !== x.ttv_rks
     @test all(iszero, _dense(z))
-    @test z_complex isa TTvector{ComplexF64}
+    @test z_complex isa TTVector{ComplexF64}
     @test z_complex.ttv_dims == dims
     @test z_complex.ttv_rks == ranks
     @test z_complex.ttv_rks !== x.ttv_rks
@@ -61,7 +61,7 @@ end
     @test all(iszero, _dense(z_maybe_mutating))
 end
 
-@testset "VectorInterface TTvector addition variants" begin
+@testset "VectorInterface TTVector addition variants" begin
     Random.seed!(102)
     dims = (2, 2, 3)
     ranks = [1, 2, 2, 1]
@@ -104,7 +104,7 @@ end
     @test _dense(x) == x_dense
 end
 
-@testset "VectorInterface TTvector scaling variants" begin
+@testset "VectorInterface TTVector scaling variants" begin
     Random.seed!(103)
     dims = (2, 3, 2)
     ranks = [1, 2, 2, 1]
@@ -125,7 +125,7 @@ end
     @test _dense(returned_maybe_mutating) ≈ 0.75 * x_dense
 
     scaled_promoted = VectorInterface.scale!!(copy(x), 0.5im)
-    @test scaled_promoted isa TTvector{ComplexF64}
+    @test scaled_promoted isa TTVector{ComplexF64}
     @test _dense(scaled_promoted) ≈ 0.5im * x_dense
 
     destination = rand_tt(dims, ranks)
@@ -136,13 +136,13 @@ end
     promoted_destination = rand_tt(dims, ranks)
     promoted_destination_dense = _dense(promoted_destination)
     returned_promoted_destination = VectorInterface.scale!!(promoted_destination, x, 0.5im)
-    @test returned_promoted_destination isa TTvector{ComplexF64}
+    @test returned_promoted_destination isa TTVector{ComplexF64}
     @test _dense(returned_promoted_destination) ≈ 0.5im * x_dense
     @test _dense(promoted_destination) == promoted_destination_dense
     @test _dense(x) == x_dense
 end
 
-@testset "VectorInterface TToperator addition and scalar type" begin
+@testset "VectorInterface TTOperator addition and scalar type" begin
     Random.seed!(104)
     A = rand_tto((2, 3), 2)
     B = rand_tto((2, 3), 2)
@@ -151,7 +151,7 @@ end
 
     C = VectorInterface.add(A, B)
 
-    @test C isa TToperator{Float64, 2}
+    @test C isa TTOperator{Float64, 2}
     @test tto_to_tensor(C) ≈ A_dense + B_dense
     @test tto_to_tensor(A) == A_dense
     @test tto_to_tensor(B) == B_dense
@@ -160,20 +160,20 @@ end
     @test VectorInterface.scalartype(complex(A)) === ComplexF64
 end
 
-@testset "VectorInterface TToperator zero and length" begin
+@testset "VectorInterface TTOperator zero and length" begin
     A = rand_tto((2, 3), 2)
     z = VectorInterface.zerovector(A)
     z_complex = VectorInterface.zerovector(A, ComplexF64)
 
-    @test z isa TToperator{Float64, 2}
+    @test z isa TTOperator{Float64, 2}
     @test VectorInterface.length(A) == prod(A.tto_dims)^2
-    if z isa TToperator
+    if z isa TTOperator
         @test z.tto_dims == A.tto_dims
         @test z.tto_rks == A.tto_rks
         @test z.tto_rks !== A.tto_rks
         @test all(iszero, tto_to_tensor(z))
     end
-    @test z_complex isa TToperator{ComplexF64, 2}
+    @test z_complex isa TTOperator{ComplexF64, 2}
     @test z_complex.tto_dims == A.tto_dims
     @test z_complex.tto_rks == A.tto_rks
     @test z_complex.tto_rks !== A.tto_rks
@@ -188,8 +188,8 @@ end
     y = rand_tt(dims, ranks)
     x_dense = _dense(x)
     y_dense = _dense(y)
-    bounded_x = TensorTrainNumerics._RankBoundedTTvector(x, 2)
-    bounded_y = TensorTrainNumerics._RankBoundedTTvector(y, 2)
+    bounded_x = TensorTrainNumerics._RankBoundedTTVector(x, 2)
+    bounded_y = TensorTrainNumerics._RankBoundedTTVector(y, 2)
 
     z = VectorInterface.zerovector(bounded_x, ComplexF64)
     @test z.max_bond == 2
@@ -198,11 +198,11 @@ end
     @test z.tt.ttv_rks == bounded_x.tt.ttv_rks
     @test z.tt.ttv_rks !== bounded_x.tt.ttv_rks
 
-    z_mutating = TensorTrainNumerics._RankBoundedTTvector(copy(x), 2)
+    z_mutating = TensorTrainNumerics._RankBoundedTTVector(copy(x), 2)
     @test VectorInterface.zerovector!(z_mutating) === z_mutating
     @test all(iszero, _dense(z_mutating.tt))
 
-    z_maybe_mutating = TensorTrainNumerics._RankBoundedTTvector(copy(x), 2)
+    z_maybe_mutating = TensorTrainNumerics._RankBoundedTTVector(copy(x), 2)
     @test VectorInterface.zerovector!!(z_maybe_mutating) === z_maybe_mutating
     @test all(iszero, _dense(z_maybe_mutating.tt))
 
@@ -210,30 +210,30 @@ end
     @test scaled.max_bond == 2
     @test _dense(scaled.tt) ≈ 0.5 * x_dense
 
-    scaled_mutating = TensorTrainNumerics._RankBoundedTTvector(copy(x), 2)
+    scaled_mutating = TensorTrainNumerics._RankBoundedTTVector(copy(x), 2)
     @test VectorInterface.scale!(scaled_mutating, -2.0) === scaled_mutating
     @test _dense(scaled_mutating.tt) ≈ -2.0 * x_dense
 
     scaled_promoted = VectorInterface.scale!!(
-        TensorTrainNumerics._RankBoundedTTvector(copy(x), 2), 0.5im
+        TensorTrainNumerics._RankBoundedTTVector(copy(x), 2), 0.5im
     )
     @test scaled_promoted.max_bond == 2
     @test eltype(scaled_promoted.tt) === ComplexF64
     @test _dense(scaled_promoted.tt) ≈ 0.5im * x_dense
 
-    scale_destination = TensorTrainNumerics._RankBoundedTTvector(copy(y), 2)
+    scale_destination = TensorTrainNumerics._RankBoundedTTVector(copy(y), 2)
     scale_result = VectorInterface.scale!!(scale_destination, bounded_x, 1.25)
     @test scale_result.max_bond == 2
     @test _dense(scale_destination.tt) ≈ 1.25 * x_dense
     @test _dense(scale_result.tt) ≈ 1.25 * x_dense
 
-    promoted_scale_destination = TensorTrainNumerics._RankBoundedTTvector(copy(y), 2)
+    promoted_scale_destination = TensorTrainNumerics._RankBoundedTTVector(copy(y), 2)
     promoted_scale_destination_dense = _dense(promoted_scale_destination.tt)
     promoted_scale_result = VectorInterface.scale!!(
         promoted_scale_destination, bounded_x, 0.5im
     )
     @test promoted_scale_result.max_bond == 2
-    @test promoted_scale_result.tt isa TTvector{ComplexF64}
+    @test promoted_scale_result.tt isa TTVector{ComplexF64}
     @test _dense(promoted_scale_result.tt) ≈ 0.5im * x_dense
     @test _dense(promoted_scale_destination.tt) == promoted_scale_destination_dense
 
@@ -242,7 +242,7 @@ end
     @test maximum(added.tt.ttv_rks) <= 2
     @test _dense(added.tt) ≈ -0.5 * y_dense + 0.25 * x_dense
 
-    add_destination = TensorTrainNumerics._RankBoundedTTvector(copy(y), 2)
+    add_destination = TensorTrainNumerics._RankBoundedTTVector(copy(y), 2)
     add_result = VectorInterface.add!!(add_destination, bounded_x, 0.25, -0.5)
     @test add_result.max_bond == 2
     @test maximum(add_result.tt.ttv_rks) <= 2
@@ -252,7 +252,7 @@ end
     @test VectorInterface.norm(bounded_x) ≈ norm(x_dense)
     @test VectorInterface.scalartype(typeof(bounded_x)) === Float64
 
-    incompatible = TensorTrainNumerics._RankBoundedTTvector(copy(y), 3)
+    incompatible = TensorTrainNumerics._RankBoundedTTVector(copy(y), 3)
     @test_throws ArgumentError VectorInterface.inner(bounded_x, incompatible)
     @test_throws ArgumentError VectorInterface.scale!(incompatible, bounded_x, 1.0)
     @test_throws ArgumentError VectorInterface.scale!!(incompatible, bounded_x, 1.0)
@@ -294,17 +294,17 @@ end
 
     z0 = VectorInterface.add!!(copy(y), x)
     expected0 = qtt_to_vector(y) + qtt_to_vector(x)
-    @test z0 isa TTvector{ComplexF64}
+    @test z0 isa TTVector{ComplexF64}
     @test norm(qtt_to_vector(z0) - expected0) / norm(expected0) < 1.0e-12
 
     z1 = VectorInterface.add!!(copy(y), x, α)
     expected1 = qtt_to_vector(y) + α * qtt_to_vector(x)
-    @test z1 isa TTvector{ComplexF64}
+    @test z1 isa TTVector{ComplexF64}
     @test norm(qtt_to_vector(z1) - expected1) / norm(expected1) < 1.0e-12
 
     z2 = VectorInterface.add!!(copy(y), x, α, β)
     expected2 = β * qtt_to_vector(y) + α * qtt_to_vector(x)
-    @test z2 isa TTvector{ComplexF64}
+    @test z2 isa TTVector{ComplexF64}
     @test norm(qtt_to_vector(z2) - expected2) / norm(expected2) < 1.0e-12
 end
 
@@ -386,8 +386,8 @@ end
     destination = rand_tt(dims, ranks)
     destination_before = vec(ttv_to_tensor(destination))
     source_dense = vec(ttv_to_tensor(source))
-    bounded_source = TensorTrainNumerics._RankBoundedTTvector(source, 2)
-    bounded_destination = TensorTrainNumerics._RankBoundedTTvector(destination, 2)
+    bounded_source = TensorTrainNumerics._RankBoundedTTVector(source, 2)
+    bounded_destination = TensorTrainNumerics._RankBoundedTTVector(destination, 2)
 
     added = VectorInterface.add!(bounded_destination, bounded_source, 0.25, 0.5)
 
@@ -396,7 +396,7 @@ end
     @test maximum(bounded_destination.tt.ttv_rks) <= 2
 
     scaled_destination = zeros_tt(Float64, dims, ranks)
-    bounded_scaled = TensorTrainNumerics._RankBoundedTTvector(scaled_destination, 2)
+    bounded_scaled = TensorTrainNumerics._RankBoundedTTVector(scaled_destination, 2)
     scaled = VectorInterface.scale!(bounded_scaled, bounded_source, 1.5)
 
     @test scaled.tt === bounded_scaled.tt

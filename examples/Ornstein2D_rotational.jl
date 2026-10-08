@@ -42,7 +42,7 @@ d = 7
 N = 2^d
 h = (b - a) / (N - 1)
 xes = collect(range(a, b, N))
-toarr(v) = qttv_to_array(QTTvector(v, 2, d, :serial))
+toarr(v) = qttv_to_array(QTTVector(v, 2, d, :serial))
 mass(P) = sum(P) * h^2
 P∞ = [exp(-((xi - μx)^2 + (yj - μy)^2) / (2var∞)) / (2π * var∞) for xi in xes, yj in xes]
 

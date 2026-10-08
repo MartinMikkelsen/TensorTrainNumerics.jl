@@ -2,7 +2,7 @@
 
 TensorTrainNumerics.jl provides five families of iterative solvers for problems in tensor-train format: **ALS**, **MALS**, **DMRG**, **AMEn**, and **TDVP**. In addition, three time-stepping methods are available for evolution problems.
 
-All solvers operate on `AbstractTTvector` and `AbstractTToperator` inputs, so they accept both plain `TTvector`/`TToperator` and the `QTTvector`/`QTToperator` wrappers transparently.
+All solvers operate on `AbstractTTVector` and `AbstractTTOperator` inputs, so they accept both plain `TTVector`/`TTOperator` and the `QTTVector`/`QTTOperator` wrappers transparently.
 
 Use `linear_solve(A, b, x0, MALS(trunc_tol = 1e-5))` for linear systems and `eigen_solve(A, x0, DMRG(trunc_tol = 1e-12))` for eigenvalue problems. The older `*_linsolve` and `*_eigsolve` names are kept as compatibility wrappers.
 

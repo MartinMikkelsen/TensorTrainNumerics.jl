@@ -158,11 +158,11 @@ function DMRGcross(;
 end
 
 """
-    tt_cross(f, domain, alg::CrossAlgorithm=MaxVol(); ranks=2, val_size=1000) -> TTvector
+    tt_cross(f, domain, alg::CrossAlgorithm=MaxVol(); ranks=2, val_size=1000) -> TTVector
     tt_cross(f, domain; alg=MaxVol(), kwargs...)
     tt_cross(f, dims; alg=MaxVol(), kwargs...)
 
-Build a [`TTvector`](@ref) approximation of the function `f` on a tensor-product
+Build a [`TTVector`](@ref) approximation of the function `f` on a tensor-product
 grid by cross interpolation, evaluating `f` only at selected points.
 
 `domain` is a vector of grid-point vectors, one per dimension. With integer
@@ -398,7 +398,7 @@ function tt_cross(
     converged && alg.verbosity ≥ 2 && @info "Converged: ε = $(val_eps) < $(alg.tol)"
     !converged && alg.verbosity ≥ 1 && @warn "Max iterations reached: ε = $(val_eps)"
 
-    return TTvector{eltype(cores[1]), N}(cores, Tuple(Is), copy(Rs))
+    return TTVector{eltype(cores[1]), N}(cores, Tuple(Is), copy(Rs))
 end
 
 function _indexmerge(J1::AbstractMatrix{Int}, J2::AbstractMatrix{Int})
@@ -605,7 +605,7 @@ function tt_cross(
     converged && alg.verbosity ≥ 2 && @info "Converged: ε = $(val_eps) < $(alg.tol)"
     !converged && alg.verbosity ≥ 1 && @warn "Max iterations reached"
 
-    return TTvector{eltype(y[1]), N}(_form_tensor(y, mid_inv_L, mid_inv_U, N, Rs, Is), Tuple(Is), copy(Rs))
+    return TTVector{eltype(y[1]), N}(_form_tensor(y, mid_inv_L, mid_inv_U, N, Rs, Is), Tuple(Is), copy(Rs))
 end
 
 function _sample_superblock(f, domain, I_l, I_g, k, Is, N)
@@ -662,7 +662,7 @@ function tt_cross(
     if N == 1
         coords = reshape(domain[1], :, 1)
         vals = vec(f(coords))
-        return TTvector{eltype(vals), 1}([reshape(vals, Is[1], 1, 1)], Tuple(Is), [1, 1])
+        return TTVector{eltype(vals), 1}([reshape(vals, Is[1], 1, 1)], Tuple(Is), [1, 1])
     end
 
     Rs = isa(ranks, Int) ? vcat([1], fill(ranks, N - 1), [1]) : vcat([1], ranks, [1])
@@ -758,7 +758,7 @@ function tt_cross(
     converged && alg.verbosity ≥ 2 && @info "Converged: ε = $(val_eps) < $(alg.tol)"
     !converged && alg.verbosity ≥ 1 && @warn "Max iterations reached: ε = $(val_eps)"
 
-    return TTvector{eltype(cores[1]), N}(cores, Tuple(Is), copy(Rs))
+    return TTVector{eltype(cores[1]), N}(cores, Tuple(Is), copy(Rs))
 end
 
 """

@@ -12,13 +12,13 @@ xes = h .* (1:N)
 # Discrete −∇² = −(1/h²)(Δ1d ⊗ I + I ⊗ Δ1d),  Δ1d = tridiag(−2,1,1)
 Δ1d = toeplitz_to_qtto(-2.0, 1.0, 1.0, d)
 A_raw = -(1 / h^2) * (Δ1d ⊗ id_tto(d) + id_tto(d) ⊗ Δ1d)
-A = QTToperator(A_raw, 2, d, :serial)
+A = QTTOperator(A_raw, 2, d, :serial)
 
 # RHS: 2π² sin(πxᵢ) sin(πyⱼ) at interior points xᵢ = i·h
 b_raw = 2π^2 * qtt_sin(d; a = h, b = 1 - h) ⊗ qtt_sin(d; a = h, b = 1 - h)
-b = QTTvector(b_raw, 2, d, :serial)
+b = QTTVector(b_raw, 2, d, :serial)
 
-x0 = QTTvector(rand_tt(b_raw.ttv_dims, b_raw.ttv_rks), 2, d, :serial)
+x0 = QTTVector(rand_tt(b_raw.ttv_dims, b_raw.ttv_rks), 2, d, :serial)
 x_sol = linear_solve(A, b, x0, DMRG(max_sweeps = 19, trunc_tol = 1.0e-10))
 
 sol = qttv_to_array(x_sol)

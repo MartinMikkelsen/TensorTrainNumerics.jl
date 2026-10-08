@@ -12,7 +12,7 @@ A_builder(d) = (4.0^d / 2) * Δ(d) - g_ac * id_tto(d)
 alg = PenaltyALS(; local_solver = :newton, penalty_schedule = [0.0], tol = 1.0e-10, max_sweeps = 60)
 
 # discrete φ⁴ energy readout: E = h·(uᵀAu + (g/2)Σu⁴) + N·h/(4ε²)
-function phi4_energy(u::TTvector, d::Int)
+function phi4_energy(u::TTVector, d::Int)
     h = 2.0^(-d)
     w = hadamard(u, u)
     return h * (dot(u, A_builder(d) * u) + (g_ac / 2) * dot(w, w)) + 2^d * h / (4 * ε^2)

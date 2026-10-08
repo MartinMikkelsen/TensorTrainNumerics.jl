@@ -1,7 +1,7 @@
 using KrylovKit
 using ProgressMeter
 
-struct _RankBoundedTTvector{V <: AbstractTTvector}
+struct _RankBoundedTTVector{V <: AbstractTTVector}
     tt::V
     max_bond::Int
 end
@@ -352,7 +352,7 @@ end
     Krylov(; kwargs...)
 
 Solve `A x = b` with a KrylovKit.jl Krylov method whose vectors are
-`TTvector`s. Pass to [`linear_solve`](@ref); not supported by `eigen_solve`.
+`TTVector`s. Pass to [`linear_solve`](@ref); not supported by `eigen_solve`.
 
 With `max_bond > 0`, every operator application is followed by
 [`tt_compress!`](@ref) to bond dimension `max_bond`, and the result is compressed
@@ -569,7 +569,7 @@ function dmrg_linsolve(A, b, guess; kwargs...)
 end
 
 # Copy of `alg` for the linear solves inside a time stepper: the fields in
-# `overrides` are replaced, and the copy returns a bare TTvector without a
+# `overrides` are replaced, and the copy returns a bare TTVector without a
 # progress bar of its own.
 function _stepper_algorithm(alg::LinearSolverAlgorithm; overrides...)
     fields = (f => getfield(alg, f) for f in fieldnames(typeof(alg)))
@@ -607,7 +607,7 @@ function _krylov_algorithm(
 end
 
 function krylov_linsolve(
-        A::AbstractTToperator, b::AbstractTTvector, guess::AbstractTTvector;
+        A::AbstractTTOperator, b::AbstractTTVector, guess::AbstractTTVector;
         max_bond::Int = 0,
         krylov_solver::Symbol = :auto,
         krylovdim::Int = 8,
@@ -636,14 +636,14 @@ function krylov_linsolve(
     )
     progress = _solver_progress(1, show_progress; desc = "Krylov linear solve")
     if max_bond > 0
-        op = function (x::_RankBoundedTTvector)
+        op = function (x::_RankBoundedTTVector)
             y = tt_compress!(A * x.tt, x.max_bond)
-            return _RankBoundedTTvector(y, x.max_bond)
+            return _RankBoundedTTVector(y, x.max_bond)
         end
         xb, info = linsolve(
             op,
-            _RankBoundedTTvector(b, max_bond),
-            _RankBoundedTTvector(guess, max_bond),
+            _RankBoundedTTVector(b, max_bond),
+            _RankBoundedTTVector(guess, max_bond),
             alg;
             kwargs...
         )

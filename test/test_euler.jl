@@ -367,11 +367,11 @@ end
     @test qtt_to_vector(cn_typ) ≈ qtt_to_vector(cn_str)
 
     kr = crank_nicolson_method(A, u₀, guess, steps; alg = KrylovSolver(), normalize = false, max_bond = 6)
-    @test kr isa TTvector
+    @test kr isa TTVector
     @test qtt_to_vector(kr) ≈ qtt_to_vector(cn_str) rtol = 1.0e-5
 
     dm = implicit_euler_method(A, u₀, guess, steps; alg = DMRGSolver(), normalize = false)
-    @test dm isa TTvector
+    @test dm isa TTVector
     @test qtt_to_vector(dm) ≈ qtt_to_vector(sol_str) rtol = 1.0e-5
 end
 
@@ -404,7 +404,7 @@ end
         normalize = false,
         alg = DMRGSolver(),
         local_maxiter = 50
-    ) isa TTvector
+    ) isa TTVector
 
     @test crank_nicolson_method(
         A, u₀, guess, steps;
@@ -412,7 +412,7 @@ end
         alg = KrylovSolver(),
         max_bond = 6,
         krylovdim = 10
-    ) isa TTvector
+    ) isa TTVector
 end
 
 @testset "time steppers accept top-level show_progress option" begin
@@ -423,10 +423,10 @@ end
     guess = rand_tt(u₀.ttv_dims, u₀.ttv_rks)
     steps = [0.01]
 
-    @test euler_method(A, u₀, steps; normalize = false, show_progress = false) isa TTvector
-    @test implicit_euler_method(A, u₀, guess, steps; normalize = false, show_progress = false, alg = ALS(max_sweeps = 1)) isa TTvector
-    @test crank_nicolson_method(A, u₀, guess, steps; normalize = false, show_progress = false, alg = MALS()) isa TTvector
-    @test rk4_method(A, u₀, steps; max_bond = 4, normalize = false, show_progress = false) isa TTvector
+    @test euler_method(A, u₀, steps; normalize = false, show_progress = false) isa TTVector
+    @test implicit_euler_method(A, u₀, guess, steps; normalize = false, show_progress = false, alg = ALS(max_sweeps = 1)) isa TTVector
+    @test crank_nicolson_method(A, u₀, guess, steps; normalize = false, show_progress = false, alg = MALS()) isa TTVector
+    @test rk4_method(A, u₀, steps; max_bond = 4, normalize = false, show_progress = false) isa TTVector
 end
 
 @testset "time steppers do not normalize by default" begin
@@ -477,8 +477,8 @@ end
 
     u, info = implicit_euler_method(A, u₀, u₀, steps; alg = ALS(; max_sweeps = 2), return_info = true, show_progress = false)
     @test info.error isa Real
-    # An inner solver built with return_info = true still hands the stepper a TTvector.
-    @test implicit_euler_method(A, u₀, u₀, steps; alg = ALS(; return_info = true), show_progress = false) isa TTvector
+    # An inner solver built with return_info = true still hands the stepper a TTVector.
+    @test implicit_euler_method(A, u₀, u₀, steps; alg = ALS(; return_info = true), show_progress = false) isa TTVector
     u, info = crank_nicolson_method(A, u₀, u₀, steps; alg = Krylov(), tol = 1.0e-12, return_info = true, show_progress = false)
     @test info.error isa Real
     u, info = euler_method(A, u₀, steps; return_info = true, show_progress = false)

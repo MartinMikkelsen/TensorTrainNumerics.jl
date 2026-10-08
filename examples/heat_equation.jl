@@ -9,10 +9,10 @@ xes = h .* (1:N)
 
 Δ1d = toeplitz_to_qtto(-2.0, 1.0, 1.0, d)
 A_raw = (κ / h^2) * (Δ1d ⊗ id_tto(d) + id_tto(d) ⊗ Δ1d)
-A = QTToperator(A_raw, 2, d, :serial)
+A = QTTOperator(A_raw, 2, d, :serial)
 
 u0_raw = qtt_sin(d; a = h, b = 1 - h) ⊗ qtt_sin(d; a = h, b = 1 - h)
-u0 = QTTvector(u0_raw, 2, d, :serial)
+u0 = QTTVector(u0_raw, 2, d, :serial)
 
 T = 1.0
 dt = 0.001      # (κ/h²)*dt ≈ 422*0.001 = 0.42, small enough for the local Krylov steps.

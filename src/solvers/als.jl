@@ -6,7 +6,7 @@ Implementation based on the presentation in
 Holtz, Sebastian, Thorsten Rohwedder, and Reinhold Schneider. "The alternating linear scheme for tensor optimization in the tensor train format." SIAM Journal on Scientific Computing 34.2 (2012): A683-A713.
 """
 
-function init_H(x_tt::AbstractTTvector, A_tto::AbstractTToperator)
+function init_H(x_tt::AbstractTTVector, A_tto::AbstractTTOperator)
     T = eltype(x_tt)
     d = nsites(x_tt)
     H = Array{Array{T}}(undef, d)
@@ -25,7 +25,7 @@ function update_H!(x_vec::Array{T, 3}, A_vec::Array{T, 4}, Hi::Array{T, 3}, Him:
     return nothing
 end
 
-function init_Hb(x_tt::AbstractTTvector, b_tt::AbstractTTvector)
+function init_Hb(x_tt::AbstractTTVector, b_tt::AbstractTTVector)
     T = eltype(x_tt)
     d = nsites(x_tt)
     H_b = Array{Array{T}}(undef, d)
@@ -129,7 +129,7 @@ function K_eiggenmin(Gi, Hi, Ki, Li, ttv_vec; it_solver = false, itslv_thresh = 
     end
 end
 
-function left_core_move(x_tt::AbstractTTvector, V::Array{T, 3}, i::Int, x_rks) where {T <: Number}
+function left_core_move(x_tt::AbstractTTVector, V::Array{T, 3}, i::Int, x_rks) where {T <: Number}
     rim, ri = x_rks[i], x_rks[i + 1]
     ni = x_tt.ttv_dims[i]
 
@@ -146,7 +146,7 @@ function left_core_move(x_tt::AbstractTTvector, V::Array{T, 3}, i::Int, x_rks) w
     return x_tt
 end
 
-function right_core_move(x_tt::AbstractTTvector, V::Array{T, 3}, i::Int, x_rks) where {T <: Number}
+function right_core_move(x_tt::AbstractTTVector, V::Array{T, 3}, i::Int, x_rks) where {T <: Number}
     rim, ri = x_rks[i], x_rks[i + 1]
     ni = x_tt.ttv_dims[i]
     QV, RV = qr(reshape(V, ni * rim, :)) #QV: ni*rim x ni*rim; RV ni*rim x ri
@@ -164,7 +164,7 @@ end
 
 # Implementation of `linear_solve(A, b, tt_start, ::ALS)`; see [`ALS`](@ref).
 function _als_linsolve_impl(
-        A::AbstractTToperator, b::AbstractTTvector, tt_start::AbstractTTvector;
+        A::AbstractTTOperator, b::AbstractTTVector, tt_start::AbstractTTVector;
         max_sweeps::Int, local_solver::Symbol, local_threshold::Int,
         local_maxiter::Int, local_tol::Real,
         return_info::Bool, verbosity::Int, show_progress::Bool
@@ -210,7 +210,7 @@ end
 
 # Implementation of `eigen_solve(A, tt_start, ::ALS)`; see [`ALS`](@ref).
 function _als_eigsolve_impl(
-        A::AbstractTToperator, tt_start::AbstractTTvector;
+        A::AbstractTTOperator, tt_start::AbstractTTVector;
         max_sweeps::Vector{Int}, max_bond::Vector{Int}, noise::Vector{Float64},
         local_solver::Symbol, local_threshold::Int, local_maxiter::Int, local_tol::Real,
         verbosity::Int, show_progress::Bool
@@ -262,7 +262,7 @@ function _als_eigsolve_impl(
     return E, tt_opt
 end
 
-function eigen_solve(A::AbstractTToperator, guess::AbstractTTvector, alg::ALS)
+function eigen_solve(A::AbstractTTOperator, guess::AbstractTTVector, alg::ALS)
     _reject_unused(alg, "eigen_solve", (:return_info,), "every option except `return_info`")
     st = _stages(;
         max_sweeps = alg.max_sweeps,
@@ -286,9 +286,9 @@ end
 Find the smallest generalized eigenpair `Ax = λ S x` using the ALS algorithm.
 
 # Arguments
-- `A::TToperator{T}`: the operator on the left-hand side.
-- `S::TToperator{T}`: the positive-definite metric operator on the right-hand side.
-- `tt_start::TTvector{T}`: initial guess for the eigenvector.
+- `A::TTOperator{T}`: the operator on the left-hand side.
+- `S::TTOperator{T}`: the positive-definite metric operator on the right-hand side.
+- `tt_start::TTVector{T}`: initial guess for the eigenvector.
 
 # Keyword arguments
 - `sweep_schedule::Vector{Int}=[2]`: sweep count at which each rank stage ends.
@@ -302,7 +302,7 @@ Find the smallest generalized eigenpair `Ax = λ S x` using the ALS algorithm.
 eigenvector, or `nothing` if the schedule is exhausted without a final return.
 """
 function als_gen_eigsolve(
-        A::AbstractTToperator, S::AbstractTToperator, tt_start::AbstractTTvector;
+        A::AbstractTTOperator, S::AbstractTTOperator, tt_start::AbstractTTVector;
         sweep_schedule = [2], rmax_schedule = [maximum(tt_start.ttv_rks)],
         tol = 1.0e-10, it_solver = false, itslv_thresh = 2500,
         show_progress::Bool = false

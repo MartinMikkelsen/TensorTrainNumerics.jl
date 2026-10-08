@@ -28,7 +28,7 @@ A = θ * ((∂ * Mx) ⊗ idd + idd ⊗ (∂ * My)) -
     k * (∂ ⊗ My + Mx ⊗ ∂) +
     D * (∂² ⊗ idd + idd ⊗ ∂²)
 
-toarr(v) = qttv_to_array(QTTvector(v, 2, d, :serial))   # raw 2d-site TT -> N×N grid
+toarr(v) = qttv_to_array(QTTVector(v, 2, d, :serial))   # raw 2d-site TT -> N×N grid
 mass(P) = sum(P) * h^2
 
 gx = function_to_qtt(t -> exp(-(a + (b - a) * t)^2 / 2), d)

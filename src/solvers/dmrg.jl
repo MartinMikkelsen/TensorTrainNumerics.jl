@@ -7,7 +7,7 @@ Implementation based on the presentation in
 Holtz, Sebastian, Thorsten Rohwedder, and Reinhold Schneider. "The alternating linear scheme for tensor optimization in the tensor train format." SIAM Journal on Scientific Computing 34.2 (2012): A683-A713.
 """
 
-function init_H(x_tt::AbstractTTvector, A_tto::AbstractTToperator, N::Int, rmax)
+function init_H(x_tt::AbstractTTVector, A_tto::AbstractTTOperator, N::Int, rmax)
     T = eltype(x_tt)
     d = nsites(x_tt)
     H = Array{Array{T, 3}, 1}(undef, d + 1 - N)
@@ -35,7 +35,7 @@ function update_G!(x_vec::Array{T, 3}, A_vec::Array{T, 4}, Gi::AbstractArray{<:A
 end
 
 #returns the contracted tensor A_i[\\mu_i] ⋯ A_j[\\mu_j] ∈ R^{R^A_{i-1} × n_i × n_i × ⋯ × n_j × n_j ×  R^A_j}
-function Amid(A_tto::AbstractTToperator, i::Int, j::Int)
+function Amid(A_tto::AbstractTTOperator, i::Int, j::Int)
     A = permutedims(A_tto.tto_vec[i], (3, 1, 2, 4))
     for k in (i + 1):j
         C = reshape(A, A_tto.tto_rks[i], prod(A_tto.tto_dims[i:(k - 1)]), :, A_tto.tto_rks[k])
@@ -53,7 +53,7 @@ function K_full(Gi::AbstractArray{T, 3}, Hi::AbstractArray{T, 3}, Amid_tensor::A
     return reshape(K, prod(K_dims), prod(K_dims))
 end
 
-function init_Hb(x_tt::AbstractTTvector, b_tt::AbstractTTvector, N::Integer, rmax)
+function init_Hb(x_tt::AbstractTTVector, b_tt::AbstractTTVector, N::Integer, rmax)
     T = eltype(x_tt)
     d = nsites(x_tt)
     H_b = Array{Array{T, 2}, 1}(undef, d + 1 - N)
@@ -80,7 +80,7 @@ function update_Gb!(x_vec::Array{T, 3}, b_vec::Array{T, 3}, G_bi::AbstractArray{
     return nothing
 end
 
-function b_mid(b_tt::AbstractTTvector, i::Integer, j::Integer)
+function b_mid(b_tt::AbstractTTVector, i::Integer, j::Integer)
     b_out = permutedims(b_tt.ttv_vec[i], (2, 1, 3))
     for k in (i + 1):j
         @tensor btemp[αk, ik, jk, βk] := b_out[αk, ik, ξk] * b_tt.ttv_vec[k][jk, ξk, βk]
@@ -111,7 +111,7 @@ function Ksolve!(Gi_view::AbstractArray{T, 3}, G_bi::AbstractArray{T, 2}, Hi_vie
     end
 end
 
-function right_core_move!(x_tt::AbstractTTvector, V, V_move, i::Int, trunc_tol::Real, r_max::Integer; verbose::Bool = false, trunc_err = nothing)
+function right_core_move!(x_tt::AbstractTTVector, V, V_move, i::Int, trunc_tol::Real, r_max::Integer; verbose::Bool = false, trunc_err = nothing)
     u_V, s_V, v_V = svd(reshape(V, x_tt.ttv_rks[i] * x_tt.ttv_dims[i], :))
     x_tt.ttv_rks[i + 1] = _trunc_rank(s_V, trunc_tol, nsites(x_tt), r_max)
     δ = _discarded_weight(s_V, x_tt.ttv_rks[i + 1])
@@ -130,7 +130,7 @@ function right_core_move!(x_tt::AbstractTTvector, V, V_move, i::Int, trunc_tol::
     return nothing
 end
 
-function left_core_move!(x_tt::AbstractTTvector, V, V_move, j::Int, trunc_tol::Real, r_max::Integer; verbose::Bool = false, trunc_err = nothing)
+function left_core_move!(x_tt::AbstractTTVector, V, V_move, j::Int, trunc_tol::Real, r_max::Integer; verbose::Bool = false, trunc_err = nothing)
     u_V, s_V, v_V = svd(reshape(V, :, x_tt.ttv_dims[j] * x_tt.ttv_rks[j + 1]))
     x_tt.ttv_rks[j] = _trunc_rank(s_V, trunc_tol, nsites(x_tt), r_max)
     δ = _discarded_weight(s_V, x_tt.ttv_rks[j])
@@ -175,7 +175,7 @@ function K_eigmin(Gi_view::AbstractArray{<:Any, 3}, Hi_view::AbstractArray{<:Any
     return λ
 end
 
-function init_dmrg(A::AbstractTToperator, tt_opt::AbstractTTvector, rks, N::Integer)
+function init_dmrg(A::AbstractTTOperator, tt_opt::AbstractTTVector, rks, N::Integer)
     T = eltype(tt_opt)
     d = nsites(tt_opt)
     rmax = maximum(rks)
@@ -197,7 +197,7 @@ function init_dmrg(A::AbstractTToperator, tt_opt::AbstractTTvector, rks, N::Inte
     return G, Amid_list, H, V0, V, V_move, V_temp, V0_view
 end
 
-function init_dmrg_b(b::AbstractTTvector, tt_opt::AbstractTTvector, rks, N)
+function init_dmrg_b(b::AbstractTTVector, tt_opt::AbstractTTVector, rks, N)
     T = eltype(b)
     d = nsites(b)
     rmax = maximum(rks)
@@ -297,7 +297,7 @@ end
 
 # Implementation of `linear_solve(A, b, tt_start, ::DMRG)`; see [`DMRG`](@ref).
 function _dmrg_linsolve_impl(
-        A::AbstractTToperator, b::AbstractTTvector, tt_start::AbstractTTvector;
+        A::AbstractTTOperator, b::AbstractTTVector, tt_start::AbstractTTVector;
         nsites::Int, max_sweeps::Vector{Int}, max_bond::Vector{Int}, trunc_tol::Real,
         local_solver::Symbol, local_threshold::Int, local_maxiter::Int, local_tol::Real,
         return_info::Bool, verbosity::Int, show_progress::Bool
@@ -353,7 +353,7 @@ end
 
 # Implementation of `eigen_solve(A, tt_start, ::DMRG)`; see [`DMRG`](@ref).
 function _dmrg_eigsolve_impl(
-        A::AbstractTToperator, tt_start::AbstractTTvector;
+        A::AbstractTTOperator, tt_start::AbstractTTVector;
         nsites::Int, max_sweeps::Vector{Int}, max_bond::Vector{Int}, trunc_tol::Real,
         local_solver::Symbol, local_threshold::Int, local_maxiter::Int, local_tol::Real,
         verbosity::Int, show_progress::Bool
@@ -403,7 +403,7 @@ function _dmrg_eigsolve_impl(
     return E, tt_opt, r_hist
 end
 
-function eigen_solve(A::AbstractTToperator, guess::AbstractTTvector, alg::DMRG)
+function eigen_solve(A::AbstractTTOperator, guess::AbstractTTVector, alg::DMRG)
     _reject_unused(alg, "eigen_solve", (:return_info,), "every option except `return_info`")
     return _dmrg_eigsolve_impl(A, guess; _dmrg_options(alg, guess)...)
 end

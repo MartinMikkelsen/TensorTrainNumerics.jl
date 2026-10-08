@@ -11,7 +11,7 @@ A = kappa * Δ
 
 f = qtt_sin(d, λ = π)
 
-function fg(u::TTvector)
+function fg(u::TTVector)
     û = orthogonalize(u)
     Au = A * û
     val = 0.5 * real(dot(û, Au)) - real(dot(f, û))

@@ -55,7 +55,7 @@ end
 
     x = linear_solve(A, b, guess, ALS(max_sweeps = 1))
     x_ref = als_linsolve(A, b, guess; max_sweeps = 1)
-    @test x isa TensorTrainNumerics.AbstractTTvector
+    @test x isa TensorTrainNumerics.AbstractTTVector
     @test qtt_to_vector(x) ≈ qtt_to_vector(x_ref) rtol = 1.0e-12 atol = 1.0e-12
 end
 
@@ -114,18 +114,18 @@ end
         ALS(max_sweeps = 1, max_bond = 2, noise = 0.0)
     )
     @test !isempty(E_als)
-    @test x_als isa TensorTrainNumerics.AbstractTTvector
+    @test x_als isa TensorTrainNumerics.AbstractTTVector
     @test abs(last(E_als) - 1.0) < 1.0e-8
 
     E_mals, x_mals, r_hist_mals = eigen_solve(A, guess, MALS(max_sweeps = 1, max_bond = 4))
     @test !isempty(E_mals)
     @test !isempty(r_hist_mals)
-    @test x_mals isa TensorTrainNumerics.AbstractTTvector
+    @test x_mals isa TensorTrainNumerics.AbstractTTVector
 
     E_dmrg, x_dmrg, r_hist_dmrg = eigen_solve(A, guess, DMRG(nsites = 2, max_sweeps = 1, max_bond = 4))
     @test !isempty(E_dmrg)
     @test !isempty(r_hist_dmrg)
-    @test x_dmrg isa TensorTrainNumerics.AbstractTTvector
+    @test x_dmrg isa TensorTrainNumerics.AbstractTTVector
 end
 
 @testset "legacy eigen wrappers delegate to eigen_solve" begin

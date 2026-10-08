@@ -92,7 +92,7 @@ import TensorTrainNumerics: MaxVolPivot, RandomPivot, MaxVol, Greedy, DMRGcross,
             domain = [range(0, 1, length = 10) |> collect for _ in 1:4]
 
             tt = tt_cross(f, domain, MaxVol(verbosity = 0, show_progress = false, tol = 1.0e-6))
-            @test tt isa TTvector
+            @test tt isa TTVector
             @test nsites(tt) == 4
             @test all(tt.ttv_dims .== 10)
             @test tt.ttv_rks[1] == 1
@@ -145,7 +145,7 @@ import TensorTrainNumerics: MaxVolPivot, RandomPivot, MaxVol, Greedy, DMRGcross,
             domain = [range(0, 1, length = 8) |> collect for _ in 1:3]
 
             tt = tt_cross(f, domain, Greedy(verbosity = 0, show_progress = false, tol = 1.0e-6, max_sweeps = 50))
-            @test tt isa TTvector
+            @test tt isa TTVector
             @test nsites(tt) == 3
         end
 
@@ -244,7 +244,7 @@ import TensorTrainNumerics: MaxVolPivot, RandomPivot, MaxVol, Greedy, DMRGcross,
             domain = [range(-1, 1, length = 12) |> collect for _ in 1:4]
 
             tt = tt_cross(f, domain, DMRGcross(verbosity = 0, show_progress = false, tol = 1.0e-6))
-            @test tt isa TTvector
+            @test tt isa TTVector
             @test nsites(tt) == 4
         end
 
@@ -346,7 +346,7 @@ import TensorTrainNumerics: MaxVolPivot, RandomPivot, MaxVol, Greedy, DMRGcross,
             domain = [collect(1.0:5.0) for _ in 1:3]
 
             tt = tt_cross(f, domain; alg = MaxVol(verbosity = 0, show_progress = false))
-            @test tt isa TTvector
+            @test tt isa TTVector
         end
 
         @testset "Tuple dimensions" begin
@@ -354,7 +354,7 @@ import TensorTrainNumerics: MaxVolPivot, RandomPivot, MaxVol, Greedy, DMRGcross,
             dims = (4, 5, 6)
 
             tt = tt_cross(f, dims; alg = MaxVol(verbosity = 0, show_progress = false))
-            @test tt isa TTvector
+            @test tt isa TTVector
             @test tt.ttv_dims == dims
         end
 
@@ -363,7 +363,7 @@ import TensorTrainNumerics: MaxVolPivot, RandomPivot, MaxVol, Greedy, DMRGcross,
             dims = [4, 5, 6, 7]
 
             tt = tt_cross(f, dims; alg = MaxVol(verbosity = 0, show_progress = false))
-            @test tt isa TTvector
+            @test tt isa TTVector
             @test nsites(tt) == 4
         end
 

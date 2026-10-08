@@ -26,7 +26,7 @@ dmrg_spd_op(d, shift = 3.0) = Δ(d) + shift * id_tto(d)
 
     x = dmrg_linsolve(A, b, x0; nsites = 2, max_sweeps = 1, max_bond = 4)
 
-    @test x isa TTvector{Float64}
+    @test x isa TTVector{Float64}
     @test nsites(x) == d
     @test x.ttv_dims == b.ttv_dims
     @test all(isfinite, x.ttv_rks)
@@ -51,7 +51,7 @@ end
 
     x = dmrg_linsolve(A, b, x0; nsites = 2, max_sweeps = [1, 2], max_bond = [2, 8])
 
-    @test x isa TTvector{Float64}
+    @test x isa TTVector{Float64}
     @test x.ttv_dims == b.ttv_dims
 end
 
@@ -81,7 +81,7 @@ end
         return_info = true,
     )
 
-    @test x isa TTvector{Float64}
+    @test x isa TTVector{Float64}
     @test haskey(info, :residual)
     @test isfinite(info.residual)
 end
@@ -95,7 +95,7 @@ end
     E, x_opt, r_hist = dmrg_eigsolve(A, x0; nsites = 2, max_sweeps = 1, max_bond = 4)
 
     @test E isa Vector{Float64}
-    @test x_opt isa TTvector{Float64}
+    @test x_opt isa TTVector{Float64}
     @test r_hist isa Vector{<:Integer}
     @test length(E) == length(r_hist)
     @test nsites(x_opt) == d
@@ -125,7 +125,7 @@ end
     E, x_opt, r_hist = dmrg_eigsolve(A, x0; nsites = 2, max_sweeps = [1, 2], max_bond = [2, 4])
 
     @test length(E) ≥ 2
-    @test x_opt isa TTvector{Float64}
+    @test x_opt isa TTVector{Float64}
     @test maximum(x_opt.ttv_rks) ≤ 4
 end
 
@@ -155,7 +155,7 @@ end
     )
 
     @test all(isfinite, E)
-    @test x_opt isa TTvector{Float64}
+    @test x_opt isa TTVector{Float64}
     @test length(r_hist) == length(E)
 end
 
@@ -173,7 +173,7 @@ end
     )
 
     @test all(isfinite, E)
-    @test x_opt isa TTvector{Float64}
+    @test x_opt isa TTVector{Float64}
     @test x_opt.orthogonality == [1, 1]
     @test length(r_hist) == length(E)
 end

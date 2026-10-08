@@ -18,7 +18,7 @@ function pauli_product_tto(factors, d)
         local_matrix = haskey(factor_map, site) ? convert.(T, pauli_matrix(factor_map[site])) : id
         cores[site] = reshape(local_matrix, 2, 2, 1, 1)
     end
-    return TToperator{T, d}(cores, dims, ones(Int, d + 1))
+    return TTOperator{T, d}(cores, dims, ones(Int, d + 1))
 end
 
 function periodic_transverse_field_ising_tto(d, g)
@@ -95,7 +95,7 @@ display(fig)
 
 # This mirrors the ITensors + OptimKit pattern, but with TensorTrainNumerics
 # types. There is no Zygote AD here: `dot` writes in place, so reverse-mode AD
-# cannot trace through it. Instead, TTvectors implement the VectorInterface
+# cannot trace through it. Instead, TTVectors implement the VectorInterface
 # vector space that OptimKit needs, and we supply the *analytic* gradient of the
 # Rayleigh quotient
 #
@@ -160,7 +160,7 @@ println("Variational (LBFGS) vs DMRG ground state: sites=$n J=$J h=$h E_lbfgs=$E
 # analytic gradient. We optimise over the *cores* (flattened), exactly like the
 # ITensorMPS example optimises over its Vector{ITensor}. Loading Zygote activates
 # TensorTrainNumerics' ChainRulesCore extension (rrules for `dot` and `*`), so
-# Zygote can differentiate through the rebuilt TTvector. Unlike the analytic
+# Zygote can differentiate through the rebuilt TTVector. Unlike the analytic
 # gradient above (a Hilbert-space vector), the AD gradient is per-core, so the
 # optimisation lives in parameter space — the geometry that matches OptimKit's
 # core-wise pairing here.
@@ -169,7 +169,7 @@ using Zygote
 shapes_ad = size.(ψ0_ad.ttv_vec)
 offsets_ad = cumsum([0; prod.(shapes_ad)])
 unflatten_ad(θ) = [reshape(θ[(offsets_ad[k] + 1):offsets_ad[k + 1]], shapes_ad[k]) for k in 1:n]
-rebuild_ad(θ) = TTvector{Float64, n}(unflatten_ad(θ), ψ0_ad.ttv_dims, ψ0_ad.ttv_rks; orthogonality = ψ0_ad.orthogonality)
+rebuild_ad(θ) = TTVector{Float64, n}(unflatten_ad(θ), ψ0_ad.ttv_dims, ψ0_ad.ttv_rks; orthogonality = ψ0_ad.orthogonality)
 loss_ad(θ) = (ψ = rebuild_ad(θ); real(dot(ψ, H_ising * ψ)) / real(dot(ψ, ψ)))
 
 θ0 = vcat(vec.(ψ0_ad.ttv_vec)...)

@@ -8,12 +8,12 @@ xes = h .* (1:N)            # interior grid: x_i = i/(N+1)
 
 Δ1d = toeplitz_to_qtto(-2.0, 1.0, 1.0, d)
 A_raw = (1 / h^2) * (Δ1d ⊗ id_tto(d) + id_tto(d) ⊗ Δ1d)
-A = QTToperator(A_raw, 2, d, :serial)
+A = QTTOperator(A_raw, 2, d, :serial)
 
 b_raw = -(1 / h^2) * qtt_sin(d; a = h, b = 1 - h) ⊗ qtt_basis_vector(d, 1)
-b = QTTvector(b_raw, 2, d, :serial)
+b = QTTVector(b_raw, 2, d, :serial)
 
-x0 = QTTvector(rand_tt(b_raw.ttv_dims, b_raw.ttv_rks), 2, d, :serial)
+x0 = QTTVector(rand_tt(b_raw.ttv_dims, b_raw.ttv_rks), 2, d, :serial)
 
 # Solve with MALS (single sweep) and DMRG (50 sweeps)
 x_mals = linear_solve(A, b, x0, MALS())

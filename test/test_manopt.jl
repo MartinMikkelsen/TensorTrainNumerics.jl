@@ -27,7 +27,7 @@ end
     target = orthogonalize(qtt_sin(4))
     M = ttvector_manifold(target)
     z = ManifoldsBase.zero_vector(M, target)
-    @test z isa TTvector
+    @test z isa TTVector
     @test z.ttv_dims == target.ttv_dims
     @test z.ttv_rks == target.ttv_rks
     for core in z.ttv_vec
@@ -50,7 +50,7 @@ end
     M = ttvector_manifold(target)
 
     p_copy = ManifoldsBase.copy(M, target)
-    @test p_copy isa TTvector
+    @test p_copy isa TTVector
     @test norm(p_copy - target) < 1.0e-14
 
     q = zeros_tt(eltype(target), target.ttv_dims, target.ttv_rks)

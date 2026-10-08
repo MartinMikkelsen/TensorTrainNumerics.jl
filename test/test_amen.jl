@@ -56,7 +56,7 @@ end
     dims = (2, 2, 2)
     # Bond ranks 5 and 3 exceed `n * r_right` of the core to their right (4 and 2).
     cores = [randn(T, 2, 1, 5), randn(T, 2, 5, 3), randn(T, 2, 3, 1)]
-    as_tt(c) = TTvector{T, 3}(c, dims, [1; [size(ck, 3) for ck in c]])
+    as_tt(c) = TTVector{T, 3}(c, dims, [1; [size(ck, 3) for ck in c]])
     before = ttv_to_tensor(as_tt(copy(cores)))
 
     for k in 3:-1:2
@@ -89,13 +89,13 @@ end
     x0 = rand_tt(dims, 1)
     x, info = linear_solve(A, b, x0, AMEn(tol = 1.0e-8, return_info = true, show_progress = false))
     ref = amen_matrix(A) \ amen_vector(b)
-    @test x isa TTvector{Float64}
+    @test x isa TTVector{Float64}
     @test info.converged
     @test info.sweeps ≤ 20
     @test info.residual ≤ 1.0e-6
     @test amen_relres(A, x, b) ≤ 1.0e-7
     @test norm(amen_vector(x) - ref) / norm(ref) ≤ 1.0e-6
-    @test linear_solve(A, b, x0, AMEn(tol = 1.0e-8, show_progress = false)) isa TTvector
+    @test linear_solve(A, b, x0, AMEn(tol = 1.0e-8, show_progress = false)) isa TTVector
     @test amen_relres(A, linear_solve(A, b, x0; alg = AMEn(show_progress = false)), b) ≤ 1.0e-5
 end
 
@@ -222,12 +222,12 @@ end
     @test all(c -> all(isfinite, c), x.ttv_vec)
     @test norm(amen_vector(x) - amen_vector(x_true)) ≤ 1.0e-10
 
-    Aq = QTToperator(A, 1, d, :serial)
-    bq = QTTvector(b, 1, d, :serial)
-    xq = linear_solve(Aq, bq, QTTvector(rand_tt(dims, 1), 1, d, :serial), AMEn(tol = 1.0e-8, show_progress = false))
-    @test xq isa QTTvector
+    Aq = QTTOperator(A, 1, d, :serial)
+    bq = QTTVector(b, 1, d, :serial)
+    xq = linear_solve(Aq, bq, QTTVector(rand_tt(dims, 1), 1, d, :serial), AMEn(tol = 1.0e-8, show_progress = false))
+    @test xq isa QTTVector
     @test (xq.n_dims, xq.bits_per_dim, xq.ordering) == (1, d, :serial)
-    @test amen_relres(A, TTvector(xq), b) ≤ 1.0e-7
+    @test amen_relres(A, TTVector(xq), b) ≤ 1.0e-7
 end
 
 @testset "AMEn finds the smallest eigenpair" begin
@@ -241,7 +241,7 @@ end
     @test abs(E[end] - λref) ≤ 1.0e-8
     @test length(E) == length(r_hist)
     @test all(diff(E) .≤ 1.0e-8)
-    @test x isa TTvector
+    @test x isa TTVector
     xv = amen_vector(x)
     @test norm(xv) ≈ 1
     @test norm(M * xv - E[end] * xv) ≤ 1.0e-5
@@ -253,7 +253,7 @@ end
 
     Ei, _, _ = eigen_solve(Δ(d), rand_tt(dims, 1), AMEn(tol = 1.0e-8, local_solver = :iterative, show_progress = false))
     @test abs(Ei[end] - eigmin(Symmetric(M))) ≤ 1.0e-7
-    @test eigen_solve(Δ(d), rand_tt(dims, 1); alg = AMEn(show_progress = false))[2] isa TTvector
+    @test eigen_solve(Δ(d), rand_tt(dims, 1); alg = AMEn(show_progress = false))[2] isa TTVector
 end
 
 @testset "AMEn eigen_solve options and limits" begin
@@ -385,20 +385,20 @@ end
     A = Δ(d) + 0.5 * id_tto(d)
     b = rand_tt(dims, 2)
     x0 = rand_tt(dims, 1)
-    Aq = QTToperator(A, 2, 2, :serial)
-    serial(x) = QTTvector(x, 2, 2, :serial)
-    interleaved(x) = QTTvector(x, 2, 2, :interleaved)
+    Aq = QTTOperator(A, 2, 2, :serial)
+    serial(x) = QTTVector(x, 2, 2, :serial)
+    interleaved(x) = QTTVector(x, 2, 2, :interleaved)
     for alg in (AMEn(show_progress = false), AMEn(return_info = true, show_progress = false))
         @test_throws "ordering mismatch" linear_solve(Aq, interleaved(b), serial(x0), alg)
         @test_throws "ordering mismatch" linear_solve(Aq, serial(b), interleaved(x0), alg)
         @test_throws "ordering mismatch" linear_solve(A, serial(b), interleaved(x0), alg)
     end
     @test_throws "ordering mismatch" eigen_solve(Aq, interleaved(x0), AMEn(show_progress = false))
-    @test_throws "n_dims mismatch" linear_solve(Aq, QTTvector(b, 1, 4, :serial), serial(x0), AMEn(show_progress = false))
+    @test_throws "n_dims mismatch" linear_solve(Aq, QTTVector(b, 1, 4, :serial), serial(x0), AMEn(show_progress = false))
 
     # A plain TT carries no QTT metadata, so it is accepted next to a QTT wrapper.
     x = linear_solve(Aq, b, x0, AMEn(tol = 1.0e-8, show_progress = false))
-    @test x isa TTvector
+    @test x isa TTVector
     @test amen_relres(A, x, b) ≤ 1.0e-7
 end
 

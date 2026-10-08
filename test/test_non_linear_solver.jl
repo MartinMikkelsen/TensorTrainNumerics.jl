@@ -140,14 +140,14 @@ end
 end
 
 # Replace core l of u (shallow copy elsewhere); no orthogonality is recorded.
-function with_core(u::TTvector{T}, l::Int, c::Array{T, 3}) where {T}
+function with_core(u::TTVector{T}, l::Int, c::Array{T, 3}) where {T}
     v = copy(u.ttv_vec)
     v[l] = c
-    return TTvector{T, length(u.ttv_dims)}(v, u.ttv_dims, copy(u.ttv_rks))
+    return TTVector{T, length(u.ttv_dims)}(v, u.ttv_dims, copy(u.ttv_rks))
 end
 
 # Dense environment isometry at site l by basis-column densification (u MUST be gauged at l).
-function dense_phi(u::TTvector{Float64}, l::Int)
+function dense_phi(u::TTVector{Float64}, l::Int)
     core = u.ttv_vec[l]
     dims = size(core)
     n = prod(dims)
@@ -246,7 +246,7 @@ function gp_residual(L::Int, g_eff::Real, f::AbstractVector)
     return norm(Hf .- μ .* f) / norm(Hf)
 end
 
-function infidelity(u::TTvector, f::AbstractVector)
+function infidelity(u::TTVector, f::AbstractVector)
     v = qtt_to_function(u)
     return 1 - abs(dot(v ./ norm(v), f ./ norm(f)))
 end

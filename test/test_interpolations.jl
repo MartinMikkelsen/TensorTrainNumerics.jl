@@ -12,7 +12,7 @@ import TensorCrossInterpolation as TCI
     @test tt_tci isa TCI.TensorTrain
 
     tt = to_ttvector(tt_tci)
-    @test tt isa TTvector
+    @test tt isa TTVector
     @test nsites(tt) == numbits
     @test tt.ttv_rks[1] == 1
     @test tt.ttv_rks[end] == 1
@@ -46,7 +46,7 @@ end
     tt_tci = interpolatesinglescale(f, (0.0, 0.0), (1.0, 1.0), numbits, degree)
     tt = to_ttvector(tt_tci)
 
-    @test tt isa TTvector
+    @test tt isa TTVector
     @test nsites(tt) == numbits
     @test tt.ttv_rks[1] == 1
     @test tt.ttv_rks[end] == 1

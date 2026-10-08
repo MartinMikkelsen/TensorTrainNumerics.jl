@@ -2,115 +2,115 @@ using Test
 using TensorTrainNumerics
 using LinearAlgebra
 
-@testset "AbstractTTvector type parameter" begin
+@testset "AbstractTTVector type parameter" begin
     ttv = rand_tt(fill(2, 4), 2)
-    @test ttv isa AbstractTTvector
+    @test ttv isa AbstractTTVector
     @test eltype(ttv) == Float64
 end
 
-@testset "QTTvector struct" begin
-    @test QTTvector <: AbstractTTvector
+@testset "QTTVector struct" begin
+    @test QTTVector <: AbstractTTVector
     cores = [rand(2, 1, 2), rand(2, 2, 2), rand(2, 2, 1)]
     rks = [1, 2, 2, 1]
     dims = (2, 2, 2)
-    q = QTTvector{Float64, 3}(cores, dims, rks, [1, 3], 1, 3, :serial)
+    q = QTTVector{Float64, 3}(cores, dims, rks, [1, 3], 1, 3, :serial)
     @test q.n_dims == 1
     @test q.bits_per_dim == 3
     @test q.ordering == :serial
-    @test q isa AbstractTTvector
+    @test q isa AbstractTTVector
 end
 
-@testset "QTToperator struct" begin
-    @test QTToperator <: AbstractTToperator
+@testset "QTTOperator struct" begin
+    @test QTTOperator <: AbstractTTOperator
     cores = [rand(2, 2, 1, 2), rand(2, 2, 2, 2), rand(2, 2, 2, 1)]
     rks = [1, 2, 2, 1]
     dims = (2, 2, 2)
-    A = QTToperator{Float64, 3}(cores, dims, rks, [1, 3], 1, 3, :interleaved)
+    A = QTTOperator{Float64, 3}(cores, dims, rks, [1, 3], 1, 3, :interleaved)
     @test A.n_dims == 1
     @test A.bits_per_dim == 3
     @test A.ordering == :interleaved
-    @test A isa AbstractTToperator
+    @test A isa AbstractTTOperator
 end
 
-@testset "QTTvector/QTToperator constructors and strip helpers" begin
-    # Build a 2-dim, 3-bits-per-dim QTTvector (6 sites total)
+@testset "QTTVector/QTTOperator constructors and strip helpers" begin
+    # Build a 2-dim, 3-bits-per-dim QTTVector (6 sites total)
     ttv = rand_tt(fill(2, 6), 2)
-    q = QTTvector(ttv, 2, 3, :interleaved)
-    @test q isa QTTvector{Float64, 6}
+    q = QTTVector(ttv, 2, 3, :interleaved)
+    @test q isa QTTVector{Float64, 6}
     @test q.n_dims == 2
     @test q.bits_per_dim == 3
     @test q.ordering == :interleaved
     @test nsites(q) == 6
 
-    # Strip back to TTvector
-    ttv2 = TTvector(q)
-    @test ttv2 isa TTvector{Float64, 6}
+    # Strip back to TTVector
+    ttv2 = TTVector(q)
+    @test ttv2 isa TTVector{Float64, 6}
     @test nsites(ttv2) == 6
 
     # Wrap constructor asserts
-    @test_throws AssertionError QTTvector(ttv, 2, 4, :interleaved)  # 2*4=8 ≠ 6
-    @test_throws AssertionError QTTvector(ttv, 2, 3, :bad)           # bad ordering
+    @test_throws AssertionError QTTVector(ttv, 2, 4, :interleaved)  # 2*4=8 ≠ 6
+    @test_throws AssertionError QTTVector(ttv, 2, 3, :bad)           # bad ordering
 
     # Operator wrap/strip
     tto = rand_tto(ntuple(_ -> 2, 6), 2)
-    A = QTToperator(tto, 2, 3, :serial)
-    @test A isa QTToperator{Float64, 6}
+    A = QTTOperator(tto, 2, 3, :serial)
+    @test A isa QTTOperator{Float64, 6}
     @test A.ordering == :serial
-    tto2 = TToperator(A)
-    @test tto2 isa TToperator{Float64, 6}
+    tto2 = TTOperator(A)
+    @test tto2 isa TTOperator{Float64, 6}
 end
 
 @testset "check_compat" begin
     ttv = rand_tt(fill(2, 6), 2)
-    q1 = QTTvector(ttv, 2, 3, :interleaved)
-    q2 = QTTvector(ttv, 2, 3, :interleaved)
-    q3 = QTTvector(ttv, 2, 3, :serial)
+    q1 = QTTVector(ttv, 2, 3, :interleaved)
+    q2 = QTTVector(ttv, 2, 3, :interleaved)
+    q3 = QTTVector(ttv, 2, 3, :serial)
 
     @test check_compat(q1, q2) === nothing
     @test_throws AssertionError check_compat(q1, q3)  # ordering mismatch
 
     tto = rand_tto(ntuple(_ -> 2, 6), 2)
-    A = QTToperator(tto, 2, 3, :interleaved)
+    A = QTTOperator(tto, 2, 3, :interleaved)
     @test check_compat(A, q1) === nothing
     @test_throws AssertionError check_compat(A, q3)
 
-    # Plain TTvector/TToperator no-ops
+    # Plain TTVector/TTOperator no-ops
     @test check_compat(ttv, ttv) === nothing
 end
 
-@testset "QTTvector entanglement_entropy" begin
+@testset "QTTVector entanglement_entropy" begin
     bell_tensor = zeros(Float64, 2, 2)
     bell_tensor[1, 1] = inv(sqrt(2))
     bell_tensor[2, 2] = inv(sqrt(2))
-    q = QTTvector(ttv_decomp(bell_tensor), 1, 2, :serial)
+    q = QTTVector(ttv_decomp(bell_tensor), 1, 2, :serial)
 
     @test entanglement_entropy(q) ≈ [log(2)]
     @test entanglement_entropy(q; base = 2) ≈ [1.0]
 end
 
-@testset "QTTvector dispatch methods" begin
+@testset "QTTVector dispatch methods" begin
     ttv = rand_tt(fill(2, 6), 2)
-    q1 = QTTvector(ttv, 2, 3, :interleaved)
-    q2 = QTTvector(ttv, 2, 3, :interleaved)
-    q3 = QTTvector(ttv, 2, 3, :serial)
+    q1 = QTTVector(ttv, 2, 3, :interleaved)
+    q2 = QTTVector(ttv, 2, 3, :interleaved)
+    q3 = QTTVector(ttv, 2, 3, :serial)
 
     # copy preserves metadata
     qc = copy(q1)
-    @test qc isa QTTvector
+    @test qc isa QTTVector
     @test qc.ordering == :interleaved
 
     qcomplex = complex(q1)
-    @test complex(qcomplex) isa QTTvector{ComplexF64}
+    @test complex(qcomplex) isa QTTVector{ComplexF64}
     @test qcomplex.n_dims == q1.n_dims
     @test qcomplex.bits_per_dim == q1.bits_per_dim
     @test qcomplex.ordering == q1.ordering
 
-    # arithmetic returns QTTvector with same metadata
-    @test (q1 + q2) isa QTTvector
+    # arithmetic returns QTTVector with same metadata
+    @test (q1 + q2) isa QTTVector
     @test (q1 + q2).ordering == :interleaved
-    @test (q1 - q2) isa QTTvector
-    @test (2.0 * q1) isa QTTvector
-    @test (q1 * 2.0) isa QTTvector
+    @test (q1 - q2) isa QTTVector
+    @test (2.0 * q1) isa QTTVector
+    @test (q1 * 2.0) isa QTTVector
 
     # check_compat enforced
     @test_throws AssertionError q1 + q3
@@ -121,29 +121,29 @@ end
 
     # orthogonalize
     qo = orthogonalize(q1)
-    @test qo isa QTTvector
+    @test qo isa QTTVector
     @test qo.ordering == :interleaved
 end
 
-@testset "QTToperator dispatch methods" begin
+@testset "QTTOperator dispatch methods" begin
     ttv = rand_tt(fill(2, 6), 2)
     tto = rand_tto(ntuple(_ -> 2, 6), 2)
-    q = QTTvector(ttv, 2, 3, :interleaved)
-    A = QTToperator(tto, 2, 3, :interleaved)
-    B = QTToperator(tto, 2, 3, :interleaved)
+    q = QTTVector(ttv, 2, 3, :interleaved)
+    A = QTTOperator(tto, 2, 3, :interleaved)
+    B = QTTOperator(tto, 2, 3, :interleaved)
 
-    @test copy(A) isa QTToperator
+    @test copy(A) isa QTTOperator
     Acomplex = complex(A)
-    @test complex(Acomplex) isa QTToperator{ComplexF64}
+    @test complex(Acomplex) isa QTTOperator{ComplexF64}
     @test Acomplex.n_dims == A.n_dims
     @test Acomplex.bits_per_dim == A.bits_per_dim
     @test Acomplex.ordering == A.ordering
-    @test (A + B) isa QTToperator
-    @test (2.0 * A) isa QTToperator
+    @test (A + B) isa QTTOperator
+    @test (2.0 * A) isa QTTOperator
 
-    # operator-vector product returns QTTvector
+    # operator-vector product returns QTTVector
     Aq = A * q
-    @test Aq isa QTTvector
+    @test Aq isa QTTVector
     @test Aq.ordering == :interleaved
 end
 
@@ -153,8 +153,8 @@ end
     d = 4
     q_interleaved = function_to_qttv(f1d, 1, d; ordering = :interleaved)
     q_serial = function_to_qttv(f1d, 1, d; ordering = :serial)
-    @test q_interleaved isa QTTvector
-    @test q_serial isa QTTvector
+    @test q_interleaved isa QTTVector
+    @test q_serial isa QTTVector
     # Both orderings are equivalent for 1D — compare via array reconstruction
     arr_il = qttv_to_array(q_interleaved)
     arr_sr = qttv_to_array(q_serial)
@@ -172,8 +172,8 @@ end
     bits = 3  # 8 points per dim, 6 sites total
     q2d_il = function_to_qttv(f2d, 2, bits; ordering = :interleaved)
     q2d_sr = function_to_qttv(f2d, 2, bits; ordering = :serial)
-    @test q2d_il isa QTTvector
-    @test q2d_sr isa QTTvector
+    @test q2d_il isa QTTVector
+    @test q2d_sr isa QTTVector
 
     arr2d_il = qttv_to_array(q2d_il)
     arr2d_sr = qttv_to_array(q2d_sr)
@@ -196,7 +196,7 @@ end
     bits = 3
     q_serial = function_to_qttv(f2d, 2, bits; ordering = :serial)
     q_il = reorder(q_serial, :interleaved)
-    @test q_il isa QTTvector
+    @test q_il isa QTTVector
     @test q_il.ordering == :interleaved
 
     q_back = reorder(q_il, :serial)
@@ -219,21 +219,21 @@ end
     d = 4
     n = 2^d
 
-    # 1D case: returns QTToperator with correct metadata
+    # 1D case: returns QTTOperator with correct metadata
     A1_serial = qtt_laplacian(1, d; ordering = :serial, bc = :DN)
-    @test A1_serial isa QTToperator
+    @test A1_serial isa QTTOperator
     @test A1_serial.n_dims == 1
     @test A1_serial.bits_per_dim == d
     @test A1_serial.ordering == :serial
     @test nsites(A1_serial) == d
 
     A1_il = qtt_laplacian(1, d; ordering = :interleaved, bc = :DN)
-    @test A1_il isa QTToperator
+    @test A1_il isa QTTOperator
     @test A1_il.ordering == :interleaved
 
     # 2D serial case: correct metadata and dimensions
     A2s = qtt_laplacian(2, d; ordering = :serial, bc = :DD)
-    @test A2s isa QTToperator
+    @test A2s isa QTTOperator
     @test A2s.n_dims == 2
     @test A2s.bits_per_dim == d
     @test A2s.ordering == :serial
@@ -241,13 +241,13 @@ end
 
     # 2D interleaved case
     A2i = qtt_laplacian(2, d; ordering = :interleaved, bc = :DD)
-    @test A2i isa QTToperator
+    @test A2i isa QTTOperator
     @test A2i.ordering == :interleaved
     @test nsites(A2i) == 2 * d
 
     # Correctness: 2D serial Laplacian matrix matches direct Kronecker-sum reference
     h = 1.0 / (n - 1)
-    M_qtt = qtto_to_matrix(TToperator(A2s))
+    M_qtt = qtto_to_matrix(TTOperator(A2s))
     M1d = qtto_to_matrix(Δ(d)) ./ h^2
     M_ref = kron(M1d, Matrix(I, n, n)) + kron(Matrix(I, n, n), M1d)
     @test norm(M_qtt - M_ref) < 1.0e-8
@@ -257,7 +257,7 @@ end
         real(
             eigvals(
                 qtto_to_matrix(
-                    TToperator(
+                    TTOperator(
                         qtt_laplacian(2, 3; ordering = :serial, bc = :DD)
                     )
                 )
@@ -268,7 +268,7 @@ end
         real(
             eigvals(
                 qtto_to_matrix(
-                    TToperator(
+                    TTOperator(
                         qtt_laplacian(2, 3; ordering = :interleaved, bc = :DD)
                     )
                 )
@@ -279,15 +279,15 @@ end
 
     # Every boundary condition composes into a multidimensional Kronecker sum.
     for bc in (:DD, :DN, :ND, :NN)
-        @test qtt_laplacian(2, d; bc = bc, ordering = :serial) isa QTToperator
+        @test qtt_laplacian(2, d; bc = bc, ordering = :serial) isa QTTOperator
     end
 
     # 1D NN case works
-    @test qtt_laplacian(1, d; bc = :NN, ordering = :serial) isa QTToperator
+    @test qtt_laplacian(1, d; bc = :NN, ordering = :serial) isa QTTOperator
 
     # 3D case
     A3 = qtt_laplacian(3, 3; ordering = :serial, bc = :DD)
-    @test A3 isa QTToperator
+    @test A3 isa QTTOperator
     @test A3.n_dims == 3
     @test nsites(A3) == 9
 end
@@ -320,46 +320,46 @@ end
 
 @testset "Cross-type dispatch" begin
     ttv = rand_tt(fill(2, 6), 2)
-    q = QTTvector(ttv, 2, 3, :interleaved)
+    q = QTTVector(ttv, 2, 3, :interleaved)
     tto = rand_tto(ntuple(_ -> 2, 6), 2)
-    A = QTToperator(tto, 2, 3, :interleaved)
+    A = QTTOperator(tto, 2, 3, :interleaved)
 
-    # TToperator * QTTvector → TTvector (strips QTT metadata)
+    # TTOperator * QTTVector → TTVector (strips QTT metadata)
     r1 = tto * q
-    @test r1 isa TTvector
+    @test r1 isa TTVector
 
-    # QTToperator * TTvector → TTvector (strips QTT metadata)
+    # QTTOperator * TTVector → TTVector (strips QTT metadata)
     r2 = A * ttv
-    @test r2 isa TTvector
+    @test r2 isa TTVector
 
-    # QTTvector ± TTvector → TTvector
-    @test (q + ttv) isa TTvector
-    @test (q - ttv) isa TTvector
-    @test (ttv + q) isa TTvector
-    @test (ttv - q) isa TTvector
+    # QTTVector ± TTVector → TTVector
+    @test (q + ttv) isa TTVector
+    @test (q - ttv) isa TTVector
+    @test (ttv + q) isa TTVector
+    @test (ttv - q) isa TTVector
 
-    # QTTvector / scalar → QTTvector (preserves metadata)
+    # QTTVector / scalar → QTTVector (preserves metadata)
     r3 = q / 2.0
-    @test r3 isa QTTvector
+    @test r3 isa QTTVector
     @test r3.ordering == :interleaved
 
     # Cross-type dot products (qualify to avoid ambiguity with TensorTrainNumerics.dot)
     @test LinearAlgebra.dot(q, ttv) isa Number
     @test LinearAlgebra.dot(ttv, q) isa Number
 
-    # TToperator ± QTToperator → TToperator
+    # TTOperator ± QTTOperator → TTOperator
     B = rand_tto(ntuple(_ -> 2, 6), 2)
-    @test (B + A) isa TToperator
-    @test (B - A) isa TToperator
-    @test (A + B) isa TToperator
-    @test (A - B) isa TToperator
+    @test (B + A) isa TTOperator
+    @test (B - A) isa TTOperator
+    @test (A + B) isa TTOperator
+    @test (A - B) isa TTOperator
 end
 
 @testset "Base.show" begin
     ttv = rand_tt(fill(2, 6), 2)
-    q = QTTvector(ttv, 2, 3, :serial)
+    q = QTTVector(ttv, 2, 3, :serial)
     tto = rand_tto(ntuple(_ -> 2, 6), 2)
-    A = QTToperator(tto, 2, 3, :interleaved)
+    A = QTTOperator(tto, 2, 3, :interleaved)
 
     # Compact show
     compact_q = sprint(show, q)
@@ -401,25 +401,25 @@ end
     @test occursin("16 grid points per dim", verbose_A)
 end
 
-@testset "Solvers accept QTTvector" begin
+@testset "Solvers accept QTTVector" begin
     # 1D problem: 4-site QTT (bits_per_dim=4, n_dims=1)
     d = 4
     A_tto = Δ(d)
-    A = QTToperator(A_tto, 1, d, :interleaved)
+    A = QTTOperator(A_tto, 1, d, :interleaved)
 
     x0_tt = rand_tt(fill(2, d), 2)
-    x0 = QTTvector(x0_tt, 1, d, :interleaved)
+    x0 = QTTVector(x0_tt, 1, d, :interleaved)
 
     # tt_compress! preserves QTT metadata
     xc = copy(x0)
     tt_compress!(xc, 2)
-    @test xc isa QTTvector
+    @test xc isa QTTVector
     @test xc.ordering == :interleaved
 
-    # als_eigsolve accepts QTTvector/QTToperator and returns AbstractTTvector
+    # als_eigsolve accepts QTTVector/QTTOperator and returns AbstractTTVector
     E, tt_opt = als_eigsolve(A, x0; max_sweeps = 1)
     @test E isa Vector{Float64}
-    @test tt_opt isa AbstractTTvector
+    @test tt_opt isa AbstractTTVector
 end
 
 
@@ -561,7 +561,7 @@ end
         q2 = function_to_qttv(f2, 2, bits; ordering = ordering)
         h12 = hadamard(q1, q2)
 
-        @test h12 isa QTTvector
+        @test h12 isa QTTVector
         @test h12.ordering == ordering
         @test h12.n_dims == 2
         @test h12.bits_per_dim == bits
@@ -597,7 +597,7 @@ end
         q2 = function_to_qttv(f2, 3, bits; ordering = ordering)
         h12 = hadamard(q1, q2)
 
-        @test h12 isa QTTvector
+        @test h12 isa QTTVector
         @test h12.ordering == ordering
         @test h12.n_dims == 3
 
@@ -629,7 +629,7 @@ end
     @test maximum(abs, qttv_to_array(q_c) .- ref) < 1.0e-10
 end
 
-@testset "tt_compress! on QTTvector preserves metadata and accuracy" begin
+@testset "tt_compress! on QTTVector preserves metadata and accuracy" begin
     f = x -> sin(2π * x[1]) * sin(2π * x[2])
     bits = 5
     q = function_to_qttv(f, 2, bits; ordering = :interleaved)
@@ -638,7 +638,7 @@ end
     q_c = copy(q)
     tt_compress!(q_c, 8; trunc_tol = 1.0e-12)
 
-    @test q_c isa QTTvector
+    @test q_c isa QTTVector
     @test q_c.ordering == :interleaved
     @test q_c.n_dims == 2
     @test q_c.bits_per_dim == bits
@@ -646,7 +646,7 @@ end
     @test maximum(abs, qttv_to_array(q_c) .- arr_ref) < 1.0e-8
 end
 
-@testset "increase_ranks on QTTvector preserves metadata and values" begin
+@testset "increase_ranks on QTTVector preserves metadata and values" begin
     f = x -> exp(-x[1]) * exp(-x[2])
     bits = 4
     q = function_to_qttv(f, 2, bits; ordering = :serial)
@@ -654,7 +654,7 @@ end
 
     q_up = TensorTrainNumerics.increase_ranks(q, 4; noise = 0.0)
 
-    @test q_up isa QTTvector
+    @test q_up isa QTTVector
     @test q_up.ordering == q.ordering
     @test q_up.n_dims == q.n_dims
     @test q_up.bits_per_dim == q.bits_per_dim
@@ -675,7 +675,7 @@ end
     @test A3s.bits_per_dim == d
     @test nsites(A3s) == 3 * d
 
-    M_qtt = qtto_to_matrix(TToperator(A3s))
+    M_qtt = qtto_to_matrix(TTOperator(A3s))
     M_ref = kron(M1d, kron(I_n, I_n)) +
         kron(I_n, kron(M1d, I_n)) +
         kron(I_n, kron(I_n, M1d))
@@ -684,7 +684,7 @@ end
     # serial and interleaved share the same eigenspectrum
     A3i = qtt_laplacian(3, d; ordering = :interleaved, bc = :DD)
     ev_s = sort(real(eigvals(M_qtt)))
-    ev_i = sort(real(eigvals(qtto_to_matrix(TToperator(A3i)))))
+    ev_i = sort(real(eigvals(qtto_to_matrix(TTOperator(A3i)))))
     @test maximum(abs, ev_s .- ev_i) < 1.0e-8
 end
 
@@ -703,7 +703,7 @@ end
         v = function_to_qttv(f, 2, d; ordering = ordering)
 
         Av = A * v
-        @test Av isa QTTvector
+        @test Av isa QTTVector
         @test Av.ordering == ordering
         @test Av.n_dims == 2
         @test Av.bits_per_dim == d
@@ -724,14 +724,14 @@ end
     @test maximum(abs, arr_Av_sr .- arr_Av_il) < 1.0e-8
 end
 
-@testset "QTToperator reorder — serial ↔ interleaved" begin
+@testset "QTTOperator reorder — serial ↔ interleaved" begin
     d = 3
     A_sr = qtt_laplacian(2, d; ordering = :serial, bc = :DD)
     A_il = qtt_laplacian(2, d; ordering = :interleaved, bc = :DD)
 
     # reorder(serial → interleaved) should reproduce the directly-built interleaved operator
     A_il_r = reorder(A_sr, :interleaved)
-    @test A_il_r isa QTToperator
+    @test A_il_r isa QTTOperator
     @test A_il_r.ordering == :interleaved
     @test A_il_r.n_dims == A_sr.n_dims
     @test A_il_r.bits_per_dim == A_sr.bits_per_dim

@@ -34,7 +34,7 @@ end
 
     x = als_linsolve(A, b, x0)
 
-    @test x isa TTvector{Float64, 3}
+    @test x isa TTVector{Float64, 3}
     @test nsites(x) == 3
     @test x.ttv_dims == dims
 end
@@ -69,7 +69,7 @@ end
 
     x = als_linsolve(A, b, x0; max_sweeps = 1)
 
-    @test x isa TTvector{Float64}
+    @test x isa TTVector{Float64}
     @test x.ttv_dims == b.ttv_dims
 end
 
@@ -149,7 +149,7 @@ end
     E, x_opt = als_eigsolve(A, x0; max_sweeps = 1, max_bond = 2, noise = 0.0)
 
     @test E isa Vector{Float64}
-    @test x_opt isa TTvector{Float64}
+    @test x_opt isa TTVector{Float64}
     @test nsites(x_opt) == d
     @test x_opt.ttv_dims == ntuple(_ -> 2, d)
     @test length(E) ≥ 1
@@ -192,7 +192,7 @@ end
         noise = [0.0, 1.0e-3]
     )
 
-    @test x_opt isa TTvector{Float64}
+    @test x_opt isa TTVector{Float64}
     @test maximum(x_opt.ttv_rks) ≤ 2
     @test all(isfinite, E)
 end
@@ -208,7 +208,7 @@ end
         local_solver = :auto, local_threshold = 1
     )
 
-    @test x_opt isa TTvector{Float64}
+    @test x_opt isa TTVector{Float64}
     @test isfinite(E[end])
 end
 
@@ -224,7 +224,7 @@ end
     @test result !== nothing
     E, x_opt = result
     @test E isa AbstractVector
-    @test x_opt isa TTvector{Float64}
+    @test x_opt isa TTVector{Float64}
     @test nsites(x_opt) == d
 end
 
@@ -254,7 +254,7 @@ end
 
     @test result !== nothing
     E, x_opt = result
-    @test x_opt isa TTvector{Float64}
+    @test x_opt isa TTVector{Float64}
     @test maximum(x_opt.ttv_rks) ≤ 2
     @test all(isfinite, E)
 end
@@ -275,7 +275,7 @@ end
 
     @test result !== nothing
     E, x_opt = result
-    @test x_opt isa TTvector{Float64}
+    @test x_opt isa TTVector{Float64}
     @test isfinite(E[end])
 end
 

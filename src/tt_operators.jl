@@ -82,7 +82,7 @@ function pauli_sum_tto(μ, d::Int)
     dims = ntuple(_ -> 2, d)
 
     if d == 1
-        return TToperator{T, 1}([reshape(P, 2, 2, 1, 1)], dims, [1, 1])
+        return TTOperator{T, 1}([reshape(P, 2, 2, 1, 1)], dims, [1, 1])
     end
 
     rks = vcat(1, fill(2, d - 1), 1)
@@ -104,7 +104,7 @@ function pauli_sum_tto(μ, d::Int)
     cores[d][:, :, 1, 1] = id
     cores[d][:, :, 2, 1] = P
 
-    return TToperator{T, d}(cores, dims, rks)
+    return TTOperator{T, d}(cores, dims, rks)
 end
 
 """
@@ -145,7 +145,7 @@ function pauli_pair_sum_tto(μ, ν, d::Int)
     cores[d][:, :, 1, 1] = id
     cores[d][:, :, 2, 1] = Pν
 
-    return TToperator{T, d}(cores, dims, rks)
+    return TTOperator{T, d}(cores, dims, rks)
 end
 
 """
@@ -226,7 +226,7 @@ function heisenberg_xyz_tto(d::Int; jx = 1.0, jy = 1.0, jz = 1.0, λ = 0.0, fiel
     cores[d][:, :, 4, 1] = Pz2
     cores[d][:, :, 5, 1] = λT * Pf
 
-    return TToperator{T, d}(cores, dims, rks)
+    return TTOperator{T, d}(cores, dims, rks)
 end
 
 """
@@ -460,7 +460,7 @@ function qtto_constant_prolongation(d::Int)
     end
     out[d + 1] = ones(Float64, 2, 1, 1, 1)
 
-    return TToperator{Float64, d + 1}(
+    return TTOperator{Float64, d + 1}(
         out,
         ntuple(_ -> 2, d + 1),
         ones(Int64, d + 2)
@@ -477,7 +477,7 @@ function qtto_linear_prolongation(d::Int)
     if d == 1
         average_core = zeros(Float64, 2, 2, 1, 1)
         average_core[:, :, 1, 1] .= 0.5 .* [1.0 1.0; 0.0 1.0]
-        average_branch = TToperator{Float64, 1}([average_core], (2,), [1, 1])
+        average_branch = TTOperator{Float64, 1}([average_core], (2,), [1, 1])
     else
         average_branch = 0.5 * (id_tto(d) + shift(d))
     end
@@ -510,7 +510,7 @@ function qtto_linear_prolongation(d::Int)
     out[d + 1][1, 1, 1:l₀, 1] .= 1.0
     out[d + 1][2, 1, (l₀ + 1):(l₀ + l₁), 1] .= 1.0
 
-    return TToperator{Float64, d + 1}(out, ntuple(_ -> 2, d + 1), out_rks)
+    return TTOperator{Float64, d + 1}(out, ntuple(_ -> 2, d + 1), out_rks)
 end
 
 
@@ -538,22 +538,22 @@ function id_tto(::Type{T}, d; n_dim::Int = 2) where {T}
         A[j] = zeros(T, n_dim, n_dim, 1, 1)
         A[j][:, :, 1, 1] = Matrix{T}(I, n_dim, n_dim)
     end
-    return TToperator{T, d}(A, dims, ones(Int64, d + 1))
+    return TTOperator{T, d}(A, dims, ones(Int64, d + 1))
 end
 
 # Identity operator with the element type and physical dimensions of `A`.
-function _identity_like(A::AbstractTToperator)
+function _identity_like(A::AbstractTTOperator)
     T = eltype(A)
     dims = A.tto_dims
     d = length(dims)
     cores = [reshape(Matrix{T}(I, n, n), n, n, 1, 1) for n in dims]
-    return TToperator{T, d}(cores, dims, ones(Int, d + 1))
+    return TTOperator{T, d}(cores, dims, ones(Int, d + 1))
 end
 
 """
-    rand_tto(dims, rmax::Int; T=Float64) -> TToperator
+    rand_tto(dims, rmax::Int; T=Float64) -> TTOperator
 
-Return a random [`TToperator`](@ref) with physical dimensions `dims` and entries
+Return a random [`TTOperator`](@ref) with physical dimensions `dims` and entries
 drawn from `randn`. Every interior rank is `rmax`, reduced where the dimensions
 force a smaller rank.
 """
@@ -567,14 +567,14 @@ function rand_tto(dims, rmax::Int; T = Float64)
         rks[i + 1] = rip
         tt_vec[i] = randn(T, dims[i], dims[i], ri, rip)
     end
-    return TToperator{T, d}(tt_vec, dims, rks)
+    return TTOperator{T, d}(tt_vec, dims, rks)
 end
 
 """
-    zeros_tt([T=Float64,] dims, rks; orthogonality=(1, length(dims))) -> TTvector
-    zeros_tt(n::Integer, d::Integer, r; orthogonality=(1, d), r_and_d=true) -> TTvector
+    zeros_tt([T=Float64,] dims, rks; orthogonality=(1, length(dims))) -> TTVector
+    zeros_tt(n::Integer, d::Integer, r; orthogonality=(1, d), r_and_d=true) -> TTVector
 
-Return a [`TTvector`](@ref) with element type `T`, physical dimensions `dims`,
+Return a [`TTVector`](@ref) with element type `T`, physical dimensions `dims`,
 TT ranks `rks` (length `length(dims) + 1`), and all cores zero. `orthogonality`
 sets the orthogonality interval `(left, right)` recorded on the result.
 
@@ -594,7 +594,7 @@ function zeros_tt(::Type{T}, dims::NTuple{N, Int64}, rks; orthogonality = (1, N)
     end
     tt_vec = [zeros(T, dims[i], rks[i], rks[i + 1]) for i in eachindex(dims)]
     rks_vec = collect(Int64, rks)
-    return TTvector{T, N}(tt_vec, dims, rks_vec; orthogonality)
+    return TTVector{T, N}(tt_vec, dims, rks_vec; orthogonality)
 end
 
 function zeros_tt(n::Integer, d::Integer, r; r_and_d = true, kwargs...)
@@ -612,7 +612,7 @@ function zeros_tt(::Type{T}, dims::Vector{Int}, rks::Vector{Int}; kwargs...) whe
     return zeros_tt(T, Tuple(dims), Tuple(rks); kwargs...)
 end
 
-function zeros_tt!(A::TTvector)
+function zeros_tt!(A::TTVector)
     @assert isa(A.ttv_vec, Vector)
     for core in A.ttv_vec
         fill!(core, zero(eltype(core)))
@@ -628,7 +628,7 @@ function ones_tt(::Type{T}, dims) where {T}
     N = length(dims)
     vec = [ones(T, n, 1, 1) for n in dims]
     rks = ones(Int64, N + 1)
-    return TTvector{T, N}(vec, Tuple(dims), rks)
+    return TTVector{T, N}(vec, Tuple(dims), rks)
 end
 
 function ones_tt(n::Integer, d::Integer)
@@ -637,10 +637,10 @@ function ones_tt(n::Integer, d::Integer)
 end
 
 """
-    zeros_tto([T=Float64,] dims, rks) -> TToperator
-    zeros_tto(n, d, r) -> TToperator
+    zeros_tto([T=Float64,] dims, rks) -> TTOperator
+    zeros_tto(n, d, r) -> TTOperator
 
-Return a [`TToperator`](@ref) with element type `T`, physical dimensions `dims`,
+Return a [`TTOperator`](@ref) with element type `T`, physical dimensions `dims`,
 TT ranks `rks`, and all cores zero. The second form uses `d` sites of dimension
 `n` and interior ranks `r`, reduced where the dimensions force a smaller rank.
 """
@@ -651,7 +651,7 @@ end
 function zeros_tto(::Type{T}, dims::NTuple{N, Int64}, rks) where {T, N}
     @assert length(dims) + 1 == length(rks) "Dimensions and ranks are not compatible"
     vec = [zeros(T, dims[i], dims[i], rks[i], rks[i + 1]) for i in eachindex(dims)]
-    return TToperator{T, N}(vec, dims, rks)
+    return TTOperator{T, N}(vec, dims, rks)
 end
 
 function zeros_tto(n, d, r)
@@ -685,7 +685,7 @@ points over `[a, b]`). The finite-difference scaling `1/h²` is included.
   Default: `:DN`.
 
 # Returns
-A `QTToperator` with `N = n_dims * bits_per_dim` sites.
+A `QTTOperator` with `N = n_dims * bits_per_dim` sites.
 """
 function qtt_laplacian(
         n_dims::Int, bits_per_dim::Int;
@@ -716,7 +716,7 @@ function qtt_laplacian(
     if n_dims == 1
         # Single dimension: just scale the 1D Laplacian
         scaled = scale * lap_1d
-        return QTToperator(scaled, 1, d, ordering)
+        return QTTOperator(scaled, 1, d, ordering)
     end
 
     # For n_dims ≥ 2: build Kronecker sum in serial ordering.
@@ -738,7 +738,7 @@ function qtt_laplacian(
         result = result + (scale * build_term(k))
     end
 
-    serial_qtto = QTToperator(result, n_dims, d, :serial)
+    serial_qtto = QTTOperator(result, n_dims, d, :serial)
 
     if ordering == :serial
         return serial_qtto

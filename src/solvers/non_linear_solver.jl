@@ -2,7 +2,7 @@
 # after M. Lubasch, P. Moinier, D. Jaksch, J. Comput. Phys. 372 (2018) 587–602
 # (arXiv:1802.07259). Minimizes the discrete penalty
 #     P(u) = ⟨u|A|u⟩ + (g/2) Σ_m u_m⁴ + η (⟨u|u⟩ − 1)²
-# over a real TTvector by alternating site-local updates (damped Newton / nonlinear CG / SD),
+# over a real TTVector by alternating site-local updates (damped Newton / nonlinear CG / SD),
 # with local operators projected through swept environments (no densification). Real path only.
 
 # Site-local objective on the vectorized core y (dense, small: n = n_i·r_{i-1}·r_i).
@@ -179,7 +179,7 @@ end
 # contains cores i+1..d). 4-layer envs carry the interaction Σu⁴: four copies of
 # u's cores, legs (bra, mid1, mid2, ket) — all equal to u's bond ranks.
 
-function _nl_right_op_envs(u::TTvector{T, N}, A::TToperator{T, N}) where {T <: Real, N}
+function _nl_right_op_envs(u::TTVector{T, N}, A::TTOperator{T, N}) where {T <: Real, N}
     d = nsites(u)
     H = Vector{Array{T, 3}}(undef, d)
     H[d] = ones(T, 1, 1, 1)
@@ -234,7 +234,7 @@ function _nl_env4_absorb_left(x::Array{T, 3}, E::Array{T, 4}) where {T <: Real}
     return En
 end
 
-function _nl_right_qenvs(u::TTvector{T, N}) where {T <: Real, N}
+function _nl_right_qenvs(u::TTVector{T, N}) where {T <: Real, N}
     d = nsites(u)
     E = Vector{Array{T, 4}}(undef, d)
     E[d] = ones(T, 1, 1, 1, 1)
@@ -332,7 +332,7 @@ end
 
 "Site-local update: build A_loc, Q, ∇Q (and B for Newton), run the local solver, return the new core."
 function _nl_site_step(
-        u::TTvector{T, N}, i::Int, Acore::Array{T, 4},
+        u::TTVector{T, N}, i::Int, Acore::Array{T, 4},
         LAi::Array{T, 3}, HAi::Array{T, 3}, ELi::Array{T, 4}, ERi::Array{T, 4},
         g::Real, η::Real, alg::PenaltyALS
     ) where {T <: Real, N}
@@ -354,7 +354,7 @@ end
 
 "Exact penalty evaluated site-locally at site i (requires gauge + current envs at i)."
 function _nl_penalty_local(
-        u::TTvector{T, N}, i::Int, Acore::Array{T, 4},
+        u::TTVector{T, N}, i::Int, Acore::Array{T, 4},
         LAi::Array{T, 3}, HAi::Array{T, 3}, ELi::Array{T, 4}, ERi::Array{T, 4},
         g::Real, η::Real
     ) where {T <: Real, N}
@@ -364,7 +364,7 @@ function _nl_penalty_local(
     return _nl_penalty(vec(u.ttv_vec[i]), Aloc, Q, g, η)
 end
 
-function _penalty_solve_impl(A::TToperator{T, N}, u0::TTvector{T, N}, alg::PenaltyALS; g::Real = 0.0) where {T, N}
+function _penalty_solve_impl(A::TTOperator{T, N}, u0::TTVector{T, N}, alg::PenaltyALS; g::Real = 0.0) where {T, N}
     T <: Real || throw(ArgumentError("non_linear_solve implements the real path only; got eltype $T"))
     nsites(u0) ≥ 2 || throw(ArgumentError("non_linear_solve needs at least 2 TT cores"))
     # Round-trip gauge (far end, then back to site 1): orthogonalize(u0) alone only
@@ -435,10 +435,10 @@ Ground state of the discrete Gross–Pitaevskii functional
 coefficient (`g_physical · 2^L` in the QTT convention). Real TT only. Returns the
 discretely normalized minimizer, or `(u, info)` when `alg.return_info`.
 """
-non_linear_solve(A::TToperator, u0::TTvector; alg::PenaltyALS = PenaltyALS(), g::Real = 0.0) =
+non_linear_solve(A::TTOperator, u0::TTVector; alg::PenaltyALS = PenaltyALS(), g::Real = 0.0) =
     non_linear_solve(A, u0, alg; g = g)
 
-non_linear_solve(A::TToperator{T, N}, u0::TTvector{T, N}, alg::PenaltyALS; g::Real = 0.0) where {T, N} =
+non_linear_solve(A::TTOperator{T, N}, u0::TTVector{T, N}, alg::PenaltyALS; g::Real = 0.0) where {T, N} =
     _penalty_solve_impl(A, u0, alg; g = g)
 
 """
@@ -447,7 +447,7 @@ non_linear_solve(A::TToperator{T, N}, u0::TTvector{T, N}, alg::PenaltyALS; g::Re
 Discrete Gross–Pitaevskii energy readout `E = ⟨u|A|u⟩/s + g·Σ_m u_m⁴/s²`, `s = ⟨u|u⟩`
 (full `g`, matching the paper's Table-1 convention; the minimized functional carries `g/2`).
 """
-function gpe_energy(A::TToperator{T, N}, u::TTvector{T, N}; g::Real = 0.0) where {T, N}
+function gpe_energy(A::TTOperator{T, N}, u::TTVector{T, N}; g::Real = 0.0) where {T, N}
     s = real(dot(u, u))
     e = real(dot(u, A * u))
     w = hadamard(u, u)
@@ -490,19 +490,19 @@ function _mgr_inner(alg::PenaltyALS)
 end
 
 "Function barrier: one MGR level with concretely typed operator and state."
-_mgr_level(A::TToperator{T, N}, u::TTvector{T, N}, inner::PenaltyALS, g::Real) where {T, N} =
+_mgr_level(A::TTOperator{T, N}, u::TTVector{T, N}, inner::PenaltyALS, g::Real) where {T, N} =
     _penalty_solve_impl(A, u, inner; g = g)
 
 """
     non_linear_solve(A_builder, u0, alg::MGR; g_builder, target_sites)
 
 MGR ground-state solve from the coarse grid `nsites(u0)` up to `target_sites` QTT sites.
-`A_builder(d)::TToperator` returns the discrete linear operator on `d` sites and
+`A_builder(d)::TTOperator` returns the discrete linear operator on `d` sites and
 `g_builder(d)::Real` the discrete interaction coefficient (e.g. `g · 2^d`).
 Returns `u`, or `(u, info)` with `info = (; energy, level_sites, level_energies)`.
 """
 function non_linear_solve(
-        A_builder::Function, u0::TTvector{T, M}, alg::MGR;
+        A_builder::Function, u0::TTVector{T, M}, alg::MGR;
         g_builder::Function, target_sites::Int
     ) where {T, M}
     target_sites ≥ nsites(u0) || throw(ArgumentError("target_sites ($target_sites) must be ≥ nsites(u0) ($(nsites(u0)))"))

@@ -26,7 +26,7 @@ E_riccati(τ) = sum(βi(λ[i], τ) / 4 + λ[i] / (4 * βi(λ[i], τ)) for i in 1
 Σ_riccati(τ) = 0.5 * LA.inv(ev.vectors * LA.diagm([βi(λ[1], τ), βi(λ[2], τ)]) * ev.vectors')
 ρ_riccati(τ) = (Σ = Σ_riccati(τ); Σ[1, 2] / sqrt(Σ[1, 1] * Σ[2, 2]))
 
-toarr(v) = qttv_to_array(QTTvector(v, 2, d, :serial))
+toarr(v) = qttv_to_array(QTTVector(v, 2, d, :serial))
 energy(u) = real(dot(u, H * u)) / real(dot(u, u))
 
 gx = function_to_qtt(t -> exp(-0.5 * α * (lo + (hi - lo) * t)^2), d)

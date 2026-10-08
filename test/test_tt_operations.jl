@@ -2,19 +2,19 @@ using Test
 using Random
 using LinearAlgebra
 
-@testset "ttv_to_diag_tto for TTvector" begin
-    # Test 1: ttv_to_diag_tto on a simple 2D TTvector (all ranks 1, should match diag of full vector)
+@testset "ttv_to_diag_tto for TTVector" begin
+    # Test 1: ttv_to_diag_tto on a simple 2D TTVector (all ranks 1, should match diag of full vector)
     dims = (3, 2)
     rks = [1, 1, 1]
-    # Construct a TTvector with explicit values
+    # Construct a TTVector with explicit values
     core1 = reshape([1.0, 2.0, 3.0], 3, 1, 1)
     core2 = reshape([4.0, 5.0], 2, 1, 1)
-    x = TTvector{Float64, 2}([core1, core2], dims, rks)
+    x = TTVector{Float64, 2}([core1, core2], dims, rks)
     # Full vector
     full_x = vec([core1[i, 1, 1] * core2[j, 1, 1] for i in 1:3, j in 1:2])
     # Diagonal TT-matrix
     Xdiag = ttv_to_diag_tto(x)
-    # Reconstruct full matrix from TToperator
+    # Reconstruct full matrix from TTOperator
     # For all (i1,i2), (j1,j2): sum over ranks (but all ranks are 1)
     mat = zeros(Float64, 6, 6)
     for i1 in 1:3, i2 in 1:2, j1 in 1:3, j2 in 1:2
@@ -124,7 +124,7 @@ end
     @test x.orthogonality == [1, 2]
 end
 
-@testset "TToperator callable" begin
+@testset "TTOperator callable" begin
     dims = (2, 3)
     A = rand_tto(dims, 2)
     v = rand_tt(dims, [1, 2, 1])
@@ -135,8 +135,8 @@ end
 
 @testset "adjoint and the KrylovKit (x, Val) calling convention" begin
     dims = (2, 3, 2)
-    A = TToperator([randn(ComplexF64, n, n, r1, r2) for (n, r1, r2) in zip(dims, (1, 2, 2), (2, 2, 1))], dims, [1, 2, 2, 1])
-    x = TTvector([randn(ComplexF64, n, r1, r2) for (n, r1, r2) in zip(dims, (1, 2, 2), (2, 2, 1))], dims, [1, 2, 2, 1])
+    A = TTOperator([randn(ComplexF64, n, n, r1, r2) for (n, r1, r2) in zip(dims, (1, 2, 2), (2, 2, 1))], dims, [1, 2, 2, 1])
+    x = TTVector([randn(ComplexF64, n, r1, r2) for (n, r1, r2) in zip(dims, (1, 2, 2), (2, 2, 1))], dims, [1, 2, 2, 1])
     M = reshape(tto_to_tensor(A), prod(dims), :)
     v = vec(ttv_to_tensor(x))
     @test reshape(tto_to_tensor(A'), prod(dims), :) ≈ M'
@@ -145,7 +145,7 @@ end
     @test vec(ttv_to_tensor(A(x, Val(true)))) ≈ M' * v
 end
 
-@testset "TToperator * TToperator" begin
+@testset "TTOperator * TTOperator" begin
     dims = (2, 3)
     A = rand_tto(dims, 2)
     B = rand_tto(dims, 2)
@@ -159,7 +159,7 @@ end
     @test C.tto_rks == A.tto_rks .* B.tto_rks
 end
 
-@testset "Inner core product ⨝ (TToperator)" begin
+@testset "Inner core product ⨝ (TTOperator)" begin
     Random.seed!(42)
 
     # d = 1: the inner core product reduces to a plain Kronecker product of the
@@ -202,7 +202,7 @@ end
     @test ok
 end
 
-@testset "Outer core product ∙ (TToperator)" begin
+@testset "Outer core product ∙ (TTOperator)" begin
     dims = (2, 3, 2)
     A = rand_tto(dims, 2)
     B = rand_tto(dims, 2)
@@ -253,7 +253,7 @@ end
     @test isapprox(reshape(tto_to_tensor(Id ∙ A), n, n), Adense; atol = 1.0e-12)
 end
 
-@testset "Array{TTvector} * Vector (linear combination)" begin
+@testset "Array{TTVector} * Vector (linear combination)" begin
     dims = (2, 3)
     a = rand_tt(dims, [1, 2, 1])
     b = rand_tt(dims, [1, 3, 1])
@@ -263,7 +263,7 @@ end
     @test isapprox(ttv_to_tensor(result), expected; atol = 1.0e-12)
 end
 
-@testset "TTvector / scalar" begin
+@testset "TTVector / scalar" begin
     x = rand_tt((2, 3), [1, 2, 1])
     a = 3.0
     y = x / a
@@ -317,7 +317,7 @@ end
     @test isapprox(ttv_to_tensor(Mz), TensorTrainNumerics.dot(y, z) * ttv_to_tensor(x); atol = 1.0e-12)
 end
 
-@testset "kron for TTvector" begin
+@testset "kron for TTVector" begin
     a = rand_tt((2, 3), [1, 2, 1])
     b = rand_tt((4, 5), [1, 3, 1])
     c = kron(a, b)
@@ -332,7 +332,7 @@ end
     end
 end
 
-@testset "kron for TToperator" begin
+@testset "kron for TTOperator" begin
     A = rand_tto((2, 3), 2)
     B = rand_tto((4, 5), 2)
     C = kron(A, B)

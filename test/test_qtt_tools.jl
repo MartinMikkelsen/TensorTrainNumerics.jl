@@ -268,7 +268,7 @@ end
 @testset "to_qtt and to_ttv" begin
     @testset "single-core big-endian split and merge" begin
         values = Float64.(1:6)
-        tt = TTvector{Float64, 1}([reshape(values, 6, 1, 1)], (6,), [1, 1])
+        tt = TTVector{Float64, 1}([reshape(values, 6, 1, 1)], (6,), [1, 1])
 
         qtt = to_qtt(tt, [[2, 3]])
         @test nsites(qtt) == 2
@@ -310,7 +310,7 @@ end
 
     @testset "threshold truncates small relative singular values" begin
         values = [1.0, 0.0, 0.0, 1.0e-3]
-        tt = TTvector{Float64, 1}([reshape(values, 4, 1, 1)], (4,), [1, 1])
+        tt = TTVector{Float64, 1}([reshape(values, 4, 1, 1)], (4,), [1, 1])
 
         exact = to_qtt(tt, [[2, 2]])
         truncated = to_qtt(tt, [[2, 2]]; threshold = 1.0e-2)
@@ -322,7 +322,7 @@ end
     end
 
     @testset "invalid split and merge metadata throws" begin
-        tt = TTvector{Float64, 1}([reshape(Float64.(1:4), 4, 1, 1)], (4,), [1, 1])
+        tt = TTVector{Float64, 1}([reshape(Float64.(1:4), 4, 1, 1)], (4,), [1, 1])
 
         @test_throws AssertionError to_qtt(tt, [[2, 2], [2]])
         @test_throws AssertionError to_qtt(tt, [[2, 3]])

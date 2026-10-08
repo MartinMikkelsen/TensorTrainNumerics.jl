@@ -10,7 +10,7 @@ defect of the last step, `‖u_{n+1} − (I + hA)·u_n‖ / ‖u_{n+1}‖`, whic
 orthogonalization (and normalization when `normalize = true`) in that step.
 """
 function euler_method(
-        A::AbstractTToperator, u₀::AbstractTTvector, steps::Vector{Float64};
+        A::AbstractTTOperator, u₀::AbstractTTVector, steps::Vector{Float64};
         normalize::Bool = false, return_info::Bool = false,
         show_progress::Bool = true
     )
@@ -57,9 +57,9 @@ dimension and, for [`Krylov`](@ref), also caps its operator applications. With
 residual of the last step's linear system.
 """
 function implicit_euler_method(
-        A::AbstractTToperator,
-        u₀::AbstractTTvector,
-        guess::AbstractTTvector,
+        A::AbstractTTOperator,
+        u₀::AbstractTTVector,
+        guess::AbstractTTVector,
         steps::Vector{Float64};
         normalize::Bool = false,
         return_info::Bool = false,
@@ -78,7 +78,7 @@ function implicit_euler_method(
     for (step, h) in enumerate(steps)
         M = Id - h * A
 
-        next = linear_solve(M, solution, guess, step_alg)::AbstractTTvector
+        next = linear_solve(M, solution, guess, step_alg)::AbstractTTVector
 
         if normalize
             next = next / norm(next)
@@ -113,9 +113,9 @@ dimension and, for [`Krylov`](@ref), also caps its operator applications. With
 residual of the last step's linear system.
 """
 function crank_nicolson_method(
-        A::AbstractTToperator,
-        u₀::AbstractTTvector,
-        guess::AbstractTTvector,
+        A::AbstractTTOperator,
+        u₀::AbstractTTVector,
+        guess::AbstractTTVector,
         steps::Vector{Float64};
         normalize::Bool = false,
         return_info::Bool = false,
@@ -135,7 +135,7 @@ function crank_nicolson_method(
         LHS = Id - (h / 2) * A
         RHS = (Id + (h / 2) * A) * solution
 
-        next = linear_solve(LHS, RHS, guess, step_alg)::AbstractTTvector
+        next = linear_solve(LHS, RHS, guess, step_alg)::AbstractTTVector
 
         if normalize
             next = next / norm(next)
@@ -176,7 +176,7 @@ defect of the last step, `‖u_{n+1} − (u_n + Δu_n)‖ / ‖u_{n+1}‖`, whic
 rank truncation (and normalization when `normalize = true`) in that step.
 """
 function rk4_method(
-        A::AbstractTToperator, u₀::AbstractTTvector, steps::Vector{Float64};
+        A::AbstractTTOperator, u₀::AbstractTTVector, steps::Vector{Float64};
         max_bond::Int, normalize::Bool = false, return_info::Bool = false,
         show_progress::Bool = true
     )

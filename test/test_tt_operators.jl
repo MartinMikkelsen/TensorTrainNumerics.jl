@@ -51,7 +51,7 @@ end
     d = 3
     tto = TensorTrainNumerics.id_tto(d)
 
-    @test typeof(tto) == TensorTrainNumerics.TToperator{Float64, 3}
+    @test typeof(tto) == TensorTrainNumerics.TTOperator{Float64, 3}
     @test length(tto.tto_vec) == d
     for core in tto.tto_vec
         @test size(core) == (2, 2, 1, 1)
@@ -64,7 +64,7 @@ end
     rmax = 3
     tto = TensorTrainNumerics.rand_tto(dims, rmax)
 
-    @test typeof(tto) == TensorTrainNumerics.TToperator{Float64, 3}
+    @test typeof(tto) == TensorTrainNumerics.TTOperator{Float64, 3}
     @test length(tto.tto_vec) == 3
     for (i, core) in enumerate(tto.tto_vec)
         @test size(core, 1) == dims[i]
@@ -78,7 +78,7 @@ end
     n, d, r = 2, 3, 2
     ttv = TensorTrainNumerics.zeros_tt(n, d, r)
 
-    @test typeof(ttv) == TensorTrainNumerics.TTvector{Float64, 3}
+    @test typeof(ttv) == TensorTrainNumerics.TTVector{Float64, 3}
     @test length(ttv.ttv_vec) == d
     for core in ttv.ttv_vec
         @test all(core .== 0.0)
@@ -89,7 +89,7 @@ end
     dims = (2, 2, 2)
     ttv = TensorTrainNumerics.ones_tt(dims)
 
-    @test typeof(ttv) == TensorTrainNumerics.TTvector{Float64, 3}
+    @test typeof(ttv) == TensorTrainNumerics.TTVector{Float64, 3}
     @test length(ttv.ttv_vec) == 3
     for core in ttv.ttv_vec
         @test all(core .== 1.0)
@@ -360,8 +360,8 @@ end
     Hxz = pauli_pair_sum_tto(:x, :z, d)
     Hyy = pauli_pair_sum_tto(:y, :y, d)
 
-    @test Hx isa TToperator{Float64, 4}
-    @test Hy isa TToperator{ComplexF64, 4}
+    @test Hx isa TTOperator{Float64, 4}
+    @test Hy isa TTOperator{ComplexF64, 4}
     @test maximum(Hx.tto_rks) == 2
     @test maximum(Hxz.tto_rks) == 3
     @test qtto_to_matrix(Hx) ≈ _dense_pauli_sum(:x, d)
@@ -381,7 +381,7 @@ end
         jz * _dense_pauli_pair_sum(:z, :z, d) +
         λ * _dense_pauli_sum(:x, d)
 
-    @test H isa TToperator{Float64, 4}
+    @test H isa TTOperator{Float64, 4}
     @test maximum(H.tto_rks) <= 7
     @test qtto_to_matrix(H) ≈ H_ref
 end
@@ -478,7 +478,7 @@ end
 
     d = 3
     P = qtto_constant_prolongation(d)
-    @test P isa TToperator{Float64, 4}
+    @test P isa TTOperator{Float64, 4}
     @test nsites(P) == d + 1
     @test P.tto_dims == ntuple(_ -> 2, d + 1)
     @test size(P.tto_vec[end], 2) == 1
@@ -486,7 +486,7 @@ end
     P_dense = constant_prolongation_matrix(d)
     for col in 1:(2^d)
         y = P * qtt_basis_vector(d, col)
-        @test y isa TTvector{Float64, 4}
+        @test y isa TTVector{Float64, 4}
         @test y.ttv_dims == ntuple(_ -> 2, d + 1)
         @test qtt_to_function(y) ≈ P_dense[:, col]
     end
@@ -522,7 +522,7 @@ end
 
     d = 3
     P = qtto_linear_prolongation(d)
-    @test P isa TToperator{Float64, 4}
+    @test P isa TTOperator{Float64, 4}
     @test nsites(P) == d + 1
     @test P.tto_dims == ntuple(_ -> 2, d + 1)
     @test size(P.tto_vec[end], 2) == 1
@@ -531,7 +531,7 @@ end
     for col in 1:(2^d)
         e = qtt_basis_vector(d, col)
         y = P * e
-        @test y isa TTvector{Float64, 4}
+        @test y isa TTVector{Float64, 4}
         @test y.ttv_dims == ntuple(_ -> 2, d + 1)
         @test qtt_to_function(y) ≈ P_dense[:, col]
     end

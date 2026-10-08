@@ -12,7 +12,7 @@ Random.seed!(42)
     # exact reference for TDVP, with no error from the fixed-rank approximation.
     for nsites in 1:3, active in unique([1, nsites])
         local_ops = [k == active ? [0.0 0.0; 0.0 1.0] : Matrix{Float64}(I, 2, 2) for k in 1:nsites]
-        H = TToperator(
+        H = TTOperator(
             [reshape(A, 2, 2, 1, 1) for A in local_ops],
             ntuple(_ -> 2, nsites), ones(Int, nsites + 1)
         )
@@ -195,7 +195,7 @@ end
     @test norm(ψ_out - ψ0) / norm(ψ0) < 1.0e-6
 end
 
-function dense_relerr(x::TensorTrainNumerics.TTvector, y::TensorTrainNumerics.TTvector)
+function dense_relerr(x::TensorTrainNumerics.TTVector, y::TensorTrainNumerics.TTVector)
     x_dense = vec(ttv_to_tensor(x))
     y_dense = vec(ttv_to_tensor(y))
     y_norm = norm(y_dense)
@@ -385,14 +385,14 @@ end
 
 @testset "real-time QTT TDVP accepts real inputs" begin
     d = 2
-    u0 = QTTvector(qtt_sin(d), 1, d, :serial)
-    H0 = QTToperator(0.0 * id_tto(d), 1, d, :serial)
+    u0 = QTTVector(qtt_sin(d), 1, d, :serial)
+    H0 = QTTOperator(0.0 * id_tto(d), 1, d, :serial)
 
     ψ1 = tdvp(H0, u0, [0.01]; normalize = false, verbosity = 0, show_progress = false)
     ψ2 = tdvp2(H0, u0, [0.01]; normalize = false, verbosity = 0, show_progress = false)
 
-    @test ψ1 isa QTTvector{ComplexF64}
-    @test ψ2 isa QTTvector{ComplexF64}
+    @test ψ1 isa QTTVector{ComplexF64}
+    @test ψ2 isa QTTVector{ComplexF64}
 end
 
 @testset "tdvp2: imaginary-time branch runs" begin
@@ -415,10 +415,10 @@ end
 
     Δ1d = toeplitz_to_qtto(-2.0, 1.0, 1.0, d)
     A_raw = (κ / h^2) * (Δ1d ⊗ id_tto(d) + id_tto(d) ⊗ Δ1d)
-    A = QTToperator(A_raw, 2, d, :serial)
+    A = QTTOperator(A_raw, 2, d, :serial)
 
     u0_raw = qtt_sin(d; a = h, b = 1 - h) ⊗ qtt_sin(d; a = h, b = 1 - h)
-    u0 = QTTvector(u0_raw, 2, d, :serial)
+    u0 = QTTVector(u0_raw, 2, d, :serial)
     λ = real(TensorTrainNumerics.dot(u0_raw, A_raw * u0_raw) / TensorTrainNumerics.dot(u0_raw, u0_raw))
 
     steps = fill(1.0e-3, 5)
@@ -500,5 +500,5 @@ end
     u0 = rand_tt(ntuple(_ -> 2, d), 2; normalize = true)
     @test_throws "unsupported keyword argument(s) verbose" tdvp(H, u0, [0.01]; verbose = true, show_progress = false)
     @test_throws "unsupported keyword argument(s) truncerr" tdvp2(H, u0, [0.01]; truncerr = 1.0e-8, show_progress = false)
-    @test tdvp(H, u0, [0.01]; tol = 1.0e-12, krylovdim = 10, show_progress = false) isa TTvector
+    @test tdvp(H, u0, [0.01]; tol = 1.0e-12, krylovdim = 10, show_progress = false) isa TTVector
 end
