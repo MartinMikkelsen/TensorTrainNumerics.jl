@@ -822,20 +822,29 @@ end
         @test_throws "n_dims mismatch" A + B
         @test_throws "n_dims mismatch" A * B
         @test_throws "n_dims mismatch" hadamard_ttm(q, other)
-        # The check runs before the result is formed.
-        big = QTTVector(rand_tt(ntuple(_ -> 2, 8), 16), 2, 4, :serial)
-        bigA = QTTOperator(rand_tto(ntuple(_ -> 2, 8), 16), 2, 4, :interleaved)
-        rejected() = try
-            bigA * big
+        # The check runs before any operand is copied, converted, or contracted.
+        # Copying the cores of one of these inputs alone takes more than the bound.
+        big = QTTVector(rand_tt(ntuple(_ -> 2, 12), 16), 2, 6, :serial)
+        other_big = QTTVector(rand_tt(ntuple(_ -> 2, 12), 16), 2, 6, :interleaved)
+        bigA = QTTOperator(rand_tto(ntuple(_ -> 2, 12), 16), 2, 6, :interleaved)
+        bigB = QTTOperator(rand_tto(ntuple(_ -> 2, 12), 16), 2, 6, :serial)
+        cbig, cA = complex(big), complex(bigA)
+        @test sum(sizeof, big.cores) > 10_000
+        guarded(f) = try
+            f()
         catch
             nothing
         end
-        rejected()
-        @test (@allocated rejected()) < 10_000
-        @test_throws "n_dims mismatch" q + other
-        @test_throws "n_dims mismatch" dot(q, other)
-        @test_throws "n_dims mismatch" hadamard(q, other)
-        @test_throws "n_dims mismatch" A * other
+        for f in (
+                () -> bigA * big, () -> bigA * bigB, () -> bigA + bigB, () -> bigA - bigB,
+                () -> big + other_big, () -> big - other_big, () -> hadamard(big, other_big),
+                () -> cbig + other_big, () -> cbig - other_big, () -> cA + bigB, () -> cA - bigB,
+                () -> cA * big, () -> cA * bigB, () -> dot(cbig, other_big),
+            )
+            @test_throws AssertionError f()
+            guarded(f)
+            @test (@allocated guarded(f)) < 10_000
+        end
     end
 end
 

@@ -322,45 +322,54 @@ Base.:*(A::AbstractTTVector{T, N}, a::S) where {T <: Number, S <: Number, N} = a
 -(A::AbstractTTOperator{T, N}) where {T <: Number, N} = (-one(T)) * A
 
 function -(A::AbstractTTVector{T, N}, B::AbstractTTVector{T, N}) where {T <: Number, N}
+    _check_qtt(A, B)
     return A + (-one(T)) * B
 end
 
 function -(A::AbstractTTOperator{T, N}, B::AbstractTTOperator{T, N}) where {T <: Number, N}
+    _check_qtt(A, B)
     return A + (-one(T)) * B
 end
 
 # Mixed element types promote to a common type and dispatch to the same-type methods.
 function +(x::AbstractTTVector{T1, N}, y::AbstractTTVector{T2, N}) where {T1 <: Number, T2 <: Number, N}
+    _check_qtt(x, y)
     T = promote_type(T1, T2)
     return _convert_eltype(T, x) + _convert_eltype(T, y)
 end
 
 function +(x::AbstractTTOperator{T1, N}, y::AbstractTTOperator{T2, N}) where {T1 <: Number, T2 <: Number, N}
+    _check_qtt(x, y)
     T = promote_type(T1, T2)
     return _convert_eltype(T, x) + _convert_eltype(T, y)
 end
 
 function -(x::AbstractTTVector{T1, N}, y::AbstractTTVector{T2, N}) where {T1 <: Number, T2 <: Number, N}
+    _check_qtt(x, y)
     T = promote_type(T1, T2)
     return _convert_eltype(T, x) - _convert_eltype(T, y)
 end
 
 function -(x::AbstractTTOperator{T1, N}, y::AbstractTTOperator{T2, N}) where {T1 <: Number, T2 <: Number, N}
+    _check_qtt(x, y)
     T = promote_type(T1, T2)
     return _convert_eltype(T, x) - _convert_eltype(T, y)
 end
 
 function *(A::AbstractTTOperator{T1, N}, v::AbstractTTVector{T2, N}) where {T1 <: Number, T2 <: Number, N}
+    _check_qtt(A, v)
     T = promote_type(T1, T2)
     return _convert_eltype(T, A) * _convert_eltype(T, v)
 end
 
 function *(A::AbstractTTOperator{T1, N}, B::AbstractTTOperator{T2, N}) where {T1 <: Number, T2 <: Number, N}
+    _check_qtt(A, B)
     T = promote_type(T1, T2)
     return _convert_eltype(T, A) * _convert_eltype(T, B)
 end
 
 function dot(A::AbstractTTVector{T1, N}, B::AbstractTTVector{T2, N}) where {T1 <: Number, T2 <: Number, N}
+    _check_qtt(A, B)
     T = promote_type(T1, T2)
     return dot(_convert_eltype(T, A), _convert_eltype(T, B))
 end
