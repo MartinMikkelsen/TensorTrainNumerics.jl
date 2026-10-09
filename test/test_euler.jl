@@ -503,3 +503,44 @@ end
     @test TTN._stepper_algorithm(alg; TTN._stepper_overrides(alg, 0)...).max_bond == 8
     @test TTN._stepper_algorithm(alg; TTN._stepper_overrides(alg, 5)...).max_bond == 5
 end
+
+@testset "time_evolve dispatches on the algorithm" begin
+    d = 4
+    A = -1.0 * Δ(d)
+    Random.seed!(11)
+    u₀ = orthogonalize(rand_tt(ntuple(_ -> 2, d), 2; normalize = true))
+    steps = fill(1.0e-3, 3)
+    dense(x) = tt_to_tensor(x)
+
+    @test dense(time_evolve(A, u₀, steps, Euler(show_progress = false))) ==
+        dense(euler_method(A, u₀, steps; show_progress = false))
+    @test dense(time_evolve(A, u₀, steps, RK4(max_bond = 4, show_progress = false))) ==
+        dense(rk4_method(A, u₀, steps; max_bond = 4, show_progress = false))
+    @test dense(time_evolve(A, u₀, steps, ImplicitEuler(linear_solver = ALS(), show_progress = false))) ==
+        dense(implicit_euler_method(A, u₀, u₀, steps; alg = ALS(), show_progress = false))
+    @test dense(time_evolve(A, u₀, steps, CrankNicolson(linear_solver = ALS(), show_progress = false))) ==
+        dense(crank_nicolson_method(A, u₀, u₀, steps; alg = ALS(), show_progress = false))
+    @test dense(time_evolve(A, u₀, steps, TDVP(imaginary_time = true, show_progress = false))) ≈
+        dense(tdvp(A, u₀, steps; imaginary_time = true, show_progress = false))
+    @test dense(time_evolve(A, u₀, steps, TDVP(nsites = 2, max_bond = 3, imaginary_time = true, show_progress = false))) ≈
+        dense(tdvp2(A, u₀, steps; max_bond = 3, imaginary_time = true, show_progress = false))
+
+    # Step sizes may be any collection of reals.
+    @test dense(time_evolve(A, u₀, (1.0e-3, 1.0e-3, 1.0e-3), Euler(show_progress = false))) ==
+        dense(euler_method(A, u₀, steps; show_progress = false))
+
+    guess = rand_tt(ntuple(_ -> 2, d), 2; normalize = true)
+    @test dense(time_evolve(A, u₀, steps, CrankNicolson(linear_solver = ALS(), show_progress = false); guess)) ==
+        dense(crank_nicolson_method(A, u₀, guess, steps; alg = ALS(), show_progress = false))
+
+    u, info = time_evolve(A, u₀, steps, Euler(return_info = true, show_progress = false))
+    @test u isa TTVector
+    @test info.error isa Real
+
+    @test_throws MethodError time_evolve(A, u₀, steps, Euler(); guess)
+    @test_throws UndefKeywordError RK4()
+    @test_throws "`nsites` must be 1 or 2" TDVP(nsites = 3)
+    @test_throws "apply only to `nsites = 2`" TDVP(max_bond = 4)
+    @test_throws "unsupported keyword argument" TDVP(not_a_keyword = 1)
+    @test TDVP(krylovdim = 10).exponentiate == (; krylovdim = 10)
+end

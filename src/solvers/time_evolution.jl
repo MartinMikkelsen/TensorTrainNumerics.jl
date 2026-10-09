@@ -201,3 +201,185 @@ function rk4_method(
     end
     return u
 end
+
+"""
+    TimeEvolutionAlgorithm
+
+Supertype of algorithm objects accepted by [`time_evolve`](@ref):
+[`Euler`](@ref), [`ImplicitEuler`](@ref), [`CrankNicolson`](@ref),
+[`RK4`](@ref), and [`TDVP`](@ref).
+"""
+abstract type TimeEvolutionAlgorithm end
+
+"""
+    Euler(; normalize=false, return_info=false, show_progress=true)
+
+Explicit Euler time stepping; see [`euler_method`](@ref) for the scheme and the
+meaning of the keyword arguments.
+"""
+struct Euler <: TimeEvolutionAlgorithm
+    normalize::Bool
+    return_info::Bool
+    show_progress::Bool
+end
+
+Euler(; normalize::Bool = false, return_info::Bool = false, show_progress::Bool = true) =
+    Euler(normalize, return_info, show_progress)
+
+"""
+    ImplicitEuler(; linear_solver=MALS(), max_bond=0, normalize=false, return_info=false, show_progress=true)
+
+Implicit Euler time stepping. Every step solves a TT linear system with
+`linear_solver`, a [`LinearSolverAlgorithm`](@ref); see
+[`implicit_euler_method`](@ref) for the scheme and the other keyword arguments.
+"""
+struct ImplicitEuler{S <: LinearSolverAlgorithm} <: TimeEvolutionAlgorithm
+    linear_solver::S
+    max_bond::Int
+    normalize::Bool
+    return_info::Bool
+    show_progress::Bool
+end
+
+function ImplicitEuler(;
+        linear_solver::LinearSolverAlgorithm = MALS(), max_bond::Int = 0,
+        normalize::Bool = false, return_info::Bool = false, show_progress::Bool = true
+    )
+    return ImplicitEuler(linear_solver, max_bond, normalize, return_info, show_progress)
+end
+
+"""
+    CrankNicolson(; linear_solver=MALS(), max_bond=0, normalize=false, return_info=false, show_progress=true)
+
+Crank–Nicolson time stepping. Every step solves a TT linear system with
+`linear_solver`, a [`LinearSolverAlgorithm`](@ref); see
+[`crank_nicolson_method`](@ref) for the scheme and the other keyword arguments.
+"""
+struct CrankNicolson{S <: LinearSolverAlgorithm} <: TimeEvolutionAlgorithm
+    linear_solver::S
+    max_bond::Int
+    normalize::Bool
+    return_info::Bool
+    show_progress::Bool
+end
+
+function CrankNicolson(;
+        linear_solver::LinearSolverAlgorithm = MALS(), max_bond::Int = 0,
+        normalize::Bool = false, return_info::Bool = false, show_progress::Bool = true
+    )
+    return CrankNicolson(linear_solver, max_bond, normalize, return_info, show_progress)
+end
+
+"""
+    RK4(; max_bond, normalize=false, return_info=false, show_progress=true)
+
+Classical fourth-order Runge–Kutta time stepping with every stage compressed to
+bond dimension `max_bond`; see [`rk4_method`](@ref).
+"""
+struct RK4 <: TimeEvolutionAlgorithm
+    max_bond::Int
+    normalize::Bool
+    return_info::Bool
+    show_progress::Bool
+end
+
+RK4(; max_bond::Int, normalize::Bool = false, return_info::Bool = false, show_progress::Bool = true) =
+    RK4(max_bond, normalize, return_info, show_progress)
+
+"""
+    TDVP(; nsites=1, kwargs...)
+
+Time-dependent variational principle with one-site (`nsites = 1`, fixed ranks)
+or two-site (`nsites = 2`, adaptive ranks) updates; see [`tdvp`](@ref) and
+[`tdvp2`](@ref) for the schemes.
+
+# Keyword arguments
+- `nsites::Int=1`: `1` or `2`.
+- `max_bond::Int=typemax(Int)`, `trunc_tol::Real=0.0`: rank truncation of the
+  two-site updates. Setting either with `nsites = 1` throws an `ArgumentError`.
+- `normalize`, `substeps`, `carry_env`, `imaginary_time`, `return_info`,
+  `verbosity`, `show_progress`: as in [`tdvp`](@ref).
+- Remaining keyword arguments are passed to `KrylovKit.exponentiate`.
+"""
+struct TDVP{K <: NamedTuple} <: TimeEvolutionAlgorithm
+    nsites::Int
+    max_bond::Int
+    trunc_tol::Float64
+    normalize::Bool
+    substeps::Int
+    carry_env::Bool
+    imaginary_time::Bool
+    return_info::Bool
+    verbosity::Int
+    show_progress::Bool
+    exponentiate::K
+end
+
+function TDVP(;
+        nsites::Int = 1, max_bond::Int = typemax(Int), trunc_tol::Real = 0.0,
+        normalize::Bool = false, substeps::Int = 1, carry_env::Bool = true,
+        imaginary_time::Bool = false, return_info::Bool = false,
+        verbosity::Int = 1, show_progress::Bool = true, kwargs...
+    )
+    nsites in (1, 2) || throw(ArgumentError("`nsites` must be 1 or 2; got $nsites"))
+    if nsites == 1 && (max_bond != typemax(Int) || trunc_tol != 0)
+        throw(ArgumentError("`max_bond` and `trunc_tol` apply only to `nsites = 2`; one-site TDVP keeps the ranks fixed"))
+    end
+    _check_exponentiate_kwargs("TDVP", kwargs)
+    return TDVP(
+        nsites, max_bond, Float64(trunc_tol), normalize, substeps, carry_env,
+        imaginary_time, return_info, verbosity, show_progress, NamedTuple(kwargs)
+    )
+end
+
+"""
+    time_evolve(A, u₀, steps, alg::TimeEvolutionAlgorithm) -> TTVector
+    time_evolve(A, u₀, steps, alg; guess=u₀)
+
+Evolve `u₀` under the generator `A` with the time stepper `alg`: an
+[`Euler`](@ref), [`ImplicitEuler`](@ref), [`CrankNicolson`](@ref),
+[`RK4`](@ref), or [`TDVP`](@ref) object.
+
+`steps` holds the step sizes, not time points. [`Euler`](@ref),
+[`ImplicitEuler`](@ref), [`CrankNicolson`](@ref), and [`RK4`](@ref) integrate
+`du/dt = A u`; for [`TDVP`](@ref) the generator is `-iA` unless
+`imaginary_time = true`.
+
+For [`ImplicitEuler`](@ref) and [`CrankNicolson`](@ref), `guess` is the initial
+guess of the first linear solve; later steps start from the previous solution.
+
+If `alg` was built with `return_info = true`, the result is `(u, info)`.
+"""
+function time_evolve(A, u₀, steps, alg::Euler)
+    (; normalize, return_info, show_progress) = alg
+    return euler_method(A, u₀, collect(Float64, steps); normalize, return_info, show_progress)
+end
+
+function time_evolve(A, u₀, steps, alg::ImplicitEuler; guess = u₀)
+    (; max_bond, normalize, return_info, show_progress) = alg
+    return implicit_euler_method(
+        A, u₀, guess, collect(Float64, steps);
+        alg = alg.linear_solver, max_bond, normalize, return_info, show_progress
+    )
+end
+
+function time_evolve(A, u₀, steps, alg::CrankNicolson; guess = u₀)
+    (; max_bond, normalize, return_info, show_progress) = alg
+    return crank_nicolson_method(
+        A, u₀, guess, collect(Float64, steps);
+        alg = alg.linear_solver, max_bond, normalize, return_info, show_progress
+    )
+end
+
+function time_evolve(A, u₀, steps, alg::RK4)
+    (; max_bond, normalize, return_info, show_progress) = alg
+    return rk4_method(A, u₀, collect(Float64, steps); max_bond, normalize, return_info, show_progress)
+end
+
+function time_evolve(A, u₀, steps, alg::TDVP)
+    (; normalize, substeps, carry_env, imaginary_time, return_info, verbosity, show_progress) = alg
+    common = (; normalize, substeps, carry_env, imaginary_time, return_info, verbosity, show_progress)
+    h = collect(Float64, steps)
+    alg.nsites == 1 && return tdvp(A, u₀, h; common..., alg.exponentiate...)
+    return tdvp2(A, u₀, h; common..., max_bond = alg.max_bond, trunc_tol = alg.trunc_tol, alg.exponentiate...)
+end

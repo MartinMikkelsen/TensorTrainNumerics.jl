@@ -96,7 +96,7 @@ Reverse the order of the sites of `x`. For a binary QTT this reverses the bit
 order of the position index, converting between most-significant-bit-first and
 least-significant-bit-first layouts.
 """
-function reverse_qtt_bits(x::TTVector{T, d}) where {T, d}
+function reverse_qtt_bits(x::AbstractTTVector{T, d}) where {T, d}
     new_vecs = reverse(copy.(x.cores))
     new_vecs = map(c -> permutedims(c, (1, 3, 2)), new_vecs)
     new_dims = reverse(x.dims)

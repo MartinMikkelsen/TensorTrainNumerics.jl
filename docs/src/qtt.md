@@ -202,11 +202,11 @@ These 1D operators come with explicit rank-2 (or rank-1) QTT representations and
 | Function | Operator |
 |---|---|
 | `Δ(d)` | Second-difference, Dirichlet–Dirichlet (tridiag(2,−1,−1)) |
-| `Δ_DN(d)` | Second-difference, Dirichlet–Neumann |
-| `Δ_ND(d)` | Second-difference, Neumann–Dirichlet |
-| `Δ_NN(d)` | Second-difference, Neumann–Neumann |
-| `Δ_P(d)` | Second-difference, periodic |
-| `Δ⁻¹_DN(d)` | Inverse Laplacian, Dirichlet–Neumann BC |
+| `Δ(d; bc = :DN)` | Second-difference, Dirichlet–Neumann |
+| `Δ(d; bc = :ND)` | Second-difference, Neumann–Dirichlet |
+| `Δ(d; bc = :NN)` | Second-difference, Neumann–Neumann |
+| `Δ(d; bc = :periodic)` | Second-difference, periodic |
+| `Δ⁻¹(d; bc = :DN)` | Inverse Laplacian, Dirichlet–Neumann BC |
 | `∇(d)` | First-difference (forward difference) |
 | `shift(d)` | Cyclic shift |
 | `id_tto(d)` | Identity on $\{1,2\}^d$ |

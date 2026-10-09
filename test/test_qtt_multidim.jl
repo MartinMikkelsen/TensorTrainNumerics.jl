@@ -756,3 +756,82 @@ end
     Av_rt = qttv_to_array(A_sr_rt * v_sr)
     @test maximum(abs, Av_orig .- Av_rt) < 1.0e-8
 end
+
+@testset "generic TT functions accept QTT types" begin
+    x = rand_tt((2, 2, 2, 2), 2)
+    y = rand_tt((2, 2, 2, 2), 2)
+    q = QTTVector(x, 2, 2, :serial)
+    p = QTTVector(y, 2, 2, :serial)
+    A = QTTOperator(id_tto(4) + Δ(4), 2, 2, :serial)
+    same_grid(r) = (r.n_dims, r.bits_per_dim, r.ordering) == (2, 2, :serial)
+
+    @testset "values" begin
+        @test tt_to_tensor(q) == tt_to_tensor(x)
+        @test qtt_to_vector(q) == qtt_to_vector(x)
+        @test matricize(q, 2) == matricize(x, 2)
+        @test tto_to_tensor(A) == tto_to_tensor(TTOperator(A))
+        @test qtto_to_matrix(A) == qtto_to_matrix(TTOperator(A))
+        @test norm(q) == norm(x)
+        @test dot(q, p) == dot(x, y)
+        @test dot(q, y) == dot(x, y)
+        @test entanglement_entropy(q) == entanglement_entropy(x)
+        @test eltype(q) == Float64
+        @test eltype(A) == Float64
+        @test nsites(A) == 4
+        @test redirect_stdout(() -> visualize(q), devnull) === nothing
+    end
+
+    @testset "results on the same sites keep the QTT metadata" begin
+        for r in (
+                copy(q), complex(q), orthogonalize(q; i = 2), tt_round(q), 2 * q, q * 2, q / 2, -q,
+                q + p, q - p, hadamard(q, p), hadamard_ttm(q, p), A * q, rand_tt(q), q + complex(p),
+                TensorTrainNumerics.increase_ranks(q, 4),
+            )
+            @test r isa QTTVector
+            @test same_grid(r)
+        end
+        for R in (copy(A), complex(A), A + A, A - A, A * A, 2 * A, A', tt_to_diag_tto(q))
+            @test R isa QTTOperator
+            @test same_grid(R)
+        end
+        @test tt_to_tensor(q + p) ≈ tt_to_tensor(x + y)
+        @test tt_to_tensor(A * q) ≈ tt_to_tensor(TTOperator(A) * x)
+        @test tto_to_tensor(A * A) ≈ tto_to_tensor(TTOperator(A) * TTOperator(A))
+
+        r = copy(q)
+        @test tt_round!(r) === r
+        @test tt_compress!(r, 2) === r
+        @test add!(r, p) === r
+    end
+
+    @testset "results on other sites, or mixed with plain inputs, are plain" begin
+        @test kron(q, p) isa TTVector
+        @test concatenate(q, p) isa TTVector
+        @test reverse_qtt_bits(q) isa TTVector
+        @test outer_product(q, p) isa TTOperator
+        @test q + y isa TTVector
+        @test x - p isa TTVector
+        @test TTOperator(A) * q isa TTVector
+        @test A * x isa TTVector
+        @test copy(id_tto(3)) isa TTOperator
+    end
+
+    @testset "mismatched grids are rejected" begin
+        other = QTTVector(rand_tt((2, 2, 2, 2), 2), 1, 4, :serial)
+        @test_throws "n_dims mismatch" q + other
+        @test_throws "n_dims mismatch" dot(q, other)
+        @test_throws "n_dims mismatch" hadamard(q, other)
+        @test_throws "n_dims mismatch" A * other
+    end
+end
+
+@testset "Laplacian boundary conditions" begin
+    for bc in (:DD, :DN, :ND, :NN, :periodic)
+        @test Δ(4; bc) isa TTOperator{Float64, 4}
+    end
+    @test tto_to_tensor(Δ(4)) == tto_to_tensor(Δ(4; bc = :DD))
+    @test_throws "`bc` must be :DD, :DN, :ND, :NN, or :periodic" Δ(4; bc = :robin)
+    @test Δ⁻¹(4) isa TTOperator{Float64, 4}
+    @test_throws "only available for `bc = :DN`" Δ⁻¹(4; bc = :DD)
+    @test tto_to_tensor(TTOperator(qtt_laplacian(1, 4; bc = :periodic))) ≈ 15.0^2 .* tto_to_tensor(Δ(4; bc = :periodic))
+end

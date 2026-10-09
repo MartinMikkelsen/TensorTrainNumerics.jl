@@ -216,7 +216,6 @@ end
 
 # Check the QTT metadata of `a` against `b`. A plain tensor train carries no
 # metadata, so only pairs of QTT wrappers are checked.
-_check_qtt(a, b) = nothing
 
 function _amen_check(A::AbstractTTOperator, x::AbstractTTVector)
     nsites(A) ≥ 2 || throw(ArgumentError("AMEn needs at least 2 cores; got $(nsites(A))"))
@@ -226,9 +225,6 @@ function _amen_check(A::AbstractTTOperator, x::AbstractTTVector)
     _check_qtt(A, x)
     return nothing
 end
-
-# `x` with the wrapper type of `guess`.
-_rewrap(guess::AbstractTTVector, x::TTVector) = x
 
 # Sweep until the residual of a sweep is at most `tol`, then once more without
 # enrichment. Returns the iterate and `(; converged, sweeps, residual)`, where

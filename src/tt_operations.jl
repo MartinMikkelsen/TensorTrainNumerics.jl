@@ -11,24 +11,24 @@ import LinearAlgebra: norm, dot
 
 Return `x` with its cores converted to element type `T` (`x` itself if already `T`).
 """
-function _convert_eltype(::Type{T}, x::TTVector{S, N}) where {T <: Number, S <: Number, N}
+function _convert_eltype(::Type{T}, x::AbstractTTVector{S, N}) where {T <: Number, S <: Number, N}
     T === S && return x
-    return TTVector{T, N}([convert(Array{T, 3}, c) for c in x.cores], x.dims, copy(x.ranks); orthogonality = copy(x.orthogonality))
+    return _rewrap(x, TTVector{T, N}([convert(Array{T, 3}, c) for c in x.cores], x.dims, copy(x.ranks); orthogonality = copy(x.orthogonality)))
 end
 
-function _convert_eltype(::Type{T}, A::TTOperator{S, N}) where {T <: Number, S <: Number, N}
+function _convert_eltype(::Type{T}, A::AbstractTTOperator{S, N}) where {T <: Number, S <: Number, N}
     T === S && return A
-    return TTOperator{T, N}([convert(Array{T, 4}, c) for c in A.cores], A.row_dims, A.col_dims, copy(A.ranks); orthogonality = copy(A.orthogonality))
+    return _rewrap(A, TTOperator{T, N}([convert(Array{T, 4}, c) for c in A.cores], A.row_dims, A.col_dims, copy(A.ranks); orthogonality = copy(A.orthogonality)))
 end
 
 """
 Adds two TTVectors and returns a new TTVector.
 """
-function +(x::TTVector{T, N}, y::TTVector{T, N}) where {T <: Number, N}
+function +(x::AbstractTTVector{T, N}, y::AbstractTTVector{T, N}) where {T <: Number, N}
     @assert x.dims == y.dims "Incompatible dimensions"
     d = nsites(x)
     if d == 1
-        return TTVector{T, N}([x.cores[1] + y.cores[1]], x.dims, [1, 1])
+        return _rewrap(x, y, TTVector{T, N}([x.cores[1] + y.cores[1]], x.dims, [1, 1]))
     end
     ttv_vec = Array{Array{T, 3}, 1}(undef, d)
     rks = x.ranks + y.ranks
@@ -51,7 +51,7 @@ function +(x::TTVector{T, N}, y::TTVector{T, N}) where {T <: Number, N}
         ttv_vec[d][:, 1:x.ranks[d], 1] = x.cores[d]
         ttv_vec[d][:, (x.ranks[d] + 1):rks[d], 1] = y.cores[d]
     end
-    return TTVector{T, N}(ttv_vec, x.dims, rks)
+    return _rewrap(x, y, TTVector{T, N}(ttv_vec, x.dims, rks))
 end
 
 """
@@ -60,7 +60,7 @@ end
 Overwrite `x` with `x + y`. The ranks of the result are the sums of the ranks
 of `x` and `y`; no truncation is performed (see [`tt_round!`](@ref)).
 """
-function add!(x::TTVector{T, N}, y::TTVector{T, N}) where {T <: Number, N}
+function add!(x::AbstractTTVector{T, N}, y::AbstractTTVector{T, N}) where {T <: Number, N}
     return _overwrite!(x, x + y)
 end
 
@@ -68,7 +68,7 @@ end
 # orthogonality interval; objects sharing these vectors with `x` see the update. The
 # number of cores is fixed by the type, so only the entries change. The core
 # arrays themselves are shared with `src`.
-function _overwrite!(x::TTVector, src::TTVector)
+function _overwrite!(x::AbstractTTVector, src::AbstractTTVector)
     x.dims == src.dims || throw(DimensionMismatch("cannot overwrite a TTVector with dimensions $(x.dims) by one with dimensions $(src.dims)"))
     copyto!(x.cores, src.cores)
     copyto!(x.ranks, src.ranks)
@@ -79,11 +79,11 @@ end
 """
 Adds two TTOperators and returns a new TTOperator.
 """
-function +(x::TTOperator{T, N}, y::TTOperator{T, N}) where {T <: Number, N}
+function +(x::AbstractTTOperator{T, N}, y::AbstractTTOperator{T, N}) where {T <: Number, N}
     @assert x.row_dims == y.row_dims && x.col_dims == y.col_dims "Incompatible dimensions"
     d = nsites(x)
     if d == 1
-        return TTOperator{T, N}([x.cores[1] + y.cores[1]], x.row_dims, x.col_dims, [1, 1])
+        return _rewrap(x, y, TTOperator{T, N}([x.cores[1] + y.cores[1]], x.row_dims, x.col_dims, [1, 1]))
     end
     tto_vec = Array{Array{T, 4}, 1}(undef, d)
     rks = x.ranks + y.ranks
@@ -106,13 +106,13 @@ function +(x::TTOperator{T, N}, y::TTOperator{T, N}) where {T <: Number, N}
         tto_vec[d][:, :, 1:x.ranks[d], 1] = x.cores[d]
         tto_vec[d][:, :, (x.ranks[d] + 1):rks[d], 1] = y.cores[d]
     end
-    return TTOperator{T, N}(tto_vec, x.row_dims, x.col_dims, rks)
+    return _rewrap(x, y, TTOperator{T, N}(tto_vec, x.row_dims, x.col_dims, rks))
 end
 
 """
 Contracts the TTOperator A with the TTVector x.
 """
-function *(A::TTOperator{T, N}, v::TTVector{T, N}) where {T <: Number, N}
+function *(A::AbstractTTOperator{T, N}, v::AbstractTTVector{T, N}) where {T <: Number, N}
     @assert A.col_dims == v.dims "Incompatible dimensions"
     y = zeros_tt(T, A.row_dims, A.ranks .* v.ranks)
     begin
@@ -121,13 +121,13 @@ function *(A::TTOperator{T, N}, v::TTVector{T, N}) where {T <: Number, N}
             @tensoropt((νₖ₋₁, νₖ), yvec_temp[iₖ, αₖ₋₁, νₖ₋₁, αₖ, νₖ] = A.cores[k][iₖ, jₖ, αₖ₋₁, αₖ] * v.cores[k][jₖ, νₖ₋₁, νₖ])
         end
     end
-    return y
+    return _rewrap(A, v, y)
 end
 
 """
 Contracts a rectangular TTOperator with one additional output site against a TTVector.
 """
-function *(A::TTOperator{T, M}, v::TTVector{T, N}) where {T <: Number, M, N}
+function *(A::AbstractTTOperator{T, M}, v::AbstractTTVector{T, N}) where {T <: Number, M, N}
     @assert M == N + 1 "Rectangular TTOperator must have one additional output site"
     singleton_sites = findall(k -> size(A.cores[k], 2) == 1, 1:M)
     @assert length(singleton_sites) == 1 "Rectangular TTOperator must have exactly one singleton input site"
@@ -162,13 +162,13 @@ function *(A::TTOperator{T, M}, v::TTVector{T, N}) where {T <: Number, M, N}
 end
 
 
-function (A::TTOperator{T, N})(x::TTVector{T, N}) where {T, N}
+function (A::AbstractTTOperator{T, N})(x::AbstractTTVector{T, N}) where {T, N}
     return A * x
 end
 
 # KrylovKit's calling convention for maps that also provide their adjoint.
-(A::TTOperator{T, N})(x::TTVector{T, N}, ::Val{false}) where {T, N} = A * x
-(A::TTOperator{T, N})(x::TTVector{T, N}, ::Val{true}) where {T, N} = adjoint(A) * x
+(A::AbstractTTOperator{T, N})(x::AbstractTTVector{T, N}, ::Val{false}) where {T, N} = A * x
+(A::AbstractTTOperator{T, N})(x::AbstractTTVector{T, N}, ::Val{true}) where {T, N} = adjoint(A) * x
 
 """
     adjoint(A::TTOperator) -> TTOperator
@@ -177,15 +177,15 @@ end
 Conjugate transpose of `A`: every core has its output and input indices swapped
 and its entries conjugated. The ranks are unchanged.
 """
-function Base.adjoint(A::TTOperator{T, N}) where {T, N}
+function Base.adjoint(A::AbstractTTOperator{T, N}) where {T, N}
     cores = [conj(permutedims(c, (2, 1, 3, 4))) for c in A.cores]
-    return TTOperator{T, N}(cores, A.col_dims, A.row_dims, copy(A.ranks); orthogonality = copy(A.orthogonality))
+    return _rewrap(A, TTOperator{T, N}(cores, A.col_dims, A.row_dims, copy(A.ranks); orthogonality = copy(A.orthogonality)))
 end
 
 """
 Multiplies two TTOperators and returns a new TTOperator.
 """
-function *(A::TTOperator{T, N}, B::TTOperator{T, N}) where {T <: Number, N}
+function *(A::AbstractTTOperator{T, N}, B::AbstractTTOperator{T, N}) where {T <: Number, N}
     @assert A.col_dims == B.row_dims "Incompatible dimensions"
     d = nsites(A)
     A_rks = A.ranks #R_0, ..., R_d
@@ -195,7 +195,7 @@ function *(A::TTOperator{T, N}, B::TTOperator{T, N}) where {T <: Number, N}
         M_temp = reshape(Y[k], A.row_dims[k], B.col_dims[k], A_rks[k], B_rks[k], A_rks[k + 1], B_rks[k + 1])
         @tensor M_temp[iₖ, jₖ, αₖ₋₁, βₖ₋₁, αₖ, βₖ] = A.cores[k][iₖ, z, αₖ₋₁, αₖ] * B.cores[k][z, jₖ, βₖ₋₁, βₖ]
     end
-    return TTOperator{T, N}(Y, A.row_dims, B.col_dims, A.ranks .* B.ranks)
+    return _rewrap(A, B, TTOperator{T, N}(Y, A.row_dims, B.col_dims, A.ranks .* B.ranks))
 end
 
 """
@@ -221,7 +221,7 @@ ordering for multivariate operators.
 The dual operation — physical blocks composed by matrix product, bonds tensored
 (the *outer* core product `•`) — is ordinary operator multiplication `A * B`.
 """
-function ⨝(A::TTOperator{T, N}, B::TTOperator{T, N}) where {T <: Number, N}
+function ⨝(A::AbstractTTOperator{T, N}, B::AbstractTTOperator{T, N}) where {T <: Number, N}
     @assert nsites(A) == nsites(B) "Inner core product requires operators with the same number of cores"
     d = nsites(A)
     Y = Vector{Array{T, 4}}(undef, d)
@@ -250,7 +250,7 @@ Outer core product of two TT operators. The physical TT blocks are composed by m
 indices are tensored — i.e. ordinary operator composition, with ranks combining
 as `A.ranks .* B.ranks`. 
 """
-∙(A::TTOperator{T, N}, B::TTOperator{T, N}) where {T <: Number, N} = A * B
+∙(A::AbstractTTOperator{T, N}, B::AbstractTTOperator{T, N}) where {T <: Number, N} = A * B
 
 function *(A::Array{TTVector{T, N}, 1}, x::Vector{T}) where {T, N}
     out = x[1] * A[1]
@@ -263,7 +263,8 @@ end
 """
 Computes the dot product of two TTVectors and returns a scalar.
 """
-function dot(A::TTVector{T, N}, B::TTVector{T, N}) where {T <: Number, N}
+function dot(A::AbstractTTVector{T, N}, B::AbstractTTVector{T, N}) where {T <: Number, N}
+    _check_qtt(A, B)
     @assert A.dims == B.dims "TT dimensions are not compatible"
     A_rks = A.ranks
     B_rks = B.ranks
@@ -284,83 +285,83 @@ _scale_site(x) = _orthogonality(x)[1]
 """
 Multiplies a TTVector by a scalar and returns a new TTVector.
 """
-function *(a::S, A::TTVector{R, N}) where {S <: Number, R <: Number, N}
+function *(a::S, A::AbstractTTVector{R, N}) where {S <: Number, R <: Number, N}
     T = promote_type(S, R)
     aT = convert(T, a)
     if iszero(aT)
-        return zeros_tt(T, A.dims, copy(A.ranks))
+        return _rewrap(A, zeros_tt(T, A.dims, copy(A.ranks)))
     end
     i = _scale_site(A)
     X = [Array{T, 3}(c) for c in A.cores]   # promote and copy cores before scaling
     X[i] = aT * X[i]
-    return TTVector{T, N}(X, A.dims, copy(A.ranks); orthogonality = copy(A.orthogonality))
+    return _rewrap(A, TTVector{T, N}(X, A.dims, copy(A.ranks); orthogonality = copy(A.orthogonality)))
 end
 
 """
 Multiplies a TTOperator by a scalar and returns a new TTOperator.
 """
-function *(a::S, A::TTOperator{R, N}) where {S <: Number, R <: Number, N}
+function *(a::S, A::AbstractTTOperator{R, N}) where {S <: Number, R <: Number, N}
     T = promote_type(S, R)
     aT = convert(T, a)
     if iszero(aT)
-        return zeros_tto(T, A.row_dims, A.col_dims, copy(A.ranks))
+        return _rewrap(A, zeros_tto(T, A.row_dims, A.col_dims, copy(A.ranks)))
     end
     i = _scale_site(A)
     X = [Array{T, 4}(c) for c in A.cores]   # promote and copy cores before scaling
     X[i] = aT * X[i]
-    return TTOperator{T, N}(X, A.row_dims, A.col_dims, copy(A.ranks); orthogonality = copy(A.orthogonality))
+    return _rewrap(A, TTOperator{T, N}(X, A.row_dims, A.col_dims, copy(A.ranks); orthogonality = copy(A.orthogonality)))
 end
 
-Base.:*(A::TTVector{T, N}, a::S) where {T <: Number, S <: Number, N} = a * A
+Base.:*(A::AbstractTTVector{T, N}, a::S) where {T <: Number, S <: Number, N} = a * A
 
--(A::TTVector{T, N}) where {T <: Number, N} = (-one(T)) * A
--(A::TTOperator{T, N}) where {T <: Number, N} = (-one(T)) * A
+-(A::AbstractTTVector{T, N}) where {T <: Number, N} = (-one(T)) * A
+-(A::AbstractTTOperator{T, N}) where {T <: Number, N} = (-one(T)) * A
 
-function -(A::TTVector{T, N}, B::TTVector{T, N}) where {T <: Number, N}
+function -(A::AbstractTTVector{T, N}, B::AbstractTTVector{T, N}) where {T <: Number, N}
     return A + (-one(T)) * B
 end
 
-function -(A::TTOperator{T, N}, B::TTOperator{T, N}) where {T <: Number, N}
+function -(A::AbstractTTOperator{T, N}, B::AbstractTTOperator{T, N}) where {T <: Number, N}
     return A + (-one(T)) * B
 end
 
 # Mixed element types promote to a common type and dispatch to the same-type methods.
-function +(x::TTVector{T1, N}, y::TTVector{T2, N}) where {T1 <: Number, T2 <: Number, N}
+function +(x::AbstractTTVector{T1, N}, y::AbstractTTVector{T2, N}) where {T1 <: Number, T2 <: Number, N}
     T = promote_type(T1, T2)
     return _convert_eltype(T, x) + _convert_eltype(T, y)
 end
 
-function +(x::TTOperator{T1, N}, y::TTOperator{T2, N}) where {T1 <: Number, T2 <: Number, N}
+function +(x::AbstractTTOperator{T1, N}, y::AbstractTTOperator{T2, N}) where {T1 <: Number, T2 <: Number, N}
     T = promote_type(T1, T2)
     return _convert_eltype(T, x) + _convert_eltype(T, y)
 end
 
-function -(x::TTVector{T1, N}, y::TTVector{T2, N}) where {T1 <: Number, T2 <: Number, N}
+function -(x::AbstractTTVector{T1, N}, y::AbstractTTVector{T2, N}) where {T1 <: Number, T2 <: Number, N}
     T = promote_type(T1, T2)
     return _convert_eltype(T, x) - _convert_eltype(T, y)
 end
 
-function -(x::TTOperator{T1, N}, y::TTOperator{T2, N}) where {T1 <: Number, T2 <: Number, N}
+function -(x::AbstractTTOperator{T1, N}, y::AbstractTTOperator{T2, N}) where {T1 <: Number, T2 <: Number, N}
     T = promote_type(T1, T2)
     return _convert_eltype(T, x) - _convert_eltype(T, y)
 end
 
-function *(A::TTOperator{T1, N}, v::TTVector{T2, N}) where {T1 <: Number, T2 <: Number, N}
+function *(A::AbstractTTOperator{T1, N}, v::AbstractTTVector{T2, N}) where {T1 <: Number, T2 <: Number, N}
     T = promote_type(T1, T2)
     return _convert_eltype(T, A) * _convert_eltype(T, v)
 end
 
-function *(A::TTOperator{T1, N}, B::TTOperator{T2, N}) where {T1 <: Number, T2 <: Number, N}
+function *(A::AbstractTTOperator{T1, N}, B::AbstractTTOperator{T2, N}) where {T1 <: Number, T2 <: Number, N}
     T = promote_type(T1, T2)
     return _convert_eltype(T, A) * _convert_eltype(T, B)
 end
 
-function dot(A::TTVector{T1, N}, B::TTVector{T2, N}) where {T1 <: Number, T2 <: Number, N}
+function dot(A::AbstractTTVector{T1, N}, B::AbstractTTVector{T2, N}) where {T1 <: Number, T2 <: Number, N}
     T = promote_type(T1, T2)
     return dot(_convert_eltype(T, A), _convert_eltype(T, B))
 end
 
-function /(A::TTVector, a)
+function /(A::AbstractTTVector, a)
     return 1 / a * A
 end
 
@@ -370,7 +371,7 @@ end
 Return the rank-one operator `x y†` as a [`TTOperator`](@ref), with entries
 `x[i] * conj(y[j])`. Its TT ranks are the products of the ranks of `x` and `y`.
 """
-function outer_product(x::TTVector{T, N}, y::TTVector{T, N}) where {T <: Number, N}
+function outer_product(x::AbstractTTVector{T, N}, y::AbstractTTVector{T, N}) where {T <: Number, N}
     Y = [zeros(T, x.dims[k], x.dims[k], x.ranks[k] * y.ranks[k], x.ranks[k + 1] * y.ranks[k + 1]) for k in eachindex(x.dims)]
     @inbounds for k in eachindex(Y)
         M_temp = reshape(Y[k], x.dims[k], x.dims[k], x.ranks[k], y.ranks[k], x.ranks[k + 1], y.ranks[k + 1])
@@ -383,7 +384,7 @@ end
 """
 Creates a diagonal TTOperator from a TTVector.
 """
-function tt_to_diag_tto(x::TTVector{T, M}) where {T <: Number, M}
+function tt_to_diag_tto(x::AbstractTTVector{T, M}) where {T <: Number, M}
     d = nsites(x)                              # number of dimensions (cores)
     dims = x.dims                       # (n₁, n₂, …, n_d)
     rks = x.ranks                        # (r₀=1, r₁, …, r_d=1)
@@ -409,13 +410,13 @@ function tt_to_diag_tto(x::TTVector{T, M}) where {T <: Number, M}
         new_cores[i] = D
     end
 
-    return TTOperator{T, M}(new_cores, dims, new_rks)
+    return _rewrap(x, TTOperator{T, M}(new_cores, dims, new_rks))
 end
 
 """
 Computes the Hadamard product (element-wise multiplication) of two TTVectors and returns a new TTVector.
 """
-function hadamard(x::TTVector{T, N}, y::TTVector{T, N}) where {T <: Number, N}
+function hadamard(x::AbstractTTVector{T, N}, y::AbstractTTVector{T, N}) where {T <: Number, N}
     @assert x.dims == y.dims "Incompatible TT dimensions"
     d = nsites(x)
     ttv_vec = Vector{Array{T, 3}}(undef, d)
@@ -432,7 +433,7 @@ function hadamard(x::TTVector{T, N}, y::TTVector{T, N}) where {T <: Number, N}
         end
         ttv_vec[k] = core
     end
-    return TTVector{T, N}(ttv_vec, dims, rks)
+    return _rewrap(x, y, TTVector{T, N}(ttv_vec, dims, rks))
 end
 
 """
@@ -440,7 +441,7 @@ end
 
 Elementwise (Hadamard) product of two `TTVector`s; identical to [`hadamard`](@ref).
 """
-⊕(x::TTVector{T, N}, y::TTVector{T, N}) where {T <: Number, N} = hadamard(x, y)
+⊕(x::AbstractTTVector{T, N}, y::AbstractTTVector{T, N}) where {T <: Number, N} = hadamard(x, y)
 
 # Swap cores j and j + 1 of a chain through a truncated SVD (rule of `_trunc_rank`
 # for a TT with d cores). The orthogonality center of the chain must be on one
@@ -506,7 +507,7 @@ fit under can therefore still cause an error; [`hadamard`](@ref) followed by
 The result has its orthogonality center on the first core.
 """
 function hadamard_ttm(
-        x::TTVector{T, N}, y::TTVector{T, N};
+        x::AbstractTTVector{T, N}, y::AbstractTTVector{T, N};
         trunc_tol::Real = 1.0e-14,
         max_bond::Int = typemax(Int)
     ) where {T <: Number, N}
@@ -541,13 +542,13 @@ function hadamard_ttm(
         _ttm_contract!(cores, p)
     end
     rks = [1; [size(c, 3) for c in cores]]
-    return TTVector{T, N}(cores, x.dims, rks; orthogonality = (1, 1))
+    return _rewrap(x, y, TTVector{T, N}(cores, x.dims, rks; orthogonality = (1, 1)))
 end
 
 """
 Computes the Kronecker product of two TTOperators and returns a new TTOperator.
 """
-function kron(A::TTOperator{T, d1}, B::TTOperator{T, d2}) where {T, d1, d2}
+function kron(A::AbstractTTOperator{T, d1}, B::AbstractTTOperator{T, d2}) where {T, d1, d2}
     d = vcat(A.cores, B.cores)
     row_dims = (A.row_dims..., B.row_dims...)
     col_dims = (A.col_dims..., B.col_dims...)
@@ -561,12 +562,12 @@ end
 Kronecker product of two `TTOperator`s or two `TTVector`s; identical to
 [`kron`](@ref). The result has the cores of `A` followed by the cores of `B`.
 """
-⊗(A::TTOperator{T, d1}, B::TTOperator{T, d2}) where {T, d1, d2} = kron(A, B)
+⊗(A::AbstractTTOperator{T, d1}, B::AbstractTTOperator{T, d2}) where {T, d1, d2} = kron(A, B)
 
 """
 Computes the Kronecker product of two TTVectors and returns a new TTVector.
 """
-function kron(a::TTVector{T, d1}, b::TTVector{T, d2}) where {T, d1, d2}
+function kron(a::AbstractTTVector{T, d1}, b::AbstractTTVector{T, d2}) where {T, d1, d2}
     return TTVector{T, d1 + d2}(
         vcat(a.cores, b.cores),
         (a.dims..., b.dims...),
@@ -575,7 +576,7 @@ function kron(a::TTVector{T, d1}, b::TTVector{T, d2}) where {T, d1, d2}
     )
 end
 
-⊗(a::TTVector{T, d1}, b::TTVector{T, d2}) where {T, d1, d2} = kron(a, b)
+⊗(a::AbstractTTVector{T, d1}, b::AbstractTTVector{T, d2}) where {T, d1, d2} = kron(a, b)
 
 """
     euclidean_distance(a::TTVector, b::TTVector) -> Real
@@ -585,7 +586,7 @@ Return `‖a − b‖`, computed from the inner products as
 Because of cancellation, distances below about `√eps · max(‖a‖, ‖b‖)` are not
 resolved; use `norm(a - b)` when small differences matter.
 """
-function euclidean_distance(a::TTVector{T, N}, b::TTVector{T, N}) where {T <: Number, N}
+function euclidean_distance(a::AbstractTTVector{T, N}, b::AbstractTTVector{T, N}) where {T <: Number, N}
     @assert a.dims == b.dims "TT dimensions must match"
     return sqrt(max(real(dot(a, a) - 2 * real(dot(b, a)) + dot(b, b)), zero(real(T))))
 end
@@ -598,7 +599,7 @@ Return the relative distance `‖a − b‖ / ‖b‖`, computed from inner prod
 a complex number. The same cancellation limit as [`euclidean_distance`](@ref)
 applies.
 """
-function euclidean_distance_normalized(a::TTVector{T, N}, b::TTVector{T, N}) where {T <: Number, N}
+function euclidean_distance_normalized(a::AbstractTTVector{T, N}, b::AbstractTTVector{T, N}) where {T <: Number, N}
     @assert a.dims == b.dims "TT dimensions must match"
     return sqrt(1.0 + dot(a, a) / dot(b, b) - 2.0 * real(dot(b, a)) / dot(b, b))
 end
@@ -606,7 +607,7 @@ end
 """
 Computes the norm of a TTVector.
 """
-function norm(a::TTVector{T, N}) where {T <: Number, N}
+function norm(a::AbstractTTVector{T, N}) where {T <: Number, N}
     s = TensorTrainNumerics.dot(a, a)
     v = real(s)
     v = v < 0 ? zero(v) : v

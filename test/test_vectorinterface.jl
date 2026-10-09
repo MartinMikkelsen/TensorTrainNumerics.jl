@@ -7,7 +7,7 @@ using VectorInterface
 
 _dense(x::TTVector) = vec(tt_to_tensor(x))
 
-mutable struct BlockingIdentityOperator <: AbstractTTOperator
+mutable struct BlockingIdentityOperator <: AbstractTTOperator{Float64, 4}
     entered::Channel{Nothing}
     release::Channel{Nothing}
     blocked::Bool

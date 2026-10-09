@@ -49,11 +49,7 @@ toeplitz_to_qtto
 shift
 ∇
 Δ
-Δ_DN
-Δ_ND
-Δ_NN
-Δ_P
-Δ⁻¹_DN
+Δ⁻¹
 qtt_laplacian
 qtto_prolongation
 qtto_constant_prolongation

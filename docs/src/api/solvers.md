@@ -46,6 +46,13 @@ gpe_energy
 ## Time evolution
 
 ```@docs
+time_evolve
+TimeEvolutionAlgorithm
+Euler
+ImplicitEuler
+CrankNicolson
+RK4
+TDVP
 euler_method
 implicit_euler_method
 crank_nicolson_method

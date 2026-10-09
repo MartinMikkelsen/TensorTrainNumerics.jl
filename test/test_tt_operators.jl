@@ -105,10 +105,10 @@ end
     end
 end
 
-@testset "Δ_NN" begin
+@testset "Δ with bc = :NN" begin
     d = 6
 
-    A = Δ_NN(d)
+    A = Δ(d; bc = :NN)
 
     function laplacian_nn_matrix(n)
         A = zeros(n, n)
@@ -161,10 +161,10 @@ end
     @test A == B
 end
 
-@testset "Δ_DN" begin
+@testset "Δ with bc = :DN" begin
     d = 6
 
-    A = Δ_DN(d)
+    A = Δ(d; bc = :DN)
 
     function laplacian_dn_matrix(n)
         A = zeros(n, n)
@@ -191,10 +191,10 @@ end
     @test A == B
 end
 
-@testset "Δ_ND" begin
+@testset "Δ with bc = :ND" begin
     d = 6
 
-    A = Δ_ND(d)
+    A = Δ(d; bc = :ND)
 
     function laplacian_nd_matrix(n)
         A = zeros(n, n)
@@ -221,10 +221,10 @@ end
     @test A == B
 end
 
-@testset "Δ_P" begin
+@testset "Δ with bc = :periodic" begin
     d = 6
 
-    A = Δ_P(d)
+    A = Δ(d; bc = :periodic)
 
     function laplacian_p_matrix(n)
         A = zeros(n, n)
@@ -249,7 +249,7 @@ end
 end
 
 @testset "NN and periodic Laplacians compose with TT operations" begin
-    for (name, build) in ((:NN, Δ_NN), (:periodic, Δ_P)), d in 4:7
+    for (name, build) in ((:NN, d -> Δ(d; bc = :NN)), (:periodic, d -> Δ(d; bc = :periodic))), d in 4:7
         @testset "$name, $d sites" begin
             n = 2^d
             reference = Matrix(SymTridiagonal(fill(2.0, n), fill(-1.0, n - 1)))
@@ -418,7 +418,7 @@ end
 @testset "Inverse" begin
 
     d = 6
-    A = Δ⁻¹_DN(d)
+    A = Δ⁻¹(d; bc = :DN)
 
     function inv_DN(n::Int)
         @assert n ≥ 1 "n must be ≥ 1"

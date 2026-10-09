@@ -5,7 +5,7 @@ using ChainRulesCore
 using TensorOperations
 import ChainRulesCore: rrule, NoTangent, Tangent, ZeroTangent, AbstractZero, unthunk
 
-function _tt_left_envs(A::TTVector{T, M}, B::TTVector{T, M}) where {T, M}
+function _tt_left_envs(A::AbstractTTVector{T, M}, B::AbstractTTVector{T, M}) where {T, M}
     N = nsites(A)
     Ls = Vector{Matrix{T}}(undef, N + 1)
     Ls[1] = ones(T, 1, 1)
@@ -19,7 +19,7 @@ function _tt_left_envs(A::TTVector{T, M}, B::TTVector{T, M}) where {T, M}
     return Ls
 end
 
-function _tt_right_envs(A::TTVector{T, M}, B::TTVector{T, M}) where {T, M}
+function _tt_right_envs(A::AbstractTTVector{T, M}, B::AbstractTTVector{T, M}) where {T, M}
     N = nsites(A)
     Gs = Vector{Matrix{T}}(undef, N + 1)
     Gs[N + 1] = ones(T, 1, 1)
@@ -35,7 +35,7 @@ end
 
 function rrule(
         ::typeof(TensorTrainNumerics.dot),
-        A::TTVector{T, M}, B::TTVector{T, M}
+        A::AbstractTTVector{T, M}, B::AbstractTTVector{T, M}
     ) where {T, M}
     Ls = _tt_left_envs(A, B)
     Ω = Ls[nsites(A) + 1][1, 1]
@@ -58,14 +58,14 @@ function rrule(
         end
         return (
             NoTangent(),
-            Tangent{TTVector{T, M}}(cores = Ā),
-            Tangent{TTVector{T, M}}(cores = B̄),
+            Tangent{typeof(A)}(cores = Ā),
+            Tangent{typeof(B)}(cores = B̄),
         )
     end
     return Ω, dot_pullback
 end
 
-function rrule(::typeof(*), H::TTOperator{T, N}, ψ::TTVector{T, N}) where {T, N}
+function rrule(::typeof(*), H::AbstractTTOperator{T, N}, ψ::AbstractTTVector{T, N}) where {T, N}
     Y = H * ψ
     function mul_pullback(Ȳraw)
         Ȳ = unthunk(Ȳraw)
@@ -95,14 +95,14 @@ function rrule(::typeof(*), H::TTOperator{T, N}, ψ::TTVector{T, N}) where {T, N
         end
         return (
             NoTangent(),
-            Tangent{TTOperator{T, N}}(cores = H̄),
-            Tangent{TTVector{T, N}}(cores = ψ̄),
+            Tangent{typeof(H)}(cores = H̄),
+            Tangent{typeof(ψ)}(cores = ψ̄),
         )
     end
     return Y, mul_pullback
 end
 
-function rrule(::typeof(hadamard), x::TTVector{T, N}, y::TTVector{T, N}) where {T, N}
+function rrule(::typeof(hadamard), x::AbstractTTVector{T, N}, y::AbstractTTVector{T, N}) where {T, N}
     z = hadamard(x, y)
     function hadamard_pullback(z̄raw)
         z̄ = unthunk(z̄raw)
@@ -133,8 +133,8 @@ function rrule(::typeof(hadamard), x::TTVector{T, N}, y::TTVector{T, N}) where {
         end
         return (
             NoTangent(),
-            Tangent{TTVector{T, N}}(cores = x̄),
-            Tangent{TTVector{T, N}}(cores = ȳ),
+            Tangent{typeof(x)}(cores = x̄),
+            Tangent{typeof(y)}(cores = ȳ),
         )
     end
     return z, hadamard_pullback
@@ -177,7 +177,7 @@ function _split_sum_cores(xs, ys, Zs)
     return x̄, ȳ
 end
 
-function rrule(::typeof(+), x::TTVector{T, N}, y::TTVector{T, N}) where {T, N}
+function rrule(::typeof(+), x::AbstractTTVector{T, N}, y::AbstractTTVector{T, N}) where {T, N}
     z = x + y
     function add_pullback(z̄raw)
         Z = _cotangent_cores(z̄raw, :cores)
@@ -186,14 +186,14 @@ function rrule(::typeof(+), x::TTVector{T, N}, y::TTVector{T, N}) where {T, N}
         x̄, ȳ = _split_sum_cores(x.cores, y.cores, Zd)
         return (
             NoTangent(),
-            Tangent{TTVector{T, N}}(cores = x̄),
-            Tangent{TTVector{T, N}}(cores = ȳ),
+            Tangent{typeof(x)}(cores = x̄),
+            Tangent{typeof(y)}(cores = ȳ),
         )
     end
     return z, add_pullback
 end
 
-function rrule(::typeof(+), A::TTOperator{T, N}, B::TTOperator{T, N}) where {T, N}
+function rrule(::typeof(+), A::AbstractTTOperator{T, N}, B::AbstractTTOperator{T, N}) where {T, N}
     C = A + B
     function add_pullback(C̄raw)
         Z = _cotangent_cores(C̄raw, :cores)
@@ -202,8 +202,8 @@ function rrule(::typeof(+), A::TTOperator{T, N}, B::TTOperator{T, N}) where {T, 
         Ā, B̄ = _split_sum_cores(A.cores, B.cores, Zd)
         return (
             NoTangent(),
-            Tangent{TTOperator{T, N}}(cores = Ā),
-            Tangent{TTOperator{T, N}}(cores = B̄),
+            Tangent{typeof(A)}(cores = Ā),
+            Tangent{typeof(B)}(cores = B̄),
         )
     end
     return C, add_pullback
@@ -224,28 +224,28 @@ function _scale_rrule(a, cores, i, ::Type{T}) where {T}
     return X, scale_cotangents
 end
 
-function rrule(::typeof(*), a::Number, x::TTVector{R, N}) where {R <: Number, N}
+function rrule(::typeof(*), a::Number, x::AbstractTTVector{R, N}) where {R <: Number, N}
     T = promote_type(typeof(a), R)
     X, scale_cotangents = _scale_rrule(a, x.cores, TensorTrainNumerics._scale_site(x), T)
-    y = TTVector{T, N}(X, x.dims, copy(x.ranks); orthogonality = copy(x.orthogonality))
+    y = TensorTrainNumerics._rewrap(x, TTVector{T, N}(X, x.dims, copy(x.ranks); orthogonality = copy(x.orthogonality)))
     function scale_pullback(ȳraw)
         Z = _cotangent_cores(ȳraw, :cores)
         Z === nothing && return (NoTangent(), ZeroTangent(), ZeroTangent())
         ā, x̄ = scale_cotangents(Z)
-        return (NoTangent(), ā, Tangent{TTVector{R, N}}(cores = x̄))
+        return (NoTangent(), ā, Tangent{typeof(x)}(cores = x̄))
     end
     return y, scale_pullback
 end
 
-function rrule(::typeof(*), a::Number, A::TTOperator{R, N}) where {R <: Number, N}
+function rrule(::typeof(*), a::Number, A::AbstractTTOperator{R, N}) where {R <: Number, N}
     T = promote_type(typeof(a), R)
     X, scale_cotangents = _scale_rrule(a, A.cores, TensorTrainNumerics._scale_site(A), T)
-    B = TTOperator{T, N}(X, A.row_dims, A.col_dims, copy(A.ranks); orthogonality = copy(A.orthogonality))
+    B = TensorTrainNumerics._rewrap(A, TTOperator{T, N}(X, A.row_dims, A.col_dims, copy(A.ranks); orthogonality = copy(A.orthogonality)))
     function scale_pullback(B̄raw)
         Z = _cotangent_cores(B̄raw, :cores)
         Z === nothing && return (NoTangent(), ZeroTangent(), ZeroTangent())
         ā, Ā = scale_cotangents(Z)
-        return (NoTangent(), ā, Tangent{TTOperator{R, N}}(cores = Ā))
+        return (NoTangent(), ā, Tangent{typeof(A)}(cores = Ā))
     end
     return B, scale_pullback
 end

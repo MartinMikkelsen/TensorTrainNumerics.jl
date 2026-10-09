@@ -290,16 +290,26 @@ function ∇(d::Int)
 end
 
 """
-Constructs a tensor train operator (TTO) representation of the Laplacian with Dirichlet-Dirichlet boundary conditions
+    Δ(d; bc=:DD) -> TTOperator
+
+Second-difference (negative Laplacian) operator on a grid of `2^d` points in
+QTT format, without the `1/h²` scaling.
+
+`bc` selects the boundary conditions at the left and right end of the grid:
+`:DD` (Dirichlet–Dirichlet), `:DN` (Dirichlet–Neumann), `:ND`
+(Neumann–Dirichlet), `:NN` (Neumann–Neumann), or `:periodic`. All except `:DD`
+require `d ≥ 4`.
 """
-function Δ(d::Int)
-    return toeplitz_to_qtto(2, -1, -1, d)
+function Δ(d::Int; bc::Symbol = :DD)
+    bc === :DD && return toeplitz_to_qtto(2, -1, -1, d)
+    bc === :DN && return _Δ_DN(d)
+    bc === :ND && return _Δ_ND(d)
+    bc === :NN && return _Δ_NN(d)
+    bc === :periodic && return _Δ_periodic(d)
+    throw(ArgumentError("`bc` must be :DD, :DN, :ND, :NN, or :periodic; got :$bc"))
 end
 
-"""
-Constructs a tensor train operator (TTO) representation of the Laplacian with Dirichlet-Neumann boundary conditions
-"""
-function Δ_DN(d::Int)
+function _Δ_DN(d::Int)
     @assert d ≥ 4 "Dimension must be at least 4"
     out = zeros_tto(2, d, 4)
     id = [1 0; 0 1]
@@ -317,10 +327,7 @@ function Δ_DN(d::Int)
     return out
 end
 
-"""
-Constructs a tensor train operator (TTO) representation of the Laplacian with Neumann-Dirichlet boundary conditions
-"""
-function Δ_ND(d::Int)
+function _Δ_ND(d::Int)
     @assert d ≥ 4 "Dimension must be at least 4"
     out = zeros_tto(2, d, 4)
     id = [1 0; 0 1]
@@ -338,10 +345,7 @@ function Δ_ND(d::Int)
     return out
 end
 
-"""
-Constructs a tensor train operator (TTO) representation of the Laplacian with Neumann-Neumann boundary conditions
-"""
-function Δ_NN(d)
+function _Δ_NN(d::Int)
     @assert d ≥ 4 "Dimension must be at least 4"
     out = zeros_tto(ntuple(_ -> 2, d), [1; fill(5, d - 1); 1])
     id = [1 0; 0 1]
@@ -360,10 +364,7 @@ function Δ_NN(d)
     return out
 end
 
-"""
-Constructs a tensor train operator (TTO) representation of the Laplacian with periodic boundary conditions
-"""
-function Δ_P(d)
+function _Δ_periodic(d::Int)
     @assert d ≥ 4 "Dimension must be at least 4"
     out = zeros_tto(ntuple(_ -> 2, d), [1; fill(5, d - 1); 1])
     id = [1 0; 0 1]
@@ -393,9 +394,13 @@ function Δ_P(d)
 end
 
 """
-Constructs a tensor train operator (TTO) representation of the inverse Laplacian with Dirichlet-Neumann boundary conditions
+    Δ⁻¹(d; bc=:DN) -> TTOperator
+
+Inverse of [`Δ`](@ref) in QTT format. Only `bc = :DN` (Dirichlet–Neumann) is
+available.
 """
-function Δ⁻¹_DN(d::Int)
+function Δ⁻¹(d::Int; bc::Symbol = :DN)
+    bc === :DN || throw(ArgumentError("`Δ⁻¹` is only available for `bc = :DN`; got :$bc"))
     @assert d ≥ 2 "Dimension must be at least 2"
     out = zeros_tto(2, d, 4)
     id = [1 0; 0 1]
@@ -608,7 +613,7 @@ function zeros_tt(::Type{T}, dims::Vector{Int}, ranks::Vector{Int}; kwargs...) w
     return zeros_tt(T, Tuple(dims), Tuple(ranks); kwargs...)
 end
 
-function zeros_tt!(A::TTVector)
+function zeros_tt!(A::AbstractTTVector)
     @assert isa(A.cores, Vector)
     for core in A.cores
         fill!(core, zero(eltype(core)))
@@ -681,9 +686,8 @@ points over `[a, b]`). The finite-difference scaling `1/h²` is included.
 - `ordering::Symbol`: `:serial` (sites grouped by dimension) or `:interleaved`
   (sites interleaved across dimensions). Default: `:interleaved`.
 - `a::Real`, `b::Real`: Interval endpoints. Default: `[0, 1]`.
-- `bc::Symbol`: Boundary conditions — `:DD` (Dirichlet–Dirichlet), `:DN`
-  (Dirichlet–Neumann), `:ND` (Neumann–Dirichlet), `:NN` (Neumann–Neumann).
-  Default: `:DN`.
+- `bc::Symbol`: Boundary conditions of each 1D operator, as in [`Δ`](@ref):
+  `:DD`, `:DN`, `:ND`, `:NN`, or `:periodic`. Default: `:DN`.
 
 # Returns
 A `QTTOperator` with `N = n_dims * bits_per_dim` sites.
@@ -695,22 +699,12 @@ function qtt_laplacian(
     )
     @assert ordering ∈ (:interleaved, :serial) "ordering must be :interleaved or :serial"
     @assert n_dims ≥ 1 "n_dims must be at least 1"
-    @assert bc ∈ (:DD, :DN, :ND, :NN) "bc must be :DD, :DN, :ND, or :NN"
 
     d = bits_per_dim
     h = (b - a) / (2^d - 1)
     scale = 1.0 / h^2
 
-    # Select 1D Laplacian with correct boundary conditions
-    lap_1d = if bc == :DD
-        Δ(d)
-    elseif bc == :DN
-        Δ_DN(d)
-    elseif bc == :ND
-        Δ_ND(d)
-    else  # :NN
-        Δ_NN(d)
-    end
+    lap_1d = Δ(d; bc)
 
     id_1d = id_tto(d)
 

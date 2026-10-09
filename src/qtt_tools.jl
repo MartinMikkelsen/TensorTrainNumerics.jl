@@ -100,7 +100,7 @@ end
 Return the `2^d` entries of the binary QTT `qtt` as a vector; identical to
 [`qtt_to_vector`](@ref).
 """
-function qtt_to_function(qtt::TTVector{T, d}) where {T <: Number, d}
+function qtt_to_function(qtt::AbstractTTVector{T, d}) where {T <: Number, d}
     return qtt_to_vector(qtt)
 end
 
@@ -111,7 +111,7 @@ Return the `2^d` entries of the binary QTT `qtt` as a vector, with site 1 the
 most significant bit. The contraction is progressive and never forms the
 `2 × ⋯ × 2` tensor.
 """
-function qtt_to_vector(qtt::TTVector{T}) where {T}
+function qtt_to_vector(qtt::AbstractTTVector{T}) where {T}
     d = nsites(qtt)
     P = qtt.cores[1][:, 1, :]
     for k in 2:d
@@ -250,7 +250,7 @@ end
 """
 Converts a quantics tensor train operator (`TTOperator`) into its full matrix representation.
 """
-function qtto_to_matrix(Aqtto::TTOperator{T, d}) where {T, d}
+function qtto_to_matrix(Aqtto::AbstractTTOperator{T, d}) where {T, d}
     A = zeros(T, 2^d, 2^d)
     A_tensor = tto_to_tensor(Aqtto)
     @inbounds for t in CartesianIndices(A_tensor)
@@ -396,7 +396,7 @@ Convert a QTT (or any `TTVector`) back to TT format by contracting consecutive c
 Physical dimensions are merged using the same BIG-ENDIAN convention as `to_qtt`:
 the earlier (coarser) core provides the more significant bits.
 """
-function to_ttv(qtt::TTVector{T, M}, merge_numbers::Vector{Int}) where {T <: Number, M}
+function to_ttv(qtt::AbstractTTVector{T, M}, merge_numbers::Vector{Int}) where {T <: Number, M}
     @assert sum(merge_numbers) == M "merge_numbers must sum to $(M) (the number of QTT cores)"
 
     tt_cores = Vector{Array{T, 3}}()
@@ -443,7 +443,7 @@ Identical TT fields as `TTVector` plus:
 - `bits_per_dim`: bits per dimension (total sites = n_dims × bits_per_dim)
 - `ordering`: `:interleaved` or `:serial`
 """
-struct QTTVector{T <: Number, M} <: AbstractTTVector
+struct QTTVector{T <: Number, M} <: AbstractTTVector{T, M}
     cores::Vector{Array{T, 3}}
     dims::NTuple{M, Int64}
     ranks::Vector{Int64}
@@ -459,7 +459,7 @@ end
 """
 A Quantized Tensor Train operator with explicit multi-dimensional ordering metadata.
 """
-struct QTTOperator{T <: Number, M} <: AbstractTTOperator
+struct QTTOperator{T <: Number, M} <: AbstractTTOperator{T, M}
     cores::Vector{Array{T, 4}}
     row_dims::NTuple{M, Int64}
     col_dims::NTuple{M, Int64}
@@ -473,8 +473,6 @@ struct QTTOperator{T <: Number, M} <: AbstractTTOperator
     end
 end
 
-Base.eltype(::QTTVector{T, M}) where {T, M} = T
-Base.eltype(::QTTOperator{T, M}) where {T, M} = T
 
 function Base.show(io::IO, q::QTTVector{T, M}) where {T, M}
     return print(io, "QTT-MPS{$T}($(nsites(q)) sites, $(q.n_dims)d×$(q.bits_per_dim)bits, $(q.ordering))")
@@ -550,10 +548,6 @@ Strip QTT metadata to recover the underlying `TTVector`.
 TTVector(q::QTTVector{T, M}) where {T, M} =
     TTVector{T, M}(q.cores, q.dims, q.ranks; orthogonality = q.orthogonality)
 
-function entanglement_entropy(q::QTTVector; base::Real = exp(1.0))
-    return entanglement_entropy(TTVector(q); base = base)
-end
-
 """
     TTOperator(q::QTTOperator{T, M})
 
@@ -606,121 +600,6 @@ function check_compat(A::QTTOperator, B::QTTOperator)
     @assert A.n_dims == B.n_dims "QTTOperator n_dims mismatch: $(A.n_dims) ≠ $(B.n_dims)"
     @assert A.bits_per_dim == B.bits_per_dim "QTTOperator bits_per_dim mismatch: $(A.bits_per_dim) ≠ $(B.bits_per_dim)"
     return @assert A.ordering == B.ordering "QTTOperator ordering mismatch: $(A.ordering) ≠ $(B.ordering)"
-end
-
-function orthogonalize(q::QTTVector; i::Int = 1)
-    return QTTVector(orthogonalize(TTVector(q); i = i), q.n_dims, q.bits_per_dim, q.ordering)
-end
-
-function Base.copy(q::QTTVector)
-    return QTTVector(copy(TTVector(q)), q.n_dims, q.bits_per_dim, q.ordering)
-end
-
-function Base.complex(q::QTTVector)
-    return QTTVector(complex(TTVector(q)), q.n_dims, q.bits_per_dim, q.ordering)
-end
-
-function Base.complex(A::QTTOperator)
-    return QTTOperator(complex(TTOperator(A)), A.n_dims, A.bits_per_dim, A.ordering)
-end
-
-function Base.:+(a::QTTVector, b::QTTVector)
-    check_compat(a, b)
-    return QTTVector(TTVector(a) + TTVector(b), a.n_dims, a.bits_per_dim, a.ordering)
-end
-
-function Base.:-(a::QTTVector, b::QTTVector)
-    check_compat(a, b)
-    return QTTVector(TTVector(a) - TTVector(b), a.n_dims, a.bits_per_dim, a.ordering)
-end
-
-function Base.:*(α::Number, q::QTTVector)
-    return QTTVector(α * TTVector(q), q.n_dims, q.bits_per_dim, q.ordering)
-end
-
-function Base.:*(q::QTTVector, α::Number)
-    return QTTVector(TTVector(q) * α, q.n_dims, q.bits_per_dim, q.ordering)
-end
-
-function hadamard(a::QTTVector, b::QTTVector)
-    check_compat(a, b)
-    return QTTVector(hadamard(TTVector(a), TTVector(b)), a.n_dims, a.bits_per_dim, a.ordering)
-end
-
-function dot(a::QTTVector, b::QTTVector)
-    check_compat(a, b)
-    return dot(TTVector(a), TTVector(b))
-end
-
-function LinearAlgebra.norm(q::QTTVector)
-    return norm(TTVector(q))
-end
-
-function Base.copy(A::QTTOperator{T, M}) where {T, M}
-    tto = TTOperator(A)
-    tto_copy = TTOperator{T, M}(copy.(tto.cores), tto.row_dims, tto.col_dims, copy(tto.ranks); orthogonality = copy(tto.orthogonality))
-    return QTTOperator(tto_copy, A.n_dims, A.bits_per_dim, A.ordering)
-end
-
-function Base.:+(A::QTTOperator, B::QTTOperator)
-    check_compat(A, B)
-    return QTTOperator(TTOperator(A) + TTOperator(B), A.n_dims, A.bits_per_dim, A.ordering)
-end
-
-function Base.:*(α::Number, A::QTTOperator)
-    return QTTOperator(α * TTOperator(A), A.n_dims, A.bits_per_dim, A.ordering)
-end
-
-function Base.:*(A::QTTOperator, ψ::QTTVector)
-    check_compat(A, ψ)
-    return QTTVector(TTOperator(A) * TTVector(ψ), ψ.n_dims, ψ.bits_per_dim, ψ.ordering)
-end
-
-function Base.:*(A::TTOperator, q::QTTVector)
-    return A * TTVector(q)
-end
-
-function Base.:*(A::QTTOperator, v::TTVector)
-    return TTOperator(A) * v
-end
-
-function Base.:-(a::QTTVector, b::TTVector)
-    return TTVector(a) - b
-end
-
-function Base.:-(a::TTVector, b::QTTVector)
-    return a - TTVector(b)
-end
-
-function Base.:+(a::QTTVector, b::TTVector)
-    return TTVector(a) + b
-end
-
-function Base.:+(a::TTVector, b::QTTVector)
-    return a + TTVector(b)
-end
-
-function Base.:/(q::QTTVector, α::Number)
-    return QTTVector(TTVector(q) / α, q.n_dims, q.bits_per_dim, q.ordering)
-end
-
-dot(a::TTVector, b::QTTVector) = dot(a, TTVector(b))
-dot(a::QTTVector, b::TTVector) = dot(TTVector(a), b)
-
-function Base.:-(A::TTOperator, B::QTTOperator)
-    return A - TTOperator(B)
-end
-
-function Base.:-(A::QTTOperator, B::TTOperator)
-    return TTOperator(A) - B  # TTOperator(q::QTTOperator) strips metadata
-end
-
-function Base.:+(A::TTOperator, B::QTTOperator)
-    return A + TTOperator(B)
-end
-
-function Base.:+(A::QTTOperator, B::TTOperator)
-    return TTOperator(A) + B  # TTOperator(q::QTTOperator) strips metadata
 end
 
 """
@@ -850,40 +729,27 @@ function reorder(q::QTTVector, new_ordering::Symbol; threshold::Real = 0.0)
     return QTTVector(new_ttv, n_dims, bits_per_dim, new_ordering)
 end
 
-"""
-    tt_compress!(q::QTTVector, max_bond::Int; kwargs...)
+_rewrap(q::QTTVector, x::TTVector) = QTTVector(x, q.n_dims, q.bits_per_dim, q.ordering)
+_rewrap(q::QTTVector, A::TTOperator) = QTTOperator(A, q.n_dims, q.bits_per_dim, q.ordering)
+_rewrap(Q::QTTOperator, A::TTOperator) = QTTOperator(A, Q.n_dims, Q.bits_per_dim, Q.ordering)
 
-In-place compression of a `QTTVector`, preserving QTT metadata.
-
-Delegates to the underlying `TTVector` compression via shared array mutation.
-"""
-function tt_compress!(q::QTTVector, max_bond::Int; kwargs...)
-    tt_compress!(TTVector(q), max_bond; kwargs...)
-    return q
+function _rewrap(a::QTTVector, b::QTTVector, x::TTVector)
+    check_compat(a, b)
+    return _rewrap(a, x)
 end
 
-"""
-    tt_round!(q::QTTVector; kwargs...)
-
-In-place TT rounding of a `QTTVector`, preserving QTT metadata.
-"""
-function tt_round!(q::QTTVector; kwargs...)
-    tt_round!(TTVector(q); kwargs...)
-    return q
+function _rewrap(A::QTTOperator, b::QTTVector, x::TTVector)
+    check_compat(A, b)
+    return _rewrap(b, x)
 end
 
-"""
-    increase_ranks(q::QTTVector, max_bond::Int; kwargs...)
-
-Increase the bond dimension of a `QTTVector`, preserving QTT metadata.
-"""
-function increase_ranks(q::QTTVector, max_bond::Int; kwargs...)
-    return QTTVector(increase_ranks(TTVector(q), max_bond; kwargs...), q.n_dims, q.bits_per_dim, q.ordering)
+function _rewrap(A::QTTOperator, B::QTTOperator, X::TTOperator)
+    check_compat(A, B)
+    return _rewrap(A, X)
 end
-
-_rewrap(guess::QTTVector, x::TTVector) = QTTVector(x, guess.n_dims, guess.bits_per_dim, guess.ordering)
 
 _check_qtt(a::Union{QTTOperator, QTTVector}, b::QTTVector) = check_compat(a, b)
+_check_qtt(A::QTTOperator, B::QTTOperator) = check_compat(A, B)
 
 """
     function_to_qttv(f, n_dims, bits_per_dim; ordering=:interleaved, a=0.0, b=1.0)

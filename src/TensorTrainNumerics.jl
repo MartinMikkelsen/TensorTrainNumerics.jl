@@ -53,7 +53,7 @@ TensorCrossInterpolation.jl are loaded.
 """
 function to_ttvector end
 
-export toeplitz_to_qtto, qtto_prolongation, qtto_constant_prolongation, qtto_linear_prolongation, ∇, Δ_DN, Δ_ND, Δ_NN, Δ_P, Δ, Δ⁻¹_DN, shift, pauli_matrix, pauli_sum_tto, pauli_pair_sum_tto, H_μ, H_μν, heisenberg_xyz_tto, ising_tto, xxz_tto, xxx_tto, xy_tto, zeros_tt, zeros_tto, rand_tt, id_tto, rand_tto, qtt_laplacian
+export toeplitz_to_qtto, qtto_prolongation, qtto_constant_prolongation, qtto_linear_prolongation, ∇, Δ, Δ⁻¹, shift, pauli_matrix, pauli_sum_tto, pauli_pair_sum_tto, H_μ, H_μν, heisenberg_xyz_tto, ising_tto, xxz_tto, xxx_tto, xy_tto, zeros_tt, zeros_tto, rand_tt, id_tto, rand_tto, qtt_laplacian
 include("tt_operators.jl")
 
 export gauss_chebyshev_lobatto
@@ -61,6 +61,7 @@ export index_to_point, tuple_to_index, function_to_tensor, tensor_to_grid, funct
 include("qtt_tools.jl")
 
 export euler_method, implicit_euler_method, crank_nicolson_method, rk4_method
+export TimeEvolutionAlgorithm, Euler, ImplicitEuler, CrankNicolson, RK4, TDVP, time_evolve
 include("solvers/time_evolution.jl")
 
 export fourier_qtto, reverse_qtt_bits
