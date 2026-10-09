@@ -325,27 +325,27 @@ Base.copy(A::AbstractTTOperator{T, N}) where {T <: Number, N} =
     _rewrap(A, TTOperator{T, N}(copy.(A.cores), A.row_dims, A.col_dims, copy(A.ranks); orthogonality = copy(A.orthogonality)))
 
 """
-    tt_decomp(tensor::Array; index=1, tol=1e-12) -> TTVector
+    tt_decomp(tensor::Array; center=1, tol=1e-12) -> TTVector
 
 Decompose a dense `tensor` into a [`TTVector`](@ref) with the TT-SVD
 (hierarchical SVD) algorithm of Oseledets (2011); see also Schollwöck (2011).
 
-The cores `k < index` are left-orthogonal, the cores `k > index` are
-right-orthogonal, and core `index` carries the norm. At every SVD, singular
+The cores `k < center` are left-orthogonal, the cores `k > center` are
+right-orthogonal, and core `center` carries the norm. At every SVD, singular
 values smaller than `tol` are discarded; `tol` is an absolute threshold, not
 relative to the norm of `tensor`.
 
 * Oseledets, I. V. (2011). Tensor-train decomposition. *SIAM Journal on Scientific Computing*, 33(5), 2295-2317.
 * Schollwöck, U. (2011). The density-matrix renormalization group in the age of matrix product states. *Annals of Physics*, 326(1), 96-192.
 """
-function tt_decomp(tensor::Array{T, d}; index = 1, tol = 1.0e-12) where {T <: Number, d}
-    # Decomposes a tensor into its tensor train with core matrices at i=index
+function tt_decomp(tensor::Array{T, d}; center = 1, tol = 1.0e-12) where {T <: Number, d}
+    # Decomposes a tensor into its tensor train with core matrices at i=center
     dims = size(tensor) #dims = [n_1,...,n_d]
     ttv_vec = Array{Array{T, 3}}(undef, d)
     rks = ones(Int64, d + 1)
     tensor_curr = tensor
-    # Calculate ttv_vec[i] for i < index
-    @inbounds for i in 1:(index - 1)
+    # Calculate ttv_vec[i] for i < center
+    @inbounds for i in 1:(center - 1)
         # Reshape the currently left tensor
         tensor_curr = reshape(tensor_curr, Int(rks[i] * dims[i]), :)
         # Perform the singular value decomposition
@@ -362,9 +362,9 @@ function tt_decomp(tensor::Array{T, d}; index = 1, tol = 1.0e-12) where {T <: Nu
         tensor_curr = Diagonal(s[1:rks[i + 1]]) * v'[1:rks[i + 1], :]
     end
 
-    # Calculate ttv_vec[i] for i > index
-    if index < d
-        for i in d:(-1):(index + 1)
+    # Calculate ttv_vec[i] for i > center
+    if center < d
+        for i in d:(-1):(center + 1)
             # Reshape the currently left tensor
             tensor_curr = reshape(tensor_curr, :, dims[i] * rks[i + 1])
             # Perform the singular value decomposition
@@ -383,19 +383,19 @@ function tt_decomp(tensor::Array{T, d}; index = 1, tol = 1.0e-12) where {T <: Nu
             tensor_curr = u[:, 1:rks[i]] * Diagonal(s[1:rks[i]])
         end
     end
-    # Calculate ttv_vec[i] for i = index
+    # Calculate ttv_vec[i] for i = center
     # Reshape the current left tensor
-    tensor_curr = reshape(tensor_curr, Int(dims[index] * rks[index]), :)
+    tensor_curr = reshape(tensor_curr, Int(dims[center] * rks[center]), :)
     # Initialize ttv_vec[i]
-    ttv_vec[index] = zeros(T, dims[index], rks[index], rks[index + 1])
+    ttv_vec[center] = zeros(T, dims[center], rks[center], rks[center + 1])
     # Fill in the ttv_vec[i]
-    for x in 1:dims[index]
-        ttv_vec[index][x, :, :] =
-            tensor_curr[Int(rks[index] * (x - 1) + 1):Int(rks[index] * x), 1:rks[index + 1]]
+    for x in 1:dims[center]
+        ttv_vec[center][x, :, :] =
+            tensor_curr[Int(rks[center] * (x - 1) + 1):Int(rks[center] * x), 1:rks[center + 1]]
     end
 
     # Define the return value as a TTVector
-    return TTVector{T, d}(ttv_vec, dims, rks; orthogonality = (index, index))
+    return TTVector{T, d}(ttv_vec, dims, rks; orthogonality = (center, center))
 end
 
 """
@@ -486,21 +486,21 @@ function tt_to_tto(x::AbstractTTVector{T, N}) where {T <: Number, N}
 end
 
 """
-    tto_decomp(tensor::Array; index=1) -> TTOperator
+    tto_decomp(tensor::Array; center=1) -> TTOperator
 
 Decompose a dense operator into a [`TTOperator`](@ref) with the TT-SVD algorithm.
 `tensor` has `2d` indices ordered `[i₁, …, i_d, j₁, …, j_d]` (output indices
-first, then input indices). The index pairs are interleaved to
+first, then input indices). The center pairs are interleaved to
 `[(i₁, j₁), …, (i_d, j_d)]` and decomposed with [`tt_decomp`](@ref) using its
 default tolerance.
 """
-function tto_decomp(tensor::Array{T, N}; index = 1) where {T <: Number, N}
+function tto_decomp(tensor::Array{T, N}; center = 1) where {T <: Number, N}
     d = Int(ndims(tensor) / 2)
     row_dims = size(tensor)[1:d]
     col_dims = size(tensor)[(d + 1):(2 * d)]
     fused_dims = row_dims .* col_dims
     index_sorted = vec(Transpose(reshape(1:(2 * d), :, 2)))
-    ttv = tt_decomp(reshape(permutedims(tensor, index_sorted), fused_dims); index = index)
+    ttv = tt_decomp(reshape(permutedims(tensor, index_sorted), fused_dims); center)
     rks = ttv.ranks
     cores = [reshape(ttv.cores[i], row_dims[i], col_dims[i], rks[i], rks[i + 1]) for i in 1:d]
     return TTOperator{T, d}(cores, row_dims, col_dims, rks; orthogonality = ttv.orthogonality)
@@ -621,26 +621,22 @@ function increase_ranks(x_tt::AbstractTTVector{T, N}, max_bond::Int; ranks = vca
 end
 
 """
-    orthogonalize(x_tt::TTVector{T,N}; i=1::Int) where {T<:Number, N}
+    orthogonalize(x::AbstractTTVector; center=1)
 
-Orthogonalizes the given Tensor Train (TT) vector `x_tt` with respect to the `i`-th core. The orthogonalization process involves QR and LQ decompositions so that the cores left of `i` are left-orthogonal and the cores right of `i` are right-orthogonal.
-
-# Arguments
-- `x_tt::TTVector{T,N}`: The input TT vector to be orthogonalized.
-- `i::Int=1`: The core index with respect to which the orthogonalization is performed. Defaults to 1.
-
-# Returns
-- `y_tt`: The orthogonalized TT vector.
-
+Return a tensor train equal to `x` whose cores left of `center` are
+left-orthogonal and whose cores right of `center` are right-orthogonal, so that
+core `center` is the orthogonality center. The cores are computed with QR and
+LQ factorizations, and the ranks are reduced where the dimensions force a
+smaller rank.
 """
-function orthogonalize(x_tt::AbstractTTVector{T, N}; i = 1::Int) where {T <: Number, N}
+function orthogonalize(x_tt::AbstractTTVector{T, N}; center::Int = 1) where {T <: Number, N}
     d = nsites(x_tt)
-    @assert(1 ≤ i ≤ d, DimensionMismatch("Impossible orthogonalization"))
+    @assert(1 ≤ center ≤ d, DimensionMismatch("Impossible orthogonalization"))
     y_rks = admissible_ranks(x_tt.ranks, x_tt.dims)
     y_tt = zeros_tt(T, x_tt.dims, y_rks)
     FR = ones(T, 1, 1)
     yleft_temp = zeros(T, maximum(x_tt.ranks), maximum(x_tt.dims), maximum(x_tt.ranks))
-    for j in 1:(i - 1)
+    for j in 1:(center - 1)
         @tensoropt((βⱼ₋₁, αⱼ), yleft_temp[1:y_tt.ranks[j], 1:x_tt.dims[j], 1:x_tt.ranks[j + 1]][αⱼ₋₁, iⱼ, αⱼ] = FR[αⱼ₋₁, βⱼ₋₁] * x_tt.cores[j][iⱼ, βⱼ₋₁, αⱼ])
         F = qr(reshape(yleft_temp[1:y_tt.ranks[j], 1:x_tt.dims[j], 1:x_tt.ranks[j + 1]], x_tt.dims[j] * y_tt.ranks[j], :))
         y_tt.ranks[j + 1] = size(Matrix(F.Q), 2)
@@ -648,8 +644,8 @@ function orthogonalize(x_tt::AbstractTTVector{T, N}; i = 1::Int) where {T <: Num
         FR = F.R[1:y_tt.ranks[j + 1], :]
     end
     FL = ones(T, 1, 1)
-    (i < nsites(x_tt)) && (yright_temp = zeros(T, maximum(x_tt.ranks), maximum(y_tt.ranks), maximum(x_tt.dims)))
-    for j in d:-1:(i + 1)
+    (center < nsites(x_tt)) && (yright_temp = zeros(T, maximum(x_tt.ranks), maximum(y_tt.ranks), maximum(x_tt.dims)))
+    for j in d:-1:(center + 1)
         yright_temp = zeros(T, x_tt.ranks[j], y_tt.ranks[j + 1], x_tt.dims[j])
         @tensoropt((αⱼ₋₁, αⱼ), yright_temp[1:x_tt.ranks[j], 1:y_tt.ranks[j + 1], 1:x_tt.dims[j]][αⱼ₋₁, βⱼ, iⱼ] = x_tt.cores[j][iⱼ, αⱼ₋₁, αⱼ] * FL[αⱼ, βⱼ])
         F = lq(reshape(yright_temp[1:x_tt.ranks[j], 1:y_tt.ranks[j + 1], 1:x_tt.dims[j]], x_tt.ranks[j], :))
@@ -657,10 +653,10 @@ function orthogonalize(x_tt::AbstractTTVector{T, N}; i = 1::Int) where {T <: Num
         y_tt.cores[j] = permutedims(reshape(Matrix(F.Q), y_tt.ranks[j], y_tt.ranks[j + 1], x_tt.dims[j]), [3 1 2])
         FL = F.L[:, 1:y_tt.ranks[j]]
     end
-    _set_orthogonality!(y_tt, i, i)
-    y_tt.cores[i] = zeros(T, y_tt.dims[i], y_tt.ranks[i], y_tt.ranks[i + 1])
-    @simd for k in 1:x_tt.dims[i]
-        y_tt.cores[i][k, :, :] = FR * x_tt.cores[i][k, :, :] * FL
+    _set_orthogonality!(y_tt, center, center)
+    y_tt.cores[center] = zeros(T, y_tt.dims[center], y_tt.ranks[center], y_tt.ranks[center + 1])
+    @simd for k in 1:x_tt.dims[center]
+        y_tt.cores[center][k, :, :] = FR * x_tt.cores[center][k, :, :] * FL
     end
     return _rewrap(x_tt, y_tt)
 end
@@ -682,7 +678,7 @@ function entanglement_entropy(ψ::AbstractTTVector; base::Real = exp(1.0))
     N <= 1 && return entropy
     logscale = log(base)
 
-    canonical = orthogonalize(ψ; i = 1)
+    canonical = orthogonalize(ψ; center = 1)
     cores = [permutedims(copy(core), (2, 1, 3)) for core in canonical.cores]
 
     for k in 1:(N - 1)
@@ -936,7 +932,7 @@ end
 # wrappers sharing them — e.g. `QTTVector` — observe the update.
 function _tt_truncate_sweep!(x::AbstractTTVector{T, N}, select::F) where {T <: Number, N, F}
     d = nsites(x)
-    y = orthogonalize(x; i = 1)
+    y = orthogonalize(x; center = 1)
     for k in 1:d
         x.cores[k] = y.cores[k]
     end

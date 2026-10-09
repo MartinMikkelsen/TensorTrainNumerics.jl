@@ -175,7 +175,7 @@ A TT-vector is *left-canonical up to site k* when each core $A^{(1)},\ldots,A^{(
 
 ```@example ttbasics
 vL = orthogonalize(v)          # left-canonical (gauge center at site N)
-vC = orthogonalize(v; i = 2)  # gauge center at site 2
+vC = orthogonalize(v; center = 2)  # gauge center at site 2
 ```
 
 Every `TTVector` and `TTOperator` records what is known about its gauge in the

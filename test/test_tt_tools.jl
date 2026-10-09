@@ -326,7 +326,7 @@ end
     end
 
     tensor_centered = randn(2, 3, 2)
-    tt_centered = tt_decomp(tensor_centered; index = 2)
+    tt_centered = tt_decomp(tensor_centered; center = 2)
     @test tt_centered.orthogonality == [2, 2]
     @test isapprox(tt_to_tensor(tt_centered), tensor_centered; atol = 1.0e-10)
 
@@ -586,7 +586,7 @@ end
     for T in (Float32, Float64, ComplexF64)
         @testset "noisy copy: $T" begin
             for ε in (0.0, 1.0e-3)
-                x = orthogonalize(rand_tt(T, (2, 2, 2), [1, 2, 2, 1]); i = 2)
+                x = orthogonalize(rand_tt(T, (2, 2, 2), [1, 2, 2, 1]); center = 2)
                 before = copy(x)
                 dense = tt_to_tensor(x)
                 y = rand_tt(x; ε)
@@ -1004,7 +1004,7 @@ end
     original_tensor = tt_to_tensor(tt)
 
     for center in 1:3
-        orth = orthogonalize(tt; i = center)
+        orth = orthogonalize(tt; center = center)
 
         # Reconstruction is preserved
         @test isapprox(tt_to_tensor(orth), original_tensor; atol = 1.0e-12)
@@ -1078,7 +1078,7 @@ end
     @test occursin("Orthogonality", s_plain)
 
     # Orthogonality strings
-    orth = orthogonalize(tt; i = 2)
+    orth = orthogonalize(tt; center = 2)
     s_orth = sprint(show, MIME("text/plain"), orth)
     @test occursin("center @ site 2", s_orth)
 
@@ -1262,7 +1262,7 @@ end
     end
 
     @testset "updates" begin
-        y = orthogonalize(x; i = 2)
+        y = orthogonalize(x; center = 2)
         TTN._center_moved_right!(y, 2)
         @test y.orthogonality == [3, 3]
         TTN._center_moved_left!(y, 3)
@@ -1279,30 +1279,30 @@ end
         TTN._forget_orthogonality!(y)
         @test y.orthogonality == [1, 4]
         @test TTN._orthogonality_center(y) === nothing
-        @test TTN._orthogonality_center(orthogonalize(x; i = 3)) == 3
+        @test TTN._orthogonality_center(orthogonalize(x; center = 3)) == 3
         @test_throws "1 ≤ left ≤ right ≤ 4" TTN._set_orthogonality!(y, 0, 2)
     end
 
     @testset "operations record what the cores satisfy" begin
         tensor = randn(dims)
         for i in 1:4
-            @test verified_orthogonality(orthogonalize(x; i)) == (i, i)
-            @test verified_orthogonality(tt_decomp(tensor; index = i)) == (i, i)
-            @test verified_orthogonality(2.0 * orthogonalize(x; i)) == (i, i)
-            @test verified_orthogonality(reverse_qtt_bits(orthogonalize(x; i))) == (5 - i, 5 - i)
+            @test verified_orthogonality(orthogonalize(x; center = i)) == (i, i)
+            @test verified_orthogonality(tt_decomp(tensor; center = i)) == (i, i)
+            @test verified_orthogonality(2.0 * orthogonalize(x; center = i)) == (i, i)
+            @test verified_orthogonality(reverse_qtt_bits(orthogonalize(x; center = i))) == (5 - i, 5 - i)
         end
         @test verified_orthogonality(tt_round(x)) == (4, 4)
         y = copy(x)
         tt_compress!(y, 2)
         @test verified_orthogonality(y) == (4, 4)
-        a = orthogonalize(x; i = 2)
-        b = orthogonalize(x; i = 3)
+        a = orthogonalize(x; center = 2)
+        b = orthogonalize(x; center = 3)
         @test verified_orthogonality(concatenate(a, b)) == (2, 7)
         @test verified_orthogonality(kron(a, b)) == (2, 7)
         @test verified_orthogonality(a + b) == (1, 4)
         @test verified_orthogonality(hadamard_ttm(a, b)) == (1, 1)
 
-        q = QTTVector(orthogonalize(rand_tt((2, 2, 2, 2), 2); i = 3), 1, 4, :serial)
+        q = QTTVector(orthogonalize(rand_tt((2, 2, 2, 2), 2); center = 3), 1, 4, :serial)
         @test q.orthogonality === TTVector(q).orthogonality
         tt_round!(q)
         @test verified_orthogonality(q) == (4, 4)

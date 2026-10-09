@@ -310,7 +310,7 @@ end
         end
 
         # The scalar multiplies the orthogonality center, which need not be core 1.
-        xo = orthogonalize(x; i = n)
+        xo = orthogonalize(x; center = n)
         dxo = [randn(rng, T, size(core)) for core in xo.cores]
         fo(xc, s) = ladot(cdense, s .* dense(xc, xo))
         value, pullback = Zygote.pullback((xc, s) -> dot(c, s * build_tt(xc, xo)), xo.cores, T(0.7))

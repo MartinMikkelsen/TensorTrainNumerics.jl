@@ -62,11 +62,11 @@ end
     @test function_to_tensor(identity, 2; a = -1.0, b = 1.0)[2, 1] ≈ 1 / 3
 end
 
-@testset "qtt_trapezoidal is the trapezoidal rule" begin
+@testset "qtt_trapezoidal_weights is the trapezoidal rule" begin
     for (d, a, b) in ((1, 0.0, 1.0), (6, 0.0, 1.0), (8, -1.0, 2.0))
         N = 2^d
         h = (b - a) / (N - 1)
-        w = qtt_trapezoidal(d; a, b)
+        w = qtt_trapezoidal_weights(d; a, b)
         weights = qtt_to_vector(w)
         @test weights ≈ h .* [i == 1 || i == N ? 0.5 : 1.0 for i in 1:N]
         # exact for constants and linear functions
@@ -370,22 +370,22 @@ end
     end
 end
 
-@testset "qtt_trapezoidal" begin
+@testset "qtt_trapezoidal_weights" begin
     d = 8
     a = 0.0
     b = 1.0
-    tt = qtt_trapezoidal(d; a = a, b = b)
+    tt = qtt_trapezoidal_weights(d; a = a, b = b)
     # Check structure
     @test hasproperty(tt, :cores)
     @test length(tt.cores) == d
     @test maximum(tt.ranks) ≤ 3
     A = qtt_sin(d, λ = 3.0)
-    w = qtt_trapezoidal(d)
+    w = qtt_trapezoidal_weights(d)
     I1 = TensorTrainNumerics.dot(w, A)
     @test isapprox(I1, 2 / (3 * π), atol = 1.0e-4)
 
     B = qtt_cos(d)
-    w2 = qtt_trapezoidal(d)
+    w2 = qtt_trapezoidal_weights(d)
     I2 = TensorTrainNumerics.dot(w2, B)
     @test isapprox(I2, 0.0, atol = 1.0e-4)
 

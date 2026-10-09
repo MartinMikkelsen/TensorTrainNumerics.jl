@@ -783,7 +783,7 @@ end
 
     @testset "results on the same sites keep the QTT metadata" begin
         for r in (
-                copy(q), complex(q), orthogonalize(q; i = 2), tt_round(q), 2 * q, q * 2, q / 2, -q,
+                copy(q), complex(q), orthogonalize(q; center = 2), tt_round(q), 2 * q, q * 2, q / 2, -q,
                 q + p, q - p, hadamard(q, p), hadamard_ttm(q, p), A * q, rand_tt(q), q + complex(p),
                 TensorTrainNumerics.increase_ranks(q, 4),
             )

@@ -57,7 +57,7 @@ export toeplitz_to_qtto, qtto_prolongation, qtto_constant_prolongation, qtto_lin
 include("tt_operators.jl")
 
 export gauss_chebyshev_lobatto
-export index_to_point, tuple_to_index, function_to_tensor, tensor_to_grid, function_to_qtt, qtt_to_function, qtt_to_vector, function_to_qtt_uniform, qtt_polynomial, qtt_cos, qtt_sin, qtt_exp, qtto_to_matrix, qtt_basis_vector, qtt_chebyshev, qtt_trapezoidal, to_qtt, to_ttv, QTTVector, QTTOperator, check_compat, function_to_qttv, qttv_to_array, reorder
+export index_to_point, tuple_to_index, function_to_tensor, tensor_to_grid, function_to_qtt, qtt_to_function, qtt_to_vector, function_to_qtt_uniform, qtt_polynomial, qtt_cos, qtt_sin, qtt_exp, qtto_to_matrix, qtt_basis_vector, qtt_chebyshev, qtt_trapezoidal_weights, to_qtt, to_ttv, QTTVector, QTTOperator, check_compat, function_to_qttv, qttv_to_array, reorder
 include("qtt_tools.jl")
 
 export euler_method, implicit_euler_method, crank_nicolson_method, rk4_method

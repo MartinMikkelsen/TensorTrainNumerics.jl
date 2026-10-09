@@ -302,15 +302,15 @@ function qtt_chebyshev(n, d)
 end
 
 """
-    qtt_trapezoidal(d; a=0.0, b=1.0) -> TTVector
+    qtt_trapezoidal_weights(d; a=0.0, b=1.0) -> TTVector
 
 Return the weights of the composite trapezoidal rule on the `2^d` uniform grid
 points of `[a, b]` (the grid of [`function_to_qtt`](@ref)) as a QTT:
 `h = (b − a)/(2^d − 1)` at interior points and `h/2` at both endpoints. Then
-`dot(qtt_trapezoidal(d; a, b), u)` approximates `∫ₐᵇ u(x) dx`. The weights have
+`dot(qtt_trapezoidal_weights(d; a, b), u)` approximates `∫ₐᵇ u(x) dx`. The weights have
 TT rank at most 3.
 """
-function qtt_trapezoidal(d; a = 0.0, b = 1.0)
+function qtt_trapezoidal_weights(d; a = 0.0, b = 1.0)
     h = (b - a) / (2^d - 1)
     endpoints = qtt_basis_vector(d, 1) + qtt_basis_vector(d, 2^d)
     return tt_round!(h * ones_tt(2, d) - (h / 2) * endpoints)

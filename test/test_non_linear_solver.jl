@@ -169,7 +169,7 @@ end
         # matricization sanity: qtto_to_matrix matches operator application in decode order
         @test norm(qtt_to_function(A * u0) - Ad * qtt_to_function(u0)) < 1.0e-8 * norm(Ad)
         for l in 1:L
-            u = orthogonalize(u0; i = l)
+            u = orthogonalize(u0; center = l)
             Φ, x0 = dense_phi(u, l)
             @test opnorm(Φ' * Φ - I) < 1.0e-10                       # gauge ⇒ isometry
             @test norm(Φ * x0 - qtt_to_function(u)) < 1.0e-10        # decode consistency

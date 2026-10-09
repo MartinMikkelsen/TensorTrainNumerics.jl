@@ -373,7 +373,7 @@ function _penalty_solve_impl(A::TTOperator{T, N}, u0::TTVector{T, N}, alg::Penal
     # An un-rounded sum (e.g. seed + ε·padding) can carry a locally-redundant left core
     # that trips the plain (non-pivoted) QR inside right_core_move/left_core_move, which
     # assume admissible ranks. Gauging to the far end first forces the missing left QR pass.
-    u = orthogonalize(orthogonalize(u0; i = nsites(u0)); i = 1)
+    u = orthogonalize(orthogonalize(u0; center = nsites(u0)); center = 1)
     d = nsites(u)
     rks = copy(u.ranks)
     # pure environments (never contain the center core)

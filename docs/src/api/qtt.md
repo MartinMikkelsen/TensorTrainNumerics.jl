@@ -24,7 +24,7 @@ qtt_cos
 qtt_exp
 qtt_chebyshev
 qtt_basis_vector
-qtt_trapezoidal
+qtt_trapezoidal_weights
 gauss_chebyshev_lobatto
 index_to_point
 tuple_to_index
