@@ -207,6 +207,8 @@ Available boundary conditions:
 
 The same symbols select the boundary conditions of the 1D operator `Δ(d; bc)`.
 
+For `:periodic`, the $2^L$ grid points of a dimension cover one period $[a, b)$ without repeating the endpoint, so the spacing is $h = (b-a)/2^L$. For the other boundary conditions the grid includes both endpoints and $h = (b-a)/(2^L-1)$.
+
 ## QTT operator library
 
 These 1D operators come with explicit rank-2 (or rank-1) QTT representations and can be composed via `⊗` and `+` to build multi-dimensional problems:

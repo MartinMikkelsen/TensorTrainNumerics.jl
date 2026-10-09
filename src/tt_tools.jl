@@ -129,6 +129,8 @@ _rewrap(template, x) = x
 _rewrap(a, b, x) = x
 
 # Check that two wrapped tensor trains describe the same grid; plain ones always do.
+# Binary operations call this before doing any work, so that a mismatch is
+# reported without first forming the result.
 _check_qtt(a, b) = nothing
 
 """

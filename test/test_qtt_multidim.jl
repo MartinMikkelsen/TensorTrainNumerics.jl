@@ -818,6 +818,20 @@ end
 
     @testset "mismatched grids are rejected" begin
         other = QTTVector(rand_tt((2, 2, 2, 2), 2), 1, 4, :serial)
+        B = QTTOperator(id_tto(4), 1, 4, :serial)
+        @test_throws "n_dims mismatch" A + B
+        @test_throws "n_dims mismatch" A * B
+        @test_throws "n_dims mismatch" hadamard_ttm(q, other)
+        # The check runs before the result is formed.
+        big = QTTVector(rand_tt(ntuple(_ -> 2, 8), 16), 2, 4, :serial)
+        bigA = QTTOperator(rand_tto(ntuple(_ -> 2, 8), 16), 2, 4, :interleaved)
+        rejected() = try
+            bigA * big
+        catch
+            nothing
+        end
+        rejected()
+        @test (@allocated rejected()) < 10_000
         @test_throws "n_dims mismatch" q + other
         @test_throws "n_dims mismatch" dot(q, other)
         @test_throws "n_dims mismatch" hadamard(q, other)
@@ -833,5 +847,17 @@ end
     @test_throws "`bc` must be :DD, :DN, :ND, :NN, or :periodic" Δ(4; bc = :robin)
     @test Δ⁻¹(4) isa TTOperator{Float64, 4}
     @test_throws "only available for `bc = :DN`" Δ⁻¹(4; bc = :DD)
-    @test tto_to_tensor(TTOperator(qtt_laplacian(1, 4; bc = :periodic))) ≈ 15.0^2 .* tto_to_tensor(Δ(4; bc = :periodic))
+    @test tto_to_tensor(TTOperator(qtt_laplacian(1, 4; bc = :DD))) ≈ 15.0^2 .* tto_to_tensor(Δ(4; bc = :DD))
+
+    # A periodic grid has N distinct points per period, so h = 1/N. The first
+    # Fourier mode is an eigenvector with eigenvalue 4 sin²(π/N) / h².
+    for d in (4, 6)
+        N = 2^d
+        L = qtto_to_matrix(TTOperator(qtt_laplacian(1, d; bc = :periodic)))
+        mode = sinpi.(2 .* (0:(N - 1)) ./ N)
+        @test L * mode ≈ (4 * sinpi(1 / N)^2 * N^2) .* mode
+        @test L * ones(N) ≈ zeros(N) atol = 1.0e-9
+    end
+    L = qtto_to_matrix(TTOperator(qtt_laplacian(1, 4; a = 1.0, b = 3.0, bc = :periodic)))
+    @test L * sinpi.(2 .* (0:15) ./ 16) ≈ (4 * sinpi(1 / 16)^2 * 8.0^2) .* sinpi.(2 .* (0:15) ./ 16)
 end

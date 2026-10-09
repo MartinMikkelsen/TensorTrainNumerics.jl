@@ -561,3 +561,17 @@ end
     v = rand_tt((3, 3), [1, 2, 1])
     @test tt_to_tensor(A * v) ≈ tt_to_tensor(v)
 end
+
+@testset "prolongation operators record their column dimensions" begin
+    for build in (qtto_constant_prolongation, qtto_linear_prolongation), d in 1:3
+        P = build(d)
+        @test P.row_dims == ntuple(_ -> 2, d + 1)
+        @test P.col_dims == (ntuple(_ -> 2, d)..., 1)
+        @test collect(P.col_dims) == size.(P.cores, 2)
+
+        dense = tto_to_tensor(P)
+        @test size(dense) == (P.row_dims..., P.col_dims...)
+        x = rand_tt(ntuple(_ -> 2, d), 2)
+        @test vec(tt_to_tensor(P * x)) ≈ reshape(dense, 2^(d + 1), 2^d) * vec(tt_to_tensor(x))
+    end
+end

@@ -25,6 +25,7 @@ end
 Adds two TTVectors and returns a new TTVector.
 """
 function +(x::AbstractTTVector{T, N}, y::AbstractTTVector{T, N}) where {T <: Number, N}
+    _check_qtt(x, y)
     @assert x.dims == y.dims "Incompatible dimensions"
     d = nsites(x)
     if d == 1
@@ -80,6 +81,7 @@ end
 Adds two TTOperators and returns a new TTOperator.
 """
 function +(x::AbstractTTOperator{T, N}, y::AbstractTTOperator{T, N}) where {T <: Number, N}
+    _check_qtt(x, y)
     @assert x.row_dims == y.row_dims && x.col_dims == y.col_dims "Incompatible dimensions"
     d = nsites(x)
     if d == 1
@@ -113,6 +115,7 @@ end
 Contracts the TTOperator A with the TTVector x.
 """
 function *(A::AbstractTTOperator{T, N}, v::AbstractTTVector{T, N}) where {T <: Number, N}
+    _check_qtt(A, v)
     @assert A.col_dims == v.dims "Incompatible dimensions"
     y = zeros_tt(T, A.row_dims, A.ranks .* v.ranks)
     begin
@@ -186,6 +189,7 @@ end
 Multiplies two TTOperators and returns a new TTOperator.
 """
 function *(A::AbstractTTOperator{T, N}, B::AbstractTTOperator{T, N}) where {T <: Number, N}
+    _check_qtt(A, B)
     @assert A.col_dims == B.row_dims "Incompatible dimensions"
     d = nsites(A)
     A_rks = A.ranks #R_0, ..., R_d
@@ -417,6 +421,7 @@ end
 Computes the Hadamard product (element-wise multiplication) of two TTVectors and returns a new TTVector.
 """
 function hadamard(x::AbstractTTVector{T, N}, y::AbstractTTVector{T, N}) where {T <: Number, N}
+    _check_qtt(x, y)
     @assert x.dims == y.dims "Incompatible TT dimensions"
     d = nsites(x)
     ttv_vec = Vector{Array{T, 3}}(undef, d)
@@ -511,6 +516,7 @@ function hadamard_ttm(
         trunc_tol::Real = 1.0e-14,
         max_bond::Int = typemax(Int)
     ) where {T <: Number, N}
+    _check_qtt(x, y)
     @assert x.dims == y.dims "Incompatible TT dimensions"
     d = nsites(x)
 

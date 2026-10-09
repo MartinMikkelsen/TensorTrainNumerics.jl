@@ -452,6 +452,10 @@ function qtto_prolongation(d::Int)
     return out
 end
 
+# Column dimensions of a prolongation from `d` to `d + 1` binary sites: the last
+# site has no input index.
+_prolongation_col_dims(d) = ntuple(k -> k ≤ d ? 2 : 1, d + 1)
+
 """
 Constructs a constant QTT prolongation operator from `d` to `d + 1` binary sites.
 """
@@ -468,6 +472,7 @@ function qtto_constant_prolongation(d::Int)
     return TTOperator{Float64, d + 1}(
         out,
         ntuple(_ -> 2, d + 1),
+        _prolongation_col_dims(d),
         ones(Int64, d + 2)
     )
 end
@@ -515,7 +520,7 @@ function qtto_linear_prolongation(d::Int)
     out[d + 1][1, 1, 1:l₀, 1] .= 1.0
     out[d + 1][2, 1, (l₀ + 1):(l₀ + l₁), 1] .= 1.0
 
-    return TTOperator{Float64, d + 1}(out, ntuple(_ -> 2, d + 1), out_rks)
+    return TTOperator{Float64, d + 1}(out, ntuple(_ -> 2, d + 1), _prolongation_col_dims(d), out_rks)
 end
 
 
@@ -675,8 +680,11 @@ of 1D second-derivative operators:
 
     Δ_nd = Δ₁⊗I⊗…⊗I + I⊗Δ₂⊗I⊗…⊗I + … + I⊗…⊗I⊗Δₙ
 
-Each 1D operator acts on `bits_per_dim` sites (a uniform grid of `2^bits_per_dim`
-points over `[a, b]`). The finite-difference scaling `1/h²` is included.
+Each 1D operator acts on `bits_per_dim` sites, a uniform grid of
+`N = 2^bits_per_dim` points. The finite-difference scaling `1/h²` is included.
+The grid contains both endpoints of `[a, b]`, so `h = (b - a) / (N - 1)`, except
+for `bc = :periodic`, where it covers one period `[a, b)` without repeating the
+endpoint and `h = (b - a) / N`.
 
 # Arguments
 - `n_dims::Int`: Number of spatial dimensions (≥ 1).
@@ -701,7 +709,7 @@ function qtt_laplacian(
     @assert n_dims ≥ 1 "n_dims must be at least 1"
 
     d = bits_per_dim
-    h = (b - a) / (2^d - 1)
+    h = bc === :periodic ? (b - a) / 2^d : (b - a) / (2^d - 1)
     scale = 1.0 / h^2
 
     lap_1d = Δ(d; bc)
