@@ -19,7 +19,7 @@
 ## Features
 
 - **Solvers** — ALS, MALS [[1](#references)], DMRG [[2](#references)], and AMEn [[12](#references)] for linear systems and eigenvalue problems, and a multigrid solver for non-linear problems [[3](#references)]; adaptive rank control via SVD truncation [[4](#references)]
-- **Time evolution** — single- and two-site TDVP [[5](#references)], implicit Euler, Crank–Nicolson, and Krylov exponential integrators 
+- **Time evolution** — single- and two-site TDVP [[5](#references)], implicit Euler, Crank–Nicolson, and Krylov exponential integrators, selected through `time_evolve`
 - **TT-cross** — MaxVol [[6](#references)], DMRG-cross [[7](#references)], and Greedy algorithms [[8](#references)] for black-box function approximation and numerical integration [[9](#references)]
 - **QTT operators** — exact low-rank representations of Laplacians, gradient operators [[10](#references)], shift matrices, and the discrete Fourier transform [[11](#references)]
 - **Quantics tensor trains** — serial and interleaved multi-dimensional encodings with `QTTVector`/`QTTOperator` wrappers

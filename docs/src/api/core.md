@@ -33,29 +33,29 @@ id_tto
 admissible_ranks
 concatenate
 nsites
-Base.copy(::TTVector{T, N}) where {T <: Number, N}
+Base.copy(::AbstractTTVector{T, N}) where {T <: Number, N}
 ```
 
 ## Arithmetic and products
 
 ```@docs
-Base.:+(::TTVector{T, N}, ::TTVector{T, N}) where {T <: Number, N}
-Base.:+(::TTOperator{T, N}, ::TTOperator{T, N}) where {T <: Number, N}
-Base.:*(::S, ::TTVector{R, N}) where {S <: Number, R <: Number, N}
-Base.:*(::S, ::TTOperator{R, N}) where {S <: Number, R <: Number, N}
-Base.:*(::TTOperator{T, N}, ::TTVector{T, N}) where {T <: Number, N}
-Base.:*(::TTOperator{T, M}, ::TTVector{T, N}) where {T <: Number, M, N}
-Base.:*(::TTOperator{T, N}, ::TTOperator{T, N}) where {T <: Number, N}
-Base.adjoint(::TTOperator{T, N}) where {T, N}
+Base.:+(::AbstractTTVector{T, N}, ::AbstractTTVector{T, N}) where {T <: Number, N}
+Base.:+(::AbstractTTOperator{T, N}, ::AbstractTTOperator{T, N}) where {T <: Number, N}
+Base.:*(::S, ::AbstractTTVector{R, N}) where {S <: Number, R <: Number, N}
+Base.:*(::S, ::AbstractTTOperator{R, N}) where {S <: Number, R <: Number, N}
+Base.:*(::AbstractTTOperator{T, N}, ::AbstractTTVector{T, N}) where {T <: Number, N}
+Base.:*(::AbstractTTOperator{T, M}, ::AbstractTTVector{T, N}) where {T <: Number, M, N}
+Base.:*(::AbstractTTOperator{T, N}, ::AbstractTTOperator{T, N}) where {T <: Number, N}
+Base.adjoint(::AbstractTTOperator{T, N}) where {T, N}
 add!
-dot(::TTVector{T, N}, ::TTVector{T, N}) where {T <: Number, N}
-norm(::TTVector{T, N}) where {T <: Number, N}
+dot(::AbstractTTVector{T, N}, ::AbstractTTVector{T, N}) where {T <: Number, N}
+norm(::AbstractTTVector{T, N}) where {T <: Number, N}
 hadamard
 ⊕
 hadamard_ttm
 outer_product
-Base.kron(::TTOperator{T, d1}, ::TTOperator{T, d2}) where {T, d1, d2}
-Base.kron(::TTVector{T, d1}, ::TTVector{T, d2}) where {T, d1, d2}
+Base.kron(::AbstractTTOperator{T, d1}, ::AbstractTTOperator{T, d2}) where {T, d1, d2}
+Base.kron(::AbstractTTVector{T, d1}, ::AbstractTTVector{T, d2}) where {T, d1, d2}
 ⊗
 ⨝
 ∙
@@ -67,7 +67,7 @@ euclidean_distance_normalized
 ## Canonical forms and rank truncation
 
 ```@docs
-orthogonalize(::TTVector{T, N}) where {T <: Number, N}
+orthogonalize(::AbstractTTVector{T, N}) where {T <: Number, N}
 tt_round!
 tt_round
 tt_compress!

@@ -52,19 +52,21 @@ The TTO format is closed under addition and matrix-vector multiplication: if $A$
 
 TensorTrainNumerics.jl stores cores in **(physical, left bond, right bond)** order for vectors and **(row physical, column physical, left bond, right bond)** order for operators. Concretely, the core array at site $k$ has `size(core) == (n_k, r_{k-1}, r_k)` for a TT-vector. This differs from some tensor-network libraries that put bond indices first, but makes it natural to write `core[:, l, r]` to obtain the matrix slice $A^{(k)}(\cdot)$ at bond indices $(l, r)$.
 
+For a TT-operator, `size(core) == (m_k, n_k, r_{k-1}, r_k)`, where $m_k$ is the row (output) dimension and $n_k$ the column (input) dimension of site $k$. The two may differ, so an operator can be rectangular; the solvers require square operators.
+
 ## Constructing TT-vectors
 
 ```@example ttbasics
 using TensorTrainNumerics
 
-dims = (2, 2, 2, 2)    # physical dimension at each site
-rks  = [1, 3, 3, 3, 1] # bond dimensions (length N+1)
+dims  = (2, 2, 2, 2)    # physical dimension at each site
+ranks = [1, 3, 3, 3, 1] # bond dimensions (length N+1)
 
-v = rand_tt(dims, rks)   # random TT-vector
-z = zeros_tt(dims, rks)  # zero TT-vector
+v = rand_tt(dims, ranks)   # random TT-vector
+z = zeros_tt(dims, ranks)  # zero TT-vector
 ```
 
-The fields `v.dims`, `v.ranks`, and `v.cores` hold the dimensions, bond dimensions, and array of cores respectively.
+A `TTVector` has four fields: `v.cores` (the array of cores), `v.dims` (the physical dimensions), `v.ranks` (the bond dimensions), and `v.orthogonality` (see [Orthogonalization](@ref)). The number of sites is `nsites(v)`.
 
 ## Constructing TT-operators
 
@@ -72,6 +74,8 @@ The fields `v.dims`, `v.ranks`, and `v.cores` hold the dimensions, bond dimensio
 A = rand_tto(dims, 3)   # random TTO, max bond = 3
 I = id_tto(4)           # identity on {1,…,2}^4 in TT form
 ```
+
+A `TTOperator` has the fields `A.cores`, `A.row_dims`, `A.col_dims`, `A.ranks`, and `A.orthogonality`. For a square operator `A.row_dims == A.col_dims`. `A * v` requires `A.col_dims == v.dims` and returns a vector with dimensions `A.row_dims`; `A'` swaps the two.
 
 The function `toeplitz_to_qtto(α, β, γ, d)` produces a tridiagonal Toeplitz operator — the standard building block for finite-difference stencils:
 
@@ -97,7 +101,7 @@ All standard linear-algebra operations are overloaded and produce new TT objects
 | `A ⊗ B` | Kronecker product of operators |
 
 ```@example ttbasics
-u = rand_tt(dims, rks)
+u = rand_tt(dims, ranks)
 w = u + v          # bond dims are now doubled
 s = dot(u, v)
 n = norm(v)
@@ -171,11 +175,11 @@ dE_dJ, dE_dh = Zygote.gradient(ising_energy, -1.0, -0.5)
 
 ## Orthogonalization
 
-A TT-vector is *left-canonical up to site k* when each core $A^{(1)},\ldots,A^{(k)}$ has orthonormal columns (viewed as matrices of shape $n_j r_{j-1} \times r_j$). `orthogonalize` computes this decomposition via a sequence of QR factorizations:
+A core $A^{(k)}$ is *left-orthogonal* when it has orthonormal columns as a matrix of shape $n_k r_{k-1} \times r_k$, and *right-orthogonal* when it has orthonormal rows as a matrix of shape $r_{k-1} \times n_k r_k$. `orthogonalize(v; center = c)` returns the same tensor with every core left of site `c` left-orthogonal and every core right of it right-orthogonal, using a sequence of QR and LQ factorizations. Core `c` then carries the norm and is called the orthogonality center:
 
 ```@example ttbasics
-vL = orthogonalize(v)          # left-canonical (gauge center at site N)
-vC = orthogonalize(v; center = 2)  # gauge center at site 2
+v1 = orthogonalize(v)              # center at site 1 (the default)
+vC = orthogonalize(v; center = 2)  # center at site 2
 ```
 
 Every `TTVector` and `TTOperator` records what is known about its gauge in the

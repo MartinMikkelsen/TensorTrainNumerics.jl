@@ -115,11 +115,11 @@ Interleaved ordering often yields lower ranks for isotropic functions because it
 Plain `TTVector`/`TTOperator` objects carry no information about the QTT structure. The `QTTVector` and `QTTOperator` wrappers attach the metadata needed to track consistency across operations:
 
 ```julia
-QTTVector{T, N}   <: AbstractTTVector{T}
-QTTOperator{T, N} <: AbstractTTOperator{T}
+QTTVector{T, M}   <: AbstractTTVector{T, M}
+QTTOperator{T, M} <: AbstractTTOperator{T, M}
 ```
 
-Both carry three extra fields on top of the standard TT data:
+Both have the fields of the plain types (`cores`, `dims` or `row_dims`/`col_dims`, `ranks`, `orthogonality`) and three more:
 
 | Field | Type | Meaning |
 |---|---|---|
@@ -164,7 +164,16 @@ q   = QTTVector(ttv, 2, 4, :serial)   # wrap: 2 dims, 4 bits/dim, serial
 ttv2 = TTVector(q)   # strip back to a plain TTVector
 ```
 
-Arithmetic between two `QTTVector` objects with matching metadata returns a `QTTVector`. Mixed arithmetic with a plain `TTVector` falls back to `TTVector`. The `check_compat` function enforces ordering and dimension consistency at operation boundaries.
+The functions that accept a `TTVector` or `TTOperator` also accept the QTT types. What they return depends on the sites of the result:
+
+| Case | Result |
+|---|---|
+| Same sites and every input is a QTT type: `+`, `-`, scaling, `hadamard`, `A * q`, `A * B`, `A'`, `orthogonalize`, `copy`, `tt_round` | `QTTVector` / `QTTOperator` with the same metadata |
+| The sites change: `kron`, `concatenate`, `reverse_qtt_bits`, `outer_product` | plain `TTVector` / `TTOperator` |
+| One QTT input and one plain input | plain `TTVector` / `TTOperator` |
+| Values: `dot`, `norm`, `tt_to_tensor`, `matricize`, `entanglement_entropy` | the same value as for the plain type |
+
+Two QTT inputs must describe the same grid. `check_compat` compares `n_dims`, `bits_per_dim`, and `ordering` and throws an `AssertionError` when they differ.
 
 ## Multi-dimensional Laplacian operator
 
@@ -194,6 +203,9 @@ Available boundary conditions:
 | `:DN` | Dirichlet–Neumann |
 | `:ND` | Neumann–Dirichlet |
 | `:NN` | Neumann–Neumann |
+| `:periodic` | Periodic |
+
+The same symbols select the boundary conditions of the 1D operator `Δ(d; bc)`.
 
 ## QTT operator library
 

@@ -47,7 +47,8 @@ cross interpolation behind one set of types.
 - **Time evolution.** Explicit Euler, fourth-order Runge–Kutta, implicit Euler,
   and Crank–Nicolson steppers that accept any of the linear solvers, and one-
   and two-site TDVP in real and imaginary time
-  [Haegeman_2016, Vanderstraeten_2019](@cite).
+  [Haegeman_2016, Vanderstraeten_2019](@cite), all through
+  [`time_evolve`](@ref).
 - **Cross interpolation.** MaxVol, DMRG-cross, and greedy TT-cross algorithms
   that build a TT from function evaluations, and high-dimensional quadrature
   built on them [SAVOSTYANOV2014217, 6076873, vysotsky2021tensor](@cite).
