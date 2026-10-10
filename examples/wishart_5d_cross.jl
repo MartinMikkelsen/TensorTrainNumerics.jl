@@ -39,17 +39,17 @@ n = 12
 domain = [collect(range(0.0, 10.0, length = n)) for _ in 1:d]
 
 Random.seed!(2026)
-alg = DMRGcross(verbosity = 2, tol = 1.0e-12)
+alg = DMRGCross(verbosity = 2, tol = 1.0e-12)
 tt = tt_cross(f_tilde_tt, domain, alg)
 
-println("TT ranks: ", tt.ttv_rks)
+println("TT ranks: ", tt.ranks)
 
 Random.seed!(2027)
 ncheck = 500
 idx = hcat([rand(1:n, ncheck) for _ in 1:d]...)
 Xcheck = hcat([domain[k][idx[:, k]] for k in 1:d]...)
 ytrue = f_tilde_tt(Xcheck)
-yhat = TensorTrainNumerics._evaluate_tt(tt.ttv_vec, idx, d)
+yhat = TensorTrainNumerics._evaluate_tt(tt.cores, idx, d)
 
 rel_l2 = norm(ytrue .- yhat) / max(norm(ytrue), 1.0e-14)
 pointwise_rel = abs.(ytrue .- yhat) ./ max.(abs.(ytrue), 1.0e-14)

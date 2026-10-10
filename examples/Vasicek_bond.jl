@@ -10,8 +10,8 @@ h = (b - a) / (N - 1); rs = collect(range(a, b, N))
 # Discounted backward generator  L_FK = -θ M ∂_r + D ∂_rr - X
 ∂r = (1 / (2h)) * (shift(d) - (id_tto(d) - ∇(d)))      # central first derivative
 ∂rr = -(1 / h^2) * Δ(d)                                 # second derivative
-M = ttv_to_diag_tto(qtt_polynom([-μ, 1.0], d; a = a, b = b))   # diag(r-μ)  (drift)
-X = ttv_to_diag_tto(qtt_polynom([0.0, 1.0], d; a = a, b = b))  # diag(r)    (discount)
+M = tt_to_diag_tto(qtt_polynomial([-μ, 1.0], d; a = a, b = b))   # diag(r-μ)  (drift)
+X = tt_to_diag_tto(qtt_polynomial([0.0, 1.0], d; a = a, b = b))  # diag(r)    (discount)
 L_FK = -θ * (M * ∂r) + D * ∂rr - X
 
 # Terminal payoff P(r,0)=1, rank-enriched so ALS can grow the bond profile
@@ -22,7 +22,7 @@ B(τ) = (1 - exp(-θ * τ)) / θ
 A(τ) = (B(τ) - τ) * (θ^2 * μ - σ^2 / 2) / θ^2 - σ^2 * B(τ)^2 / (4θ)
 Panal(r, τ) = exp(A(τ) - B(τ) * r)
 
-# Crank–Nicholson march in τ (= maturity), recording the price curves
+# Crank–Nicolson march in τ (= maturity), recording the price curves
 τstep = 0.05; record_dt = 0.5; T = 10.0
 blk = round(Int, record_dt / τstep); nblk = round(Int, T / record_dt)
 times = collect(0.0:record_dt:T)
@@ -41,7 +41,7 @@ end
 
 ψ = u₀; record!(ψ)
 for _ in 1:nblk
-    global ψ = crank_nicholson_method(L_FK, ψ, ψ, fill(τstep, blk); normalize = false, alg = ALS())
+    global ψ = crank_nicolson_method(L_FK, ψ, ψ, fill(τstep, blk); normalize = false, alg = ALS())
     record!(ψ)
 end
 

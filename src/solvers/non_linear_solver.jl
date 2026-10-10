@@ -2,7 +2,7 @@
 # after M. Lubasch, P. Moinier, D. Jaksch, J. Comput. Phys. 372 (2018) 587–602
 # (arXiv:1802.07259). Minimizes the discrete penalty
 #     P(u) = ⟨u|A|u⟩ + (g/2) Σ_m u_m⁴ + η (⟨u|u⟩ − 1)²
-# over a real TTvector by alternating site-local updates (damped Newton / nonlinear CG / SD),
+# over a real TTVector by alternating site-local updates (damped Newton / nonlinear CG / SD),
 # with local operators projected through swept environments (no densification). Real path only.
 
 # Site-local objective on the vectorized core y (dense, small: n = n_i·r_{i-1}·r_i).
@@ -179,13 +179,13 @@ end
 # contains cores i+1..d). 4-layer envs carry the interaction Σu⁴: four copies of
 # u's cores, legs (bra, mid1, mid2, ket) — all equal to u's bond ranks.
 
-function _nl_right_op_envs(u::TTvector{T, N}, A::TToperator{T, N}) where {T <: Real, N}
-    d = u.N
+function _nl_right_op_envs(u::TTVector{T, N}, A::TTOperator{T, N}) where {T <: Real, N}
+    d = nsites(u)
     H = Vector{Array{T, 3}}(undef, d)
     H[d] = ones(T, 1, 1, 1)
     for i in d:-1:2
-        H[i - 1] = zeros(T, A.tto_rks[i], u.ttv_rks[i], u.ttv_rks[i])
-        update_H!(u.ttv_vec[i], A.tto_vec[i], H[i], H[i - 1])
+        H[i - 1] = zeros(T, A.ranks[i], u.ranks[i], u.ranks[i])
+        update_H!(u.cores[i], A.cores[i], H[i], H[i - 1])
     end
     return H
 end
@@ -234,12 +234,12 @@ function _nl_env4_absorb_left(x::Array{T, 3}, E::Array{T, 4}) where {T <: Real}
     return En
 end
 
-function _nl_right_qenvs(u::TTvector{T, N}) where {T <: Real, N}
-    d = u.N
+function _nl_right_qenvs(u::TTVector{T, N}) where {T <: Real, N}
+    d = nsites(u)
     E = Vector{Array{T, 4}}(undef, d)
     E[d] = ones(T, 1, 1, 1, 1)
     for i in d:-1:2
-        E[i - 1] = _nl_env4_absorb_right(u.ttv_vec[i], E[i])
+        E[i - 1] = _nl_env4_absorb_right(u.cores[i], E[i])
     end
     return E
 end
@@ -283,12 +283,12 @@ end
 
 
 """
-    NonLinearSolverAlgorithm
+    NonlinearSolverAlgorithm
 
-Supertype of algorithm objects accepted by [`non_linear_solve`](@ref):
+Supertype of algorithm objects accepted by [`nonlinear_solve`](@ref):
 [`PenaltyALS`](@ref) and [`MGR`](@ref).
 """
-abstract type NonLinearSolverAlgorithm end
+abstract type NonlinearSolverAlgorithm end
 
 """
     PenaltyALS(; local_solver=:newton, local_steps=4, penalty_schedule=[1e2,1e4,1e6,1e8],
@@ -302,7 +302,7 @@ site for `:cg`/`:sd`. Each stage sweeps until the relative penalty change is bel
 `max_sweeps` sweeps are done. `verbosity ≥ 2` logs one line per sweep; `show_progress`
 displays a progress bar.
 """
-struct PenaltyALS <: NonLinearSolverAlgorithm
+struct PenaltyALS <: NonlinearSolverAlgorithm
     local_solver::Symbol
     local_steps::Int
     penalty_schedule::Vector{Float64}
@@ -332,12 +332,12 @@ end
 
 "Site-local update: build A_loc, Q, ∇Q (and B for Newton), run the local solver, return the new core."
 function _nl_site_step(
-        u::TTvector{T, N}, i::Int, Acore::Array{T, 4},
+        u::TTVector{T, N}, i::Int, Acore::Array{T, 4},
         LAi::Array{T, 3}, HAi::Array{T, 3}, ELi::Array{T, 4}, ERi::Array{T, 4},
         g::Real, η::Real, alg::PenaltyALS
     ) where {T <: Real, N}
     Aloc = _nl_effective_op(LAi, Acore, HAi)
-    x0core = u.ttv_vec[i]
+    x0core = u.cores[i]
     dims = size(x0core)
     Q = y -> _nl_quartic(ELi, reshape(y, dims), ERi)
     Qgrad = y -> vec(_nl_quartic_grad(ELi, reshape(y, dims), ERi))
@@ -354,28 +354,28 @@ end
 
 "Exact penalty evaluated site-locally at site i (requires gauge + current envs at i)."
 function _nl_penalty_local(
-        u::TTvector{T, N}, i::Int, Acore::Array{T, 4},
+        u::TTVector{T, N}, i::Int, Acore::Array{T, 4},
         LAi::Array{T, 3}, HAi::Array{T, 3}, ELi::Array{T, 4}, ERi::Array{T, 4},
         g::Real, η::Real
     ) where {T <: Real, N}
     Aloc = _nl_effective_op(LAi, Acore, HAi)
-    dims = size(u.ttv_vec[i])
+    dims = size(u.cores[i])
     Q = y -> _nl_quartic(ELi, reshape(y, dims), ERi)
-    return _nl_penalty(vec(u.ttv_vec[i]), Aloc, Q, g, η)
+    return _nl_penalty(vec(u.cores[i]), Aloc, Q, g, η)
 end
 
-function _penalty_solve_impl(A::TToperator{T, N}, u0::TTvector{T, N}, alg::PenaltyALS; g::Real = 0.0) where {T, N}
-    T <: Real || throw(ArgumentError("non_linear_solve implements the real path only; got eltype $T"))
-    u0.N ≥ 2 || throw(ArgumentError("non_linear_solve needs at least 2 TT cores"))
+function _penalty_solve_impl(A::TTOperator{T, N}, u0::TTVector{T, N}, alg::PenaltyALS; g::Real = 0.0) where {T, N}
+    T <: Real || throw(ArgumentError("nonlinear_solve implements the real path only; got eltype $T"))
+    nsites(u0) ≥ 2 || throw(ArgumentError("nonlinear_solve needs at least 2 TT cores"))
     # Round-trip gauge (far end, then back to site 1): orthogonalize(u0) alone only
     # right-canonicalizes sites 2..d and never QR-checks site 1's own local admissibility
     # (rks[2] ≤ dims[1]·rks[1]) against what's actually reachable from the left boundary.
     # An un-rounded sum (e.g. seed + ε·padding) can carry a locally-redundant left core
     # that trips the plain (non-pivoted) QR inside right_core_move/left_core_move, which
     # assume admissible ranks. Gauging to the far end first forces the missing left QR pass.
-    u = orthogonalize(orthogonalize(u0; i = u0.N); i = 1)
-    d = u.N
-    rks = copy(u.ttv_rks)
+    u = orthogonalize(orthogonalize(u0; center = nsites(u0)); center = 1)
+    d = nsites(u)
+    rks = copy(u.ranks)
     # pure environments (never contain the center core)
     HA = _nl_right_op_envs(u, A)
     ER = _nl_right_qenvs(u)
@@ -388,22 +388,22 @@ function _penalty_solve_impl(A::TToperator{T, N}, u0::TTvector{T, N}, alg::Penal
     penalty = zero(Float64)
     progress = _solver_progress(length(alg.penalty_schedule) * alg.max_sweeps, alg.show_progress; desc = "Nonlinear penalty ALS")
     for (stage, η) in enumerate(alg.penalty_schedule)
-        Pprev = _nl_penalty_local(u, 1, A.tto_vec[1], LA[1], HA[1], EL[1], ER[1], g, η)
+        Pprev = _nl_penalty_local(u, 1, A.cores[1], LA[1], HA[1], EL[1], ER[1], g, η)
         for _ in 1:alg.max_sweeps
             for i in 1:(d - 1)                      # forward half sweep
-                V = _nl_site_step(u, i, A.tto_vec[i], LA[i], HA[i], EL[i], ER[i], g, η, alg)
+                V = _nl_site_step(u, i, A.cores[i], LA[i], HA[i], EL[i], ER[i], g, η, alg)
                 u = right_core_move(u, V, i, rks)
-                LA[i + 1] = _nl_op_absorb_left(u.ttv_vec[i], A.tto_vec[i], LA[i])
-                EL[i + 1] = _nl_env4_absorb_left(u.ttv_vec[i], EL[i])
+                LA[i + 1] = _nl_op_absorb_left(u.cores[i], A.cores[i], LA[i])
+                EL[i + 1] = _nl_env4_absorb_left(u.cores[i], EL[i])
             end
             for i in d:-1:2                         # backward half sweep
-                V = _nl_site_step(u, i, A.tto_vec[i], LA[i], HA[i], EL[i], ER[i], g, η, alg)
+                V = _nl_site_step(u, i, A.cores[i], LA[i], HA[i], EL[i], ER[i], g, η, alg)
                 u = left_core_move(u, V, i, rks)
-                update_H!(u.ttv_vec[i], A.tto_vec[i], HA[i], HA[i - 1])
-                ER[i - 1] = _nl_env4_absorb_right(u.ttv_vec[i], ER[i])
+                update_H!(u.cores[i], A.cores[i], HA[i], HA[i - 1])
+                ER[i - 1] = _nl_env4_absorb_right(u.cores[i], ER[i])
             end
             total_sweeps += 1
-            penalty = _nl_penalty_local(u, 1, A.tto_vec[1], LA[1], HA[1], EL[1], ER[1], g, η)
+            penalty = _nl_penalty_local(u, 1, A.cores[1], LA[1], HA[1], EL[1], ER[1], g, η)
             alg.verbosity ≥ 2 && @info "PenaltyALS sweep" η sweep = total_sweeps penalty
             next!(progress; showvalues = [("sweep", total_sweeps), ("η", η), ("penalty", penalty)])
             abs(penalty - Pprev) ≤ alg.tol * abs(penalty) && break
@@ -426,8 +426,8 @@ function _penalty_solve_impl(A::TToperator{T, N}, u0::TTvector{T, N}, alg::Penal
 end
 
 """
-    non_linear_solve(A, u0; alg = PenaltyALS(), g = 0.0)
-    non_linear_solve(A, u0, alg::PenaltyALS; g = 0.0)
+    nonlinear_solve(A, u0; alg = PenaltyALS(), g = 0.0)
+    nonlinear_solve(A, u0, alg::PenaltyALS; g = 0.0)
 
 Ground state of the discrete Gross–Pitaevskii functional
 `P(u) = ⟨u|A|u⟩ + (g/2)Σ_m u_m⁴ + η(⟨u|u⟩−1)²` in TT/QTT format (arXiv:1802.07259).
@@ -435,10 +435,10 @@ Ground state of the discrete Gross–Pitaevskii functional
 coefficient (`g_physical · 2^L` in the QTT convention). Real TT only. Returns the
 discretely normalized minimizer, or `(u, info)` when `alg.return_info`.
 """
-non_linear_solve(A::TToperator, u0::TTvector; alg::PenaltyALS = PenaltyALS(), g::Real = 0.0) =
-    non_linear_solve(A, u0, alg; g = g)
+nonlinear_solve(A::TTOperator, u0::TTVector; alg::PenaltyALS = PenaltyALS(), g::Real = 0.0) =
+    nonlinear_solve(A, u0, alg; g = g)
 
-non_linear_solve(A::TToperator{T, N}, u0::TTvector{T, N}, alg::PenaltyALS; g::Real = 0.0) where {T, N} =
+nonlinear_solve(A::TTOperator{T, N}, u0::TTVector{T, N}, alg::PenaltyALS; g::Real = 0.0) where {T, N} =
     _penalty_solve_impl(A, u0, alg; g = g)
 
 """
@@ -447,7 +447,7 @@ non_linear_solve(A::TToperator{T, N}, u0::TTvector{T, N}, alg::PenaltyALS; g::Re
 Discrete Gross–Pitaevskii energy readout `E = ⟨u|A|u⟩/s + g·Σ_m u_m⁴/s²`, `s = ⟨u|u⟩`
 (full `g`, matching the paper's Table-1 convention; the minimized functional carries `g/2`).
 """
-function gpe_energy(A::TToperator{T, N}, u::TTvector{T, N}; g::Real = 0.0) where {T, N}
+function gpe_energy(A::TTOperator{T, N}, u::TTVector{T, N}; g::Real = 0.0) where {T, N}
     s = real(dot(u, u))
     e = real(dot(u, A * u))
     w = hadamard(u, u)
@@ -463,7 +463,7 @@ repeatedly prolong to one more QTT site (`qtto_linear_prolongation`), truncate t
 `inner`, up to the target grid. `verbosity ≥ 2` logs one line per grid level; `show_progress`
 displays a progress bar over the levels.
 """
-struct MGR <: NonLinearSolverAlgorithm
+struct MGR <: NonlinearSolverAlgorithm
     inner::PenaltyALS
     max_bond::Int
     return_info::Bool
@@ -490,33 +490,33 @@ function _mgr_inner(alg::PenaltyALS)
 end
 
 "Function barrier: one MGR level with concretely typed operator and state."
-_mgr_level(A::TToperator{T, N}, u::TTvector{T, N}, inner::PenaltyALS, g::Real) where {T, N} =
+_mgr_level(A::TTOperator{T, N}, u::TTVector{T, N}, inner::PenaltyALS, g::Real) where {T, N} =
     _penalty_solve_impl(A, u, inner; g = g)
 
 """
-    non_linear_solve(A_builder, u0, alg::MGR; g_builder, target_sites)
+    nonlinear_solve(A_builder, u0, alg::MGR; g_builder, target_sites)
 
-MGR ground-state solve from the coarse grid `u0.N` up to `target_sites` QTT sites.
-`A_builder(d)::TToperator` returns the discrete linear operator on `d` sites and
+MGR ground-state solve from the coarse grid `nsites(u0)` up to `target_sites` QTT sites.
+`A_builder(d)::TTOperator` returns the discrete linear operator on `d` sites and
 `g_builder(d)::Real` the discrete interaction coefficient (e.g. `g · 2^d`).
 Returns `u`, or `(u, info)` with `info = (; energy, level_sites, level_energies)`.
 """
-function non_linear_solve(
-        A_builder::Function, u0::TTvector{T, M}, alg::MGR;
+function nonlinear_solve(
+        A_builder::Function, u0::TTVector{T, M}, alg::MGR;
         g_builder::Function, target_sites::Int
     ) where {T, M}
-    target_sites ≥ u0.N || throw(ArgumentError("target_sites ($target_sites) must be ≥ u0.N ($(u0.N))"))
+    target_sites ≥ nsites(u0) || throw(ArgumentError("target_sites ($target_sites) must be ≥ nsites(u0) ($(nsites(u0)))"))
     inner = _mgr_inner(alg.inner)
-    levels = target_sites - u0.N + 1
+    levels = target_sites - nsites(u0) + 1
     progress = _solver_progress(levels, alg.show_progress; desc = "MGR nonlinear solve")
     level_sites = Int[]
     level_energies = Float64[]
-    u = _mgr_level(A_builder(u0.N), u0, inner, g_builder(u0.N))
-    push!(level_sites, u0.N)
-    alg.verbosity ≥ 2 && @info "MGR level" sites = u0.N
-    alg.return_info && push!(level_energies, gpe_energy(A_builder(u0.N), u; g = g_builder(u0.N)))
-    next!(progress; showvalues = [("level", "1/$levels"), ("largest rank", maximum(u.ttv_rks))])
-    for d in (u0.N + 1):target_sites
+    u = _mgr_level(A_builder(nsites(u0)), u0, inner, g_builder(nsites(u0)))
+    push!(level_sites, nsites(u0))
+    alg.verbosity ≥ 2 && @info "MGR level" sites = nsites(u0)
+    alg.return_info && push!(level_energies, gpe_energy(A_builder(nsites(u0)), u; g = g_builder(nsites(u0))))
+    next!(progress; showvalues = [("level", "1/$levels"), ("largest rank", maximum(u.ranks))])
+    for d in (nsites(u0) + 1):target_sites
         up = qtto_linear_prolongation(d - 1) * u
         tt_compress!(up, alg.max_bond)
         up = (1 / norm(up)) * up
@@ -524,7 +524,7 @@ function non_linear_solve(
         push!(level_sites, d)
         alg.verbosity ≥ 2 && @info "MGR level" sites = d
         alg.return_info && push!(level_energies, gpe_energy(A_builder(d), u; g = g_builder(d)))
-        next!(progress; showvalues = [("level", "$(d - u0.N + 1)/$levels"), ("largest rank", maximum(u.ttv_rks))])
+        next!(progress; showvalues = [("level", "$(d - nsites(u0) + 1)/$levels"), ("largest rank", maximum(u.ranks))])
     end
     finish!(progress)
     if alg.return_info

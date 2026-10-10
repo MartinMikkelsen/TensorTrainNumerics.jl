@@ -20,7 +20,7 @@ DMRG
 Krylov
 als_linsolve
 als_eigsolve
-als_gen_eigsolv
+als_gen_eigsolve
 mals_linsolve
 mals_eigsolve
 dmrg_linsolve
@@ -36,8 +36,8 @@ KrylovSolver
 ## Nonlinear solver
 
 ```@docs
-non_linear_solve
-NonLinearSolverAlgorithm
+nonlinear_solve
+NonlinearSolverAlgorithm
 PenaltyALS
 MGR
 gpe_energy
@@ -46,9 +46,16 @@ gpe_energy
 ## Time evolution
 
 ```@docs
+time_evolve
+TimeEvolutionAlgorithm
+Euler
+ImplicitEuler
+CrankNicolson
+RK4
+TDVP
 euler_method
 implicit_euler_method
-crank_nicholson_method
+crank_nicolson_method
 rk4_method
 tdvp
 tdvp2
@@ -60,6 +67,6 @@ tdvp2
 tt_cross
 tt_integrate
 MaxVol
-DMRGcross
+DMRGCross
 Greedy
 ```

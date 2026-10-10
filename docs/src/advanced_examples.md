@@ -84,13 +84,13 @@ In code, the one-dimensional blocks are:
 ∂xx = -(1 / h^2) * Δ(d)                              # second derivative
 idd = id_tto(d)
 
-Mx = ttv_to_diag_tto(qtt_polynom([-μx, 1.0], d; a = a, b = b))
-My = ttv_to_diag_tto(qtt_polynom([-μy, 1.0], d; a = a, b = b))
+Mx = tt_to_diag_tto(qtt_polynomial([-μx, 1.0], d; a = a, b = b))
+My = tt_to_diag_tto(qtt_polynomial([-μy, 1.0], d; a = a, b = b))
 
 Mx
 ```
 
-Here `qtt_polynom([-μx, 1.0], d; a, b)` represents the sampled function $x-\mu_x$ in QTT format, and `ttv_to_diag_tto` turns it into a diagonal QTT operator. The output is the compact MPO summary produced by the tensor-train `show` method.
+Here `qtt_polynomial([-μx, 1.0], d; a, b)` represents the sampled function $x-\mu_x$ in QTT format, and `tt_to_diag_tto` turns it into a diagonal QTT operator. The output is the compact MPO summary produced by the tensor-train `show` method.
 
 ### 3. Assemble The Two-Dimensional Generator
 
@@ -117,13 +117,13 @@ In the script both spatial directions use the same one-dimensional derivative bl
 A = θ * ((∂x * Mx) ⊗ idd + idd ⊗ (∂x * My)) +
     D * (∂xx ⊗ idd + idd ⊗ ∂xx)
 
-toarr(v) = qttv_to_array(QTTvector(v, 2, d, :serial))
+toarr(v) = qttv_to_array(QTTVector(v, 2, d, :serial))
 mass(P) = sum(P) * h^2
 
 A
 ```
 
-This is a plain `TToperator` with $2d$ sites. Since the sites are ordered serially, we can view vectors as two-dimensional QTT arrays by wrapping them with `QTTvector(v, 2, d, :serial)`.
+This is a plain `TTOperator` with $2d$ sites. Since the sites are ordered serially, we can view vectors as two-dimensional QTT arrays by wrapping them with `QTTVector(v, 2, d, :serial)`.
 
 ### 4. Construct And Normalize The Initial Density
 
@@ -157,9 +157,9 @@ P∞ = [g1(xi, μx) * g1(yj, μy) for xi in xes, yj in xes]
 maximum(P∞)
 ```
 
-### 5. Evolve With Crank-Nicholson
+### 5. Evolve With Crank-Nicolson
 
-For an autonomous linear system $\dot{u} = A u$, Crank-Nicholson applies
+For an autonomous linear system $\dot{u} = A u$, Crank-Nicolson applies
 
 ```math
 u^{k+1}
@@ -168,7 +168,7 @@ u^{k+1}
     \left(I+\frac{\tau}{2}A\right)u^k,
 ```
 
-with time step $\tau$. The implementation calls `crank_nicholson_method`, solving each implicit TT linear system with ALS:
+with time step $\tau$. The implementation calls `crank_nicolson_method`, solving each implicit TT linear system with ALS:
 
 ```@example ou_qtt
 τ = 0.02
@@ -193,7 +193,7 @@ end
 ψ = u₀
 record!(ψ)
 for _ in 1:n_blocks
-    global ψ = crank_nicholson_method(
+    global ψ = crank_nicolson_method(
         A, ψ, ψ, fill(τ, block);
         normalize = false, alg = ALS()
     )

@@ -56,23 +56,23 @@ end
     @test qtt_to_vector(function_to_qtt(identity, d; a, b)) ≈ x
     @test qtt_to_vector(function_to_qtt(t -> sin(3t), d; a, b)) ≈ sin.(3 .* x)
     @test qtt_to_vector(function_to_qtt(t -> t^2 - 1, d; a, b)) ≈
-        qtt_to_vector(qtt_polynom([-1.0, 0.0, 1.0], d; a, b))
+        qtt_to_vector(qtt_polynomial([-1.0, 0.0, 1.0], d; a, b))
     @test index_to_point((2, 2); L = 3.0) ≈ 3.0
     # bits (2, 1) are j = 2 of 0:3, the point -1 + 2·(2/3)
     @test function_to_tensor(identity, 2; a = -1.0, b = 1.0)[2, 1] ≈ 1 / 3
 end
 
-@testset "qtt_trapezoidal is the trapezoidal rule" begin
+@testset "qtt_trapezoidal_weights is the trapezoidal rule" begin
     for (d, a, b) in ((1, 0.0, 1.0), (6, 0.0, 1.0), (8, -1.0, 2.0))
         N = 2^d
         h = (b - a) / (N - 1)
-        w = qtt_trapezoidal(d; a, b)
+        w = qtt_trapezoidal_weights(d; a, b)
         weights = qtt_to_vector(w)
         @test weights ≈ h .* [i == 1 || i == N ? 0.5 : 1.0 for i in 1:N]
         # exact for constants and linear functions
         @test sum(weights) ≈ b - a
         @test dot(weights, range(a, b; length = N)) ≈ (b^2 - a^2) / 2
-        @test dot(w, qtt_polynom([0.0, 1.0], d; a, b)) ≈ (b^2 - a^2) / 2
+        @test dot(w, qtt_polynomial([0.0, 1.0], d; a, b)) ≈ (b^2 - a^2) / 2
     end
 end
 
@@ -83,7 +83,7 @@ end
     @test qtt_to_vector(qtt_sin(1; a, b, λ = 1.3)) ≈ sin.(1.3π .* x)
     @test qtt_to_vector(qtt_cos(1; a, b, λ = 1.3)) ≈ cos.(1.3π .* x)
     @test qtt_to_vector(qtt_exp(1; a, b, α = 2.0, β = 0.5)) ≈ exp.(2.0 .* x .+ 0.5)
-    @test qtt_to_vector(qtt_polynom([1.0, -2.0, 3.0], 1; a, b)) ≈ [1 - 2t + 3t^2 for t in x]
+    @test qtt_to_vector(qtt_polynomial([1.0, -2.0, 3.0], 1; a, b)) ≈ [1 - 2t + 3t^2 for t in x]
     @test qtt_to_vector(qtt_chebyshev(3, 1)) ≈ [1.0, -1.0]       # T₃ at the Lobatto nodes x = 1, 0
     @test qtto_to_matrix(toeplitz_to_qtto(2.0, 3.0, 5.0, 1)) ≈ [2.0 3.0; 5.0 2.0]
     @test qtto_to_matrix(shift(1)) ≈ [0.0 1.0; 0.0 0.0]
@@ -118,18 +118,18 @@ end
 end
 
 
-@testset "qtt_polynom" begin
+@testset "qtt_polynomial" begin
     coef = [0.0, 1.0]  # p(x) = x
     d = 3
-    tt = qtt_polynom(coef, d; a = 0.0, b = 1.0)
+    tt = qtt_polynomial(coef, d; a = 0.0, b = 1.0)
     # Check types and shapes
-    @test hasproperty(tt, :ttv_vec)
-    @test length(tt.ttv_vec) == d
-    @test size(tt.ttv_vec[1]) == (2, 1, 2)
-    @test size(tt.ttv_vec[d]) == (2, 2, 1)
+    @test hasproperty(tt, :cores)
+    @test length(tt.cores) == d
+    @test size(tt.cores[1]) == (2, 1, 2)
+    @test size(tt.cores[d]) == (2, 2, 1)
     # Check that the first core is filled as expected for x=0 and x=1
-    @test isapprox((tt.ttv_vec[1])[1, 1, 2], 1.0)  # not 0.0
-    @test isapprox(tt.ttv_vec[1][2, 1, 2], 1.0)  # φ(1,1) for x^1
+    @test isapprox((tt.cores[1])[1, 1, 2], 1.0)  # not 0.0
+    @test isapprox(tt.cores[1][2, 1, 2], 1.0)  # φ(1,1) for x^1
 end
 
 @testset "qtt_cos" begin
@@ -139,14 +139,14 @@ end
     b = 1.0
     tt = qtt_cos(d; a = a, b = b, λ = λ)
     # Check structure
-    @test hasproperty(tt, :ttv_vec)
-    @test length(tt.ttv_vec) == d
-    @test size(tt.ttv_vec[1]) == (2, 1, 2)
-    @test size(tt.ttv_vec[d]) == (2, 2, 1)
+    @test hasproperty(tt, :cores)
+    @test length(tt.cores) == d
+    @test size(tt.cores[1]) == (2, 1, 2)
+    @test size(tt.cores[d]) == (2, 2, 1)
     # Check first core values at x=a
     t₁ = a
-    @test isapprox(tt.ttv_vec[1][1, 1, 1], cos(λ * π * t₁))
-    @test isapprox(tt.ttv_vec[1][1, 1, 2], -sin(λ * π * t₁))
+    @test isapprox(tt.cores[1][1, 1, 1], cos(λ * π * t₁))
+    @test isapprox(tt.cores[1][1, 1, 2], -sin(λ * π * t₁))
 end
 
 @testset "qtt_sin" begin
@@ -156,14 +156,14 @@ end
     b = 1.0
     tt = qtt_sin(d; a = a, b = b, λ = λ)
     # Check structure
-    @test hasproperty(tt, :ttv_vec)
-    @test length(tt.ttv_vec) == d
-    @test size(tt.ttv_vec[1]) == (2, 1, 2)
-    @test size(tt.ttv_vec[d]) == (2, 2, 1)
+    @test hasproperty(tt, :cores)
+    @test length(tt.cores) == d
+    @test size(tt.cores[1]) == (2, 1, 2)
+    @test size(tt.cores[d]) == (2, 2, 1)
     # Check first core values at x=a
     t₁ = a
-    @test isapprox(tt.ttv_vec[1][1, 1, 1], sin(λ * π * t₁))
-    @test isapprox(tt.ttv_vec[1][1, 1, 2], cos(λ * π * t₁))
+    @test isapprox(tt.cores[1][1, 1, 1], sin(λ * π * t₁))
+    @test isapprox(tt.cores[1][1, 1, 2], cos(λ * π * t₁))
 end
 
 @testset "qtt_exp" begin
@@ -174,16 +174,16 @@ end
     b = 1.0
     tt = qtt_exp(d; a = a, b = b, α = α, β = β)
     # Check structure
-    @test hasproperty(tt, :ttv_vec)
-    @test length(tt.ttv_vec) == d
-    @test size(tt.ttv_vec[1]) == (2, 1, 1)
-    @test size(tt.ttv_vec[d]) == (2, 1, 1)
+    @test hasproperty(tt, :cores)
+    @test length(tt.cores) == d
+    @test size(tt.cores[1]) == (2, 1, 1)
+    @test size(tt.cores[d]) == (2, 1, 1)
     # Check first core values
     h = (b - a) / (2^d - 1)
     t₁ = a
-    @test isapprox(tt.ttv_vec[1][1, 1, 1], exp(α * t₁ + β))
+    @test isapprox(tt.cores[1][1, 1, 1], exp(α * t₁ + β))
     t₁ = a + h * 2^(d - 1)
-    @test isapprox(tt.ttv_vec[1][2, 1, 1], exp(α * t₁ + β))
+    @test isapprox(tt.cores[1][2, 1, 1], exp(α * t₁ + β))
 end
 
 @testset "qtt_chebyshev" begin
@@ -191,40 +191,40 @@ end
     d = 3
     n = 0
     tt = qtt_chebyshev(n, d)
-    @test hasproperty(tt, :ttv_vec)
-    @test length(tt.ttv_vec) == d
-    @test size(tt.ttv_vec[1]) == (2, 1, 2)
-    @test size(tt.ttv_vec[d]) == (2, 2, 1)
+    @test hasproperty(tt, :cores)
+    @test length(tt.cores) == d
+    @test size(tt.cores[1]) == (2, 1, 2)
+    @test size(tt.cores[d]) == (2, 2, 1)
 
     # Check that the first core is filled as expected for n=0
     N = 2^d
     x_nodes, _ = gauss_chebyshev_lobatto(N; shifted = true)
     θ = acos.(clamp.(2 .* x_nodes .- 1, -1.0, 1.0))
     # For n=0, cos(0*θ)=1, sin(0*θ)=0
-    @test isapprox(tt.ttv_vec[1][1, 1, 1], 1.0)
-    @test isapprox(tt.ttv_vec[1][1, 1, 2], 0.0)
-    @test isapprox(tt.ttv_vec[1][2, 1, 1], 1.0)
-    @test isapprox(tt.ttv_vec[1][2, 1, 2], 0.0)
+    @test isapprox(tt.cores[1][1, 1, 1], 1.0)
+    @test isapprox(tt.cores[1][1, 1, 2], 0.0)
+    @test isapprox(tt.cores[1][2, 1, 1], 1.0)
+    @test isapprox(tt.cores[1][2, 1, 2], 0.0)
 
     # Test for n=1 (should correspond to T₁(x)=x)
     n = 1
     tt1 = qtt_chebyshev(n, d)
     # Check first core values
-    @test isapprox(tt1.ttv_vec[1][1, 1, 1], cos(n * θ[1]))
-    @test isapprox(tt1.ttv_vec[1][1, 1, 2], -sin(n * θ[1]))
-    @test isapprox(tt1.ttv_vec[1][2, 1, 1], cos(n * θ[2^(d - 1) + 1]))
-    @test isapprox(tt1.ttv_vec[1][2, 1, 2], -sin(n * θ[2^(d - 1) + 1]))
+    @test isapprox(tt1.cores[1][1, 1, 1], cos(n * θ[1]))
+    @test isapprox(tt1.cores[1][1, 1, 2], -sin(n * θ[1]))
+    @test isapprox(tt1.cores[1][2, 1, 1], cos(n * θ[2^(d - 1) + 1]))
+    @test isapprox(tt1.cores[1][2, 1, 2], -sin(n * θ[2^(d - 1) + 1]))
 
     # Check last core values
-    @test isapprox(tt1.ttv_vec[d][2, 1, 1], cos(n * θ[2]))
-    @test isapprox(tt1.ttv_vec[d][2, 2, 1], sin(n * θ[2]))
+    @test isapprox(tt1.cores[d][2, 1, 1], cos(n * θ[2]))
+    @test isapprox(tt1.cores[d][2, 2, 1], sin(n * θ[2]))
 
     # Check that the identity block is set in intermediate d
     for k in 2:(d - 1)
-        @test tt1.ttv_vec[k][1, 1, 1] ≈ 1.0
-        @test tt1.ttv_vec[k][1, 2, 2] ≈ 1.0
-        @test tt1.ttv_vec[k][1, 1, 2] ≈ 0.0
-        @test tt1.ttv_vec[k][1, 2, 1] ≈ 0.0
+        @test tt1.cores[k][1, 1, 1] ≈ 1.0
+        @test tt1.cores[k][1, 2, 2] ≈ 1.0
+        @test tt1.cores[k][1, 1, 2] ≈ 0.0
+        @test tt1.cores[k][1, 2, 1] ≈ 0.0
     end
 end
 
@@ -254,10 +254,10 @@ end
     tt2 = function_to_qtt(g, d, a = a, b = b)
     tt3 = function_to_qtt(Q, d; a = a, b = b)
     # Check structure
-    @test hasproperty(tt, :ttv_vec)
-    @test length(tt.ttv_vec) == d
-    @test size(tt.ttv_vec[1]) == (2, 1, 2)
-    @test size(tt.ttv_vec[d]) == (2, 2, 1)
+    @test hasproperty(tt, :cores)
+    @test length(tt.cores) == d
+    @test size(tt.cores[1]) == (2, 1, 2)
+    @test size(tt.cores[d]) == (2, 2, 1)
 
     A = qtt_sin(d; a = a, b = b)
     @test qtt_to_function(tt) ≈ qtt_to_function(A)
@@ -268,36 +268,36 @@ end
 @testset "to_qtt and to_ttv" begin
     @testset "single-core big-endian split and merge" begin
         values = Float64.(1:6)
-        tt = TTvector{Float64, 1}(1, [reshape(values, 6, 1, 1)], (6,), [1, 1], [0])
+        tt = TTVector{Float64, 1}([reshape(values, 6, 1, 1)], (6,), [1, 1])
 
         qtt = to_qtt(tt, [[2, 3]])
-        @test qtt.N == 2
-        @test qtt.ttv_dims == (2, 3)
-        @test ttv_to_tensor(qtt) ≈ [1.0 2.0 3.0; 4.0 5.0 6.0] atol = 1.0e-12
+        @test nsites(qtt) == 2
+        @test qtt.dims == (2, 3)
+        @test tt_to_tensor(qtt) ≈ [1.0 2.0 3.0; 4.0 5.0 6.0] atol = 1.0e-12
 
         merged = to_ttv(qtt, [2])
-        @test merged.N == 1
-        @test merged.ttv_dims == (6,)
-        @test vec(ttv_to_tensor(merged)) ≈ values atol = 1.0e-12
+        @test nsites(merged) == 1
+        @test merged.dims == (6,)
+        @test vec(tt_to_tensor(merged)) ≈ values atol = 1.0e-12
     end
 
     @testset "round-trip preserves multi-core dense tensor" begin
         tensor = reshape(Float64.(1:24), 4, 6)
-        tt = ttv_decomp(tensor)
+        tt = tt_decomp(tensor)
 
         qtt = to_qtt(tt, [[2, 2], [2, 3]])
-        @test qtt.N == 4
-        @test qtt.ttv_dims == (2, 2, 2, 3)
+        @test nsites(qtt) == 4
+        @test qtt.dims == (2, 2, 2, 3)
 
         merged = to_ttv(qtt, [2, 2])
-        @test merged.N == 2
-        @test merged.ttv_dims == (4, 6)
-        @test ttv_to_tensor(merged) ≈ tensor atol = 1.0e-11
+        @test nsites(merged) == 2
+        @test merged.dims == (4, 6)
+        @test tt_to_tensor(merged) ≈ tensor atol = 1.0e-11
     end
 
     @testset "to_ttv uses the earlier core as the coarser index" begin
         tensor = reshape(Float64.(1:16), 2, 2, 2, 2)
-        qtt = ttv_decomp(tensor)
+        qtt = tt_decomp(tensor)
 
         merged = to_ttv(qtt, [2, 2])
         expected = zeros(Float64, 4, 4)
@@ -305,24 +305,24 @@ end
             expected[(i1 - 1) * 2 + i2, (i3 - 1) * 2 + i4] = tensor[i1, i2, i3, i4]
         end
 
-        @test ttv_to_tensor(merged) ≈ expected atol = 1.0e-12
+        @test tt_to_tensor(merged) ≈ expected atol = 1.0e-12
     end
 
     @testset "threshold truncates small relative singular values" begin
         values = [1.0, 0.0, 0.0, 1.0e-3]
-        tt = TTvector{Float64, 1}(1, [reshape(values, 4, 1, 1)], (4,), [1, 1], [0])
+        tt = TTVector{Float64, 1}([reshape(values, 4, 1, 1)], (4,), [1, 1])
 
         exact = to_qtt(tt, [[2, 2]])
         truncated = to_qtt(tt, [[2, 2]]; threshold = 1.0e-2)
 
-        @test exact.ttv_rks == [1, 2, 1]
-        @test truncated.ttv_rks == [1, 1, 1]
-        @test vec(ttv_to_tensor(to_ttv(exact, [2]))) ≈ values atol = 1.0e-12
-        @test vec(ttv_to_tensor(to_ttv(truncated, [2]))) ≈ [1.0, 0.0, 0.0, 0.0] atol = 1.0e-12
+        @test exact.ranks == [1, 2, 1]
+        @test truncated.ranks == [1, 1, 1]
+        @test vec(tt_to_tensor(to_ttv(exact, [2]))) ≈ values atol = 1.0e-12
+        @test vec(tt_to_tensor(to_ttv(truncated, [2]))) ≈ [1.0, 0.0, 0.0, 0.0] atol = 1.0e-12
     end
 
     @testset "invalid split and merge metadata throws" begin
-        tt = TTvector{Float64, 1}(1, [reshape(Float64.(1:4), 4, 1, 1)], (4,), [1, 1], [0])
+        tt = TTVector{Float64, 1}([reshape(Float64.(1:4), 4, 1, 1)], (4,), [1, 1])
 
         @test_throws AssertionError to_qtt(tt, [[2, 2], [2]])
         @test_throws AssertionError to_qtt(tt, [[2, 3]])
@@ -364,28 +364,28 @@ end
     for pos in 1:(2^d)
         tt = qtt_basis_vector(d, pos)
         for k in 1:d
-            nonzeros = count(!iszero, tt.ttv_vec[k][:, 1, 1])
+            nonzeros = count(!iszero, tt.cores[k][:, 1, 1])
             @test nonzeros == 1
         end
     end
 end
 
-@testset "qtt_trapezoidal" begin
+@testset "qtt_trapezoidal_weights" begin
     d = 8
     a = 0.0
     b = 1.0
-    tt = qtt_trapezoidal(d; a = a, b = b)
+    tt = qtt_trapezoidal_weights(d; a = a, b = b)
     # Check structure
-    @test hasproperty(tt, :ttv_vec)
-    @test length(tt.ttv_vec) == d
-    @test maximum(tt.ttv_rks) ≤ 3
+    @test hasproperty(tt, :cores)
+    @test length(tt.cores) == d
+    @test maximum(tt.ranks) ≤ 3
     A = qtt_sin(d, λ = 3.0)
-    w = qtt_trapezoidal(d)
+    w = qtt_trapezoidal_weights(d)
     I1 = TensorTrainNumerics.dot(w, A)
     @test isapprox(I1, 2 / (3 * π), atol = 1.0e-4)
 
     B = qtt_cos(d)
-    w2 = qtt_trapezoidal(d)
+    w2 = qtt_trapezoidal_weights(d)
     I2 = TensorTrainNumerics.dot(w2, B)
     @test isapprox(I2, 0.0, atol = 1.0e-4)
 
@@ -406,7 +406,7 @@ end
     @test qtt_to_function(tt3) ≈ qtt_to_vector(tt3)
 
     dims = (2, 2, 2, 2, 2, 2)
-    A = rand_tt(dims, 5; normalise = true)
+    A = rand_tt(dims, 5; normalize = true)
     @test qtt_to_function(A) ≈ qtt_to_vector(A)
 
 end

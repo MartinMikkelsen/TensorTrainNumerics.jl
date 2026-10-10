@@ -12,14 +12,14 @@ Random.seed!(42)
     # exact reference for TDVP, with no error from the fixed-rank approximation.
     for nsites in 1:3, active in unique([1, nsites])
         local_ops = [k == active ? [0.0 0.0; 0.0 1.0] : Matrix{Float64}(I, 2, 2) for k in 1:nsites]
-        H = TToperator(
-            nsites, [reshape(A, 2, 2, 1, 1) for A in local_ops],
-            ntuple(_ -> 2, nsites), ones(Int, nsites + 1), zeros(Int, nsites)
+        H = TTOperator(
+            [reshape(A, 2, 2, 1, 1) for A in local_ops],
+            ntuple(_ -> 2, nsites), ones(Int, nsites + 1)
         )
-        # Site 1 is the fastest physical index in ttv_to_tensor.
+        # Site 1 is the fastest physical index in tt_to_tensor.
         H_dense = reduce(kron, reverse(local_ops))
         initial = fill(1 / sqrt(2^nsites), ntuple(_ -> 2, nsites))
-        u0 = ttv_decomp(initial)
+        u0 = tt_decomp(initial)
         total_time = 0.1
         for imaginary_time in (false, true), nsteps in (1, 4)
             generator = imaginary_time ? H_dense : -im * H_dense
@@ -28,8 +28,8 @@ Random.seed!(42)
                 H, u0, fill(total_time / nsteps, nsteps);
                 imaginary_time, normalize = false, show_progress = false
             )
-            @test vec(ttv_to_tensor(u)) ≈ expected atol = 1.0e-11 rtol = 1.0e-11
-            @test ttv_to_tensor(u0) ≈ initial
+            @test vec(tt_to_tensor(u)) ≈ expected atol = 1.0e-11 rtol = 1.0e-11
+            @test tt_to_tensor(u0) ≈ initial
         end
     end
 end
@@ -43,11 +43,11 @@ end
     ]
     H = tto_decomp(reshape(H_dense, 2, 2, 2, 2))
     initial = normalize(ComplexF64[1, 2 + im, -im, -1])
-    u0 = ttv_decomp(reshape(initial, 2, 2))
+    u0 = tt_decomp(reshape(initial, 2, 2))
     expected = exp(-0.08im * H_dense) * initial
     for steps in ([0.08], fill(0.02, 4))
         u = tdvp(H, u0, steps; normalize = false, show_progress = false)
-        @test vec(ttv_to_tensor(u)) ≈ expected atol = 1.0e-10 rtol = 1.0e-10
+        @test vec(tt_to_tensor(u)) ≈ expected atol = 1.0e-10 rtol = 1.0e-10
         @test norm(u) ≈ 1.0 atol = 1.0e-11
     end
 end
@@ -61,8 +61,8 @@ end
     rights = (4, 6, 7)
     A_lsr = [randn(lefts[k], dims[k], rights[k]) for k in 1:N]
     _sync_ranks_from_lsr!(ψ, A_lsr)
-    @test ψ.ttv_rks == [lefts..., rights[end]]
-    @test all(==(0), ψ.ttv_ot)
+    @test ψ.ranks == [lefts..., rights[end]]
+    @test ψ.orthogonality == [1, nsites(ψ)]
 end
 
 @testset "_real_or_complex_t" begin
@@ -189,15 +189,15 @@ end
 
     ψ_out, F = TensorTrainNumerics.tdvp1sweep!(0.05, ψ, H0, nothing; verbose = false)
 
-    @test ψ_out.ttv_dims == ψ0.ttv_dims
+    @test ψ_out.dims == ψ0.dims
     @test length(F) == d + 2
     @test isfinite(norm(ψ_out))
     @test norm(ψ_out - ψ0) / norm(ψ0) < 1.0e-6
 end
 
-function dense_relerr(x::TensorTrainNumerics.TTvector, y::TensorTrainNumerics.TTvector)
-    x_dense = vec(ttv_to_tensor(x))
-    y_dense = vec(ttv_to_tensor(y))
+function dense_relerr(x::TensorTrainNumerics.TTVector, y::TensorTrainNumerics.TTVector)
+    x_dense = vec(tt_to_tensor(x))
+    y_dense = vec(tt_to_tensor(y))
     y_norm = norm(y_dense)
     return norm(x_dense - y_dense) / max(y_norm, eps(typeof(y_norm)))
 end
@@ -214,7 +214,7 @@ end
     ψ2, F = tdvp1sweep!(complex(0.1), ψ, H0, nothing; verbose = false)
 
     @test dense_relerr(ψ2, ψ_ref) < 1.0e-12
-    @test length(F) == ψ.N + 2
+    @test length(F) == nsites(ψ) + 2
 end
 
 @testset "tdvp: basic behavior" begin
@@ -299,10 +299,10 @@ end
     H0 = (0.0 + 0.0im) * complex(id_tto(d))
 
     ψ1, F1 = tdvp2sweep!(0.1im, deepcopy(ψ0), H0, nothing; verbose = false)
-    @test length(F1) == ψ0.N + 2
+    @test length(F1) == nsites(ψ0) + 2
     @test size(F1[1]) == (1, 1, 1)
     @test size(F1[end]) == (1, 1, 1)
-    @test isapprox(ttv_to_tensor(ψ1), ttv_to_tensor(ψ0); atol = 1.0e-10, rtol = 1.0e-10)
+    @test isapprox(tt_to_tensor(ψ1), tt_to_tensor(ψ0); atol = 1.0e-10, rtol = 1.0e-10)
 end
 
 @testset "tdvp2sweep! real-time & imaginary-time dt (H=0)" begin
@@ -313,8 +313,8 @@ end
     ψa, _ = tdvp2sweep!(0.05, deepcopy(ψ0), H0, nothing; verbose = false)
     ψb, _ = tdvp2sweep!(0.05im, deepcopy(ψ0), H0, nothing; verbose = false)
 
-    @test isapprox(ttv_to_tensor(ψa), ttv_to_tensor(ψ0); atol = 1.0e-10, rtol = 1.0e-10)
-    @test isapprox(ttv_to_tensor(ψb), ttv_to_tensor(ψ0); atol = 1.0e-10, rtol = 1.0e-10)
+    @test isapprox(tt_to_tensor(ψa), tt_to_tensor(ψ0); atol = 1.0e-10, rtol = 1.0e-10)
+    @test isapprox(tt_to_tensor(ψb), tt_to_tensor(ψ0); atol = 1.0e-10, rtol = 1.0e-10)
 end
 
 @testset "tdvp2sweep! respects max_bond" begin
@@ -323,17 +323,17 @@ end
     H0 = (0.0 + 0.0im) * complex(id_tto(d))
     mb = 2
     ψ2, _ = tdvp2sweep!(0.1im, deepcopy(ψ0), H0, nothing; verbose = false, max_bond = mb, trunc_tol = 0.0)
-    @test maximum(ψ2.ttv_rks) ≤ mb
+    @test maximum(ψ2.ranks) ≤ mb
 end
 
 @testset "tdvp2sweep! truncates with trunc_tol" begin
     spectrum = [1.0, 0.08, 0.08, 0.08]
-    ψ0 = ttv_decomp(Matrix(Diagonal(spectrum)))
+    ψ0 = tt_decomp(Matrix(Diagonal(spectrum)))
     H0 = zeros_tto(Float64, (4, 4), [1, 1, 1])
 
     ψ2, _ = tdvp2sweep!(0.1im, ψ0, H0, nothing; verbose = false, trunc_tol = 0.14)   # tail norm 0.139 ≤ 0.14·‖s‖
 
-    @test ψ2.ttv_rks == [1, 1, 1]
+    @test ψ2.ranks == [1, 1, 1]
 end
 
 @testset "tdvp2: basic behavior" begin
@@ -385,14 +385,14 @@ end
 
 @testset "real-time QTT TDVP accepts real inputs" begin
     d = 2
-    u0 = QTTvector(qtt_sin(d), 1, d, :serial)
-    H0 = QTToperator(0.0 * id_tto(d), 1, d, :serial)
+    u0 = QTTVector(qtt_sin(d), 1, d, :serial)
+    H0 = QTTOperator(0.0 * id_tto(d), 1, d, :serial)
 
     ψ1 = tdvp(H0, u0, [0.01]; normalize = false, verbosity = 0, show_progress = false)
     ψ2 = tdvp2(H0, u0, [0.01]; normalize = false, verbosity = 0, show_progress = false)
 
-    @test ψ1 isa QTTvector{ComplexF64}
-    @test ψ2 isa QTTvector{ComplexF64}
+    @test ψ1 isa QTTVector{ComplexF64}
+    @test ψ2 isa QTTVector{ComplexF64}
 end
 
 @testset "tdvp2: imaginary-time branch runs" begin
@@ -415,10 +415,10 @@ end
 
     Δ1d = toeplitz_to_qtto(-2.0, 1.0, 1.0, d)
     A_raw = (κ / h^2) * (Δ1d ⊗ id_tto(d) + id_tto(d) ⊗ Δ1d)
-    A = QTToperator(A_raw, 2, d, :serial)
+    A = QTTOperator(A_raw, 2, d, :serial)
 
     u0_raw = qtt_sin(d; a = h, b = 1 - h) ⊗ qtt_sin(d; a = h, b = 1 - h)
-    u0 = QTTvector(u0_raw, 2, d, :serial)
+    u0 = QTTVector(u0_raw, 2, d, :serial)
     λ = real(TensorTrainNumerics.dot(u0_raw, A_raw * u0_raw) / TensorTrainNumerics.dot(u0_raw, u0_raw))
 
     steps = fill(1.0e-3, 5)
@@ -477,18 +477,18 @@ end
     Random.seed!(31)
     d = 4
     H = Δ(d)
-    u0 = rand_tt(ntuple(_ -> 2, d), 2; normalise = true)
+    u0 = rand_tt(ntuple(_ -> 2, d), 2; normalize = true)
     steps = [0.01, 0.01]
 
     ψ, info = tdvp(H, u0, steps; substeps = 2, return_info = true, show_progress = false)
     @test info.error isa Real
     ψ2, info2 = tdvp2(H, u0, steps; substeps = 2, max_bond = 4, return_info = true, show_progress = false)
     @test info2.error isa Real
-    @test maximum(ψ2.ttv_rks) ≤ 4
+    @test maximum(ψ2.ranks) ≤ 4
 
     # trunc_tol = √(d − 1) makes δ ≥ ‖s‖ at every bond, so every rank drops to 1.
     ψ1 = tdvp2(H, u0, [0.01]; trunc_tol = sqrt(d - 1), show_progress = false)
-    @test all(==(1), ψ1.ttv_rks)
+    @test all(==(1), ψ1.ranks)
 
     @test_logs tdvp(H, u0, [0.01]; show_progress = false)
     @test_logs (:info, "TDVP sweep:") match_mode = :any tdvp(H, u0, [0.01]; verbosity = 3, show_progress = false)
@@ -497,8 +497,8 @@ end
 @testset "TDVP rejects keywords that KrylovKit.exponentiate does not take" begin
     d = 4
     H = Δ(d)
-    u0 = rand_tt(ntuple(_ -> 2, d), 2; normalise = true)
+    u0 = rand_tt(ntuple(_ -> 2, d), 2; normalize = true)
     @test_throws "unsupported keyword argument(s) verbose" tdvp(H, u0, [0.01]; verbose = true, show_progress = false)
     @test_throws "unsupported keyword argument(s) truncerr" tdvp2(H, u0, [0.01]; truncerr = 1.0e-8, show_progress = false)
-    @test tdvp(H, u0, [0.01]; tol = 1.0e-12, krylovdim = 10, show_progress = false) isa TTvector
+    @test tdvp(H, u0, [0.01]; tol = 1.0e-12, krylovdim = 10, show_progress = false) isa TTVector
 end

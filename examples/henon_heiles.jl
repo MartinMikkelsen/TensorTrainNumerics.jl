@@ -25,12 +25,12 @@ function henon_heiles_hamiltonian(n; λ = 0.111803)
     right[:, :, 1, 1] = id
     right[:, :, 2, 1] = q
     right[:, :, 3, 1] = h0 - λ * q3 / 3
-    return TToperator(2, [left, right], (n, n), [1, 3, 1], [0, 0])
+    return TTOperator([left, right], (n, n), [1, 3, 1])
 end
 
 function henon_heiles_trajectory(stepper, H, initial, reference, times, eigensystem; kwargs...)
     ψ = initial
-    ψ0 = vec(ttv_to_tensor(reference))
+    ψ0 = vec(tt_to_tensor(reference))
     coefficients = eigensystem.vectors' * ψ0
     initial_energy = real(dot(coefficients, eigensystem.values .* coefficients))
     correlation = zeros(ComplexF64, length(times))
@@ -48,7 +48,7 @@ function henon_heiles_trajectory(stepper, H, initial, reference, times, eigensys
             )
         end
         # Dense diagnostics are affordable here (only n² amplitudes).
-        state = vec(ttv_to_tensor(ψ))
+        state = vec(tt_to_tensor(ψ))
         exact = eigensystem.vectors * (coefficients .* cis.(-times[k] .* eigensystem.values))
         spectral_state = eigensystem.vectors' * state
         correlation[k] = dot(ψ0, state)
@@ -56,7 +56,7 @@ function henon_heiles_trajectory(stepper, H, initial, reference, times, eigensys
         norm_drift[k] = abs(norm(state) - 1)
         energy = real(dot(spectral_state, eigensystem.values .* spectral_state)) / sum(abs2, state)
         energy_drift[k] = abs(energy - initial_energy)
-        ranks[k] = maximum(ψ.ttv_rks)
+        ranks[k] = maximum(ψ.ranks)
     end
     return (; correlation, state_error, norm_drift, energy_drift, ranks, final_state = ψ)
 end
@@ -73,7 +73,7 @@ function henon_heiles_example(; n = 16, λ = 0.111803, q0 = 0.7, fixed_rank = mi
         packet[k] = packet[k - 1] * α / sqrt(k - 1)
     end
     normalize!(packet) # Normalize the initial truncated packet only.
-    ψ0 = TTvector(2, [reshape(copy(packet), n, 1, 1) for _ in 1:2], (n, n), [1, 1, 1], [0, 0])
+    ψ0 = TTVector([reshape(copy(packet), n, 1, 1) for _ in 1:2], (n, n), [1, 1, 1])
     # Exact zero-padding gives fixed-rank TDVP room to develop entanglement.
     fixed_initial = fixed_rank == 1 ? copy(ψ0) : TensorTrainNumerics.increase_ranks(ψ0, fixed_rank; noise = 0.0)
     times = range(0.0; step = Float64(dt), length = nsteps + 1)
@@ -82,7 +82,7 @@ function henon_heiles_example(; n = 16, λ = 0.111803, q0 = 0.7, fixed_rank = mi
     # With only two TT sites, tdvp2 evolves the whole pair; its remaining errors
     # come from Krylov exponentiation and SVD truncation, rather than splitting.
     adaptive = henon_heiles_trajectory(tdvp2, H, ψ0, ψ0, times, eigensystem; max_bond = n, trunc_tol = 1.0e-12)
-    weights = abs2.(eigensystem.vectors' * vec(ttv_to_tensor(ψ0)))
+    weights = abs2.(eigensystem.vectors' * vec(tt_to_tensor(ψ0)))
     energies = eigensystem.values
     exact_correlation = [sum(weights .* cis.(-t .* energies)) for t in times]
     return (; times, fixed, adaptive, exact_correlation, energies, weights, n, λ)

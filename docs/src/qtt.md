@@ -42,7 +42,7 @@ The following functions provide exact or near-exact QTT representations [Khoroms
 | `qtt_exp(L)` | $e^x$ on $[0,1]$ |
 | `qtt_sin(L; λ)` | $\sin(\lambda x)$ |
 | `qtt_cos(L; λ)` | $\cos(\lambda x)$ |
-| `qtt_polynom(coeffs, L; a, b)` | Polynomial with given coefficients on $[a,b]$ |
+| `qtt_polynomial(coeffs, L; a, b)` | Polynomial with given coefficients on $[a,b]$ |
 | `qtt_chebyshev(n, L)` | Chebyshev polynomial $T_n$ |
 
 ### Constructing a QTT from an arbitrary function
@@ -58,7 +58,7 @@ vals = qtt_to_function(g)   # returns a length-2^L vector
 
 For high-accuracy function approximation — including multidimensional and singular functions — TensorTrainNumerics integrates with [InterpolativeQTT.jl](https://github.com/tensor4all/InterpolativeQTT.jl) via a package extension that activates when both `InterpolativeQTT` and `TensorCrossInterpolation` are loaded.
 
-The bridge function `to_ttvector` converts a `TCI.TensorTrain` into a `TTvector`. For multidimensional functions the TCI result has *fused* physical indices (one site per bit level, encoding all spatial dimensions simultaneously); `to_qtt` then splits each fused core into single-bit sites and `QTTvector` attaches the ordering metadata.
+The bridge function `to_ttvector` converts a `TCI.TensorTrain` into a `TTVector`. For multidimensional functions the TCI result has *fused* physical indices (one site per bit level, encoding all spatial dimensions simultaneously); `to_qtt` then splits each fused core into single-bit sites and `QTTVector` attaches the ordering metadata.
 
 **Single-scale 3D interpolation:**
 
@@ -74,11 +74,11 @@ numbits = 6   # 2^6 = 64 grid points per dimension
 degree  = 4   # local Chebyshev degree
 
 tt_tci    = interpolatesinglescale(f, (0.0, 0.0, 0.0), (1.0, 1.0, 1.0), numbits, degree)
-tt_fused  = to_ttvector(tt_tci)                           # TTvector, phys_dim = 2³ per site
+tt_fused  = to_ttvector(tt_tci)                           # TTVector, phys_dim = 2³ per site
 
 # Split each fused core into three single-bit cores, then attach QTT metadata
 ttv_split     = to_qtt(tt_fused, [[2, 2, 2] for _ in 1:numbits])
-q_interleaved = QTTvector(ttv_split, 3, numbits, :interleaved)
+q_interleaved = QTTVector(ttv_split, 3, numbits, :interleaved)
 q_serial      = reorder(q_interleaved, :serial)
 ```
 
@@ -87,7 +87,7 @@ q_serial      = reorder(q_interleaved, :serial)
 ```julia
 inv_x(x) = x == 0.0 ? 0.0 : 1 / x
 tt_tci_ms = interpolatemultiscale(inv_x, 0.0, 1.0, 10, 8, [0.0])
-tt_ms     = to_ttvector(tt_tci_ms)   # TTvector, binary phys_dim per level
+tt_ms     = to_ttvector(tt_tci_ms)   # TTVector, binary phys_dim per level
 ```
 
 The multiscale representation places one binary physical site per refinement level; its rank is controlled by the local polynomial degree rather than the function's global smoothness, making it efficient for functions with isolated singularities.
@@ -110,16 +110,16 @@ For a $d$-dimensional function on $\{0,\ldots,2^L-1\}^d$ there are $d \cdot L$ b
 
 Interleaved ordering often yields lower ranks for isotropic functions because it groups multi-scale information across all dimensions at each resolution level.
 
-## QTTvector and QTToperator
+## QTTVector and QTTOperator
 
-Plain `TTvector`/`TToperator` objects carry no information about the QTT structure. The `QTTvector` and `QTToperator` wrappers attach the metadata needed to track consistency across operations:
+Plain `TTVector`/`TTOperator` objects carry no information about the QTT structure. The `QTTVector` and `QTTOperator` wrappers attach the metadata needed to track consistency across operations:
 
 ```julia
-QTTvector{T, N}   <: AbstractTTvector{T}
-QTToperator{T, N} <: AbstractTToperator{T}
+QTTVector{T, M}   <: AbstractTTVector{T, M}
+QTTOperator{T, M} <: AbstractTTOperator{T, M}
 ```
 
-Both carry three extra fields on top of the standard TT data:
+Both have the fields of the plain types (`cores`, `dims` or `row_dims`/`col_dims`, `ranks`, `orthogonality`) and three more:
 
 | Field | Type | Meaning |
 |---|---|---|
@@ -129,7 +129,7 @@ Both carry three extra fields on top of the standard TT data:
 
 ### Constructing multi-dimensional QTTs
 
-`function_to_qttv` builds a `QTTvector` from a multivariable function. The function receives a length-$d$ vector `x` of coordinates in $[0,1]^d$:
+`function_to_qttv` builds a `QTTVector` from a multivariable function. The function receives a length-$d$ vector `x` of coordinates in $[0,1]^d$:
 
 ```@example qttmulti
 using TensorTrainNumerics
@@ -147,7 +147,7 @@ arr_sr = qttv_to_array(q_sr)
 
 ### Converting between orderings
 
-`reorder` converts a `QTTvector` or `QTToperator` between `:serial` and `:interleaved` via a sequence of adjacent-site SVD swaps:
+`reorder` converts a `QTTVector` or `QTTOperator` between `:serial` and `:interleaved` via a sequence of adjacent-site SVD swaps:
 
 ```@example qttmulti
 q_back = reorder(q_il, :serial)
@@ -158,13 +158,22 @@ q_back = reorder(q_il, :serial)
 ```@example qttmulti
 using TensorTrainNumerics
 
-ttv = rand_tt(fill(2, 8), 2)           # plain TTvector, 8 sites
-q   = QTTvector(ttv, 2, 4, :serial)   # wrap: 2 dims, 4 bits/dim, serial
+ttv = rand_tt(fill(2, 8), 2)           # plain TTVector, 8 sites
+q   = QTTVector(ttv, 2, 4, :serial)   # wrap: 2 dims, 4 bits/dim, serial
 
-ttv2 = TTvector(q)   # strip back to a plain TTvector
+ttv2 = TTVector(q)   # strip back to a plain TTVector
 ```
 
-Arithmetic between two `QTTvector` objects with matching metadata returns a `QTTvector`. Mixed arithmetic with a plain `TTvector` falls back to `TTvector`. The `check_compat` function enforces ordering and dimension consistency at operation boundaries.
+The functions that accept a `TTVector` or `TTOperator` also accept the QTT types. What they return depends on the sites of the result:
+
+| Case | Result |
+|---|---|
+| Same sites and every input is a QTT type: `+`, `-`, scaling, `hadamard`, `A * q`, `A * B`, `A'`, `orthogonalize`, `copy`, `tt_round` | `QTTVector` / `QTTOperator` with the same metadata |
+| The sites change: `kron`, `concatenate`, `reverse_qtt_bits`, `outer_product` | plain `TTVector` / `TTOperator` |
+| One QTT input and one plain input | plain `TTVector` / `TTOperator` |
+| Values: `dot`, `norm`, `tt_to_tensor`, `matricize`, `entanglement_entropy` | the same value as for the plain type |
+
+Two QTT inputs must describe the same grid. `check_compat` compares `n_dims`, `bits_per_dim`, and `ordering` and throws an `AssertionError` when they differ.
 
 ## Multi-dimensional Laplacian operator
 
@@ -174,7 +183,7 @@ Arithmetic between two `QTTvector` objects with matching metadata returns a `QTT
 \Delta = \Delta_{x_1} \otimes I \otimes \cdots + I \otimes \Delta_{x_2} \otimes \cdots + \cdots
 ```
 
-as a `QTToperator` in either ordering:
+as a `QTTOperator` in either ordering:
 
 ```@example qttlap
 using TensorTrainNumerics
@@ -194,6 +203,11 @@ Available boundary conditions:
 | `:DN` | Dirichlet–Neumann |
 | `:ND` | Neumann–Dirichlet |
 | `:NN` | Neumann–Neumann |
+| `:periodic` | Periodic |
+
+The same symbols select the boundary conditions of the 1D operator `Δ(d; bc)`.
+
+For `:periodic`, the $2^L$ grid points of a dimension cover one period $[a, b)$ without repeating the endpoint, so the spacing is $h = (b-a)/2^L$. For the other boundary conditions the grid includes both endpoints and $h = (b-a)/(2^L-1)$.
 
 ## QTT operator library
 
@@ -202,11 +216,11 @@ These 1D operators come with explicit rank-2 (or rank-1) QTT representations and
 | Function | Operator |
 |---|---|
 | `Δ(d)` | Second-difference, Dirichlet–Dirichlet (tridiag(2,−1,−1)) |
-| `Δ_DN(d)` | Second-difference, Dirichlet–Neumann |
-| `Δ_ND(d)` | Second-difference, Neumann–Dirichlet |
-| `Δ_NN(d)` | Second-difference, Neumann–Neumann |
-| `Δ_P(d)` | Second-difference, periodic |
-| `Δ⁻¹_DN(d)` | Inverse Laplacian, Dirichlet–Neumann BC |
+| `Δ(d; bc = :DN)` | Second-difference, Dirichlet–Neumann |
+| `Δ(d; bc = :ND)` | Second-difference, Neumann–Dirichlet |
+| `Δ(d; bc = :NN)` | Second-difference, Neumann–Neumann |
+| `Δ(d; bc = :periodic)` | Second-difference, periodic |
+| `Δ⁻¹(d; bc = :DN)` | Inverse Laplacian, Dirichlet–Neumann BC |
 | `∇(d)` | First-difference (forward difference) |
 | `shift(d)` | Cyclic shift |
 | `id_tto(d)` | Identity on $\{1,2\}^d$ |

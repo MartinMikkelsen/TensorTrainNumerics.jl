@@ -8,23 +8,23 @@ function heat_problem(d::Int; κ::Float64 = 0.1)
 
     Δ1d = toeplitz_to_qtto(-2.0, 1.0, 1.0, d)
     A_raw = (κ / h^2) * (Δ1d ⊗ id_tto(d) + id_tto(d) ⊗ Δ1d)
-    A = QTToperator(A_raw, 2, d, :serial)
+    A = QTTOperator(A_raw, 2, d, :serial)
 
     u0_raw = qtt_sin(d; a = h, b = 1 - h) ⊗ qtt_sin(d; a = h, b = 1 - h)
-    u0 = QTTvector(u0_raw, 2, d, :serial)
+    u0 = QTTVector(u0_raw, 2, d, :serial)
     return A, u0, xes
 end
 
-function prolong_serial_2d(u::QTTvector; max_bond::Int = 16, trunc_tol::Float64 = 1.0e-12)
-    @assert u.n_dims == 2 "Only 2D QTTvectors are supported"
+function prolong_serial_2d(u::QTTVector; max_bond::Int = 16, trunc_tol::Float64 = 1.0e-12)
+    @assert u.n_dims == 2 "Only 2D QTTVectors are supported"
     @assert u.ordering == :serial "Only serial QTT ordering is supported"
 
     d = u.bits_per_dim
     Py = id_tto(d) ⊗ qtto_constant_prolongation(d)
-    uy = Py * TTvector(u)
+    uy = Py * TTVector(u)
 
     Px = qtto_constant_prolongation(d) ⊗ id_tto(d + 1)
-    uf = QTTvector(Px * uy, 2, d + 1, :serial)
+    uf = QTTVector(Px * uy, 2, d + 1, :serial)
     return tt_compress!(uf, max_bond; trunc_tol, sweeps = 2)
 end
 
@@ -94,4 +94,4 @@ relerr_vs_direct = norm(vec(u_multilevel .- u_direct)) / norm(vec(u_direct))
 
 @info "2D heat equation with QTT prolongation" d_coarse = d_coarse d_fine = d_fine T_total = T_total
 @info "Relative errors" initial_transfer = relerr_initial_transfer multilevel_vs_exact = relerr_multilevel direct_vs_exact = relerr_direct multilevel_vs_direct = relerr_vs_direct
-@info "Ranks" coarse_rank = maximum(coarse_solution.ttv_rks) prolonged_rank = maximum(prolonged.ttv_rks) multilevel_rank = maximum(multilevel_solution.ttv_rks) direct_rank = maximum(direct_solution.ttv_rks)
+@info "Ranks" coarse_rank = maximum(coarse_solution.ranks) prolonged_rank = maximum(prolonged.ranks) multilevel_rank = maximum(multilevel_solution.ranks) direct_rank = maximum(direct_solution.ranks)

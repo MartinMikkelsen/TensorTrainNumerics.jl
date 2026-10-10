@@ -2,39 +2,39 @@ using Test
 using Random
 using LinearAlgebra
 
-@testset "ttv_to_diag_tto for TTvector" begin
-    # Test 1: ttv_to_diag_tto on a simple 2D TTvector (all ranks 1, should match diag of full vector)
+@testset "tt_to_diag_tto for TTVector" begin
+    # Test 1: tt_to_diag_tto on a simple 2D TTVector (all ranks 1, should match diag of full vector)
     dims = (3, 2)
     rks = [1, 1, 1]
-    # Construct a TTvector with explicit values
+    # Construct a TTVector with explicit values
     core1 = reshape([1.0, 2.0, 3.0], 3, 1, 1)
     core2 = reshape([4.0, 5.0], 2, 1, 1)
-    x = TTvector{Float64, 2}(2, [core1, core2], dims, rks, zeros(Int, 2))
+    x = TTVector{Float64, 2}([core1, core2], dims, rks)
     # Full vector
     full_x = vec([core1[i, 1, 1] * core2[j, 1, 1] for i in 1:3, j in 1:2])
     # Diagonal TT-matrix
-    Xdiag = ttv_to_diag_tto(x)
-    # Reconstruct full matrix from TToperator
+    Xdiag = tt_to_diag_tto(x)
+    # Reconstruct full matrix from TTOperator
     # For all (i1,i2), (j1,j2): sum over ranks (but all ranks are 1)
     mat = zeros(Float64, 6, 6)
     for i1 in 1:3, i2 in 1:2, j1 in 1:3, j2 in 1:2
-        v = Xdiag.tto_vec[1][i1, j1, 1, 1] * Xdiag.tto_vec[2][i2, j2, 1, 1]
+        v = Xdiag.cores[1][i1, j1, 1, 1] * Xdiag.cores[2][i2, j2, 1, 1]
         mat[(i1 - 1) * 2 + i2, (j1 - 1) * 2 + j2] = v
     end
     # Should be diagonal with full_x on the diagonal
     @test all(mat[i, j] == 0.0 for i in 1:6, j in 1:6 if i != j)
 
-    # Test 2: ttv_to_diag_tto preserves dimensions and ranks
+    # Test 2: tt_to_diag_tto preserves dimensions and ranks
     dims3 = (2, 2, 2)
     rks3 = [1, 2, 2, 1]
     x3 = rand_tt(dims3, rks3)
-    X3diag = ttv_to_diag_tto(x3)
-    @test X3diag.tto_dims == x3.ttv_dims
-    @test X3diag.tto_rks == x3.ttv_rks
-    @test length(X3diag.tto_vec) == 3
-    @test all(size(core, 1) == size(core, 2) == d for (core, d) in zip(X3diag.tto_vec, x3.ttv_dims))
-    @test all(size(core, 3) == r for (core, r) in zip(X3diag.tto_vec, x3.ttv_rks[1:(end - 1)]))
-    @test all(size(core, 4) == r for (core, r) in zip(X3diag.tto_vec, x3.ttv_rks[2:end]))
+    X3diag = tt_to_diag_tto(x3)
+    @test X3diag.row_dims == x3.dims
+    @test X3diag.ranks == x3.ranks
+    @test length(X3diag.cores) == 3
+    @test all(size(core, 1) == size(core, 2) == d for (core, d) in zip(X3diag.cores, x3.dims))
+    @test all(size(core, 3) == r for (core, r) in zip(X3diag.cores, x3.ranks[1:(end - 1)]))
+    @test all(size(core, 4) == r for (core, r) in zip(X3diag.cores, x3.ranks[2:end]))
 
 end
 
@@ -47,7 +47,7 @@ end
     A1 = qtt_exp(d)
     A2 = qtt_sin(d, λ = π)
     A3 = qtt_cos(d, λ = π)
-    A4 = qtt_polynom([0.0, 2.0, 3.0, -8.0, -5.0], d; a = 0.0, b = 1.0)
+    A4 = qtt_polynomial([0.0, 2.0, 3.0, -8.0, -5.0], d; a = 0.0, b = 1.0)
 
     # Test 1: cos(π^2 * x) * sin(π^2 * x)
     expected1 = cos.(π^2 * x_points) .* sin.(π^2 * x_points)
@@ -79,7 +79,7 @@ end
     A1 = qtt_exp(d)
     A2 = qtt_sin(d, λ = π)
     A3 = qtt_cos(d, λ = π)
-    A4 = qtt_polynom([0.0, 2.0, 3.0, -8.0, -5.0], d; a = 0.0, b = 1.0)
+    A4 = qtt_polynomial([0.0, 2.0, 3.0, -8.0, -5.0], d; a = 0.0, b = 1.0)
 
     expected1 = cos.(π^2 * x_points) .* sin.(π^2 * x_points)
     @test isapprox(qtt_to_function(hadamard_ttm(A2, A3)), expected1; atol = 1.0e-10)
@@ -106,46 +106,46 @@ end
 
 @testset "Hadamard TTM truncates each local spectrum with trunc_tol" begin
     spectrum = [1.0, 0.08, 0.08]
-    x = ttv_decomp(ones(3, 3))
-    y = ttv_decomp(Matrix(Diagonal(spectrum)))
+    x = tt_decomp(ones(3, 3))
+    y = tt_decomp(Matrix(Diagonal(spectrum)))
 
     result = hadamard_ttm(x, y; trunc_tol = 0.12)   # tail norm 0.113 ≤ 0.12·‖s‖
 
-    @test result.ttv_rks == [1, 1, 1]
+    @test result.ranks == [1, 1, 1]
 end
 
 @testset "add!" begin
     x = rand_tt((2, 3), [1, 2, 1])
     y = rand_tt((2, 3), [1, 3, 1])
-    expected_tensor = ttv_to_tensor(x + y)
+    expected_tensor = tt_to_tensor(x + y)
     add!(x, y)
-    @test isapprox(ttv_to_tensor(x), expected_tensor; atol = 1.0e-12)
-    @test x.ttv_rks == [1, 5, 1]
-    @test all(x.ttv_ot .== 0)
+    @test isapprox(tt_to_tensor(x), expected_tensor; atol = 1.0e-12)
+    @test x.ranks == [1, 5, 1]
+    @test x.orthogonality == [1, 2]
 end
 
-@testset "TToperator callable" begin
+@testset "TTOperator callable" begin
     dims = (2, 3)
     A = rand_tto(dims, 2)
     v = rand_tt(dims, [1, 2, 1])
-    @test isapprox(ttv_to_tensor(A(v)), ttv_to_tensor(A * v); atol = 1.0e-12)
-    @test isapprox(ttv_to_tensor(A(v, Val(false))), ttv_to_tensor(A * v); atol = 1.0e-12)
+    @test isapprox(tt_to_tensor(A(v)), tt_to_tensor(A * v); atol = 1.0e-12)
+    @test isapprox(tt_to_tensor(A(v, Val(false))), tt_to_tensor(A * v); atol = 1.0e-12)
     @test_throws MethodError A(v, Val(:x))
 end
 
 @testset "adjoint and the KrylovKit (x, Val) calling convention" begin
     dims = (2, 3, 2)
-    A = TToperator(3, [randn(ComplexF64, n, n, r1, r2) for (n, r1, r2) in zip(dims, (1, 2, 2), (2, 2, 1))], dims, [1, 2, 2, 1], zeros(Int, 3))
-    x = TTvector(3, [randn(ComplexF64, n, r1, r2) for (n, r1, r2) in zip(dims, (1, 2, 2), (2, 2, 1))], dims, [1, 2, 2, 1], zeros(Int, 3))
+    A = TTOperator([randn(ComplexF64, n, n, r1, r2) for (n, r1, r2) in zip(dims, (1, 2, 2), (2, 2, 1))], dims, [1, 2, 2, 1])
+    x = TTVector([randn(ComplexF64, n, r1, r2) for (n, r1, r2) in zip(dims, (1, 2, 2), (2, 2, 1))], dims, [1, 2, 2, 1])
     M = reshape(tto_to_tensor(A), prod(dims), :)
-    v = vec(ttv_to_tensor(x))
+    v = vec(tt_to_tensor(x))
     @test reshape(tto_to_tensor(A'), prod(dims), :) ≈ M'
     @test tto_to_tensor((A')') ≈ tto_to_tensor(A)
-    @test vec(ttv_to_tensor(A(x, Val(false)))) ≈ M * v
-    @test vec(ttv_to_tensor(A(x, Val(true)))) ≈ M' * v
+    @test vec(tt_to_tensor(A(x, Val(false)))) ≈ M * v
+    @test vec(tt_to_tensor(A(x, Val(true)))) ≈ M' * v
 end
 
-@testset "TToperator * TToperator" begin
+@testset "TTOperator * TTOperator" begin
     dims = (2, 3)
     A = rand_tto(dims, 2)
     B = rand_tto(dims, 2)
@@ -155,11 +155,11 @@ end
     B_mat = reshape(tto_to_tensor(B), n, n)
     C_mat = reshape(tto_to_tensor(C), n, n)
     @test isapprox(C_mat, A_mat * B_mat; atol = 1.0e-12)
-    @test C.tto_dims == A.tto_dims
-    @test C.tto_rks == A.tto_rks .* B.tto_rks
+    @test C.row_dims == A.row_dims
+    @test C.ranks == A.ranks .* B.ranks
 end
 
-@testset "Inner core product ⨝ (TToperator)" begin
+@testset "Inner core product ⨝ (TTOperator)" begin
     Random.seed!(42)
 
     # d = 1: the inner core product reduces to a plain Kronecker product of the
@@ -170,17 +170,17 @@ end
     A1_mat = reshape(tto_to_tensor(A1), 3, 3)
     B1_mat = reshape(tto_to_tensor(B1), 4, 4)
     C1_mat = reshape(tto_to_tensor(C1), 12, 12)
-    @test C1.tto_dims == (12,)
-    @test C1.tto_rks == [1, 1]
+    @test C1.row_dims == (12,)
+    @test C1.ranks == [1, 1]
     @test isapprox(C1_mat, kron(A1_mat, B1_mat); atol = 1.0e-12)
 
     # Dimensions and ranks: physical dims multiply, ranks multiply elementwise.
     A = rand_tto((2, 2, 2), 2)
     B = rand_tto((2, 2, 2), 3)
     C = A ⨝ B
-    @test C.N == 3
-    @test C.tto_dims == (4, 4, 4)
-    @test C.tto_rks == A.tto_rks .* B.tto_rks
+    @test nsites(C) == 3
+    @test C.row_dims == (4, 4, 4)
+    @test C.ranks == A.ranks .* B.ranks
 
     # Multi-site semantics: (A ⨝ B) interleaves the two operators site-by-site,
     # so every dense entry factorises into the matching entries of A and B.
@@ -202,7 +202,7 @@ end
     @test ok
 end
 
-@testset "Outer core product ∙ (TToperator)" begin
+@testset "Outer core product ∙ (TTOperator)" begin
     dims = (2, 3, 2)
     A = rand_tto(dims, 2)
     B = rand_tto(dims, 2)
@@ -210,8 +210,8 @@ end
     C_outer = A ∙ B
     C_mul = A * B
     n = prod(dims)
-    @test C_outer.tto_dims == C_mul.tto_dims
-    @test C_outer.tto_rks == C_mul.tto_rks
+    @test C_outer.row_dims == C_mul.row_dims
+    @test C_outer.ranks == C_mul.ranks
     @test isapprox(reshape(tto_to_tensor(C_outer), n, n), reshape(tto_to_tensor(C_mul), n, n); atol = 1.0e-12)
 end
 
@@ -219,7 +219,7 @@ end
     Random.seed!(7)
     # singular values of the dense operator — invariant under the interleaved-vs-
     # sequential bit reordering, so they make ⨝ and ⊗ directly comparable.
-    svals(M) = sort(LinearAlgebra.svdvals(reshape(tto_to_tensor(M), prod(M.tto_dims), prod(M.tto_dims))))
+    svals(M) = sort(LinearAlgebra.svdvals(reshape(tto_to_tensor(M), prod(M.row_dims), prod(M.row_dims))))
 
     A = rand_tto((2, 2), 2)
     B = rand_tto((2, 2), 2)
@@ -236,61 +236,61 @@ end
     @test maximum(abs, svals(A ⨝ B) - svals((A ⨝ Id) + (Id ⨝ B))) > 1.0e-3
 
     # ⨝ inherits associativity from the Kronecker product (exact, same ordering).
-    n3 = prod((A ⨝ B ⨝ C).tto_dims)
+    n3 = prod((A ⨝ B ⨝ C).row_dims)
     @test isapprox(
         reshape(tto_to_tensor((A ⨝ B) ⨝ C), n3, n3),
         reshape(tto_to_tensor(A ⨝ (B ⨝ C)), n3, n3); atol = 1.0e-12
     )
 
     # ⨝ grows the physical space; ∙ (= operator composition) keeps it.
-    @test (A ⨝ B).tto_dims == (4, 4)
-    @test (A ∙ B).tto_dims == A.tto_dims
+    @test (A ⨝ B).row_dims == (4, 4)
+    @test (A ∙ B).row_dims == A.row_dims
 
     # ∙ is operator composition, so composing with the identity is a no-op.
-    n = prod(A.tto_dims)
+    n = prod(A.row_dims)
     Adense = reshape(tto_to_tensor(A), n, n)
     @test isapprox(reshape(tto_to_tensor(A ∙ Id), n, n), Adense; atol = 1.0e-12)
     @test isapprox(reshape(tto_to_tensor(Id ∙ A), n, n), Adense; atol = 1.0e-12)
 end
 
-@testset "Array{TTvector} * Vector (linear combination)" begin
+@testset "Array{TTVector} * Vector (linear combination)" begin
     dims = (2, 3)
     a = rand_tt(dims, [1, 2, 1])
     b = rand_tt(dims, [1, 3, 1])
     coeffs = [2.0, -1.5]
     result = [a, b] * coeffs
-    expected = 2.0 * ttv_to_tensor(a) + (-1.5) * ttv_to_tensor(b)
-    @test isapprox(ttv_to_tensor(result), expected; atol = 1.0e-12)
+    expected = 2.0 * tt_to_tensor(a) + (-1.5) * tt_to_tensor(b)
+    @test isapprox(tt_to_tensor(result), expected; atol = 1.0e-12)
 end
 
-@testset "TTvector / scalar" begin
+@testset "TTVector / scalar" begin
     x = rand_tt((2, 3), [1, 2, 1])
     a = 3.0
     y = x / a
-    @test isapprox(ttv_to_tensor(y), ttv_to_tensor(x) / a; atol = 1.0e-12)
+    @test isapprox(tt_to_tensor(y), tt_to_tensor(x) / a; atol = 1.0e-12)
 end
 
 @testset "unary minus" begin
     x = rand_tt((2, 3, 2), [1, 2, 2, 1])
     A = rand_tto((2, 3, 2), 2)
-    @test ttv_to_tensor(-x) ≈ -ttv_to_tensor(x)
+    @test tt_to_tensor(-x) ≈ -tt_to_tensor(x)
     @test tto_to_tensor(-A) ≈ -tto_to_tensor(A)
-    @test ttv_to_tensor(x + (-x)) ≈ zeros(2, 3, 2) atol = 1.0e-14
+    @test tt_to_tensor(x + (-x)) ≈ zeros(2, 3, 2) atol = 1.0e-14
 end
 
 @testset "Scalar multiplication owns mutable TT storage" begin
     for α in (0.0, 2.0)
         x = rand_tt((2, 3), [1, 2, 1])
         y = α * x
-        @test y.ttv_rks !== x.ttv_rks
-        @test y.ttv_ot !== x.ttv_ot
-        @test all(y.ttv_vec[i] !== x.ttv_vec[i] for i in eachindex(x.ttv_vec))
+        @test y.ranks !== x.ranks
+        @test y.orthogonality !== x.orthogonality
+        @test all(y.cores[i] !== x.cores[i] for i in eachindex(x.cores))
 
         A = rand_tto((2, 3), 2)
         B = α * A
-        @test B.tto_rks !== A.tto_rks
-        @test B.tto_ot !== A.tto_ot
-        @test all(B.tto_vec[i] !== A.tto_vec[i] for i in eachindex(A.tto_vec))
+        @test B.ranks !== A.ranks
+        @test B.orthogonality !== A.orthogonality
+        @test all(B.cores[i] !== A.cores[i] for i in eachindex(A.cores))
     end
 end
 
@@ -300,12 +300,12 @@ end
     y = rand_tt(dims, [1, 3, 1])
     M = outer_product(x, y)
 
-    @test M.tto_dims == dims
-    @test M.tto_rks == x.ttv_rks .* y.ttv_rks
+    @test M.row_dims == dims
+    @test M.ranks == x.ranks .* y.ranks
 
     # Full tensor: M[i1,i2, j1,j2] = x[i1,i2] * conj(y[j1,j2])
-    Tx = ttv_to_tensor(x)
-    Ty = ttv_to_tensor(y)
+    Tx = tt_to_tensor(x)
+    Ty = tt_to_tensor(y)
     TM = tto_to_tensor(M)
     for i1 in 1:dims[1], i2 in 1:dims[2], j1 in 1:dims[1], j2 in 1:dims[2]
         @test isapprox(TM[i1, i2, j1, j2], Tx[i1, i2] * conj(Ty[j1, j2]); atol = 1.0e-12)
@@ -314,37 +314,37 @@ end
     # Key property: (x ⊗ y†) * z = ⟨y, z⟩ * x
     z = rand_tt(dims, [1, 2, 1])
     Mz = M * z
-    @test isapprox(ttv_to_tensor(Mz), TensorTrainNumerics.dot(y, z) * ttv_to_tensor(x); atol = 1.0e-12)
+    @test isapprox(tt_to_tensor(Mz), TensorTrainNumerics.dot(y, z) * tt_to_tensor(x); atol = 1.0e-12)
 end
 
-@testset "kron for TTvector" begin
+@testset "kron for TTVector" begin
     a = rand_tt((2, 3), [1, 2, 1])
     b = rand_tt((4, 5), [1, 3, 1])
     c = kron(a, b)
-    @test c.N == a.N + b.N
-    @test c.ttv_dims == (2, 3, 4, 5)
-    @test c.ttv_rks[1] == 1 && c.ttv_rks[end] == 1
-    Ta = ttv_to_tensor(a)
-    Tb = ttv_to_tensor(b)
-    Tc = ttv_to_tensor(c)
+    @test nsites(c) == nsites(a) + nsites(b)
+    @test c.dims == (2, 3, 4, 5)
+    @test c.ranks[1] == 1 && c.ranks[end] == 1
+    Ta = tt_to_tensor(a)
+    Tb = tt_to_tensor(b)
+    Tc = tt_to_tensor(c)
     for i1 in 1:2, i2 in 1:3, j1 in 1:4, j2 in 1:5
         @test isapprox(Tc[i1, i2, j1, j2], Ta[i1, i2] * Tb[j1, j2]; atol = 1.0e-12)
     end
 end
 
-@testset "kron for TToperator" begin
+@testset "kron for TTOperator" begin
     A = rand_tto((2, 3), 2)
     B = rand_tto((4, 5), 2)
     C = kron(A, B)
-    @test C.N == A.N + B.N
-    @test C.tto_dims == (2, 3, 4, 5)
-    @test C.tto_rks[1] == 1 && C.tto_rks[end] == 1
+    @test nsites(C) == nsites(A) + nsites(B)
+    @test C.row_dims == (2, 3, 4, 5)
+    @test C.ranks[1] == 1 && C.ranks[end] == 1
 
     # Property: kron(A, B) * kron(a, b) ≈ kron(A*a, B*b)
     a = rand_tt((2, 3), [1, 2, 1])
     b = rand_tt((4, 5), [1, 3, 1])
-    lhs = ttv_to_tensor(kron(A, B) * kron(a, b))
-    rhs = ttv_to_tensor(kron(A * a, B * b))
+    lhs = tt_to_tensor(kron(A, B) * kron(a, b))
+    rhs = tt_to_tensor(kron(A * a, B * b))
     @test isapprox(lhs, rhs; atol = 1.0e-12)
 end
 
@@ -354,7 +354,7 @@ end
     A1 = qtt_exp(d)
     A2 = qtt_sin(d, λ = π)
     A3 = qtt_cos(d, λ = π)
-    A4 = qtt_polynom([0.0, 2.0, 3.0, -8.0, -5.0], d; a = 0.0, b = 1.0)
+    A4 = qtt_polynomial([0.0, 2.0, 3.0, -8.0, -5.0], d; a = 0.0, b = 1.0)
 
     @test euclidean_distance(A1, A1) == 0.0
     @test euclidean_distance_normalized(A1, A1) == 0.0
@@ -371,11 +371,11 @@ end
     Random.seed!(42)
     x = rand_tt((4,), [1, 1])
     y = rand_tt((4,), [1, 1])
-    @test ttv_to_tensor(x + y) ≈ ttv_to_tensor(x) .+ ttv_to_tensor(y)
+    @test tt_to_tensor(x + y) ≈ tt_to_tensor(x) .+ tt_to_tensor(y)
 
     z = copy(x)
     add!(z, y)
-    @test ttv_to_tensor(z) ≈ ttv_to_tensor(x) .+ ttv_to_tensor(y)
+    @test tt_to_tensor(z) ≈ tt_to_tensor(x) .+ tt_to_tensor(y)
 
     A1 = rand_tto((3,), 1)
     B1 = rand_tto((3,), 1)
@@ -391,10 +391,10 @@ end
 
     s = x + y
     @test eltype(s) == ComplexF64
-    @test ttv_to_tensor(s) ≈ ttv_to_tensor(x) .+ ttv_to_tensor(y)
-    @test ttv_to_tensor(x - y) ≈ ttv_to_tensor(x) .- ttv_to_tensor(y)
-    @test TensorTrainNumerics.dot(x, y) ≈ sum(conj(ttv_to_tensor(x)) .* ttv_to_tensor(y))
-    @test TensorTrainNumerics.dot(y, x) ≈ sum(conj(ttv_to_tensor(y)) .* ttv_to_tensor(x))
+    @test tt_to_tensor(s) ≈ tt_to_tensor(x) .+ tt_to_tensor(y)
+    @test tt_to_tensor(x - y) ≈ tt_to_tensor(x) .- tt_to_tensor(y)
+    @test TensorTrainNumerics.dot(x, y) ≈ sum(conj(tt_to_tensor(x)) .* tt_to_tensor(y))
+    @test TensorTrainNumerics.dot(y, x) ≈ sum(conj(tt_to_tensor(y)) .* tt_to_tensor(x))
 
     A = rand_tto(dims, 2)
     Ac = complex(rand_tto(dims, 2))
@@ -404,7 +404,7 @@ end
     w = A * y                       # Float64 operator × ComplexF64 vector
     @test eltype(w) == ComplexF64
     Amat = reshape(tto_to_tensor(A), n, n)
-    @test vec(ttv_to_tensor(w)) ≈ Amat * vec(ttv_to_tensor(y))
+    @test vec(tt_to_tensor(w)) ≈ Amat * vec(tt_to_tensor(y))
 
     P = Ac * A                      # ComplexF64 operator × Float64 operator
     @test eltype(P) == ComplexF64
@@ -417,7 +417,7 @@ end
     y = rand_tt(Float32, (2, 2, 2), [1, 2, 2, 1])
     @test eltype(x + y) == Float32
     @test eltype(x - y) == Float32
-    @test ttv_to_tensor(x - y) ≈ ttv_to_tensor(x) .- ttv_to_tensor(y)
+    @test tt_to_tensor(x - y) ≈ tt_to_tensor(x) .- tt_to_tensor(y)
 end
 
 @testset "dot is a LinearAlgebra.dot method" begin
@@ -427,7 +427,7 @@ end
     Random.seed!(21)
     x = rand_tt((2, 3, 2), [1, 2, 2, 1])
     y = complex(rand_tt((2, 3, 2), [1, 2, 2, 1]))
-    @test LinearAlgebra.dot(x, y) ≈ sum(conj(ttv_to_tensor(x)) .* ttv_to_tensor(y))
+    @test LinearAlgebra.dot(x, y) ≈ sum(conj(tt_to_tensor(x)) .* tt_to_tensor(y))
 end
 
 @testset "hadamard_ttm keyword names" begin
@@ -435,7 +435,7 @@ end
     x = rand_tt((2, 2, 2, 2), 3)
     y = rand_tt((2, 2, 2, 2), 3)
     z = hadamard_ttm(x, y; max_bond = 2)
-    @test maximum(z.ttv_rks) ≤ 2
+    @test maximum(z.ranks) ≤ 2
     @test_throws MethodError hadamard_ttm(x, y; rmax = 2)
     @test_throws MethodError hadamard_ttm(x, y; tol = 1.0e-3)
 end
@@ -444,13 +444,13 @@ end
     d = 10
     f = function_to_qtt(t -> exp(-20 * (t - 0.4)^2) + 0.3 * sin(9t), d)
     g = function_to_qtt(t -> 1 / (1 + 25 * (t - 0.6)^2), d)
-    ref = vec(ttv_to_tensor(f)) .* vec(ttv_to_tensor(g))
-    err(z) = norm(vec(ttv_to_tensor(z)) - ref)
+    ref = vec(tt_to_tensor(f)) .* vec(tt_to_tensor(g))
+    err(z) = norm(vec(tt_to_tensor(z)) - ref)
 
     for trunc_tol in (1.0e-4, 1.0e-8)
         z = hadamard_ttm(f, g; trunc_tol)
         rounded = tt_round!(hadamard(f, g); trunc_tol)
-        @test maximum(z.ttv_rks) ≤ maximum(rounded.ttv_rks) + 2
+        @test maximum(z.ranks) ≤ maximum(rounded.ranks) + 2
         @test err(z) ≤ 5 * trunc_tol * norm(f) * norm(g)
     end
 
@@ -459,16 +459,16 @@ end
     # falls as the cap grows.
     for (max_bond, bound) in ((16, 1.0e-5), (24, 1.0e-7))
         z = hadamard_ttm(f, g; max_bond)
-        @test maximum(z.ttv_rks) ≤ max_bond
+        @test maximum(z.ranks) ≤ max_bond
         @test err(z) ≤ bound * norm(ref)
     end
 
     # The result has its orthogonality center on the first core.
     z = hadamard_ttm(f, g; trunc_tol = 1.0e-8)
-    @test z.ttv_ot == [0; fill(-1, d - 1)]
+    @test z.orthogonality == [1, 1]
     for k in 2:d
-        n, rl, rr = size(z.ttv_vec[k])
-        M = reshape(permutedims(z.ttv_vec[k], (2, 1, 3)), rl, n * rr)
+        n, rl, rr = size(z.cores[k])
+        M = reshape(permutedims(z.cores[k], (2, 1, 3)), rl, n * rr)
         @test M * M' ≈ I
     end
 end

@@ -33,7 +33,7 @@ end
 end
 
 """
-    fourier_qtto(d; sign=-1.0, K=25, normalize=true) -> TToperator{ComplexF64}
+    fourier_qtto(d; sign=-1.0, K=25, normalize=true) -> TTOperator{ComplexF64}
 
 Discrete Fourier transform on `2^d` points as a QTT operator, built with the
 interpolative construction of Chen and Lindsey (arXiv:2404.03182):
@@ -86,22 +86,21 @@ function fourier_qtto(d::Int; sign::Float64 = -1.0, K::Int = 25, normalize::Bool
 
     dims = ntuple(_ -> 2, d)
     rks = vcat(1, fill(r, d - 1), 1)
-    ot = zeros(Int, d)
-    return TToperator{ComplexF64, d}(d, cores, dims, rks, ot)
+    return TTOperator{ComplexF64, d}(cores, dims, rks)
 end
 
 """
-    reverse_qtt_bits(x::TTvector) -> TTvector
+    reverse_qtt_bits(x::TTVector) -> TTVector
 
 Reverse the order of the sites of `x`. For a binary QTT this reverses the bit
 order of the position index, converting between most-significant-bit-first and
 least-significant-bit-first layouts.
 """
-function reverse_qtt_bits(x::TTvector{T, d}) where {T, d}
-    new_vecs = reverse(copy.(x.ttv_vec))
+function reverse_qtt_bits(x::AbstractTTVector{T, d}) where {T, d}
+    new_vecs = reverse(copy.(x.cores))
     new_vecs = map(c -> permutedims(c, (1, 3, 2)), new_vecs)
-    new_dims = reverse(x.ttv_dims)
-    new_ot = reverse(x.ttv_ot)
-    new_rks = [1; reverse(x.ttv_rks[2:(end - 1)]); 1]
-    return TTvector{T, d}(x.N, new_vecs, new_dims, new_rks, new_ot)
+    new_dims = reverse(x.dims)
+    new_rks = [1; reverse(x.ranks[2:(end - 1)]); 1]
+    left, right = _orthogonality(x)
+    return TTVector{T, d}(new_vecs, new_dims, new_rks; orthogonality = (d + 1 - right, d + 1 - left))
 end

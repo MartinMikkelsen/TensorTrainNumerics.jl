@@ -10,7 +10,7 @@ h = (b - a) / (N - 1); xes = collect(range(a, b, N))
 
 ∂xx = -(1 / h^2) * Δ(d)
 Vfun(x) = λ * (x^2 - xa^2)^2
-Vop = ttv_to_diag_tto(function_to_qtt(t -> Vfun(a + (b - a) * t), d))
+Vop = tt_to_diag_tto(function_to_qtt(t -> Vfun(a + (b - a) * t), d))
 H = -0.5 * ∂xx + Vop
 A = (-1.0) * H
 
@@ -31,7 +31,7 @@ Random.seed!(42)                                              # reproducible enr
 ψ_cn = TensorTrainNumerics.increase_ranks(gauss(), 12; noise = 1.0e-3); ψ_cn = (1 / nrm(ψ_cn)) * ψ_cn
 E_cn = Float64[Energy(ψ_cn)]
 for _ in 1:nblk
-    global ψ_cn = crank_nicholson_method(A, ψ_cn, ψ_cn, fill(τstep, blk); normalize = true, alg = ALS())
+    global ψ_cn = crank_nicolson_method(A, ψ_cn, ψ_cn, fill(τstep, blk); normalize = true, alg = ALS())
     push!(E_cn, Energy(ψ_cn))
 end
 
@@ -47,7 +47,7 @@ for _ in 1:nblk
 end
 
 ψ0 = qtt_to_function(ψ_cn); ψ0 ./= sqrt(sum(abs2, ψ0) * h)   # ground-state wavefunction on the grid
-@info "ground state" E0_dense = E0_dense E0_CN = E_cn[end] E0_TDVP2 = E_td[end] overlap_CN = abs(sum(ψ0 .* ψ0_dense) * h) rank_CN = maximum(ψ_cn.ttv_rks) rank_TDVP2 = maximum(ψ_td.ttv_rks)
+@info "ground state" E0_dense = E0_dense E0_CN = E_cn[end] E0_TDVP2 = E_td[end] overlap_CN = abs(sum(ψ0 .* ψ0_dense) * h) rank_CN = maximum(ψ_cn.ranks) rank_TDVP2 = maximum(ψ_td.ranks)
 
 # Figure 1: potential, ground-state energy and density
 let

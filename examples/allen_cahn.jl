@@ -12,7 +12,7 @@ A_builder(d) = (4.0^d / 2) * Δ(d) - g_ac * id_tto(d)
 alg = PenaltyALS(; local_solver = :newton, penalty_schedule = [0.0], tol = 1.0e-10, max_sweeps = 60)
 
 # discrete φ⁴ energy readout: E = h·(uᵀAu + (g/2)Σu⁴) + N·h/(4ε²)
-function phi4_energy(u::TTvector, d::Int)
+function phi4_energy(u::TTVector, d::Int)
     h = 2.0^(-d)
     w = hadamard(u, u)
     return h * (dot(u, A_builder(d) * u) + (g_ac / 2) * dot(w, w)) + 2^d * h / (4 * ε^2)
@@ -23,13 +23,13 @@ wall_profile(x) = tanh(x / (sqrt(2) * ε)) * tanh((1 - x) / (sqrt(2) * ε))
 # coarse solve, then multigrid: prolong → truncate to χ → re-solve
 function allen_cahn_mgr(L0::Int, L::Int, χ::Int)
     seed = function_to_qtt(wall_profile, L0)
-    u = orthogonalize(seed + (1.0e-3 * norm(seed)) * rand_tt(ntuple(_ -> 2, L0), 4; normalise = true))
-    u = non_linear_solve(A_builder(L0), u, alg; g = g_ac)
+    u = orthogonalize(seed + (1.0e-3 * norm(seed)) * rand_tt(ntuple(_ -> 2, L0), 4; normalize = true))
+    u = nonlinear_solve(A_builder(L0), u, alg; g = g_ac)
     println("level d = $L0:  E = $(phi4_energy(u, L0))")
     for d in (L0 + 1):L
         u = qtto_linear_prolongation(d - 1) * u
         tt_compress!(u, χ)
-        u = non_linear_solve(A_builder(d), u, alg; g = g_ac)
+        u = nonlinear_solve(A_builder(d), u, alg; g = g_ac)
         println("level d = $d:  E = $(phi4_energy(u, d))")
     end
     return u

@@ -9,11 +9,11 @@ function toeplitz_to_qtto(α, β, γ, d)
     J[1, 2] = 1
     for i in 1:2
         for j in 1:2
-            out.tto_vec[1][i, j, 1, :] = [id[i, j];J[j, i];J[i, j]]
+            out.cores[1][i, j, 1, :] = [id[i, j];J[j, i];J[i, j]]
             for k in 2:(d - 1)
-                out.tto_vec[k][i, j, :, :] = [id[i, j] J[j, i] J[i, j]; 0 J[i, j] 0 ; 0 0 J[j, i]]
+                out.cores[k][i, j, :, :] = [id[i, j] J[j, i] J[i, j]; 0 J[i, j] 0 ; 0 0 J[j, i]]
             end
-            out.tto_vec[d][i, j, :, 1] = [α * id[i, j] + β * J[i, j] + γ * J[j, i]; γ * J[i, j] ; β * J[j, i]]
+            out.cores[d][i, j, :, 1] = [α * id[i, j] + β * J[i, j] + γ * J[j, i]; γ * J[i, j] ; β * J[j, i]]
         end
     end
     return out
@@ -82,7 +82,7 @@ function pauli_sum_tto(μ, d::Int)
     dims = ntuple(_ -> 2, d)
 
     if d == 1
-        return TToperator{T, 1}(1, [reshape(P, 2, 2, 1, 1)], dims, [1, 1], zeros(Int64, 1))
+        return TTOperator{T, 1}([reshape(P, 2, 2, 1, 1)], dims, [1, 1])
     end
 
     rks = vcat(1, fill(2, d - 1), 1)
@@ -104,7 +104,7 @@ function pauli_sum_tto(μ, d::Int)
     cores[d][:, :, 1, 1] = id
     cores[d][:, :, 2, 1] = P
 
-    return TToperator{T, d}(d, cores, dims, rks, zeros(Int64, d))
+    return TTOperator{T, d}(cores, dims, rks)
 end
 
 """
@@ -145,7 +145,7 @@ function pauli_pair_sum_tto(μ, ν, d::Int)
     cores[d][:, :, 1, 1] = id
     cores[d][:, :, 2, 1] = Pν
 
-    return TToperator{T, d}(d, cores, dims, rks, zeros(Int64, d))
+    return TTOperator{T, d}(cores, dims, rks)
 end
 
 """
@@ -226,7 +226,7 @@ function heisenberg_xyz_tto(d::Int; jx = 1.0, jy = 1.0, jz = 1.0, λ = 0.0, fiel
     cores[d][:, :, 4, 1] = Pz2
     cores[d][:, :, 5, 1] = λT * Pf
 
-    return TToperator{T, d}(d, cores, dims, rks, zeros(Int64, d))
+    return TTOperator{T, d}(cores, dims, rks)
 end
 
 """
@@ -290,16 +290,26 @@ function ∇(d::Int)
 end
 
 """
-Constructs a tensor train operator (TTO) representation of the Laplacian with Dirichlet-Dirichlet boundary conditions
+    Δ(d; bc=:DD) -> TTOperator
+
+Second-difference (negative Laplacian) operator on a grid of `2^d` points in
+QTT format, without the `1/h²` scaling.
+
+`bc` selects the boundary conditions at the left and right end of the grid:
+`:DD` (Dirichlet–Dirichlet), `:DN` (Dirichlet–Neumann), `:ND`
+(Neumann–Dirichlet), `:NN` (Neumann–Neumann), or `:periodic`. All except `:DD`
+require `d ≥ 4`.
 """
-function Δ(d::Int)
-    return toeplitz_to_qtto(2, -1, -1, d)
+function Δ(d::Int; bc::Symbol = :DD)
+    bc === :DD && return toeplitz_to_qtto(2, -1, -1, d)
+    bc === :DN && return _Δ_DN(d)
+    bc === :ND && return _Δ_ND(d)
+    bc === :NN && return _Δ_NN(d)
+    bc === :periodic && return _Δ_periodic(d)
+    throw(ArgumentError("`bc` must be :DD, :DN, :ND, :NN, or :periodic; got :$bc"))
 end
 
-"""
-Constructs a tensor train operator (TTO) representation of the Laplacian with Dirichlet-Neumann boundary conditions
-"""
-function Δ_DN(d::Int)
+function _Δ_DN(d::Int)
     @assert d ≥ 4 "Dimension must be at least 4"
     out = zeros_tto(2, d, 4)
     id = [1 0; 0 1]
@@ -307,20 +317,17 @@ function Δ_DN(d::Int)
     I₂ = [0 0; 0 1]
     for i in 1:2
         for j in 1:2
-            out.tto_vec[1][i, j, 1, :] = [id[i, j]; J[j, i]; J[i, j]; I₂[i, j]]
+            out.cores[1][i, j, 1, :] = [id[i, j]; J[j, i]; J[i, j]; I₂[i, j]]
             for k in 2:(d - 1)
-                out.tto_vec[k][i, j, :, :] = [id[i, j] J[j, i] J[i, j] 0; 0 J[i, j] 0 0; 0 0 J[j, i] 0; 0 0 0 I₂[i, j]]
+                out.cores[k][i, j, :, :] = [id[i, j] J[j, i] J[i, j] 0; 0 J[i, j] 0 0; 0 0 J[j, i] 0; 0 0 0 I₂[i, j]]
             end
-            out.tto_vec[d][i, j, :, 1] = [2 * id[i, j] - J[i, j] - J[j, i]; -J[i, j]; -J[j, i]; -I₂[i, j]]
+            out.cores[d][i, j, :, 1] = [2 * id[i, j] - J[i, j] - J[j, i]; -J[i, j]; -J[j, i]; -I₂[i, j]]
         end
     end
     return out
 end
 
-"""
-Constructs a tensor train operator (TTO) representation of the Laplacian with Neumann-Dirichlet boundary conditions
-"""
-function Δ_ND(d::Int)
+function _Δ_ND(d::Int)
     @assert d ≥ 4 "Dimension must be at least 4"
     out = zeros_tto(2, d, 4)
     id = [1 0; 0 1]
@@ -328,20 +335,17 @@ function Δ_ND(d::Int)
     I₁ = [1 0; 0 0]
     for i in 1:2
         for j in 1:2
-            out.tto_vec[1][i, j, 1, :] = [id[i, j]; J[j, i]; J[i, j]; I₁[i, j]]
+            out.cores[1][i, j, 1, :] = [id[i, j]; J[j, i]; J[i, j]; I₁[i, j]]
             for k in 2:(d - 1)
-                out.tto_vec[k][i, j, :, :] = [id[i, j] J[j, i] J[i, j] 0; 0 J[i, j] 0 0; 0 0 J[j, i] 0; 0 0 0 I₁[i, j]]
+                out.cores[k][i, j, :, :] = [id[i, j] J[j, i] J[i, j] 0; 0 J[i, j] 0 0; 0 0 J[j, i] 0; 0 0 0 I₁[i, j]]
             end
-            out.tto_vec[d][i, j, :, 1] = [2 * id[i, j] - J[i, j] - J[j, i]; -J[i, j]; -J[j, i]; -I₁[i, j]]
+            out.cores[d][i, j, :, 1] = [2 * id[i, j] - J[i, j] - J[j, i]; -J[i, j]; -J[j, i]; -I₁[i, j]]
         end
     end
     return out
 end
 
-"""
-Constructs a tensor train operator (TTO) representation of the Laplacian with Neumann-Neumann boundary conditions
-"""
-function Δ_NN(d)
+function _Δ_NN(d::Int)
     @assert d ≥ 4 "Dimension must be at least 4"
     out = zeros_tto(ntuple(_ -> 2, d), [1; fill(5, d - 1); 1])
     id = [1 0; 0 1]
@@ -350,29 +354,26 @@ function Δ_NN(d)
     I₂ = [0 0; 0 1]
     for i in 1:2
         for j in 1:2
-            out.tto_vec[1][i, j, 1, :] = [id[i, j]; J[j, i]; J[i, j]; I₂[i, j]; I₁[i, j]]
+            out.cores[1][i, j, 1, :] = [id[i, j]; J[j, i]; J[i, j]; I₂[i, j]; I₁[i, j]]
             for k in 2:(d - 1)
-                out.tto_vec[k][i, j, :, :] = [id[i, j] J[j, i] J[i, j] 0 0; 0 J[i, j] 0 0 0; 0 0 J[j, i] 0 0; 0 0 0 I₂[i, j] 0; 0 0 0 0 I₁[i, j]]
+                out.cores[k][i, j, :, :] = [id[i, j] J[j, i] J[i, j] 0 0; 0 J[i, j] 0 0 0; 0 0 J[j, i] 0 0; 0 0 0 I₂[i, j] 0; 0 0 0 0 I₁[i, j]]
             end
-            out.tto_vec[d][i, j, :, 1] = [2 * id[i, j] - J[i, j] - J[j, i]; -J[i, j]; -J[j, i]; -I₂[i, j]; -I₁[i, j]]
+            out.cores[d][i, j, :, 1] = [2 * id[i, j] - J[i, j] - J[j, i]; -J[i, j]; -J[j, i]; -I₂[i, j]; -I₁[i, j]]
         end
     end
     return out
 end
 
-"""
-Constructs a tensor train operator (TTO) representation of the Laplacian with periodic boundary conditions
-"""
-function Δ_P(d)
+function _Δ_periodic(d::Int)
     @assert d ≥ 4 "Dimension must be at least 4"
     out = zeros_tto(ntuple(_ -> 2, d), [1; fill(5, d - 1); 1])
     id = [1 0; 0 1]
     J = [0 1; 0 0]
     for i in 1:2
         for j in 1:2
-            out.tto_vec[1][i, j, 1, :] = [id[i, j], J[j, i], J[i, j], J[i, j], J[j, i]]
+            out.cores[1][i, j, 1, :] = [id[i, j], J[j, i], J[i, j], J[i, j], J[j, i]]
             for k in 2:(d - 1)
-                out.tto_vec[k][i, j, :, :] = [
+                out.cores[k][i, j, :, :] = [
                     id[i, j] J[j, i] J[i, j] 0 0;
                     0 J[i, j] 0 0 0;
                     0 0 J[j, i] 0 0;
@@ -380,7 +381,7 @@ function Δ_P(d)
                     0 0 0 0 J[j, i]
                 ]
             end
-            out.tto_vec[d][i, j, :, 1] = [
+            out.cores[d][i, j, :, 1] = [
                 2 * id[i, j] - J[i, j] - J[j, i];
                 -J[i, j];
                 -J[j, i];
@@ -393,9 +394,13 @@ function Δ_P(d)
 end
 
 """
-Constructs a tensor train operator (TTO) representation of the inverse Laplacian with Dirichlet-Neumann boundary conditions
+    Δ⁻¹(d; bc=:DN) -> TTOperator
+
+Inverse of [`Δ`](@ref) in QTT format. Only `bc = :DN` (Dirichlet–Neumann) is
+available.
 """
-function Δ⁻¹_DN(d::Int)
+function Δ⁻¹(d::Int; bc::Symbol = :DN)
+    bc === :DN || throw(ArgumentError("`Δ⁻¹` is only available for `bc = :DN`; got :$bc"))
     @assert d ≥ 2 "Dimension must be at least 2"
     out = zeros_tto(2, d, 4)
     id = [1 0; 0 1]
@@ -404,16 +409,16 @@ function Δ⁻¹_DN(d::Int)
     J = [0 1; 0 0]
     for i in 1:2
         for j in 1:2
-            out.tto_vec[1][i, j, 1, :] = [id[i, j]; I₂[i, j]; J[i, j]; J[j, i]]
+            out.cores[1][i, j, 1, :] = [id[i, j]; I₂[i, j]; J[i, j]; J[j, i]]
             for k in 2:(d - 1)
-                out.tto_vec[k][i, j, :, :] = [
+                out.cores[k][i, j, :, :] = [
                     id[i, j] I₂[i, j] J[i, j] J[j, i];
                     0 2 * E[i, j] 0 0;
                     0 I₂[i, j] + J[j, i] E[i, j] 0;
                     0 I₂[i, j] + J[i, j] 0 E[i, j];
                 ]
             end
-            out.tto_vec[d][i, j, :, 1] = [
+            out.cores[d][i, j, :, 1] = [
                 E[i, j] + I₂[i, j];
                 2 * E[i, j];
                 E[i, j] + I₂[i, j] + J[j, i];
@@ -434,18 +439,22 @@ function qtto_prolongation(d::Int)
     J = [0.0 1.0; 0.0 0.0]
     for i in 1:2
         for j in 1:2
-            out.tto_vec[1][i, j, 1, :] = 0.5 * [id[i, j]; J[j, i]]
+            out.cores[1][i, j, 1, :] = 0.5 * [id[i, j]; J[j, i]]
             for k in 2:(d - 1)
-                out.tto_vec[k][i, j, :, :] = [id[i, j] J[j, i]; 0 J[i, j]]
+                out.cores[k][i, j, :, :] = [id[i, j] J[j, i]; 0 J[i, j]]
             end
         end
     end
-    out.tto_vec[d][1, 1, 1, 1] = 1.0
-    out.tto_vec[d][2, 1, 1, 1] = 2.0
-    out.tto_vec[d][1, 2, 1, 1] = 1.0
-    out.tto_vec[d][2, 2, 1, 1] = 0.0
+    out.cores[d][1, 1, 1, 1] = 1.0
+    out.cores[d][2, 1, 1, 1] = 2.0
+    out.cores[d][1, 2, 1, 1] = 1.0
+    out.cores[d][2, 2, 1, 1] = 0.0
     return out
 end
+
+# Column dimensions of a prolongation from `d` to `d + 1` binary sites: the last
+# site has no input index.
+_prolongation_col_dims(d) = ntuple(k -> k ≤ d ? 2 : 1, d + 1)
 
 """
 Constructs a constant QTT prolongation operator from `d` to `d + 1` binary sites.
@@ -456,16 +465,15 @@ function qtto_constant_prolongation(d::Int)
     identity_branch = id_tto(d)
     out = Vector{Array{Float64, 4}}(undef, d + 1)
     @inbounds for k in 1:d
-        out[k] = copy(identity_branch.tto_vec[k])
+        out[k] = copy(identity_branch.cores[k])
     end
     out[d + 1] = ones(Float64, 2, 1, 1, 1)
 
-    return TToperator{Float64, d + 1}(
-        d + 1,
+    return TTOperator{Float64, d + 1}(
         out,
         ntuple(_ -> 2, d + 1),
-        ones(Int64, d + 2),
-        zeros(Int64, d + 1)
+        _prolongation_col_dims(d),
+        ones(Int64, d + 2)
     )
 end
 
@@ -479,40 +487,40 @@ function qtto_linear_prolongation(d::Int)
     if d == 1
         average_core = zeros(Float64, 2, 2, 1, 1)
         average_core[:, :, 1, 1] .= 0.5 .* [1.0 1.0; 0.0 1.0]
-        average_branch = TToperator{Float64, 1}(1, [average_core], (2,), [1, 1], [0])
+        average_branch = TTOperator{Float64, 1}([average_core], (2,), [1, 1])
     else
         average_branch = 0.5 * (id_tto(d) + shift(d))
     end
     out_rks = Vector{Int64}(undef, d + 2)
     out_rks[1] = 1
     @inbounds for k in 2:(d + 1)
-        out_rks[k] = identity_branch.tto_rks[k] + average_branch.tto_rks[k]
+        out_rks[k] = identity_branch.ranks[k] + average_branch.ranks[k]
     end
     out_rks[d + 2] = 1
 
     out = Vector{Array{Float64, 4}}(undef, d + 1)
     out[1] = zeros(Float64, 2, 2, 1, out_rks[2])
-    r₀ = identity_branch.tto_rks[2]
-    out[1][:, :, 1:1, 1:r₀] .= identity_branch.tto_vec[1]
-    out[1][:, :, 1:1, (r₀ + 1):out_rks[2]] .= average_branch.tto_vec[1]
+    r₀ = identity_branch.ranks[2]
+    out[1][:, :, 1:1, 1:r₀] .= identity_branch.cores[1]
+    out[1][:, :, 1:1, (r₀ + 1):out_rks[2]] .= average_branch.cores[1]
 
     @inbounds for k in 2:d
-        l₀ = identity_branch.tto_rks[k]
-        r₀ = identity_branch.tto_rks[k + 1]
-        l₁ = average_branch.tto_rks[k]
-        r₁ = average_branch.tto_rks[k + 1]
+        l₀ = identity_branch.ranks[k]
+        r₀ = identity_branch.ranks[k + 1]
+        l₁ = average_branch.ranks[k]
+        r₁ = average_branch.ranks[k + 1]
         out[k] = zeros(Float64, 2, 2, out_rks[k], out_rks[k + 1])
-        out[k][:, :, 1:l₀, 1:r₀] .= identity_branch.tto_vec[k]
-        out[k][:, :, (l₀ + 1):(l₀ + l₁), (r₀ + 1):(r₀ + r₁)] .= average_branch.tto_vec[k]
+        out[k][:, :, 1:l₀, 1:r₀] .= identity_branch.cores[k]
+        out[k][:, :, (l₀ + 1):(l₀ + l₁), (r₀ + 1):(r₀ + r₁)] .= average_branch.cores[k]
     end
 
-    l₀ = identity_branch.tto_rks[d + 1]
-    l₁ = average_branch.tto_rks[d + 1]
+    l₀ = identity_branch.ranks[d + 1]
+    l₁ = average_branch.ranks[d + 1]
     out[d + 1] = zeros(Float64, 2, 1, out_rks[d + 1], 1)
     out[d + 1][1, 1, 1:l₀, 1] .= 1.0
     out[d + 1][2, 1, (l₀ + 1):(l₀ + l₁), 1] .= 1.0
 
-    return TToperator{Float64, d + 1}(d + 1, out, ntuple(_ -> 2, d + 1), out_rks, zeros(Int64, d + 1))
+    return TTOperator{Float64, d + 1}(out, ntuple(_ -> 2, d + 1), _prolongation_col_dims(d), out_rks)
 end
 
 
@@ -540,80 +548,79 @@ function id_tto(::Type{T}, d; n_dim::Int = 2) where {T}
         A[j] = zeros(T, n_dim, n_dim, 1, 1)
         A[j][:, :, 1, 1] = Matrix{T}(I, n_dim, n_dim)
     end
-    return TToperator{T, d}(d, A, dims, ones(Int64, d + 1), zeros(Int64, d))
+    return TTOperator{T, d}(A, dims, ones(Int64, d + 1))
 end
 
 # Identity operator with the element type and physical dimensions of `A`.
-function _identity_like(A::AbstractTToperator)
+function _identity_like(A::AbstractTTOperator)
     T = eltype(A)
-    dims = A.tto_dims
+    dims = _square_dims(A)
     d = length(dims)
     cores = [reshape(Matrix{T}(I, n, n), n, n, 1, 1) for n in dims]
-    return TToperator{T, d}(d, cores, dims, ones(Int, d + 1), zeros(Int, d))
+    return TTOperator{T, d}(cores, dims, ones(Int, d + 1))
 end
 
 """
-    rand_tto(dims, rmax::Int; T=Float64) -> TToperator
+    rand_tto(dims, max_bond::Int; T=Float64) -> TTOperator
 
-Return a random [`TToperator`](@ref) with physical dimensions `dims` and entries
-drawn from `randn`. Every interior rank is `rmax`, reduced where the dimensions
+Return a random [`TTOperator`](@ref) with physical dimensions `dims` and entries
+drawn from `randn`. Every interior rank is `max_bond`, reduced where the dimensions
 force a smaller rank.
 """
-function rand_tto(dims, rmax::Int; T = Float64)
+function rand_tto(dims, max_bond::Int; T = Float64)
     d = length(dims)
     tt_vec = Vector{Array{T, 4}}(undef, d)
     rks = ones(Int, d + 1)
     for i in eachindex(tt_vec)
-        ri = min(prod(dims[1:(i - 1)]), prod(dims[i:d]), rmax)
-        rip = min(prod(dims[1:i]), prod(dims[(i + 1):d]), rmax)
+        ri = min(prod(dims[1:(i - 1)]), prod(dims[i:d]), max_bond)
+        rip = min(prod(dims[1:i]), prod(dims[(i + 1):d]), max_bond)
         rks[i + 1] = rip
         tt_vec[i] = randn(T, dims[i], dims[i], ri, rip)
     end
-    return TToperator{T, d}(d, tt_vec, dims, rks, zeros(Int, d))
+    return TTOperator{T, d}(tt_vec, dims, rks)
 end
 
 """
-    zeros_tt([T=Float64,] dims, rks; ot=zeros(Int, length(dims))) -> TTvector
-    zeros_tt(n::Integer, d::Integer, r; ot, r_and_d=true) -> TTvector
+    zeros_tt([T=Float64,] dims, ranks; orthogonality=(1, length(dims))) -> TTVector
+    zeros_tt(n::Integer, d::Integer, r; orthogonality=(1, d), admissible=true) -> TTVector
 
-Return a [`TTvector`](@ref) with element type `T`, physical dimensions `dims`,
-TT ranks `rks` (length `length(dims) + 1`), and all cores zero. `ot` sets the
-orthogonality flags.
+Return a [`TTVector`](@ref) with element type `T`, physical dimensions `dims`,
+TT ranks `ranks` (length `length(dims) + 1`), and all cores zero. `orthogonality`
+sets the orthogonality interval `(left, right)` recorded on the result.
 
 The second form uses `d` sites of dimension `n` and interior ranks `r`. With
-`r_and_d = true`, ranks are reduced where the dimensions force a smaller rank
-(see [`r_and_d_to_rks`](@ref)); otherwise every interior rank is `r`.
+`admissible = true`, ranks are reduced where the dimensions force a smaller rank
+(see [`admissible_ranks`](@ref)); otherwise every interior rank is `r`.
 """
-function zeros_tt(dims, rks; ot = zeros(Int64, length(dims)))
-    return zeros_tt(Float64, dims, rks; ot = ot)
+function zeros_tt(dims, ranks; kwargs...)
+    return zeros_tt(Float64, dims, ranks; kwargs...)
 end
 
-function zeros_tt(::Type{T}, dims::NTuple{N, Int64}, rks; ot = zeros(Int64, length(dims))) where {T, N}
-    @assert length(dims) + 1 == length(rks) "Dimensions and ranks are not compatible"
-    tt_vec = [zeros(T, dims[i], rks[i], rks[i + 1]) for i in eachindex(dims)]
-    rks_vec = collect(Int64, rks)
-    ot_vec = collect(Int64, ot)
-    return TTvector{T, N}(N, tt_vec, dims, rks_vec, ot_vec)
+function zeros_tt(::Type{T}, dims::NTuple{N, Int64}, ranks; orthogonality = (1, N)) where {T, N}
+    @assert length(dims) + 1 == length(ranks) "Dimensions and ranks are not compatible"
+    tt_vec = [zeros(T, dims[i], ranks[i], ranks[i + 1]) for i in eachindex(dims)]
+    ranks_vec = collect(Int64, ranks)
+    return TTVector{T, N}(tt_vec, dims, ranks_vec; orthogonality)
 end
 
-function zeros_tt(n::Integer, d::Integer, r; ot = zeros(Int64, d), r_and_d = true)
+function zeros_tt(n::Integer, d::Integer, r; admissible = true, kwargs...)
     dims = ntuple(x -> n, d)
-    if r_and_d
-        rks = r_and_d_to_rks(r * ones(Int64, d + 1), dims)
+    if admissible
+        ranks = admissible_ranks(r * ones(Int64, d + 1), dims)
     else
-        rks = r * ones(Int64, d + 1)
-        rks[1], rks[end] = 1, 1
+        ranks = r * ones(Int64, d + 1)
+        ranks[1], ranks[end] = 1, 1
     end
-    return zeros_tt(Float64, dims, rks; ot = ot)
+    return zeros_tt(Float64, dims, ranks; kwargs...)
 end
 
-function zeros_tt(::Type{T}, dims::Vector{Int}, rks::Vector{Int}; ot = zeros(Int64, length(dims))) where {T}
-    return zeros_tt(T, Tuple(dims), Tuple(rks); ot = ot)
+function zeros_tt(::Type{T}, dims::Vector{Int}, ranks::Vector{Int}; kwargs...) where {T}
+    return zeros_tt(T, Tuple(dims), Tuple(ranks); kwargs...)
 end
 
-function zeros_tt!(A::TTvector)
-    @assert isa(A.ttv_vec, Vector)
-    for core in A.ttv_vec
+function zeros_tt!(A::AbstractTTVector)
+    @assert isa(A.cores, Vector)
+    for core in A.cores
         fill!(core, zero(eltype(core)))
     end
     return A
@@ -627,8 +634,7 @@ function ones_tt(::Type{T}, dims) where {T}
     N = length(dims)
     vec = [ones(T, n, 1, 1) for n in dims]
     rks = ones(Int64, N + 1)
-    ot = zeros(Int64, N)
-    return TTvector{T, N}(N, vec, Tuple(dims), rks, ot)
+    return TTVector{T, N}(vec, Tuple(dims), rks)
 end
 
 function ones_tt(n::Integer, d::Integer)
@@ -637,28 +643,33 @@ function ones_tt(n::Integer, d::Integer)
 end
 
 """
-    zeros_tto([T=Float64,] dims, rks) -> TToperator
-    zeros_tto(n, d, r) -> TToperator
+    zeros_tto([T=Float64,] dims, ranks) -> TTOperator
+    zeros_tto(T, row_dims, col_dims, ranks) -> TTOperator
+    zeros_tto(n, d, r) -> TTOperator
 
-Return a [`TToperator`](@ref) with element type `T`, physical dimensions `dims`,
-TT ranks `rks`, and all cores zero. The second form uses `d` sites of dimension
-`n` and interior ranks `r`, reduced where the dimensions force a smaller rank.
+Return a [`TTOperator`](@ref) with element type `T`, TT ranks `ranks`, and all
+cores zero. The first form is square with physical dimensions `dims`; the
+second takes row and column dimensions separately. The third form uses `d`
+sites of dimension `n` and interior ranks `r`, reduced where the dimensions
+force a smaller rank.
 """
-function zeros_tto(dims, rks)
-    return zeros_tto(Float64, dims, rks)
+function zeros_tto(dims, ranks)
+    return zeros_tto(Float64, dims, ranks)
 end
 
-function zeros_tto(::Type{T}, dims::NTuple{N, Int64}, rks) where {T, N}
-    @assert length(dims) + 1 == length(rks) "Dimensions and ranks are not compatible"
-    vec = [zeros(T, dims[i], dims[i], rks[i], rks[i + 1]) for i in eachindex(dims)]
-    return TToperator{T, N}(N, vec, dims, rks, zeros(Int64, N))
+zeros_tto(::Type{T}, dims::NTuple{N, Int64}, ranks) where {T, N} = zeros_tto(T, dims, dims, ranks)
+
+function zeros_tto(::Type{T}, row_dims::NTuple{N, Int64}, col_dims::NTuple{N, Int64}, ranks) where {T, N}
+    @assert N + 1 == length(ranks) "Dimensions and ranks are not compatible"
+    vec = [zeros(T, row_dims[i], col_dims[i], ranks[i], ranks[i + 1]) for i in 1:N]
+    return TTOperator{T, N}(vec, row_dims, col_dims, ranks)
 end
 
 function zeros_tto(n, d, r)
     dims = ntuple(x -> n, d)
-    rks = r * ones(Int64, d + 1)
-    rks = r_and_d_to_rks(rks, dims .^ 2; rmax = r)
-    return zeros_tto(Float64, dims, rks)
+    ranks = r * ones(Int64, d + 1)
+    ranks = admissible_ranks(ranks, dims .^ 2; max_bond = r)
+    return zeros_tto(Float64, dims, ranks)
 end
 
 """
@@ -669,8 +680,11 @@ of 1D second-derivative operators:
 
     Δ_nd = Δ₁⊗I⊗…⊗I + I⊗Δ₂⊗I⊗…⊗I + … + I⊗…⊗I⊗Δₙ
 
-Each 1D operator acts on `bits_per_dim` sites (a uniform grid of `2^bits_per_dim`
-points over `[a, b]`). The finite-difference scaling `1/h²` is included.
+Each 1D operator acts on `bits_per_dim` sites, a uniform grid of
+`N = 2^bits_per_dim` points. The finite-difference scaling `1/h²` is included.
+The grid contains both endpoints of `[a, b]`, so `h = (b - a) / (N - 1)`, except
+for `bc = :periodic`, where it covers one period `[a, b)` without repeating the
+endpoint and `h = (b - a) / N`.
 
 # Arguments
 - `n_dims::Int`: Number of spatial dimensions (≥ 1).
@@ -680,12 +694,11 @@ points over `[a, b]`). The finite-difference scaling `1/h²` is included.
 - `ordering::Symbol`: `:serial` (sites grouped by dimension) or `:interleaved`
   (sites interleaved across dimensions). Default: `:interleaved`.
 - `a::Real`, `b::Real`: Interval endpoints. Default: `[0, 1]`.
-- `bc::Symbol`: Boundary conditions — `:DD` (Dirichlet–Dirichlet), `:DN`
-  (Dirichlet–Neumann), `:ND` (Neumann–Dirichlet), `:NN` (Neumann–Neumann).
-  Default: `:DN`.
+- `bc::Symbol`: Boundary conditions of each 1D operator, as in [`Δ`](@ref):
+  `:DD`, `:DN`, `:ND`, `:NN`, or `:periodic`. Default: `:DN`.
 
 # Returns
-A `QTToperator` with `N = n_dims * bits_per_dim` sites.
+A `QTTOperator` with `N = n_dims * bits_per_dim` sites.
 """
 function qtt_laplacian(
         n_dims::Int, bits_per_dim::Int;
@@ -694,29 +707,19 @@ function qtt_laplacian(
     )
     @assert ordering ∈ (:interleaved, :serial) "ordering must be :interleaved or :serial"
     @assert n_dims ≥ 1 "n_dims must be at least 1"
-    @assert bc ∈ (:DD, :DN, :ND, :NN) "bc must be :DD, :DN, :ND, or :NN"
 
     d = bits_per_dim
-    h = (b - a) / (2^d - 1)
+    h = bc === :periodic ? (b - a) / 2^d : (b - a) / (2^d - 1)
     scale = 1.0 / h^2
 
-    # Select 1D Laplacian with correct boundary conditions
-    lap_1d = if bc == :DD
-        Δ(d)
-    elseif bc == :DN
-        Δ_DN(d)
-    elseif bc == :ND
-        Δ_ND(d)
-    else  # :NN
-        Δ_NN(d)
-    end
+    lap_1d = Δ(d; bc)
 
     id_1d = id_tto(d)
 
     if n_dims == 1
         # Single dimension: just scale the 1D Laplacian
         scaled = scale * lap_1d
-        return QTToperator(scaled, 1, d, ordering)
+        return QTTOperator(scaled, 1, d, ordering)
     end
 
     # For n_dims ≥ 2: build Kronecker sum in serial ordering.
@@ -738,7 +741,7 @@ function qtt_laplacian(
         result = result + (scale * build_term(k))
     end
 
-    serial_qtto = QTToperator(result, n_dims, d, :serial)
+    serial_qtto = QTTOperator(result, n_dims, d, :serial)
 
     if ordering == :serial
         return serial_qtto

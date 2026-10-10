@@ -6,7 +6,7 @@ bits = 8; N = 2^bits; lo, hi = -4.0, 4.0
 h = (hi - lo) / (N - 1); q = 1.0
 max_bond = 8; trunc_tol = 1.0e-8
 
-X = ttv_to_diag_tto(qtt_polynom([0.0, 1.0], bits; a = lo, b = hi))   # diag(x)
+X = tt_to_diag_tto(qtt_polynomial([0.0, 1.0], bits; a = lo, b = hi))   # diag(x)
 D = (1 / (2h)) * (shift(bits) - (id_tto(bits) - ∇(bits)))            # central ∂ₓ
 a = (1 / sqrt(2)) * (X + D); adag = (1 / sqrt(2)) * (X - D)          # ladder operators
 I = id_tto(bits)
@@ -31,7 +31,7 @@ readout = tt_compress!(gaussian(0.8) ⊗ gaussian(-0.4) ⊗ gaussian(0.2), max_b
 let
     Am, Adm = qtto_to_matrix(a), qtto_to_matrix(adag)
     Dm, Idm, nm = qtto_to_matrix(D), qtto_to_matrix(I), qtto_to_matrix(adag * a)
-    rv() = (z = rand_tt(a1.tto_dims, 4); (1 / nrm(z)) * z); x, y = rv(), rv()
+    rv() = (z = rand_tt(a1.row_dims, 4); (1 / nrm(z)) * z); x, y = rv(), rv()
     @assert opnorm(Adm - Am') / opnorm(Am) < 1.0e-10                         # a† = aᴴ
     @assert opnorm(Dm + Dm') / opnorm(Dm) < 1.0e-10                          # Dᵀ = -D
     @assert opnorm(nm - nm') / opnorm(nm) < 1.0e-10                          # n̂ = a†a Hermitian
@@ -46,19 +46,19 @@ end
 blk = round(Int, record_dt / τstep); nblk = round(Int, T / record_dt)
 times = collect(0.0:record_dt:T)
 
-snaps = TTvector[]; overlap = Float64[]; mass = Float64[]
+snaps = TTVector[]; overlap = Float64[]; mass = Float64[]
 function record!(ψ)
     push!(snaps, copy(ψ)); push!(overlap, ip(readout, ψ)); return push!(mass, nrm(ψ))
 end
 
 ψ = ψ0; record!(ψ)
 for _ in 1:nblk
-    global ψ = crank_nicholson_method(G, ψ, ψ, fill(τstep, blk); normalize = false, alg = ALS(max_sweeps = 3), max_bond = max_bond)
+    global ψ = crank_nicolson_method(G, ψ, ψ, fill(τstep, blk); normalize = false, alg = ALS(max_sweeps = 3), max_bond = max_bond)
     global ψ = tt_compress!(ψ, max_bond; trunc_tol)
     record!(ψ)
 end
 
-@info "second-quantized KE final" bits T overlap = overlap[end] mass = mass[end] rank = maximum(ψ.ttv_rks)
+@info "second-quantized KE final" bits T overlap = overlap[end] mass = mass[end] rank = maximum(ψ.ranks)
 
 let
     mid = cld(N, 2)

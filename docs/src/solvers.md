@@ -1,10 +1,10 @@
 # Solver Guide
 
-TensorTrainNumerics.jl provides five families of iterative solvers for problems in tensor-train format: **ALS**, **MALS**, **DMRG**, **AMEn**, and **TDVP**. In addition, three time-stepping methods are available for evolution problems.
+TensorTrainNumerics.jl provides five families of iterative solvers for problems in tensor-train format: **ALS**, **MALS**, **DMRG**, **AMEn**, and **TDVP**. Evolution problems are solved with `time_evolve`, which covers TDVP and the classical time-stepping methods.
 
-All solvers operate on `AbstractTTvector` and `AbstractTToperator` inputs, so they accept both plain `TTvector`/`TToperator` and the `QTTvector`/`QTToperator` wrappers transparently.
+All solvers operate on `AbstractTTVector` and `AbstractTTOperator` inputs, so they accept both plain `TTVector`/`TTOperator` and the `QTTVector`/`QTTOperator` wrappers transparently.
 
-Use `linear_solve(A, b, x0, MALS(trunc_tol = 1e-5))` for linear systems and `eigen_solve(A, x0, DMRG(trunc_tol = 1e-12))` for eigenvalue problems. The older `*_linsolve` and `*_eigsolve` names are kept as compatibility wrappers.
+Use `linear_solve(A, b, x0, MALS(trunc_tol = 1e-5))` for linear systems and `eigen_solve(A, x0, DMRG(trunc_tol = 1e-12))` for eigenvalue problems. The `*_linsolve` and `*_eigsolve` functions are wrappers around these. Use `time_evolve(A, u0, steps, CrankNicolson())` for evolution problems; see [Time evolution](@ref time-evolution-guide).
 
 ### Solver options
 
@@ -138,6 +138,37 @@ The script `examples/solver_comparison.jl` runs ALS, MALS, DMRG, and AMEn on a 2
 
 ---
 
+## [Time evolution](@id time-evolution-guide)
+
+`time_evolve(A, u₀, steps, alg)` selects the time stepper with an algorithm object, in the same way as `linear_solve` selects a linear solver:
+
+| Algorithm object | Scheme | Function it calls |
+|---|---|---|
+| `Euler()` | Explicit (forward) Euler | `euler_method` |
+| `ImplicitEuler(linear_solver = MALS())` | Implicit (backward) Euler | `implicit_euler_method` |
+| `CrankNicolson(linear_solver = MALS())` | Crank–Nicolson | `crank_nicolson_method` |
+| `RK4(max_bond = r)` | Fourth-order Runge–Kutta with rank truncation | `rk4_method` |
+| `TDVP(nsites = 1)` | One-site TDVP, fixed ranks | `tdvp` |
+| `TDVP(nsites = 2, max_bond = r)` | Two-site TDVP, adaptive ranks | `tdvp2` |
+
+`steps` holds step sizes, not time points. `Euler`, `ImplicitEuler`, `CrankNicolson`, and `RK4` integrate $\dot{u} = Au$. `TDVP` integrates $\dot{u} = -iAu$ unless `imaginary_time = true`. The implicit schemes solve a TT linear system at every step with `linear_solver`; the `guess` keyword of `time_evolve` sets the initial guess of the first solve. The algorithm objects take the same keyword arguments as the functions they call, which the following two sections describe.
+
+```@example timeevolve
+using TensorTrainNumerics
+
+d = 6
+h = 1.0 / (2^d - 1)
+A = h^2 * toeplitz_to_qtto(-2.0, 1.0, 1.0, d)
+u0 = qtt_sin(d, λ = π)
+steps = fill(1.0e-2, 20)
+
+u_cn = time_evolve(A, u0, steps, CrankNicolson(linear_solver = ALS(), show_progress = false))
+u_rk = time_evolve(A, u0, steps, RK4(max_bond = 4, show_progress = false))
+u_td = time_evolve(A, u0, steps, TDVP(imaginary_time = true, show_progress = false))
+```
+
+---
+
 ## TDVP — time-dependent variational principle
 
 TDVP evolves a TT-vector while keeping the state on the TT manifold of fixed (or bounded) rank. Two variants are available:
@@ -188,7 +219,8 @@ For the parabolic problem $u_t = A u$, $u(0) = u_0$, three classical time-steppi
 |---|---|---|
 | `euler_method` | Explicit (forward) Euler | Conditionally stable, $\Delta t < 2/\|A\|$ |
 | `implicit_euler_method` | Implicit (backward) Euler | Unconditionally stable |
-| `crank_nicholson_method` | Crank–Nicolson | Unconditionally stable, second-order |
+| `crank_nicolson_method` | Crank–Nicolson | Unconditionally stable, second-order |
+| `rk4_method` | Classical fourth-order Runge–Kutta | Conditionally stable; every stage is truncated to `max_bond` |
 | `expintegrator` | Krylov exponential integrator | Exact up to Krylov tolerance |
 
 ```@example timestep
@@ -203,13 +235,13 @@ xes = LinRange(0, 1, N)
 
 A    = h^2 * toeplitz_to_qtto(-2.0, 1.0, 1.0, d)
 u0   = qtt_sin(d, λ = π)
-init = rand_tt(u0.ttv_dims, u0.ttv_rks)
+init = rand_tt(u0.dims, u0.ranks)
 
 steps = collect(range(0.0, 5.0, 500))
 
 sol_impl, info_impl = implicit_euler_method(A, u0, init, steps;
     return_info = true, normalize = false)
-sol_cn, info_cn     = crank_nicholson_method(A, u0, init, steps;
+sol_cn, info_cn     = crank_nicolson_method(A, u0, init, steps;
     return_info = true, alg = MALS(), normalize = false)
 sol_krylov, _       = expintegrator(A, last(steps), u0)
 

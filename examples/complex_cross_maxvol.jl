@@ -15,14 +15,14 @@ f(X::AbstractMatrix{<:Number}) = vec(exp.(X[:, 1] .+ 0.6 .* X[:, 2] .- 0.2 .* X[
 Random.seed!(20260)
 alg = MaxVol(verbosity = 2, tol = 1.0e-8, max_sweeps = 20, max_bond = 40, kickrank = 2)
 tt = tt_cross(f, domain, alg; ranks = 2, val_size = 1200)
-println("TT ranks: ", tt.ttv_rks)
+println("TT ranks: ", tt.ranks)
 
 Random.seed!(20261)
 nsamp = 400
 idx = hcat([rand(1:n, nsamp) for _ in 1:d]...)
 Xcheck = hcat([domain[k][idx[:, k]] for k in 1:d]...)
 y = f(Xcheck)
-yhat = TensorTrainNumerics._evaluate_tt(tt.ttv_vec, idx, d)
+yhat = TensorTrainNumerics._evaluate_tt(tt.cores, idx, d)
 
 rel = norm(y .- yhat) / max(norm(y), 1.0e-14)
 println("Validation relative L2 error: ", rel)

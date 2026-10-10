@@ -26,34 +26,34 @@ using TensorTrainNumerics
     d = 3
     α, β, γ = 2.0, -1.0, 0.5
     tto = TensorTrainNumerics.toeplitz_to_qtto(α, β, γ, d)
-    @test length(tto.tto_vec) == d
-    @test size(tto.tto_vec[1]) == (2, 2, 1, 3)
-    @test size(tto.tto_vec[2]) == (2, 2, 3, 3)
-    @test size(tto.tto_vec[3]) == (2, 2, 3, 1)
+    @test length(tto.cores) == d
+    @test size(tto.cores[1]) == (2, 2, 1, 3)
+    @test size(tto.cores[2]) == (2, 2, 3, 3)
+    @test size(tto.cores[3]) == (2, 2, 3, 1)
 
     # Check that the first core is filled as expected for a simple case
     # For α=1, β=0, γ=0, the first core should be identity in the first slice
     tto_id = TensorTrainNumerics.toeplitz_to_qtto(1, 0, 0, d)
-    @test tto_id.tto_vec[1][1, 1, 1, 1] ≈ 1.0
-    @test tto_id.tto_vec[1][2, 2, 1, 1] ≈ 1.0
-    @test tto_id.tto_vec[1][1, 2, 1, 1] ≈ 0.0
-    @test tto_id.tto_vec[1][2, 1, 1, 1] ≈ 0.0
+    @test tto_id.cores[1][1, 1, 1, 1] ≈ 1.0
+    @test tto_id.cores[1][2, 2, 1, 1] ≈ 1.0
+    @test tto_id.cores[1][1, 2, 1, 1] ≈ 0.0
+    @test tto_id.cores[1][2, 1, 1, 1] ≈ 0.0
 
     # Check that the last core is filled as expected for a simple case
     # For α=1, β=0, γ=0, the last core should be α*id in the first slice
-    @test tto_id.tto_vec[d][1, 1, 1, 1] ≈ 1.0
-    @test tto_id.tto_vec[d][2, 2, 1, 1] ≈ 1.0
-    @test tto_id.tto_vec[d][1, 2, 1, 1] ≈ 0.0
-    @test tto_id.tto_vec[d][2, 1, 1, 1] ≈ 0.0
+    @test tto_id.cores[d][1, 1, 1, 1] ≈ 1.0
+    @test tto_id.cores[d][2, 2, 1, 1] ≈ 1.0
+    @test tto_id.cores[d][1, 2, 1, 1] ≈ 0.0
+    @test tto_id.cores[d][2, 1, 1, 1] ≈ 0.0
 end
 
 @testset "id_tto" begin
     d = 3
     tto = TensorTrainNumerics.id_tto(d)
 
-    @test typeof(tto) == TensorTrainNumerics.TToperator{Float64, 3}
-    @test length(tto.tto_vec) == d
-    for core in tto.tto_vec
+    @test typeof(tto) == TensorTrainNumerics.TTOperator{Float64, 3}
+    @test length(tto.cores) == d
+    for core in tto.cores
         @test size(core) == (2, 2, 1, 1)
         @test core[:, :, 1, 1] ≈ Matrix(I, 2, 2)
     end
@@ -64,9 +64,9 @@ end
     rmax = 3
     tto = TensorTrainNumerics.rand_tto(dims, rmax)
 
-    @test typeof(tto) == TensorTrainNumerics.TToperator{Float64, 3}
-    @test length(tto.tto_vec) == 3
-    for (i, core) in enumerate(tto.tto_vec)
+    @test typeof(tto) == TensorTrainNumerics.TTOperator{Float64, 3}
+    @test length(tto.cores) == 3
+    for (i, core) in enumerate(tto.cores)
         @test size(core, 1) == dims[i]
         @test size(core, 2) == dims[i]
         @test size(core, 3) ≥ 1
@@ -78,9 +78,9 @@ end
     n, d, r = 2, 3, 2
     ttv = TensorTrainNumerics.zeros_tt(n, d, r)
 
-    @test typeof(ttv) == TensorTrainNumerics.TTvector{Float64, 3}
-    @test length(ttv.ttv_vec) == d
-    for core in ttv.ttv_vec
+    @test typeof(ttv) == TensorTrainNumerics.TTVector{Float64, 3}
+    @test length(ttv.cores) == d
+    for core in ttv.cores
         @test all(core .== 0.0)
     end
 end
@@ -89,9 +89,9 @@ end
     dims = (2, 2, 2)
     ttv = TensorTrainNumerics.ones_tt(dims)
 
-    @test typeof(ttv) == TensorTrainNumerics.TTvector{Float64, 3}
-    @test length(ttv.ttv_vec) == 3
-    for core in ttv.ttv_vec
+    @test typeof(ttv) == TensorTrainNumerics.TTVector{Float64, 3}
+    @test length(ttv.cores) == 3
+    for core in ttv.cores
         @test all(core .== 1.0)
         @test size(core) == (2, 1, 1)
     end
@@ -100,15 +100,15 @@ end
 @testset "zeros_tt!" begin
     ttv = TensorTrainNumerics.ones_tt((2, 2, 2))
     TensorTrainNumerics.zeros_tt!(ttv)
-    for core in ttv.ttv_vec
+    for core in ttv.cores
         @test all(core .== 0.0)
     end
 end
 
-@testset "Δ_NN" begin
+@testset "Δ with bc = :NN" begin
     d = 6
 
-    A = Δ_NN(d)
+    A = Δ(d; bc = :NN)
 
     function laplacian_nn_matrix(n)
         A = zeros(n, n)
@@ -161,10 +161,10 @@ end
     @test A == B
 end
 
-@testset "Δ_DN" begin
+@testset "Δ with bc = :DN" begin
     d = 6
 
-    A = Δ_DN(d)
+    A = Δ(d; bc = :DN)
 
     function laplacian_dn_matrix(n)
         A = zeros(n, n)
@@ -191,10 +191,10 @@ end
     @test A == B
 end
 
-@testset "Δ_ND" begin
+@testset "Δ with bc = :ND" begin
     d = 6
 
-    A = Δ_ND(d)
+    A = Δ(d; bc = :ND)
 
     function laplacian_nd_matrix(n)
         A = zeros(n, n)
@@ -221,10 +221,10 @@ end
     @test A == B
 end
 
-@testset "Δ_P" begin
+@testset "Δ with bc = :periodic" begin
     d = 6
 
-    A = Δ_P(d)
+    A = Δ(d; bc = :periodic)
 
     function laplacian_p_matrix(n)
         A = zeros(n, n)
@@ -249,7 +249,7 @@ end
 end
 
 @testset "NN and periodic Laplacians compose with TT operations" begin
-    for (name, build) in ((:NN, Δ_NN), (:periodic, Δ_P)), d in 4:7
+    for (name, build) in ((:NN, d -> Δ(d; bc = :NN)), (:periodic, d -> Δ(d; bc = :periodic))), d in 4:7
         @testset "$name, $d sites" begin
             n = 2^d
             reference = Matrix(SymTridiagonal(fill(2.0, n), fill(-1.0, n - 1)))
@@ -260,18 +260,18 @@ end
             end
 
             A = build(d)
-            @test first(A.tto_rks) == last(A.tto_rks) == 1
-            @test size(first(A.tto_vec), 3) == size(last(A.tto_vec), 4) == 1
+            @test first(A.ranks) == last(A.ranks) == 1
+            @test size(first(A.cores), 3) == size(last(A.cores), 4) == 1
             @test qtto_to_matrix(A) == reference
             constant = TensorTrainNumerics.ones_tt(ntuple(_ -> 2, d))
             @test norm(qtt_to_function(A * constant)) < 1.0e-12
 
             for T in (Float64, ComplexF64)
                 values = T <: Complex ? sin.(1:n) + im * cos.(2 .* (1:n)) : sin.(1:n)
-                x = ttv_decomp(reshape(values, ntuple(_ -> 2, d)))
+                x = tt_decomp(reshape(values, ntuple(_ -> 2, d)))
                 expected = reference * qtt_to_function(x)
                 y = A * x
-                @test first(y.ttv_rks) == last(y.ttv_rks) == 1
+                @test first(y.ranks) == last(y.ranks) == 1
                 @test norm(y) ≈ norm(expected) atol = 1.0e-10
                 @test qtt_to_function(orthogonalize(y)) ≈ expected atol = 1.0e-10
                 @test qtt_to_function(tt_round!(copy(y); trunc_tol = 1.0e-12)) ≈ expected atol = 1.0e-10
@@ -287,26 +287,26 @@ end
     # shift should call toeplitz_to_qtto(0,1,0,d)
     tto_shift = TensorTrainNumerics.shift(d)
     tto_ref = TensorTrainNumerics.toeplitz_to_qtto(0, 1, 0, d)
-    @test all(size.(tto_shift.tto_vec) .== size.(tto_ref.tto_vec))
-    @test all(tto_shift.tto_vec[1] .== tto_ref.tto_vec[1])
-    @test all(tto_shift.tto_vec[2] .== tto_ref.tto_vec[2])
-    @test all(tto_shift.tto_vec[3] .== tto_ref.tto_vec[3])
+    @test all(size.(tto_shift.cores) .== size.(tto_ref.cores))
+    @test all(tto_shift.cores[1] .== tto_ref.cores[1])
+    @test all(tto_shift.cores[2] .== tto_ref.cores[2])
+    @test all(tto_shift.cores[3] .== tto_ref.cores[3])
 
     # ∇ should call toeplitz_to_qtto(1,-1,0,d)
     tto_grad = TensorTrainNumerics.∇(d)
     tto_ref = TensorTrainNumerics.toeplitz_to_qtto(1, 0, -1, d)
-    @test all(size.(tto_grad.tto_vec) .== size.(tto_ref.tto_vec))
-    @test all(tto_grad.tto_vec[1] .== tto_ref.tto_vec[1])
-    @test all(tto_grad.tto_vec[2] .== tto_ref.tto_vec[2])
-    @test all(tto_grad.tto_vec[3] .== tto_ref.tto_vec[3])
+    @test all(size.(tto_grad.cores) .== size.(tto_ref.cores))
+    @test all(tto_grad.cores[1] .== tto_ref.cores[1])
+    @test all(tto_grad.cores[2] .== tto_ref.cores[2])
+    @test all(tto_grad.cores[3] .== tto_ref.cores[3])
 
     # Δ should call toeplitz_to_qtto(2,-1,-1,d)
     tto_lap = TensorTrainNumerics.Δ(d)
     tto_ref = TensorTrainNumerics.toeplitz_to_qtto(2, -1, -1, d)
-    @test all(size.(tto_lap.tto_vec) .== size.(tto_ref.tto_vec))
-    @test all(tto_lap.tto_vec[1] .== tto_ref.tto_vec[1])
-    @test all(tto_lap.tto_vec[2] .== tto_ref.tto_vec[2])
-    @test all(tto_lap.tto_vec[3] .== tto_ref.tto_vec[3])
+    @test all(size.(tto_lap.cores) .== size.(tto_ref.cores))
+    @test all(tto_lap.cores[1] .== tto_ref.cores[1])
+    @test all(tto_lap.cores[2] .== tto_ref.cores[2])
+    @test all(tto_lap.cores[3] .== tto_ref.cores[3])
 end
 
 function _dense_pauli(μ)
@@ -360,10 +360,10 @@ end
     Hxz = pauli_pair_sum_tto(:x, :z, d)
     Hyy = pauli_pair_sum_tto(:y, :y, d)
 
-    @test Hx isa TToperator{Float64, 4}
-    @test Hy isa TToperator{ComplexF64, 4}
-    @test maximum(Hx.tto_rks) == 2
-    @test maximum(Hxz.tto_rks) == 3
+    @test Hx isa TTOperator{Float64, 4}
+    @test Hy isa TTOperator{ComplexF64, 4}
+    @test maximum(Hx.ranks) == 2
+    @test maximum(Hxz.ranks) == 3
     @test qtto_to_matrix(Hx) ≈ _dense_pauli_sum(:x, d)
     @test qtto_to_matrix(Hy) ≈ _dense_pauli_sum(:y, d)
     @test qtto_to_matrix(Hxz) ≈ _dense_pauli_pair_sum(:x, :z, d)
@@ -381,8 +381,8 @@ end
         jz * _dense_pauli_pair_sum(:z, :z, d) +
         λ * _dense_pauli_sum(:x, d)
 
-    @test H isa TToperator{Float64, 4}
-    @test maximum(H.tto_rks) <= 7
+    @test H isa TTOperator{Float64, 4}
+    @test maximum(H.ranks) <= 7
     @test qtto_to_matrix(H) ≈ H_ref
 end
 
@@ -418,7 +418,7 @@ end
 @testset "Inverse" begin
 
     d = 6
-    A = Δ⁻¹_DN(d)
+    A = Δ⁻¹(d; bc = :DN)
 
     function inv_DN(n::Int)
         @assert n ≥ 1 "n must be ≥ 1"
@@ -478,16 +478,16 @@ end
 
     d = 3
     P = qtto_constant_prolongation(d)
-    @test P isa TToperator{Float64, 4}
-    @test P.N == d + 1
-    @test P.tto_dims == ntuple(_ -> 2, d + 1)
-    @test size(P.tto_vec[end], 2) == 1
+    @test P isa TTOperator{Float64, 4}
+    @test nsites(P) == d + 1
+    @test P.row_dims == ntuple(_ -> 2, d + 1)
+    @test size(P.cores[end], 2) == 1
 
     P_dense = constant_prolongation_matrix(d)
     for col in 1:(2^d)
         y = P * qtt_basis_vector(d, col)
-        @test y isa TTvector{Float64, 4}
-        @test y.ttv_dims == ntuple(_ -> 2, d + 1)
+        @test y isa TTVector{Float64, 4}
+        @test y.dims == ntuple(_ -> 2, d + 1)
         @test qtt_to_function(y) ≈ P_dense[:, col]
     end
 
@@ -522,17 +522,17 @@ end
 
     d = 3
     P = qtto_linear_prolongation(d)
-    @test P isa TToperator{Float64, 4}
-    @test P.N == d + 1
-    @test P.tto_dims == ntuple(_ -> 2, d + 1)
-    @test size(P.tto_vec[end], 2) == 1
+    @test P isa TTOperator{Float64, 4}
+    @test nsites(P) == d + 1
+    @test P.row_dims == ntuple(_ -> 2, d + 1)
+    @test size(P.cores[end], 2) == 1
 
     P_dense = linear_prolongation_matrix(d)
     for col in 1:(2^d)
         e = qtt_basis_vector(d, col)
         y = P * e
-        @test y isa TTvector{Float64, 4}
-        @test y.ttv_dims == ntuple(_ -> 2, d + 1)
+        @test y isa TTVector{Float64, 4}
+        @test y.dims == ntuple(_ -> 2, d + 1)
         @test qtt_to_function(y) ≈ P_dense[:, col]
     end
 
@@ -556,8 +556,22 @@ end
 
 @testset "id_tto respects n_dim" begin
     A = id_tto(2; n_dim = 3)
-    @test A.tto_dims == (3, 3)
-    @test all(size(c) == (3, 3, 1, 1) for c in A.tto_vec)
+    @test A.row_dims == (3, 3)
+    @test all(size(c) == (3, 3, 1, 1) for c in A.cores)
     v = rand_tt((3, 3), [1, 2, 1])
-    @test ttv_to_tensor(A * v) ≈ ttv_to_tensor(v)
+    @test tt_to_tensor(A * v) ≈ tt_to_tensor(v)
+end
+
+@testset "prolongation operators record their column dimensions" begin
+    for build in (qtto_constant_prolongation, qtto_linear_prolongation), d in 1:3
+        P = build(d)
+        @test P.row_dims == ntuple(_ -> 2, d + 1)
+        @test P.col_dims == (ntuple(_ -> 2, d)..., 1)
+        @test collect(P.col_dims) == size.(P.cores, 2)
+
+        dense = tto_to_tensor(P)
+        @test size(dense) == (P.row_dims..., P.col_dims...)
+        x = rand_tt(ntuple(_ -> 2, d), 2)
+        @test vec(tt_to_tensor(P * x)) ≈ reshape(dense, 2^(d + 1), 2^d) * vec(tt_to_tensor(x))
+    end
 end

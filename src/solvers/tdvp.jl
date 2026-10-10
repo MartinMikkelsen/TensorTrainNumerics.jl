@@ -3,15 +3,15 @@ using ProgressMeter
 using TensorOperations
 using LinearAlgebra
 
-function _sync_ranks_from_lsr!(ψ::AbstractTTvector, A_lsr::Vector{<:AbstractArray})
-    N = ψ.N
-    new_rks = similar(ψ.ttv_rks)
+function _sync_ranks_from_lsr!(ψ::AbstractTTVector, A_lsr::Vector{<:AbstractArray})
+    N = nsites(ψ)
+    new_rks = similar(ψ.ranks)
     @inbounds for k in 1:N
         new_rks[k] = size(A_lsr[k], 1)
     end
     new_rks[N + 1] = size(A_lsr[N], 3)
-    ψ.ttv_rks .= new_rks
-    ψ.ttv_ot .= 0
+    ψ.ranks .= new_rks
+    _forget_orthogonality!(ψ)
     return ψ
 end
 
@@ -41,19 +41,19 @@ function _update_right_env(A, M, FR)
 end
 
 function tdvp1sweep!(
-        dt, ψ::AbstractTTvector, H::AbstractTToperator, F::Union{Nothing, Vector{Any}} = nothing;
+        dt, ψ::AbstractTTVector, H::AbstractTTOperator, F::Union{Nothing, Vector{Any}} = nothing;
         verbose::Bool = true, ishermitian::Bool = true, kwargs...
     )
 
     T = eltype(ψ)
     Tc = (dt isa Complex || T <: Complex) ? Complex{real(T)} : T
-    Nsites = ψ.N
+    Nsites = nsites(ψ)
     # Symmetric projector splitting: half steps on both sweeps, with a
     # single full step at the terminal site.
     dt_half = dt / 2
 
-    A_lsr = [permutedims(ψ.ttv_vec[k], (2, 1, 3)) for k in 1:Nsites]
-    M_asbs = [permutedims(H.tto_vec[k], (3, 1, 4, 2)) for k in 1:Nsites]
+    A_lsr = [permutedims(ψ.cores[k], (2, 1, 3)) for k in 1:Nsites]
+    M_asbs = [permutedims(H.cores[k], (3, 1, 4, 2)) for k in 1:Nsites]
 
     if F === nothing
         F = Vector{Any}(undef, Nsites + 2)
@@ -146,7 +146,7 @@ function tdvp1sweep!(
 
     A_lsr[1] = AC
     for k in 1:Nsites
-        ψ.ttv_vec[k] = permutedims(A_lsr[k], (2, 1, 3))
+        ψ.cores[k] = permutedims(A_lsr[k], (2, 1, 3))
     end
     _sync_ranks_from_lsr!(ψ, A_lsr)
     return ψ, F
@@ -167,8 +167,8 @@ function _check_exponentiate_kwargs(caller::AbstractString, kwargs)
 end
 
 """
-    tdvp(H, u₀, steps; kwargs...) -> TTvector
-    tdvp(H, u₀, steps; return_info=true, kwargs...) -> (TTvector, info)
+    tdvp(H, u₀, steps; kwargs...) -> TTVector
+    tdvp(H, u₀, steps; return_info=true, kwargs...) -> (TTVector, info)
 
 Evolve `u₀` with the one-site time-dependent variational principle (Haegeman et
 al. 2016), using a symmetric (second-order) projector splitting. The TT ranks
@@ -199,8 +199,8 @@ The generator is applied as follows:
   (for example `ishermitian=false`, `tol`, or `krylovdim`).
 """
 function tdvp(
-        H::AbstractTToperator,
-        u₀::AbstractTTvector,
+        H::AbstractTTOperator,
+        u₀::AbstractTTVector,
         steps::Vector{Float64};
         normalize::Bool = false,
         return_info::Bool = false,
@@ -240,7 +240,7 @@ function tdvp(
         F = nothing
         ψ_prev = ψ_prev_step
         t += h
-        next!(progress; showvalues = [("step", "$step/$(length(steps))"), ("time", t), ("largest rank", maximum(ψ.ttv_rks))])
+        next!(progress; showvalues = [("step", "$step/$(length(steps))"), ("time", t), ("largest rank", maximum(ψ.ranks))])
     end
 
     if return_info
@@ -261,18 +261,18 @@ function _applyH2_lsr(AAC, FL, FR, M1, M2)
 end
 
 function tdvp2sweep!(
-        dt, ψ::AbstractTTvector, H::AbstractTToperator, F::Union{Nothing, Vector{Any}} = nothing;
+        dt, ψ::AbstractTTVector, H::AbstractTTOperator, F::Union{Nothing, Vector{Any}} = nothing;
         verbose::Bool = true, max_bond::Int = typemax(Int), trunc_tol::Real = 0.0, trunc_err = nothing,
         ishermitian::Bool = true, kwargs...
     )
 
     T = eltype(ψ)
     Tc = (dt isa Complex || T <: Complex) ? Complex{real(T)} : T
-    Nsites = ψ.N
+    Nsites = nsites(ψ)
     dt_half = dt / 2
 
-    A_lsr = [permutedims(ψ.ttv_vec[k], (2, 1, 3)) for k in 1:Nsites]
-    M_asbs = [permutedims(H.tto_vec[k], (3, 1, 4, 2)) for k in 1:Nsites]
+    A_lsr = [permutedims(ψ.cores[k], (2, 1, 3)) for k in 1:Nsites]
+    M_asbs = [permutedims(H.cores[k], (3, 1, 4, 2)) for k in 1:Nsites]
 
     if F === nothing
         F = Vector{Any}(undef, Nsites + 2)
@@ -343,15 +343,15 @@ function tdvp2sweep!(
 
     A_lsr[1] = AC
     for k in 1:Nsites
-        ψ.ttv_vec[k] = permutedims(A_lsr[k], (2, 1, 3))
+        ψ.cores[k] = permutedims(A_lsr[k], (2, 1, 3))
     end
     _sync_ranks_from_lsr!(ψ, A_lsr)
     return ψ, F
 end
 
 """
-    tdvp2(H, u₀, steps; kwargs...) -> TTvector
-    tdvp2(H, u₀, steps; return_info=true, kwargs...) -> (TTvector, info)
+    tdvp2(H, u₀, steps; kwargs...) -> TTVector
+    tdvp2(H, u₀, steps; return_info=true, kwargs...) -> (TTVector, info)
 
 Evolve `u₀` with the two-site time-dependent variational principle (Haegeman et
 al. 2016). Each two-site update is split by a truncated SVD, so the TT ranks
@@ -384,8 +384,8 @@ The generator is applied as follows:
 - Remaining keyword arguments are passed to `KrylovKit.exponentiate`.
 """
 function tdvp2(
-        H::AbstractTToperator,
-        u₀::AbstractTTvector,
+        H::AbstractTTOperator,
+        u₀::AbstractTTVector,
         steps::Vector{Float64};
         normalize::Bool = false,
         return_info::Bool = false,
@@ -434,7 +434,7 @@ function tdvp2(
         t += h
         next!(
             progress; showvalues = [
-                ("step", "$step/$(length(steps))"), ("time", t), ("largest rank", maximum(ψ.ttv_rks)),
+                ("step", "$step/$(length(steps))"), ("time", t), ("largest rank", maximum(ψ.ranks)),
                 ("truncation error", trunc_err[]),
             ]
         )

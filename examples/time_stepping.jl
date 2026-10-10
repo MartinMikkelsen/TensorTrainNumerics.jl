@@ -9,14 +9,14 @@ A = h^2 * toeplitz_to_qtto(-2, 1.0, 1.0, d)
 xes = collect(range(0.0, 1.0, 2^d))
 
 u₀ = qtt_sin(d, λ = π)
-init = rand_tt(u₀.ttv_dims, u₀.ttv_rks)
+init = rand_tt(u₀.dims, u₀.ranks)
 steps = collect(range(0.0, 10.0, 1000))
 
 solution_explicit, info_explicit = euler_method(A, u₀, steps; return_info = true, normalize = false)
 
 solution_implicit, info_implicit = implicit_euler_method(A, u₀, init, steps; return_info = true, normalize = false)
 
-solution_crank, info_crank = crank_nicholson_method(A, u₀, init, steps; return_info = true, alg = MALS(), normalize = false)
+solution_crank, info_crank = crank_nicolson_method(A, u₀, init, steps; return_info = true, alg = MALS(), normalize = false)
 
 solution_krylov, rel_krylov = expintegrator(A, last(steps), u₀)
 

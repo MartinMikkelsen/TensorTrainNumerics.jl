@@ -10,8 +10,8 @@ h = (hi - lo) / (N - 1); xes = collect(range(lo, hi, N))
 
 ∂xx = -(1 / h^2) * Δ(d)                                       # = d²/dx²
 idd = id_tto(d)
-X2 = ttv_to_diag_tto(qtt_polynom([0.0, 0.0, 1.0], d; a = lo, b = hi))   # diag(x²)
-X1 = ttv_to_diag_tto(qtt_polynom([0.0, 1.0], d; a = lo, b = hi))        # diag(x)
+X2 = tt_to_diag_tto(qtt_polynomial([0.0, 0.0, 1.0], d; a = lo, b = hi))   # diag(x²)
+X1 = tt_to_diag_tto(qtt_polynomial([0.0, 1.0], d; a = lo, b = hi))        # diag(x)
 A = 0.5 * (∂xx ⊗ idd + idd ⊗ ∂xx) -
     (0.5a_ * (X2 ⊗ idd) + 0.5b_ * (idd ⊗ X2) + c_ * (X1 ⊗ X1))
 H = (-1.0) * A                                               # H_HO, for the energy
@@ -26,7 +26,7 @@ E_riccati(τ) = sum(βi(λ[i], τ) / 4 + λ[i] / (4 * βi(λ[i], τ)) for i in 1
 Σ_riccati(τ) = 0.5 * LA.inv(ev.vectors * LA.diagm([βi(λ[1], τ), βi(λ[2], τ)]) * ev.vectors')
 ρ_riccati(τ) = (Σ = Σ_riccati(τ); Σ[1, 2] / sqrt(Σ[1, 1] * Σ[2, 2]))
 
-toarr(v) = qttv_to_array(QTTvector(v, 2, d, :serial))
+toarr(v) = qttv_to_array(QTTVector(v, 2, d, :serial))
 energy(u) = real(dot(u, H * u)) / real(dot(u, u))
 
 gx = function_to_qtt(t -> exp(-0.5 * α * (lo + (hi - lo) * t)^2), d)
@@ -52,11 +52,11 @@ end
 
 u = u₀; record!(u)
 for _ in 1:nblk
-    global u = crank_nicholson_method(A, u, u, fill(τstep, blk); normalize = false, alg = ALS())
+    global u = crank_nicolson_method(A, u, u, fill(τstep, blk); normalize = false, alg = ALS())
     record!(u)
 end
 
-@info "FK 2D coupled HO" E_final = E_num[end] E0 = E0 ρ_final = ρ_num[end] ρ_analytic = ρ∞ rank = maximum(u.ttv_rks)
+@info "FK 2D coupled HO" E_final = E_num[end] E0 = E0 ρ_final = ρ_num[end] ρ_analytic = ρ∞ rank = maximum(u.ranks)
 
 function cov_ellipse(Σ; n = 120)
     vals, vecs = LA.eigen(LA.Symmetric(Σ))
