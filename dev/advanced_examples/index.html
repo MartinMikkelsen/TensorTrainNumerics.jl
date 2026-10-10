@@ -24,13 +24,13 @@ N</code></pre><pre class="documenter-example-output"><code class="nohighlight hl
 ∂xx = -(1 / h^2) * Δ(d)                              # second derivative
 idd = id_tto(d)
 
-Mx = ttv_to_diag_tto(qtt_polynom([-μx, 1.0], d; a = a, b = b))
-My = ttv_to_diag_tto(qtt_polynom([-μy, 1.0], d; a = a, b = b))
+Mx = tt_to_diag_tto(qtt_polynomial([-μx, 1.0], d; a = a, b = b))
+My = tt_to_diag_tto(qtt_polynomial([-μy, 1.0], d; a = a, b = b))
 
 Mx</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">MPO{Float64} with 8 sites
   Physical dims : (2, 2, 2, 2, 2, 2, 2, 2)
   Bond dims     : [1, 2, 2, 2, 2, 2, 2, 2, 1]
-  Orthogonality : none</code></pre><p>Here <code>qtt_polynom([-μx, 1.0], d; a, b)</code> represents the sampled function <span>$x-\mu_x$</span> in QTT format, and <code>ttv_to_diag_tto</code> turns it into a diagonal QTT operator. The output is the compact MPO summary produced by the tensor-train <code>show</code> method.</p><h3 id="3.-Assemble-The-Two-Dimensional-Generator"><a class="docs-heading-anchor" href="#3.-Assemble-The-Two-Dimensional-Generator">3. Assemble The Two-Dimensional Generator</a><a id="3.-Assemble-The-Two-Dimensional-Generator-1"></a><a class="docs-heading-anchor-permalink" href="#3.-Assemble-The-Two-Dimensional-Generator" title="Permalink"></a></h3><p>For the two-dimensional density <span>$P(x,y,t)$</span>,</p><p class="math-container">\[\frac{\partial P}{\partial t}
+  Orthogonality : none</code></pre><p>Here <code>qtt_polynomial([-μx, 1.0], d; a, b)</code> represents the sampled function <span>$x-\mu_x$</span> in QTT format, and <code>tt_to_diag_tto</code> turns it into a diagonal QTT operator. The output is the compact MPO summary produced by the tensor-train <code>show</code> method.</p><h3 id="3.-Assemble-The-Two-Dimensional-Generator"><a class="docs-heading-anchor" href="#3.-Assemble-The-Two-Dimensional-Generator">3. Assemble The Two-Dimensional Generator</a><a id="3.-Assemble-The-Two-Dimensional-Generator-1"></a><a class="docs-heading-anchor-permalink" href="#3.-Assemble-The-Two-Dimensional-Generator" title="Permalink"></a></h3><p>For the two-dimensional density <span>$P(x,y,t)$</span>,</p><p class="math-container">\[\frac{\partial P}{\partial t}
     = \theta \partial_x\left((x-\mu_x)P\right)
       + \theta \partial_y\left((y-\mu_y)P\right)
       + D(\partial_{xx}P + \partial_{yy}P).\]</p><p>The QTT system matrix is assembled from Kronecker products:</p><p class="math-container">\[A =
@@ -38,13 +38,13 @@ Mx</code></pre><pre class="documenter-example-output"><code class="nohighlight h
 + D\left(\Delta_x \otimes I + I \otimes \Delta_y\right).\]</p><p>In the script both spatial directions use the same one-dimensional derivative blocks:</p><pre><code class="language-julia hljs">A = θ * ((∂x * Mx) ⊗ idd + idd ⊗ (∂x * My)) +
     D * (∂xx ⊗ idd + idd ⊗ ∂xx)
 
-toarr(v) = qttv_to_array(QTTvector(v, 2, d, :serial))
+toarr(v) = qttv_to_array(QTTVector(v, 2, d, :serial))
 mass(P) = sum(P) * h^2
 
 A</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">MPO{Float64} with 16 sites
   Physical dims : (2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2)
   Bond dims     : [1, 19, 19, 19, 19, 19, 19, 19, 4, 19, 19, 19, 19, 19, 19, 19, 1]
-  Orthogonality : none</code></pre><p>This is a plain <code>TToperator</code> with <span>$2d$</span> sites. Since the sites are ordered serially, we can view vectors as two-dimensional QTT arrays by wrapping them with <code>QTTvector(v, 2, d, :serial)</code>.</p><h3 id="4.-Construct-And-Normalize-The-Initial-Density"><a class="docs-heading-anchor" href="#4.-Construct-And-Normalize-The-Initial-Density">4. Construct And Normalize The Initial Density</a><a id="4.-Construct-And-Normalize-The-Initial-Density-1"></a><a class="docs-heading-anchor-permalink" href="#4.-Construct-And-Normalize-The-Initial-Density" title="Permalink"></a></h3><p>The example starts from a separable Gaussian centered near the origin:</p><pre><code class="language-julia hljs">gx = function_to_qtt(t -&gt; exp(-(a + (b - a) * t)^2 / 2), d)
+  Orthogonality : none</code></pre><p>This is a plain <code>TTOperator</code> with <span>$2d$</span> sites. Since the sites are ordered serially, we can view vectors as two-dimensional QTT arrays by wrapping them with <code>QTTVector(v, 2, d, :serial)</code>.</p><h3 id="4.-Construct-And-Normalize-The-Initial-Density"><a class="docs-heading-anchor" href="#4.-Construct-And-Normalize-The-Initial-Density">4. Construct And Normalize The Initial Density</a><a id="4.-Construct-And-Normalize-The-Initial-Density-1"></a><a class="docs-heading-anchor-permalink" href="#4.-Construct-And-Normalize-The-Initial-Density" title="Permalink"></a></h3><p>The example starts from a separable Gaussian centered near the origin:</p><pre><code class="language-julia hljs">gx = function_to_qtt(t -&gt; exp(-(a + (b - a) * t)^2 / 2), d)
 gy = function_to_qtt(t -&gt; exp(-(a + (b - a) * t)^2 / 2), d)
 u₀ = gx ⊗ gy
 u₀ = (1 / mass(toarr(u₀))) * u₀
@@ -52,17 +52,17 @@ u₀ = (1 / mass(toarr(u₀))) * u₀
 u₀</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">MPS{Float64} with 16 sites
   Physical dims : (2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2)
   Bond dims     : [1, 2, 4, 8, 11, 8, 4, 2, 1, 2, 4, 8, 11, 8, 4, 2, 1]
-  Orthogonality : [0, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1]</code></pre><p>The exact stationary density for the uncoupled two-dimensional Ornstein-Uhlenbeck process is a product Gaussian:</p><p class="math-container">\[P_\infty(x,y)
+  Orthogonality : center within sites 1:9</code></pre><p>The exact stationary density for the uncoupled two-dimensional Ornstein-Uhlenbeck process is a product Gaussian:</p><p class="math-container">\[P_\infty(x,y)
     = \prod_{j=1}^2
       \frac{1}{\sqrt{2\pi D/\theta}}
       \exp\left(-\frac{(x_j-\mu_j)^2}{2D/\theta}\right).\]</p><p>The script uses this expression to track convergence:</p><pre><code class="language-julia hljs">var∞ = D / θ
 g1(x, m) = exp(-(x - m)^2 / (2var∞)) / sqrt(2π * var∞)
 P∞ = [g1(xi, μx) * g1(yj, μy) for xi in xes, yj in xes]
 
-maximum(P∞)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">0.31830988618379064</code></pre><h3 id="5.-Evolve-With-Crank-Nicholson"><a class="docs-heading-anchor" href="#5.-Evolve-With-Crank-Nicholson">5. Evolve With Crank-Nicholson</a><a id="5.-Evolve-With-Crank-Nicholson-1"></a><a class="docs-heading-anchor-permalink" href="#5.-Evolve-With-Crank-Nicholson" title="Permalink"></a></h3><p>For an autonomous linear system <span>$\dot{u} = A u$</span>, Crank-Nicholson applies</p><p class="math-container">\[u^{k+1}
+maximum(P∞)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">0.31830988618379064</code></pre><h3 id="5.-Evolve-With-Crank-Nicolson"><a class="docs-heading-anchor" href="#5.-Evolve-With-Crank-Nicolson">5. Evolve With Crank-Nicolson</a><a id="5.-Evolve-With-Crank-Nicolson-1"></a><a class="docs-heading-anchor-permalink" href="#5.-Evolve-With-Crank-Nicolson" title="Permalink"></a></h3><p>For an autonomous linear system <span>$\dot{u} = A u$</span>, Crank-Nicolson applies</p><p class="math-container">\[u^{k+1}
     =
     \left(I-\frac{\tau}{2}A\right)^{-1}
-    \left(I+\frac{\tau}{2}A\right)u^k,\]</p><p>with time step <span>$\tau$</span>. The implementation calls <code>crank_nicholson_method</code>, solving each implicit TT linear system with ALS:</p><pre><code class="language-julia hljs">τ = 0.02
+    \left(I+\frac{\tau}{2}A\right)u^k,\]</p><p>with time step <span>$\tau$</span>. The implementation calls <code>crank_nicolson_method</code>, solving each implicit TT linear system with ALS:</p><pre><code class="language-julia hljs">τ = 0.02
 record_dt = 0.4
 T = 8.0
 block = round(Int, record_dt / τ)
@@ -84,7 +84,7 @@ end
 ψ = u₀
 record!(ψ)
 for _ in 1:n_blocks
-    global ψ = crank_nicholson_method(
+    global ψ = crank_nicolson_method(
         A, ψ, ψ, fill(τ, block);
         normalize = false, alg = ALS()
     )
@@ -132,4 +132,4 @@ ax = Axis(
 lines!(ax, times, errL1, linewidth = 2.5, label = &quot;L¹ error&quot;)
 lines!(ax, times, errL2, linewidth = 2.5, label = &quot;L² error&quot;)
 axislegend(ax; position = :rt)
-fig</code></pre><img src="f1d29700.png" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../examples/">« Examples</a><a class="docs-footer-nextpage" href="../resources/">Resources »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.19.0 on <span class="colophon-date" title="Saturday 10 October 2026 06:04">Saturday 10 October 2026</span>. Using Julia version 1.13.1.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+fig</code></pre><img src="f1d29700.png" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../examples/">« Examples</a><a class="docs-footer-nextpage" href="../resources/">Resources »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.19.0 on <span class="colophon-date" title="Saturday 10 October 2026 07:11">Saturday 10 October 2026</span>. Using Julia version 1.13.1.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
