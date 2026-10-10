@@ -10,7 +10,7 @@ import LinearAlgebra as LA
 
 m2, a = 1.0, 0.5
 N, t0 = 3, 2                      # time slices, source slice
-n, L = 5, 5.0                     # digits per slice, field range [−L, L]
+n, L = 5, 6.0                     # digits per slice, field range [−L, L]
 M = 2^n
 x = collect(range(-L, L; length = M))
 h = x[2] - x[1]
@@ -68,51 +68,81 @@ function generator(λ)
     return Lop
 end
 
-function solve_poisson(Lop, g; Δτ = 2.0, kmax = 200, tol = 1.0e-8, max_bond = 20, trunc_tol = 1.0e-10)
-    alg = MALS(max_sweeps = 4, max_bond = max_bond, trunc_tol = trunc_tol, show_progress = false)
+# Solves L u = −g by summing implicit Euler steps of ∂_τ w = L w, w(0) = g. The sum stops
+# only when the relative increment is below `tol` and the Poisson residual
+# ‖L u + g‖ / ‖g‖ is below `rtol`, since the increments also shrink
+# when the rank cap or the inner solver limits the accuracy of each step.
+function solve_poisson(Lop, g; Δτ = 2.0, kmax = 200, tol = 1.0e-6, rtol = 1.0e-6, max_bond = 50, trunc_tol = 1.0e-10)
+    alg = AMEn(; local_solver = :direct, max_bond, tol, show_progress = true)
     ones_all = embed_vec(Dict())
     nall = dot(ones_all, ones_all)
     w, w_raw, u = g, g, nothing
+    increment = Inf
     for k in 1:kmax
-        w_raw = implicit_euler_method(Lop, w, w_raw, [Δτ]; alg = alg, show_progress = false)
-        w = tt_round(w_raw - (dot(w_raw, ones_all) / nall) * ones_all; trunc_tol = trunc_tol)
-        u = u === nothing ? Δτ * w : tt_round(u + Δτ * w; trunc_tol = trunc_tol)
-        if Δτ * norm(w) / norm(u) < tol
-            println("  converged after $k steps")
+        w_raw = implicit_euler_method(Lop, w, w_raw, [Δτ]; alg, show_progress = false)
+        w = tt_round(w_raw - (dot(w_raw, ones_all) / nall) * ones_all; trunc_tol)
+        u = u === nothing ? Δτ * w : tt_round(u + Δτ * w; trunc_tol)
+        increment = Δτ * norm(w) / norm(u)
+        if increment < tol
+            # Orthogonalizing first avoids the cancellation in the norm of a sum of
+            # tensor trains, which would otherwise limit the residual to about √eps.
+            residual = norm(orthogonalize(Lop * u + g)) / norm(g)
+            residual < rtol || continue
+            @info "converged" steps = k residual
             return u
         end
     end
-    @warn "not converged"
-    return u
+    error("no convergence after $kmax steps: relative increment $increment, tol = $tol")
 end
 
 g = embed_vec(Dict(t0 => xq))
 ranks = Dict{Float64, Vector{Int}}()
+solutions = Dict{Float64, Array{Float64, N}}()
 for λ in (0.0, 1.0)
-    println("λ = $λ")
-    u = solve_poisson(generator(λ), g)
+    Lop = generator(λ)
+    seconds = @elapsed u = solve_poisson(Lop, g)
     ranks[λ] = tt_round(u; trunc_tol = 1.0e-8).ttv_rks
-    println("  TT ranks of u: ", ranks[λ])
+    @info "TT ranks of u" λ ranks = ranks[λ]
+    λ == 1 && @info "solve time" λ seconds
+    # `qtt_to_vector` orders the grid points with slice 1 most significant, so the
+    # reshaped array has slice N along its first dimension.
+    solutions[λ] = permutedims(reshape(qtt_to_vector(u), ntuple(_ -> M, N)), N:-1:1)
     if λ == 0
         K = LA.SymTridiagonal([((t > 1) + (t < N)) / a + a * m2 for t in 1:N], fill(-1 / a, N - 1))
         c = K \ [t == t0 ? 1.0 : 0.0 for t in 1:N]
         u_exact = tt_round(sum(c[t] * embed_vec(Dict(t => xq)) for t in 1:N); trunc_tol = 1.0e-12)
-        err = norm(u - u_exact) / norm(u_exact)
-        println("  relative error to exact solution (K⁻¹e_t0)·φ: ", err)
+        err = norm(orthogonalize(u - u_exact)) / norm(u_exact)
+        @info "relative error to exact solution (K⁻¹e_t0)·φ" err
         @assert maximum(ranks[λ]) <= 2 && err < 1.0e-6
     end
 end
 
 let
-    fig = Figure(size = (650, 380))
+    fig = Figure(size = (900, 760))
     ax = Axis(
-        fig[1, 1]; xlabel = "bond", ylabel = "rank of u",
-        title = "Stein–Poisson solution in QTT format"
+        fig[1, 1:4]; xlabel = "bond", ylabel = "rank of u",
+        title = "Stein-Poisson solution in QTT format"
     )
     for λ in (0.0, 1.0)
         scatterlines!(ax, collect(0:(N * n)), ranks[λ]; label = "λ = $λ")
     end
     vlines!(ax, [n * t for t in 1:(N - 1)]; color = :gray, linestyle = :dash)
     axislegend(ax; position = :lt)
+
+    # u on the plane spanned by the source slice and one neighbor; the other slices
+    # are fixed at the grid point closest to zero.
+    tn = t0 == 1 ? 2 : t0 - 1
+    mid = M ÷ 2 + 1
+    for (col, λ) in enumerate((0.0, 1.0))
+        plane = solutions[λ][ntuple(t -> t in (t0, tn) ? Colon() : mid, N)...]
+        t0 < tn || (plane = permutedims(plane))
+        umax = maximum(abs, plane)
+        axh = Axis(
+            fig[2, 2col - 1]; xlabel = rich("φ", subscript("$t0")), ylabel = rich("φ", subscript("$tn")), aspect = 1,
+            title = "u at λ = $λ"
+        )
+        hm = heatmap!(axh, x, x, plane; colormap = :balance, colorrange = (-umax, umax))
+        Colorbar(fig[2, 2col], hm)
+    end
     display(fig)
 end
