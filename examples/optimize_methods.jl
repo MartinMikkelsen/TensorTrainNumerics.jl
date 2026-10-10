@@ -10,7 +10,7 @@ A = h^2 * toeplitz_to_qtto(-2, 1.0, 1.0, d)
 xes = collect(range(0.0, 1.0, 2^d))
 
 u₀ = qtt_sin(d, λ = π)
-init = rand_tt(u₀.ttv_dims, u₀.ttv_rks)
+init = rand_tt(u₀.dims, u₀.ranks)
 steps = collect(range(0.0, 10.0, 1000))
 
 solution_krylov, info = expintegrator(A, 1.0, init, eager = true)

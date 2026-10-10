@@ -18,7 +18,7 @@ function pauli_product_tto(factors, d)
         local_matrix = haskey(factor_map, site) ? convert.(T, pauli_matrix(factor_map[site])) : id
         cores[site] = reshape(local_matrix, 2, 2, 1, 1)
     end
-    return TToperator{T, d}(d, cores, dims, ones(Int, d + 1), zeros(Int, d))
+    return TTOperator{T, d}(cores, dims, ones(Int, d + 1))
 end
 
 function periodic_transverse_field_ising_tto(d, g)
@@ -30,7 +30,7 @@ function periodic_transverse_field_ising_tto(d, g)
 end
 
 function z_magnetization(state)
-    d = state.N
+    d = nsites(state)
     probabilities = abs2.(qtt_to_function(state))
     probabilities ./= sum(probabilities)
 
@@ -95,7 +95,7 @@ display(fig)
 
 # This mirrors the ITensors + OptimKit pattern, but with TensorTrainNumerics
 # types. There is no Zygote AD here: `dot` writes in place, so reverse-mode AD
-# cannot trace through it. Instead, TTvectors implement the VectorInterface
+# cannot trace through it. Instead, TTVectors implement the VectorInterface
 # vector space that OptimKit needs, and we supply the *analytic* gradient of the
 # Rayleigh quotient
 #
@@ -132,7 +132,7 @@ loss_and_grad(ψ) = energy_and_gradient(ψ; bond = opt_bond)
 report(ψ) = (vals = energy_and_gradient(ψ); (vals[1], norm(vals[2])))
 
 Random.seed!(1)
-ψ0_ad = rand_tt(ntuple(_ -> 2, n), opt_bond; normalise = true)
+ψ0_ad = rand_tt(ntuple(_ -> 2, n), opt_bond; normalize = true)
 
 optimizer = LBFGS(; maxiter = 100, verbosity = 1)
 
@@ -160,19 +160,19 @@ println("Variational (LBFGS) vs DMRG ground state: sites=$n J=$J h=$h E_lbfgs=$E
 # analytic gradient. We optimise over the *cores* (flattened), exactly like the
 # ITensorMPS example optimises over its Vector{ITensor}. Loading Zygote activates
 # TensorTrainNumerics' ChainRulesCore extension (rrules for `dot` and `*`), so
-# Zygote can differentiate through the rebuilt TTvector. Unlike the analytic
+# Zygote can differentiate through the rebuilt TTVector. Unlike the analytic
 # gradient above (a Hilbert-space vector), the AD gradient is per-core, so the
 # optimisation lives in parameter space — the geometry that matches OptimKit's
 # core-wise pairing here.
 using Zygote
 
-shapes_ad = size.(ψ0_ad.ttv_vec)
+shapes_ad = size.(ψ0_ad.cores)
 offsets_ad = cumsum([0; prod.(shapes_ad)])
 unflatten_ad(θ) = [reshape(θ[(offsets_ad[k] + 1):offsets_ad[k + 1]], shapes_ad[k]) for k in 1:n]
-rebuild_ad(θ) = TTvector{Float64, n}(n, unflatten_ad(θ), ψ0_ad.ttv_dims, ψ0_ad.ttv_rks, ψ0_ad.ttv_ot)
+rebuild_ad(θ) = TTVector{Float64, n}(unflatten_ad(θ), ψ0_ad.dims, ψ0_ad.ranks; orthogonality = ψ0_ad.orthogonality)
 loss_ad(θ) = (ψ = rebuild_ad(θ); real(dot(ψ, H_ising * ψ)) / real(dot(ψ, ψ)))
 
-θ0 = vcat(vec.(ψ0_ad.ttv_vec)...)
+θ0 = vcat(vec.(ψ0_ad.cores)...)
 zygote_loss_and_grad(θ) = (loss_ad(θ), Zygote.gradient(loss_ad, θ)[1])
 
 θ_ad, E_zygote, _, _, _ = optimize(zygote_loss_and_grad, θ0, LBFGS(; maxiter = 100, verbosity = 0))

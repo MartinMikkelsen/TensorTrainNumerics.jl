@@ -6,7 +6,7 @@ d = 8
 A1 = qtt_exp(d)
 A2 = qtt_sin(d, λ = π)
 A3 = qtt_cos(d, λ = π)
-A4 = qtt_polynom([0.0, 2.0, 3.0, -8.0, -5.0], d; a = 0.0, b = 1.0)
+A4 = qtt_polynomial([0.0, 2.0, 3.0, -8.0, -5.0], d; a = 0.0, b = 1.0)
 
 qtt_values_exponential = qtt_to_function(A1)
 qtt_values_sin = qtt_to_function(A2)

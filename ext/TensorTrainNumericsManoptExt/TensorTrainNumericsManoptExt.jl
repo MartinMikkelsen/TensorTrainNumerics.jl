@@ -9,11 +9,11 @@ struct TTVectorSpace{T <: Real, N} <: ManifoldsBase.AbstractManifold{ManifoldsBa
     ranks::Vector{Int64}
 end
 
-function TensorTrainNumerics.ttvector_manifold(x::TTvector{T, N}) where {T <: Real, N}
-    return TTVectorSpace{T, N}(x.ttv_dims, copy(x.ttv_rks))
+function TensorTrainNumerics.ttvector_manifold(x::TTVector{T, N}) where {T <: Real, N}
+    return TTVectorSpace{T, N}(x.dims, copy(x.ranks))
 end
 
-_copy_ttvector!(dst::TTvector, src::TTvector) = TensorTrainNumerics._overwrite!(dst, src)
+_copy_ttvector!(dst::TTVector, src::TTVector) = TensorTrainNumerics._overwrite!(dst, src)
 
 ManifoldsBase.representation_size(M::TTVectorSpace) = M.dims
 ManifoldsBase.default_retraction_method(::TTVectorSpace) = ManifoldsBase.ProjectionRetraction()
@@ -22,48 +22,48 @@ ManifoldsBase.default_retraction_method(M::TTVectorSpace, ::Type) =
 Manopt.max_stepsize(::TTVectorSpace) = Inf
 
 function ManifoldsBase.allocate_result(
-        ::TTVectorSpace, ::typeof(ManifoldsBase.zero_vector), p::TTvector
+        ::TTVectorSpace, ::typeof(ManifoldsBase.zero_vector), p::TTVector
     )
-    return zeros_tt(eltype(p), p.ttv_dims, p.ttv_rks)
+    return zeros_tt(eltype(p), p.dims, p.ranks)
 end
 
-function ManifoldsBase.copy(M::TTVectorSpace, p::TTvector)
+function ManifoldsBase.copy(M::TTVectorSpace, p::TTVector)
     return TensorTrainNumerics.copy(p)
 end
 
-function ManifoldsBase.copyto!(::TTVectorSpace, q::TTvector, p::TTvector)
+function ManifoldsBase.copyto!(::TTVectorSpace, q::TTVector, p::TTVector)
     return _copy_ttvector!(q, TensorTrainNumerics.copy(p))
 end
 
-function ManifoldsBase.copyto!(::TTVectorSpace, Y::TTvector, ::TTvector, X::TTvector)
+function ManifoldsBase.copyto!(::TTVectorSpace, Y::TTVector, ::TTVector, X::TTVector)
     return _copy_ttvector!(Y, TensorTrainNumerics.copy(X))
 end
 
-function ManifoldsBase.zero_vector!(::TTVectorSpace, X::TTvector, ::TTvector)
-    for core in X.ttv_vec
+function ManifoldsBase.zero_vector!(::TTVectorSpace, X::TTVector, ::TTVector)
+    for core in X.cores
         fill!(core, zero(eltype(core)))
     end
     return X
 end
 
-function ManifoldsBase.inner(::TTVectorSpace, ::TTvector, X::TTvector, Y::TTvector)
+function ManifoldsBase.inner(::TTVectorSpace, ::TTVector, X::TTVector, Y::TTVector)
     return real(TensorTrainNumerics.dot(X, Y))
 end
 
-function ManifoldsBase.norm(M::TTVectorSpace, p::TTvector, X::TTvector)
+function ManifoldsBase.norm(M::TTVectorSpace, p::TTVector, X::TTVector)
     return sqrt(max(ManifoldsBase.inner(M, p, X, X), zero(eltype(X))))
 end
 
-function ManifoldsBase.distance(M::TTVectorSpace, p::TTvector, q::TTvector)
+function ManifoldsBase.distance(M::TTVectorSpace, p::TTVector, q::TTVector)
     return ManifoldsBase.norm(M, p, p - q)
 end
 
-function ManifoldsBase.retract_project!(::TTVectorSpace, q::TTvector, p::TTvector, X::TTvector)
+function ManifoldsBase.retract_project!(::TTVectorSpace, q::TTVector, p::TTVector, X::TTVector)
     return _copy_ttvector!(q, orthogonalize(p + X))
 end
 
 function ManifoldsBase.retract_project_fused!(
-        ::TTVectorSpace, q::TTvector, p::TTvector, X::TTvector, t::Number
+        ::TTVectorSpace, q::TTVector, p::TTVector, X::TTVector, t::Number
     )
     return _copy_ttvector!(q, orthogonalize(p + t * X))
 end

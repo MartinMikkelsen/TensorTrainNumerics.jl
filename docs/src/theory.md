@@ -52,19 +52,21 @@ The TTO format is closed under addition and matrix-vector multiplication: if $A$
 
 TensorTrainNumerics.jl stores cores in **(physical, left bond, right bond)** order for vectors and **(row physical, column physical, left bond, right bond)** order for operators. Concretely, the core array at site $k$ has `size(core) == (n_k, r_{k-1}, r_k)` for a TT-vector. This differs from some tensor-network libraries that put bond indices first, but makes it natural to write `core[:, l, r]` to obtain the matrix slice $A^{(k)}(\cdot)$ at bond indices $(l, r)$.
 
+For a TT-operator, `size(core) == (m_k, n_k, r_{k-1}, r_k)`, where $m_k$ is the row (output) dimension and $n_k$ the column (input) dimension of site $k$. The two may differ, so an operator can be rectangular; the solvers require square operators.
+
 ## Constructing TT-vectors
 
 ```@example ttbasics
 using TensorTrainNumerics
 
-dims = (2, 2, 2, 2)    # physical dimension at each site
-rks  = [1, 3, 3, 3, 1] # bond dimensions (length N+1)
+dims  = (2, 2, 2, 2)    # physical dimension at each site
+ranks = [1, 3, 3, 3, 1] # bond dimensions (length N+1)
 
-v = rand_tt(dims, rks)   # random TT-vector
-z = zeros_tt(dims, rks)  # zero TT-vector
+v = rand_tt(dims, ranks)   # random TT-vector
+z = zeros_tt(dims, ranks)  # zero TT-vector
 ```
 
-The fields `v.ttv_dims`, `v.ttv_rks`, and `v.ttv_vec` hold the dimensions, bond dimensions, and array of cores respectively.
+A `TTVector` has four fields: `v.cores` (the array of cores), `v.dims` (the physical dimensions), `v.ranks` (the bond dimensions), and `v.orthogonality` (see [Orthogonalization](@ref)). The number of sites is `nsites(v)`.
 
 ## Constructing TT-operators
 
@@ -72,6 +74,8 @@ The fields `v.ttv_dims`, `v.ttv_rks`, and `v.ttv_vec` hold the dimensions, bond 
 A = rand_tto(dims, 3)   # random TTO, max bond = 3
 I = id_tto(4)           # identity on {1,…,2}^4 in TT form
 ```
+
+A `TTOperator` has the fields `A.cores`, `A.row_dims`, `A.col_dims`, `A.ranks`, and `A.orthogonality`. For a square operator `A.row_dims == A.col_dims`. `A * v` requires `A.col_dims == v.dims` and returns a vector with dimensions `A.row_dims`; `A'` swaps the two.
 
 The function `toeplitz_to_qtto(α, β, γ, d)` produces a tridiagonal Toeplitz operator — the standard building block for finite-difference stencils:
 
@@ -97,7 +101,7 @@ All standard linear-algebra operations are overloaded and produce new TT objects
 | `A ⊗ B` | Kronecker product of operators |
 
 ```@example ttbasics
-u = rand_tt(dims, rks)
+u = rand_tt(dims, ranks)
 w = u + v          # bond dims are now doubled
 s = dot(u, v)
 n = norm(v)
@@ -145,18 +149,18 @@ H = Δ(4)
 ψ = qtt_sin(4)
 
 function energy(cores)
-    A = TToperator(H.N, cores, H.tto_dims, H.tto_rks, H.tto_ot)
+    A = TTOperator(cores, H.row_dims, H.col_dims, H.ranks; orthogonality = H.orthogonality)
     return real(dot(ψ, A * ψ)) / real(dot(ψ, ψ))
 end
 
-core_gradient = only(Zygote.gradient(energy, H.tto_vec))
+core_gradient = only(Zygote.gradient(energy, H.cores))
 
 diffusion_energy(κ) = real(dot(ψ, (κ * H) * ψ)) / real(dot(ψ, ψ))
 dE_dκ = only(Zygote.gradient(diffusion_energy, 1.0))
-@assert isapprox(dE_dκ, energy(H.tto_vec); rtol = 1.0e-10)
+@assert isapprox(dE_dκ, energy(H.cores); rtol = 1.0e-10)
 ```
 
-`core_gradient[k]` has the shape of `H.tto_vec[k]`. Sums of operators are
+`core_gradient[k]` has the shape of `H.cores[k]`. Sums of operators are
 differentiable too, so the derivatives of an energy with respect to the coupling
 constants of a Hamiltonian are available directly:
 
@@ -171,14 +175,24 @@ dE_dJ, dE_dh = Zygote.gradient(ising_energy, -1.0, -0.5)
 
 ## Orthogonalization
 
-A TT-vector is *left-canonical up to site k* when each core $A^{(1)},\ldots,A^{(k)}$ has orthonormal columns (viewed as matrices of shape $n_j r_{j-1} \times r_j$). `orthogonalize` computes this decomposition via a sequence of QR factorizations:
+A core $A^{(k)}$ is *left-orthogonal* when it has orthonormal columns as a matrix of shape $n_k r_{k-1} \times r_k$, and *right-orthogonal* when it has orthonormal rows as a matrix of shape $r_{k-1} \times n_k r_k$. `orthogonalize(v; center = c)` returns the same tensor with every core left of site `c` left-orthogonal and every core right of it right-orthogonal, using a sequence of QR and LQ factorizations. Core `c` then carries the norm and is called the orthogonality center:
 
 ```@example ttbasics
-vL = orthogonalize(v)          # left-canonical (gauge center at site N)
-vC = orthogonalize(v; i = 2)  # gauge center at site 2
+v1 = orthogonalize(v)              # center at site 1 (the default)
+vC = orthogonalize(v; center = 2)  # center at site 2
 ```
 
-Orthogonalization is a prerequisite for the alternating solvers (ALS, MALS, DMRG) and TDVP, and enables cheap norm computation: `norm(v) == norm(vC.ttv_vec[2])`.
+Every `TTVector` and `TTOperator` records what is known about its gauge in the
+field `orthogonality`, an interval `[left, right]`: the cores before `left` are
+left-orthogonal and the cores after `right` are right-orthogonal. Nothing is
+recorded about the cores inside the interval, so `[c, c]` is an orthogonality
+center at core `c` and `[1, N]` records nothing.
+
+```@example ttbasics
+vC.orthogonality
+```
+
+Orthogonalization is a prerequisite for the alternating solvers (ALS, MALS, DMRG) and TDVP, and enables cheap norm computation: `norm(v) == norm(vC.cores[2])`.
 
 ## Visualization
 
@@ -195,7 +209,7 @@ TT-cross algorithms build a TT approximation of a black-box function $f:\{1,\ldo
 | Algorithm | Constructor | Notes |
 |---|---|---|
 | MaxVol | `MaxVol(tol, maxiter)` | Stable pivot selection via maximal-volume submatrices |
-| DMRG-cross | `DMRGcross(tol, maxiter)` | Alternating left–right sweeps |
+| DMRG-cross | `DMRGCross(tol, maxiter)` | Alternating left–right sweeps |
 | Greedy | `Greedy(tol, maxiter)` | Fast but less robust |
 
 ```@example ttcross
@@ -209,7 +223,7 @@ d = 6
 domain = [collect(range(0.0, π, length = n)) for _ in 1:d]
 
 tt_mv = tt_cross(f, domain, MaxVol(tol = 1.0e-8, max_sweeps = 20); ranks = 4)
-tt_dg = tt_cross(f, domain, DMRGcross(tol = 1.0e-8, max_sweeps = 25))
+tt_dg = tt_cross(f, domain, DMRGCross(tol = 1.0e-8, max_sweeps = 25))
 ```
 
 ### Numerical integration
@@ -226,7 +240,7 @@ println("∫sin(x₁+⋯+x₆) dx ≈ ", result)
 For small problems you can convert the TT back to a full array:
 
 ```@example ttcross
-tensor_approx = ttv_to_tensor(tt_mv)
+tensor_approx = tt_to_tensor(tt_mv)
 
 tensor_exact = zeros(ntuple(_ -> n, d)...)
 for idx in CartesianIndices(tensor_exact)

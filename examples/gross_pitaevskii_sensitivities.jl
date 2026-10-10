@@ -11,13 +11,13 @@ kinetic(d) = (4.0^d / 2) * Δ(d)            # −½∂²ₓ with Dirichlet walls
 function trap(d)                            # diag((x − x₀)²) on xⱼ = j·h, j = 1, …, 2ᵈ
     h = 2.0^-d
     x0 = (1 + h) / 2                        # center of the box [0, 1 + h]
-    return ttv_to_diag_tto(qtt_polynom([x0^2, -2x0, 1.0], d; a = h, b = 1.0))
+    return tt_to_diag_tto(qtt_polynomial([x0^2, -2x0, 1.0], d; a = h, b = 1.0))
 end
 
 function energy(u, K, V, ω, g)
     s = dot(u, u)
     w = hadamard(u, u)
-    return dot(u, (K + (ω^2 / 2) * V) * u) / s + (g * 2.0^u.N / 2) * dot(w, w) / s^2
+    return dot(u, (K + (ω^2 / 2) * V) * u) / s + (g * 2.0^nsites(u) / 2) * dot(w, w) / s^2
 end
 
 # Ground state by multigrid renormalization: solve on 2^L0 points, then prolong
@@ -25,7 +25,7 @@ end
 function ground_state(ω, g)
     seed = function_to_qtt(x -> sin(π * x), L0)
     alg = MGR(; inner = PenaltyALS(; tol = 1.0e-10), max_bond = χ)
-    return non_linear_solve(
+    return nonlinear_solve(
         d -> kinetic(d) + (ω^2 / 2) * trap(d), seed / norm(seed), alg;
         g_builder = d -> g * 2.0^d, target_sites = L
     )
@@ -37,10 +37,10 @@ Estar(ω, g) = energy(ground_state(ω, g), K, V, ω, g)
 ω, g = 50.0, 100.0
 u = ground_state(ω, g)
 E = energy(u, K, V, ω, g)
-println("E*(ω = $ω, g = $g) = $E   (TT ranks $(u.ttv_rks))")
+println("E*(ω = $ω, g = $g) = $E   (TT ranks $(u.ranks))")
 
 # Gradient of F with respect to the TT cores, holding ranks and dimensions fixed.
-core_grad(v) = only(Zygote.gradient(cs -> energy(TTvector(L, cs, v.ttv_dims, v.ttv_rks, v.ttv_ot), K, V, ω, g), v.ttv_vec))
+core_grad(v) = only(Zygote.gradient(cs -> energy(TTVector(cs, v.dims, v.ranks; orthogonality = v.orthogonality), K, V, ω, g), v.cores))
 gradnorm(v) = sqrt(sum(sum(abs2, c) for c in core_grad(v)))
 u_trial = orthogonalize(function_to_qtt(x -> sin(π * x), L))
 println("‖∇_cores F‖ at sin(πx): $(gradnorm(u_trial / norm(u_trial)))   at the ground state: $(gradnorm(u))")

@@ -2,7 +2,7 @@ using LinearAlgebra
 using Random
 using TensorTrainNumerics
 
-println("Complex-domain TT cross (DMRGcross)")
+println("Complex-domain TT cross (DMRGCross)")
 
 d = 4
 n = 6
@@ -15,16 +15,16 @@ function f(X::AbstractMatrix{<:Number})
 end
 
 Random.seed!(30260)
-alg = DMRGcross()
+alg = DMRGCross()
 tt = tt_cross(f, domain, alg)
-println("TT ranks: ", tt.ttv_rks)
+println("TT ranks: ", tt.ranks)
 
 Random.seed!(30261)
 nsamp = 400
 idx = hcat([rand(1:n, nsamp) for _ in 1:d]...)
 Xcheck = hcat([domain[k][idx[:, k]] for k in 1:d]...)
 y = f(Xcheck)
-yhat = TensorTrainNumerics._evaluate_tt(tt.ttv_vec, idx, d)
+yhat = TensorTrainNumerics._evaluate_tt(tt.cores, idx, d)
 
 rel = norm(y .- yhat) / max(norm(y), 1.0e-14)
 println("Validation relative L2 error: ", rel)

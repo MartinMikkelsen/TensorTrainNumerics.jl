@@ -11,7 +11,7 @@ A = kappa * Δ
 
 f = qtt_sin(d, λ = π)
 
-function fg(u::TTvector)
+function fg(u::TTVector)
     û = orthogonalize(u)
     Au = A * û
     val = 0.5 * real(dot(û, Au)) - real(dot(f, û))
@@ -19,7 +19,7 @@ function fg(u::TTvector)
     return val, grad
 end
 
-x0 = rand_tt(f.ttv_dims, f.ttv_rks)
+x0 = rand_tt(f.dims, f.ranks)
 
 method = GradientDescent()
 x, fx, gx, numfg, normgradhistor = optimize(fg, x0, method)

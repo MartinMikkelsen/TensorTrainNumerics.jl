@@ -5,13 +5,13 @@ using ChainRulesCore
 using TensorOperations
 import ChainRulesCore: rrule, NoTangent, Tangent, ZeroTangent, AbstractZero, unthunk
 
-function _tt_left_envs(A::TTvector{T, M}, B::TTvector{T, M}) where {T, M}
-    N = A.N
+function _tt_left_envs(A::AbstractTTVector{T, M}, B::AbstractTTVector{T, M}) where {T, M}
+    N = nsites(A)
     Ls = Vector{Matrix{T}}(undef, N + 1)
     Ls[1] = ones(T, 1, 1)
     @inbounds for k in 1:N
-        Ak = A.ttv_vec[k]
-        Bk = B.ttv_vec[k]
+        Ak = A.cores[k]
+        Bk = B.cores[k]
         Lp = Ls[k]
         @tensor Ln[a, b] := conj(Ak[z, α, a]) * Bk[z, β, b] * Lp[α, β]
         Ls[k + 1] = Ln
@@ -19,13 +19,13 @@ function _tt_left_envs(A::TTvector{T, M}, B::TTvector{T, M}) where {T, M}
     return Ls
 end
 
-function _tt_right_envs(A::TTvector{T, M}, B::TTvector{T, M}) where {T, M}
-    N = A.N
+function _tt_right_envs(A::AbstractTTVector{T, M}, B::AbstractTTVector{T, M}) where {T, M}
+    N = nsites(A)
     Gs = Vector{Matrix{T}}(undef, N + 1)
     Gs[N + 1] = ones(T, 1, 1)
     @inbounds for k in N:-1:1
-        Ak = A.ttv_vec[k]
-        Bk = B.ttv_vec[k]
+        Ak = A.cores[k]
+        Bk = B.cores[k]
         Gn = Gs[k + 1]
         @tensor Gp[α, β] := conj(Ak[z, α, a]) * Bk[z, β, b] * Gn[a, b]
         Gs[k] = Gp
@@ -35,19 +35,19 @@ end
 
 function rrule(
         ::typeof(TensorTrainNumerics.dot),
-        A::TTvector{T, M}, B::TTvector{T, M}
+        A::AbstractTTVector{T, M}, B::AbstractTTVector{T, M}
     ) where {T, M}
     Ls = _tt_left_envs(A, B)
-    Ω = Ls[A.N + 1][1, 1]
+    Ω = Ls[nsites(A) + 1][1, 1]
     function dot_pullback(Ω̄)
         Δ = unthunk(Ω̄)
         Gs = _tt_right_envs(A, B)
-        N = A.N
+        N = nsites(A)
         Ā = Vector{Array{T, 3}}(undef, N)
         B̄ = Vector{Array{T, 3}}(undef, N)
         @inbounds for k in 1:N
-            Ak = A.ttv_vec[k]
-            Bk = B.ttv_vec[k]
+            Ak = A.cores[k]
+            Bk = B.cores[k]
             Lp = Ls[k]
             Gn = Gs[k + 1]
             @tensor EB[z, α, a] := Bk[z, β, b] * Lp[α, β] * Gn[a, b]
@@ -58,34 +58,34 @@ function rrule(
         end
         return (
             NoTangent(),
-            Tangent{TTvector{T, M}}(ttv_vec = Ā),
-            Tangent{TTvector{T, M}}(ttv_vec = B̄),
+            Tangent{typeof(A)}(cores = Ā),
+            Tangent{typeof(B)}(cores = B̄),
         )
     end
     return Ω, dot_pullback
 end
 
-function rrule(::typeof(*), H::TToperator{T, N}, ψ::TTvector{T, N}) where {T, N}
+function rrule(::typeof(*), H::AbstractTTOperator{T, N}, ψ::AbstractTTVector{T, N}) where {T, N}
     Y = H * ψ
     function mul_pullback(Ȳraw)
         Ȳ = unthunk(Ȳraw)
         Ȳ isa AbstractZero && return (NoTangent(), ZeroTangent(), ZeroTangent())
-        Ȳv = unthunk(Ȳ.ttv_vec)                         # Tangent{TTvector} or TTvector
+        Ȳv = unthunk(Ȳ.cores)                         # Tangent{TTVector} or TTVector
         Ȳv isa AbstractZero && return (NoTangent(), ZeroTangent(), ZeroTangent())
         H̄ = Vector{Array{T, 4}}(undef, N)
         ψ̄ = Vector{Array{T, 3}}(undef, N)
-        for k in eachindex(H.tto_vec, ψ.ttv_vec, Ȳv)
-            Hk = H.tto_vec[k]                            # (dout, din, rHl, rHr)
-            ψk = ψ.ttv_vec[k]
+        for k in eachindex(H.cores, ψ.cores, Ȳv)
+            Hk = H.cores[k]                            # (dout, din, rHl, rHr)
+            ψk = ψ.cores[k]
             Yk = unthunk(Ȳv[k])
             if Yk isa AbstractZero
                 H̄[k], ψ̄[k] = zero(Hk), zero(ψk)
                 continue
             end
-            rHl = H.tto_rks[k]
-            rHr = H.tto_rks[k + 1]
-            rψl = ψ.ttv_rks[k]
-            rψr = ψ.ttv_rks[k + 1]
+            rHl = H.ranks[k]
+            rHr = H.ranks[k + 1]
+            rψl = ψ.ranks[k]
+            rψr = ψ.ranks[k + 1]
             dout = size(Hk, 1)
             Yb = reshape(Yk, (dout, rHl, rψl, rHr, rψr))
             @tensor hk[i, j, αl, αr] := conj(ψk[j, νl, νr]) * Yb[i, αl, νl, αr, νr]
@@ -95,24 +95,24 @@ function rrule(::typeof(*), H::TToperator{T, N}, ψ::TTvector{T, N}) where {T, N
         end
         return (
             NoTangent(),
-            Tangent{TToperator{T, N}}(tto_vec = H̄),
-            Tangent{TTvector{T, N}}(ttv_vec = ψ̄),
+            Tangent{typeof(H)}(cores = H̄),
+            Tangent{typeof(ψ)}(cores = ψ̄),
         )
     end
     return Y, mul_pullback
 end
 
-function rrule(::typeof(hadamard), x::TTvector{T, N}, y::TTvector{T, N}) where {T, N}
+function rrule(::typeof(hadamard), x::AbstractTTVector{T, N}, y::AbstractTTVector{T, N}) where {T, N}
     z = hadamard(x, y)
     function hadamard_pullback(z̄raw)
         z̄ = unthunk(z̄raw)
         z̄ isa AbstractZero && return (NoTangent(), ZeroTangent(), ZeroTangent())
-        z̄v = unthunk(z̄.ttv_vec)
+        z̄v = unthunk(z̄.cores)
         z̄v isa AbstractZero && return (NoTangent(), ZeroTangent(), ZeroTangent())
         x̄ = Vector{Array{T, 3}}(undef, N)
         ȳ = Vector{Array{T, 3}}(undef, N)
-        for k in eachindex(x.ttv_vec, y.ttv_vec, z̄v)
-            xk, yk = x.ttv_vec[k], y.ttv_vec[k]
+        for k in eachindex(x.cores, y.cores, z̄v)
+            xk, yk = x.cores[k], y.cores[k]
             Zk = unthunk(z̄v[k])
             if Zk isa AbstractZero
                 x̄[k], ȳ[k] = zero(xk), zero(yk)
@@ -133,8 +133,8 @@ function rrule(::typeof(hadamard), x::TTvector{T, N}, y::TTvector{T, N}) where {
         end
         return (
             NoTangent(),
-            Tangent{TTvector{T, N}}(ttv_vec = x̄),
-            Tangent{TTvector{T, N}}(ttv_vec = ȳ),
+            Tangent{typeof(x)}(cores = x̄),
+            Tangent{typeof(y)}(cores = ȳ),
         )
     end
     return z, hadamard_pullback
@@ -177,33 +177,33 @@ function _split_sum_cores(xs, ys, Zs)
     return x̄, ȳ
 end
 
-function rrule(::typeof(+), x::TTvector{T, N}, y::TTvector{T, N}) where {T, N}
+function rrule(::typeof(+), x::AbstractTTVector{T, N}, y::AbstractTTVector{T, N}) where {T, N}
     z = x + y
     function add_pullback(z̄raw)
-        Z = _cotangent_cores(z̄raw, :ttv_vec)
+        Z = _cotangent_cores(z̄raw, :cores)
         Z === nothing && return (NoTangent(), ZeroTangent(), ZeroTangent())
-        Zd = [_dense_core(Z[k], z.ttv_vec[k]) for k in eachindex(z.ttv_vec)]
-        x̄, ȳ = _split_sum_cores(x.ttv_vec, y.ttv_vec, Zd)
+        Zd = [_dense_core(Z[k], z.cores[k]) for k in eachindex(z.cores)]
+        x̄, ȳ = _split_sum_cores(x.cores, y.cores, Zd)
         return (
             NoTangent(),
-            Tangent{TTvector{T, N}}(ttv_vec = x̄),
-            Tangent{TTvector{T, N}}(ttv_vec = ȳ),
+            Tangent{typeof(x)}(cores = x̄),
+            Tangent{typeof(y)}(cores = ȳ),
         )
     end
     return z, add_pullback
 end
 
-function rrule(::typeof(+), A::TToperator{T, N}, B::TToperator{T, N}) where {T, N}
+function rrule(::typeof(+), A::AbstractTTOperator{T, N}, B::AbstractTTOperator{T, N}) where {T, N}
     C = A + B
     function add_pullback(C̄raw)
-        Z = _cotangent_cores(C̄raw, :tto_vec)
+        Z = _cotangent_cores(C̄raw, :cores)
         Z === nothing && return (NoTangent(), ZeroTangent(), ZeroTangent())
-        Zd = [_dense_core(Z[k], C.tto_vec[k]) for k in eachindex(C.tto_vec)]
-        Ā, B̄ = _split_sum_cores(A.tto_vec, B.tto_vec, Zd)
+        Zd = [_dense_core(Z[k], C.cores[k]) for k in eachindex(C.cores)]
+        Ā, B̄ = _split_sum_cores(A.cores, B.cores, Zd)
         return (
             NoTangent(),
-            Tangent{TToperator{T, N}}(tto_vec = Ā),
-            Tangent{TToperator{T, N}}(tto_vec = B̄),
+            Tangent{typeof(A)}(cores = Ā),
+            Tangent{typeof(B)}(cores = B̄),
         )
     end
     return C, add_pullback
@@ -224,28 +224,28 @@ function _scale_rrule(a, cores, i, ::Type{T}) where {T}
     return X, scale_cotangents
 end
 
-function rrule(::typeof(*), a::Number, x::TTvector{R, N}) where {R <: Number, N}
+function rrule(::typeof(*), a::Number, x::AbstractTTVector{R, N}) where {R <: Number, N}
     T = promote_type(typeof(a), R)
-    X, scale_cotangents = _scale_rrule(a, x.ttv_vec, TensorTrainNumerics._scale_site(x.ttv_ot), T)
-    y = TTvector{T, N}(x.N, X, x.ttv_dims, copy(x.ttv_rks), copy(x.ttv_ot))
+    X, scale_cotangents = _scale_rrule(a, x.cores, TensorTrainNumerics._scale_site(x), T)
+    y = TensorTrainNumerics._rewrap(x, TTVector{T, N}(X, x.dims, copy(x.ranks); orthogonality = copy(x.orthogonality)))
     function scale_pullback(ȳraw)
-        Z = _cotangent_cores(ȳraw, :ttv_vec)
+        Z = _cotangent_cores(ȳraw, :cores)
         Z === nothing && return (NoTangent(), ZeroTangent(), ZeroTangent())
         ā, x̄ = scale_cotangents(Z)
-        return (NoTangent(), ā, Tangent{TTvector{R, N}}(ttv_vec = x̄))
+        return (NoTangent(), ā, Tangent{typeof(x)}(cores = x̄))
     end
     return y, scale_pullback
 end
 
-function rrule(::typeof(*), a::Number, A::TToperator{R, N}) where {R <: Number, N}
+function rrule(::typeof(*), a::Number, A::AbstractTTOperator{R, N}) where {R <: Number, N}
     T = promote_type(typeof(a), R)
-    X, scale_cotangents = _scale_rrule(a, A.tto_vec, TensorTrainNumerics._scale_site(A.tto_ot), T)
-    B = TToperator{T, N}(A.N, X, A.tto_dims, copy(A.tto_rks), copy(A.tto_ot))
+    X, scale_cotangents = _scale_rrule(a, A.cores, TensorTrainNumerics._scale_site(A), T)
+    B = TensorTrainNumerics._rewrap(A, TTOperator{T, N}(X, A.row_dims, A.col_dims, copy(A.ranks); orthogonality = copy(A.orthogonality)))
     function scale_pullback(B̄raw)
-        Z = _cotangent_cores(B̄raw, :tto_vec)
+        Z = _cotangent_cores(B̄raw, :cores)
         Z === nothing && return (NoTangent(), ZeroTangent(), ZeroTangent())
         ā, Ā = scale_cotangents(Z)
-        return (NoTangent(), ā, Tangent{TToperator{R, N}}(tto_vec = Ā))
+        return (NoTangent(), ā, Tangent{typeof(A)}(cores = Ā))
     end
     return B, scale_pullback
 end

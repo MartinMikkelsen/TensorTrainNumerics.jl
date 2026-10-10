@@ -41,14 +41,14 @@ domain = [re_axis .+ im .* im_axis for _ in 1:d]
 Random.seed!(40260)
 alg = MaxVol(verbosity = 2, tol = 6.0e-6, max_sweeps = 25, max_bond = 70, kickrank = 2)
 tt = tt_cross(f_tilde_tt, domain, alg; ranks = 2, val_size = 2000)
-println("TT ranks: ", tt.ttv_rks)
+println("TT ranks: ", tt.ranks)
 
 Random.seed!(40261)
 nsamp = 500
 idx = hcat([rand(1:n, nsamp) for _ in 1:d]...)
 Xcheck = hcat([domain[k][idx[:, k]] for k in 1:d]...)
 y = f_tilde_tt(Xcheck)
-yhat = TensorTrainNumerics._evaluate_tt(tt.ttv_vec, idx, d)
+yhat = TensorTrainNumerics._evaluate_tt(tt.cores, idx, d)
 
 rel = norm(y .- yhat) / max(norm(y), 1.0e-14)
 println("Validation relative L2 error: ", rel)

@@ -18,8 +18,8 @@ cross interpolation behind one set of types.
 
 ## Features
 
-- **TT and QTT data types.** [`TTvector`](@ref) and [`TToperator`](@ref), with
-  multidimensional QTT wrappers [`QTTvector`](@ref) and [`QTToperator`](@ref)
+- **TT and QTT data types.** [`TTVector`](@ref) and [`TTOperator`](@ref), with
+  multidimensional QTT wrappers [`QTTVector`](@ref) and [`QTTOperator`](@ref)
   that support serial and interleaved bit orderings.
 - **Decomposition and rank control.** TT-SVD decomposition of dense tensors,
   left/right canonical forms, TT rounding with a relative tolerance or a rank
@@ -47,11 +47,12 @@ cross interpolation behind one set of types.
 - **Time evolution.** Explicit Euler, fourth-order Runge–Kutta, implicit Euler,
   and Crank–Nicolson steppers that accept any of the linear solvers, and one-
   and two-site TDVP in real and imaginary time
-  [Haegeman_2016, Vanderstraeten_2019](@cite).
+  [Haegeman_2016, Vanderstraeten_2019](@cite), all through
+  [`time_evolve`](@ref).
 - **Cross interpolation.** MaxVol, DMRG-cross, and greedy TT-cross algorithms
   that build a TT from function evaluations, and high-dimensional quadrature
   built on them [SAVOSTYANOV2014217, 6076873, vysotsky2021tensor](@cite).
-- **Interoperability.** `TTvector` implements the
+- **Interoperability.** `TTVector` implements the
   [VectorInterface.jl](https://github.com/Jutho/VectorInterface.jl) interface,
   so it can be used directly with
   [KrylovKit.jl](https://github.com/Jutho/KrylovKit.jl) and

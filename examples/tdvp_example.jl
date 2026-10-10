@@ -9,7 +9,7 @@ A = h^2 * toeplitz_to_qtto(-3, 5.0, 9.0, d)
 xes = collect(range(0.0, 1.0, 2^d))
 
 u₀ = qtt_sin(d, λ = π)
-init = rand_tt(u₀.ttv_dims, u₀.ttv_rks)
+init = rand_tt(u₀.dims, u₀.ranks)
 
 dt = 1.0e-2
 nsteps = 1000

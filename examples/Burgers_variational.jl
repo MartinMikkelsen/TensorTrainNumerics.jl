@@ -14,7 +14,7 @@ dx = L / N
 dt = T / Nt
 
 Dx = 1 / dx * ∇(d)
-Dxx = 1 / dx^2 * Δ_DN(d)
+Dxx = 1 / dx^2 * Δ(d; bc = :DN)
 
 u₀ = qtt_sin(d, λ = π / 2)
 x0 = (u₀)

@@ -55,7 +55,7 @@ end
 
     x = linear_solve(A, b, guess, ALS(max_sweeps = 1))
     x_ref = als_linsolve(A, b, guess; max_sweeps = 1)
-    @test x isa TensorTrainNumerics.AbstractTTvector
+    @test x isa TensorTrainNumerics.AbstractTTVector
     @test qtt_to_vector(x) ≈ qtt_to_vector(x_ref) rtol = 1.0e-12 atol = 1.0e-12
 end
 
@@ -114,18 +114,18 @@ end
         ALS(max_sweeps = 1, max_bond = 2, noise = 0.0)
     )
     @test !isempty(E_als)
-    @test x_als isa TensorTrainNumerics.AbstractTTvector
+    @test x_als isa TensorTrainNumerics.AbstractTTVector
     @test abs(last(E_als) - 1.0) < 1.0e-8
 
     E_mals, x_mals, r_hist_mals = eigen_solve(A, guess, MALS(max_sweeps = 1, max_bond = 4))
     @test !isempty(E_mals)
     @test !isempty(r_hist_mals)
-    @test x_mals isa TensorTrainNumerics.AbstractTTvector
+    @test x_mals isa TensorTrainNumerics.AbstractTTVector
 
     E_dmrg, x_dmrg, r_hist_dmrg = eigen_solve(A, guess, DMRG(nsites = 2, max_sweeps = 1, max_bond = 4))
     @test !isempty(E_dmrg)
     @test !isempty(r_hist_dmrg)
-    @test x_dmrg isa TensorTrainNumerics.AbstractTTvector
+    @test x_dmrg isa TensorTrainNumerics.AbstractTTVector
 end
 
 @testset "legacy eigen wrappers delegate to eigen_solve" begin
@@ -203,8 +203,8 @@ end
     x, info = linear_solve(A, b, x0, Krylov(krylovdim = 16, maxiter = 20, rtol = 1.0e-6, return_info = true))
     @test info.converged
     M = reshape(tto_to_tensor(A), prod(dims), :)
-    bv = vec(ttv_to_tensor(b))
-    @test info.residual ≈ norm(M * vec(ttv_to_tensor(x)) - bv) / norm(bv) rtol = 1.0e-3
+    bv = vec(tt_to_tensor(b))
+    @test info.residual ≈ norm(M * vec(tt_to_tensor(x)) - bv) / norm(bv) rtol = 1.0e-3
     @test info.residual ≤ 1.0e-6
 end
 
@@ -266,8 +266,8 @@ end
     d = 5
     dims = ntuple(_ -> 2, d)
     A = Δ(d) + 3.0 * id_tto(d)
-    b = A * rand_tt(dims, 2; normalise = true)
-    x0 = rand_tt(dims, 2; normalise = true)
+    b = A * rand_tt(dims, 2; normalize = true)
+    x0 = rand_tt(dims, 2; normalize = true)
 
     out = progress_output(() -> linear_solve(A, b, x0, ALS(; max_sweeps = 3)))
     @test occursin(r"sweep: 3/3", out) && occursin("largest rank:", out)
@@ -289,9 +289,9 @@ end
     @test occursin(r"step: 3/3", out) && occursin("largest rank:", out)
 
     u0 = function_to_qtt(x -> sin(π * x), d)
-    out = progress_output(() -> non_linear_solve((4.0^d / 2) * Δ(d), u0 / norm(u0), PenaltyALS(; penalty_schedule = [1.0e2], max_sweeps = 3, tol = 0.0); g = 1.0))
+    out = progress_output(() -> nonlinear_solve((4.0^d / 2) * Δ(d), u0 / norm(u0), PenaltyALS(; penalty_schedule = [1.0e2], max_sweeps = 3, tol = 0.0); g = 1.0))
     @test occursin("penalty:", out)
-    out = progress_output(() -> non_linear_solve(k -> (4.0^k / 2) * Δ(k), u0 / norm(u0), MGR(; inner = PenaltyALS(; penalty_schedule = [1.0e2], max_sweeps = 2)); g_builder = k -> 1.0, target_sites = d + 2))
+    out = progress_output(() -> nonlinear_solve(k -> (4.0^k / 2) * Δ(k), u0 / norm(u0), MGR(; inner = PenaltyALS(; penalty_schedule = [1.0e2], max_sweeps = 2)); g_builder = k -> 1.0, target_sites = d + 2))
     @test occursin(r"level: 3/3", out)
 
     f(X) = vec(1 ./ (1 .+ sum(X, dims = 2)))

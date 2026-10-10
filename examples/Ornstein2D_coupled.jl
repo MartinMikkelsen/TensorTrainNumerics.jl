@@ -21,14 +21,14 @@ xes = collect(range(a, b, N))
 ∂ = (1 / (2h)) * (shift(d) - (id_tto(d) - ∇(d)))   # central first derivative
 ∂² = -(1 / h^2) * Δ(d)                              # second derivative
 idd = id_tto(d)
-Mx = ttv_to_diag_tto(qtt_polynom([-μx, 1.0], d; a = a, b = b))
-My = ttv_to_diag_tto(qtt_polynom([-μy, 1.0], d; a = a, b = b))
+Mx = tt_to_diag_tto(qtt_polynomial([-μx, 1.0], d; a = a, b = b))
+My = tt_to_diag_tto(qtt_polynomial([-μy, 1.0], d; a = a, b = b))
 
 A = θ * ((∂ * Mx) ⊗ idd + idd ⊗ (∂ * My)) -
     k * (∂ ⊗ My + Mx ⊗ ∂) +
     D * (∂² ⊗ idd + idd ⊗ ∂²)
 
-toarr(v) = qttv_to_array(QTTvector(v, 2, d, :serial))   # raw 2d-site TT -> N×N grid
+toarr(v) = qttv_to_array(QTTVector(v, 2, d, :serial))   # raw 2d-site TT -> N×N grid
 mass(P) = sum(P) * h^2
 
 gx = function_to_qtt(t -> exp(-(a + (b - a) * t)^2 / 2), d)
@@ -71,7 +71,7 @@ end
 record!(u₀_clean)                       # t = 0: clean product Gaussian
 ψ = u₀
 for _ in 1:n_blocks
-    global ψ = crank_nicholson_method(
+    global ψ = crank_nicolson_method(
         A, ψ, ψ, fill(τ, block);
         normalize = false, alg = ALS()
     )

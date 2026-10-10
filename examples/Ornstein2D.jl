@@ -15,12 +15,12 @@ xes = collect(range(a, b, N))
 ∂x = (1 / (2h)) * (shift(d) - (id_tto(d) - ∇(d)))   # central first derivative
 ∂xx = -(1 / h^2) * Δ(d)                              # second derivative
 idd = id_tto(d)
-Mx = ttv_to_diag_tto(qtt_polynom([-μx, 1.0], d; a = a, b = b))   # diag(x - μx)
-My = ttv_to_diag_tto(qtt_polynom([-μy, 1.0], d; a = a, b = b))   # diag(y - μy)
+Mx = tt_to_diag_tto(qtt_polynomial([-μx, 1.0], d; a = a, b = b))   # diag(x - μx)
+My = tt_to_diag_tto(qtt_polynomial([-μy, 1.0], d; a = a, b = b))   # diag(y - μy)
 
 A = θ * ((∂x * Mx) ⊗ idd + idd ⊗ (∂x * My)) + D * (∂xx ⊗ idd + idd ⊗ ∂xx)
 
-toarr(v) = qttv_to_array(QTTvector(v, 2, d, :serial))   # raw 2d-site TT -> N×N grid
+toarr(v) = qttv_to_array(QTTVector(v, 2, d, :serial))   # raw 2d-site TT -> N×N grid
 mass(P) = sum(P) * h^2
 gx = function_to_qtt(t -> exp(-(a + (b - a) * t)^2 / 2), d)   # samples on [0,1]
 gy = function_to_qtt(t -> exp(-(a + (b - a) * t)^2 / 2), d)
@@ -53,7 +53,7 @@ end
 ψ = u₀
 record!(ψ)
 for _ in 1:n_blocks
-    global ψ = crank_nicholson_method(
+    global ψ = crank_nicolson_method(
         A, ψ, ψ, fill(τ, block);
         normalize = false, alg = ALS()
     )

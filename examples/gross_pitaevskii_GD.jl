@@ -19,7 +19,7 @@ N = 2^d
 h = 2domain / (N + 1)
 a, b = -domain + h, domain - h
 
-V = ttv_to_diag_tto(qtt_polynom([0.0, 0.0, 0.5], d; a, b))
+V = tt_to_diag_tto(qtt_polynomial([0.0, 0.0, 0.5], d; a, b))
 H1 = (1 / (2h^2)) * Δ(d) + V
 H0 = H1 ⊗ id_tto(d) + id_tto(d) ⊗ H1
 
@@ -49,7 +49,7 @@ end
 
 function tdvp_step(u)
     ρ = tt_round!(hadamard(u, u); trunc_tol)
-    H = H0 + g_eff * ttv_to_diag_tto(ρ)
+    H = H0 + g_eff * tt_to_diag_tto(ρ)
     # tdvp2 evolves exp(+dt*A) in imaginary time, hence -H.
     return tdvp2(
         -H, u, [dt]; imaginary_time = true, normalize = true,

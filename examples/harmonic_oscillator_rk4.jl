@@ -28,7 +28,7 @@ end
 function solve_forced_oscillator(A_dense, A, u₀_dense, Δt, T, max_bond)
     t = collect(0.0:Δt:T)
     u_dense = copy(u₀_dense)
-    ψ = ttv_decomp(reshape(u₀_dense, 2, 2))
+    ψ = tt_decomp(reshape(u₀_dense, 2, 2))
     x_dense = [u_dense[1]]
     x_tt = [u₀_dense[1]]
 
@@ -37,7 +37,7 @@ function solve_forced_oscillator(A_dense, A, u₀_dense, Δt, T, max_bond)
 
         ψ = rk4_method(A, ψ, [Δt]; max_bond, normalize = false)
         push!(x_dense, u_dense[1])
-        push!(x_tt, vec(ttv_to_tensor(ψ))[1])
+        push!(x_tt, vec(tt_to_tensor(ψ))[1])
     end
 
     return t, x_dense, x_tt

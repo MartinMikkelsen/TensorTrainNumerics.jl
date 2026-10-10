@@ -9,7 +9,7 @@ h = (b - a) / (N - 1); xes = collect(range(a, b, N))
 
 ∂x = (1 / (2h)) * (shift(d) - (id_tto(d) - ∇(d)))   # central first derivative
 ∂xx = -(1 / h^2) * Δ(d)                              # second derivative
-M = ttv_to_diag_tto(qtt_polynom([-μ, 1.0], d; a = a, b = b))   # diag(x-μ)
+M = tt_to_diag_tto(qtt_polynomial([-μ, 1.0], d; a = a, b = b))   # diag(x-μ)
 L = -θ * (M * ∂x) + D * ∂xx
 
 g(x) = exp(-(x - x₀)^2 / (2w^2))
@@ -38,7 +38,7 @@ end
 
 ψ = u₀; record!(ψ)
 for _ in 1:nblk
-    global ψ = crank_nicholson_method(L, ψ, ψ, fill(τstep, blk); normalize = false, alg = ALS())
+    global ψ = crank_nicolson_method(L, ψ, ψ, fill(τstep, blk); normalize = false, alg = ALS())
     record!(ψ)
 end
 

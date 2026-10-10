@@ -19,10 +19,10 @@
 ## Features
 
 - **Solvers** — ALS, MALS [[1](#references)], DMRG [[2](#references)], and AMEn [[12](#references)] for linear systems and eigenvalue problems, and a multigrid solver for non-linear problems [[3](#references)]; adaptive rank control via SVD truncation [[4](#references)]
-- **Time evolution** — single- and two-site TDVP [[5](#references)], implicit Euler, Crank–Nicolson, and Krylov exponential integrators 
+- **Time evolution** — single- and two-site TDVP [[5](#references)], implicit Euler, Crank–Nicolson, and Krylov exponential integrators, selected through `time_evolve`
 - **TT-cross** — MaxVol [[6](#references)], DMRG-cross [[7](#references)], and Greedy algorithms [[8](#references)] for black-box function approximation and numerical integration [[9](#references)]
 - **QTT operators** — exact low-rank representations of Laplacians, gradient operators [[10](#references)], shift matrices, and the discrete Fourier transform [[11](#references)]
-- **Quantics tensor trains** — serial and interleaved multi-dimensional encodings with `QTTvector`/`QTToperator` wrappers
+- **Quantics tensor trains** — serial and interleaved multi-dimensional encodings with `QTTVector`/`QTTOperator` wrappers
 - **Interoperability** — compatible with [KrylovKit.jl](https://github.com/Jutho/KrylovKit.jl) and [OptimKit.jl](https://github.com/Jutho/OptimKit.jl) via [VectorInterface.jl](https://github.com/Jutho/VectorInterface.jl)
 
 
@@ -42,9 +42,9 @@ using LinearAlgebra
 using TensorTrainNumerics
 
 tensor = reshape(collect(1.0:16.0), 2, 2, 2, 2)
-tt = ttv_decomp(tensor; tol = 1.0e-12)
+tt = tt_decomp(tensor; tol = 1.0e-12)
 
-tensor_reconstructed = ttv_to_tensor(tt)
+tensor_reconstructed = tt_to_tensor(tt)
 relerr = norm(tensor - tensor_reconstructed) / norm(tensor)
 
 println("Relative error: ", relerr)
@@ -64,7 +64,7 @@ domain = [collect(range(-1.0, 1.0, length = 8)) for _ in 1:4]
 
 tt = tt_cross(f, domain, MaxVol(verbosity = 0, tol = 1.0e-8); ranks = 2)
 
-approx = ttv_to_tensor(tt)
+approx = tt_to_tensor(tt)
 exact = similar(approx)
 for I in CartesianIndices(exact)
     x = reshape([domain[k][I[k]] for k in 1:4], 1, :)
@@ -88,7 +88,7 @@ using TensorTrainNumerics
 d = 6
 A = id_tto(d)
 b = qtt_sin(d, λ = π)
-x0 = rand_tt(b.ttv_dims, b.ttv_rks)
+x0 = rand_tt(b.dims, b.ranks)
 
 x = linear_solve(A, b, x0, ALS(max_sweeps = 2))
 
@@ -106,12 +106,12 @@ Relative error: 4.560872651853784e-16
 
 ```julia
 A = Δ(d) + id_tto(d)
-x0 = rand_tt(b.ttv_dims, 1)
+x0 = rand_tt(b.dims, 1)
 
 x, info = linear_solve(A, b, x0, AMEn(tol = 1e-8, return_info = true))
 
 println("Converged: ", info.converged, " after ", info.sweeps, " sweeps")
-println("Ranks: ", x.ttv_rks)
+println("Ranks: ", x.ranks)
 ```
 ```julia
 Converged: true after 4 sweeps

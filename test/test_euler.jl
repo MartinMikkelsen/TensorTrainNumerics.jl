@@ -49,7 +49,7 @@ end
     # Convert to dense for validation
     A_dense = qtto_to_matrix(A)
     u_dense = qtt_to_function(u₀)
-    I = qtto_to_matrix(id_tto(A.N))
+    I = qtto_to_matrix(id_tto(nsites(A)))
     sol_dense = (I - steps[1] * A_dense) \ u_dense
 
     sol_tt_vec = qtt_to_function(sol_tt)
@@ -77,7 +77,7 @@ end
 
     A_dense = qtto_to_matrix(A)
     u_dense = qtt_to_function(u₀)
-    I = qtto_to_matrix(id_tto(A.N))
+    I = qtto_to_matrix(id_tto(nsites(A)))
     sol_dense = (I - steps[1] * A_dense) \ u_dense
 
     sol_tt_vec = qtt_to_function(sol_tt)
@@ -86,7 +86,7 @@ end
     @test rel_error < 1.0e-8
 end
 
-@testset "Crank-Nicholson method basic test" begin
+@testset "Crank-Nicolson method basic test" begin
     d = 4
     h = 1 / d^2
     A = -h^2 * toeplitz_to_qtto(-2.0, 1.0, 1.0, d)
@@ -97,11 +97,11 @@ end
     guess = u₀
     steps = [0.05]
 
-    sol_tt = crank_nicholson_method(A, u₀, guess, steps; normalize = false, alg = MALS())
+    sol_tt = crank_nicolson_method(A, u₀, guess, steps; normalize = false, alg = MALS())
 
     A_dense = qtto_to_matrix(A)
     u_dense = qtt_to_function(u₀)
-    I = qtto_to_matrix(id_tto(A.N))
+    I = qtto_to_matrix(id_tto(nsites(A)))
     sol_dense = (I - 0.5 * steps[1] * A_dense) \ ((I + 0.5 * steps[1] * A_dense) * u_dense)
 
     sol_tt_vec = qtt_to_function(sol_tt)
@@ -110,7 +110,7 @@ end
     @test rel_error < 1.0e-5
 end
 
-@testset "Crank-Nicholson method Krylov solver" begin
+@testset "Crank-Nicolson method Krylov solver" begin
     d = 4
     h = 1 / d^2
     A = -h^2 * toeplitz_to_qtto(-2.0, 1.0, 1.0, d)
@@ -121,14 +121,14 @@ end
     guess = u₀
     steps = [0.05]
 
-    sol_tt = crank_nicholson_method(
+    sol_tt = crank_nicolson_method(
         A, u₀, guess, steps;
         normalize = false, alg = Krylov(), tol = 1.0e-12
     )
 
     A_dense = qtto_to_matrix(A)
     u_dense = qtt_to_function(u₀)
-    I = qtto_to_matrix(id_tto(A.N))
+    I = qtto_to_matrix(id_tto(nsites(A)))
     sol_dense = (I - 0.5 * steps[1] * A_dense) \ ((I + 0.5 * steps[1] * A_dense) * u_dense)
 
     sol_tt_vec = qtt_to_function(sol_tt)
@@ -137,7 +137,7 @@ end
     @test rel_error < 1.0e-8
 end
 
-@testset "Crank-Nicholson Krylov solver handles non-symmetric operators" begin
+@testset "Crank-Nicolson Krylov solver handles non-symmetric operators" begin
     d = 4
     A = 0.1 * ∇(d)
     tt_dims = ntuple(_ -> 2, d)
@@ -147,7 +147,7 @@ end
     guess = u₀
     steps = [0.05]
 
-    sol_tt = crank_nicholson_method(
+    sol_tt = crank_nicolson_method(
         A, u₀, guess, steps;
         normalize = false, alg = Krylov(), tol = 1.0e-12
     )
@@ -156,7 +156,7 @@ end
     @test !issymmetric(A_dense)
 
     u_dense = qtt_to_function(u₀)
-    I = qtto_to_matrix(id_tto(A.N))
+    I = qtto_to_matrix(id_tto(nsites(A)))
     sol_dense = (I - 0.5 * steps[1] * A_dense) \ ((I + 0.5 * steps[1] * A_dense) * u_dense)
 
     sol_tt_vec = qtt_to_function(sol_tt)
@@ -165,7 +165,7 @@ end
     @test rel_error < 1.0e-8
 end
 
-@testset "Crank-Nicholson Krylov solver supports bounded BiCGStab" begin
+@testset "Crank-Nicolson Krylov solver supports bounded BiCGStab" begin
     d = 5
     A = 0.1 * ∇(d)
     tt_dims = ntuple(_ -> 2, d)
@@ -176,7 +176,7 @@ end
     guess = u₀
     steps = [0.05]
 
-    sol_tt = crank_nicholson_method(
+    sol_tt = crank_nicolson_method(
         A, u₀, guess, steps;
         normalize = false,
         alg = Krylov(),
@@ -190,14 +190,14 @@ end
 
     A_dense = qtto_to_matrix(A)
     u_dense = qtt_to_function(u₀)
-    I = qtto_to_matrix(id_tto(A.N))
+    I = qtto_to_matrix(id_tto(nsites(A)))
     sol_dense = (I - 0.5 * steps[1] * A_dense) \ ((I + 0.5 * steps[1] * A_dense) * u_dense)
 
     sol_tt_vec = qtt_to_function(sol_tt)
     rel_error = norm(sol_tt_vec - sol_dense) / norm(sol_dense)
 
     @test rel_error < 1.0e-7
-    @test maximum(sol_tt.ttv_rks) <= max_bond
+    @test maximum(sol_tt.ranks) <= max_bond
 end
 
 @testset "Krylov solver supports CG selection and rejects unknown solvers" begin
@@ -220,7 +220,7 @@ end
 
     A_dense = qtto_to_matrix(A)
     u_dense = qtt_to_function(u₀)
-    I = qtto_to_matrix(id_tto(A.N))
+    I = qtto_to_matrix(id_tto(nsites(A)))
     sol_dense = (I - steps[1] * A_dense) \ u_dense
 
     rel_error = norm(qtt_to_function(sol_tt) - sol_dense) / norm(sol_dense)
@@ -255,7 +255,7 @@ end
     @test isapprox(norm(sol_impl), 1.0; atol = 1.0e-10)
     @test isfinite(info_impl.error)
 
-    sol_cn, info_cn = crank_nicholson_method(
+    sol_cn, info_cn = crank_nicolson_method(
         A, u₀, guess, steps;
         normalize = true, return_info = true, alg = Krylov(), tol = 1.0e-10
     )
@@ -355,23 +355,23 @@ end
     A = -h_grid^2 * toeplitz_to_qtto(-2.0, 1.0, 1.0, d)
     u₀ = qtt_sin(d)
     Random.seed!(17)
-    guess = rand_tt(u₀.ttv_dims, 4)
+    guess = rand_tt(u₀.dims, 4)
     steps = fill(0.05, 3)
 
     sol_str = implicit_euler_method(A, u₀, guess, steps; alg = ALS(), normalize = false, max_sweeps = 2)
     sol_typ = implicit_euler_method(A, u₀, guess, steps; alg = ALSSolver(), normalize = false, max_sweeps = 2)
     @test qtt_to_vector(sol_typ) ≈ qtt_to_vector(sol_str)
 
-    cn_str = crank_nicholson_method(A, u₀, guess, steps; alg = MALS(), normalize = false)
-    cn_typ = crank_nicholson_method(A, u₀, guess, steps; alg = MALSSolver(), normalize = false)
+    cn_str = crank_nicolson_method(A, u₀, guess, steps; alg = MALS(), normalize = false)
+    cn_typ = crank_nicolson_method(A, u₀, guess, steps; alg = MALSSolver(), normalize = false)
     @test qtt_to_vector(cn_typ) ≈ qtt_to_vector(cn_str)
 
-    kr = crank_nicholson_method(A, u₀, guess, steps; alg = KrylovSolver(), normalize = false, max_bond = 6)
-    @test kr isa TTvector
+    kr = crank_nicolson_method(A, u₀, guess, steps; alg = KrylovSolver(), normalize = false, max_bond = 6)
+    @test kr isa TTVector
     @test qtt_to_vector(kr) ≈ qtt_to_vector(cn_str) rtol = 1.0e-5
 
     dm = implicit_euler_method(A, u₀, guess, steps; alg = DMRGSolver(), normalize = false)
-    @test dm isa TTvector
+    @test dm isa TTVector
     @test qtt_to_vector(dm) ≈ qtt_to_vector(sol_str) rtol = 1.0e-5
 end
 
@@ -392,7 +392,7 @@ end
         tol = 1.0e-8
     )
 
-    @test_throws MethodError crank_nicholson_method(
+    @test_throws MethodError crank_nicolson_method(
         A, u₀, guess, steps;
         normalize = false,
         alg = MALSSolver(),
@@ -404,15 +404,15 @@ end
         normalize = false,
         alg = DMRGSolver(),
         local_maxiter = 50
-    ) isa TTvector
+    ) isa TTVector
 
-    @test crank_nicholson_method(
+    @test crank_nicolson_method(
         A, u₀, guess, steps;
         normalize = false,
         alg = KrylovSolver(),
         max_bond = 6,
         krylovdim = 10
-    ) isa TTvector
+    ) isa TTVector
 end
 
 @testset "time steppers accept top-level show_progress option" begin
@@ -420,13 +420,13 @@ end
     h = 1 / 2^d
     A = -h^2 * toeplitz_to_qtto(-2.0, 1.0, 1.0, d)
     u₀ = qtt_sin(d)
-    guess = rand_tt(u₀.ttv_dims, u₀.ttv_rks)
+    guess = rand_tt(u₀.dims, u₀.ranks)
     steps = [0.01]
 
-    @test euler_method(A, u₀, steps; normalize = false, show_progress = false) isa TTvector
-    @test implicit_euler_method(A, u₀, guess, steps; normalize = false, show_progress = false, alg = ALS(max_sweeps = 1)) isa TTvector
-    @test crank_nicholson_method(A, u₀, guess, steps; normalize = false, show_progress = false, alg = MALS()) isa TTvector
-    @test rk4_method(A, u₀, steps; max_bond = 4, normalize = false, show_progress = false) isa TTvector
+    @test euler_method(A, u₀, steps; normalize = false, show_progress = false) isa TTVector
+    @test implicit_euler_method(A, u₀, guess, steps; normalize = false, show_progress = false, alg = ALS(max_sweeps = 1)) isa TTVector
+    @test crank_nicolson_method(A, u₀, guess, steps; normalize = false, show_progress = false, alg = MALS()) isa TTVector
+    @test rk4_method(A, u₀, steps; max_bond = 4, normalize = false, show_progress = false) isa TTVector
 end
 
 @testset "time steppers do not normalize by default" begin
@@ -437,7 +437,7 @@ end
     for f in (
             kw -> euler_method(A, u₀, steps; show_progress = false, kw...),
             kw -> implicit_euler_method(A, u₀, u₀, steps; alg = ALS(), show_progress = false, kw...),
-            kw -> crank_nicholson_method(A, u₀, u₀, steps; alg = ALS(), show_progress = false, kw...),
+            kw -> crank_nicolson_method(A, u₀, u₀, steps; alg = ALS(), show_progress = false, kw...),
             kw -> rk4_method(A, u₀, steps; max_bond = 4, show_progress = false, kw...),
             kw -> tdvp(A, u₀, steps; imaginary_time = true, show_progress = false, kw...),
             kw -> tdvp2(A, u₀, steps; imaginary_time = true, show_progress = false, kw...),
@@ -455,15 +455,15 @@ end
     A = -1.0 * (B' * B)                       # symmetric negative semidefinite
     Ad = reshape(tto_to_tensor(A), prod(dims), :)
     u₀ = rand_tt(dims, [1, 3, 3, 1])          # full TT ranks: ALS solves exactly
-    v₀ = vec(ttv_to_tensor(u₀))
+    v₀ = vec(tt_to_tensor(u₀))
     h = 0.1
     Id = Matrix(1.0I, prod(dims), prod(dims))
     ie = implicit_euler_method(A, u₀, u₀, [h]; alg = ALS(max_sweeps = 3), show_progress = false)
-    @test vec(ttv_to_tensor(ie)) ≈ (Id - h * Ad) \ v₀
-    cn = crank_nicholson_method(A, u₀, u₀, [h]; alg = ALS(max_sweeps = 3), show_progress = false)
-    @test vec(ttv_to_tensor(cn)) ≈ (Id - (h / 2) * Ad) \ ((Id + (h / 2) * Ad) * v₀)
+    @test vec(tt_to_tensor(ie)) ≈ (Id - h * Ad) \ v₀
+    cn = crank_nicolson_method(A, u₀, u₀, [h]; alg = ALS(max_sweeps = 3), show_progress = false)
+    @test vec(tt_to_tensor(cn)) ≈ (Id - (h / 2) * Ad) \ ((Id + (h / 2) * Ad) * v₀)
     ee, info = euler_method(A, u₀, [h]; return_info = true, show_progress = false)
-    @test vec(ttv_to_tensor(ee)) ≈ (Id + h * Ad) * v₀
+    @test vec(tt_to_tensor(ee)) ≈ (Id + h * Ad) * v₀
     @test info.error < 1.0e-12
 end
 
@@ -472,19 +472,19 @@ end
     Random.seed!(71)
     d = 4
     A = -1.0 * Δ(d)
-    u₀ = rand_tt(ntuple(_ -> 2, d), 2; normalise = true)
+    u₀ = rand_tt(ntuple(_ -> 2, d), 2; normalize = true)
     steps = fill(1.0e-3, 3)
 
     u, info = implicit_euler_method(A, u₀, u₀, steps; alg = ALS(; max_sweeps = 2), return_info = true, show_progress = false)
     @test info.error isa Real
-    # An inner solver built with return_info = true still hands the stepper a TTvector.
-    @test implicit_euler_method(A, u₀, u₀, steps; alg = ALS(; return_info = true), show_progress = false) isa TTvector
-    u, info = crank_nicholson_method(A, u₀, u₀, steps; alg = Krylov(), tol = 1.0e-12, return_info = true, show_progress = false)
+    # An inner solver built with return_info = true still hands the stepper a TTVector.
+    @test implicit_euler_method(A, u₀, u₀, steps; alg = ALS(; return_info = true), show_progress = false) isa TTVector
+    u, info = crank_nicolson_method(A, u₀, u₀, steps; alg = Krylov(), tol = 1.0e-12, return_info = true, show_progress = false)
     @test info.error isa Real
     u, info = euler_method(A, u₀, steps; return_info = true, show_progress = false)
     @test info.error isa Real
     u = rk4_method(A, u₀, steps; max_bond = 4, show_progress = false)
-    @test maximum(u.ttv_rks) ≤ 4
+    @test maximum(u.ranks) ≤ 4
 
     @test_throws MethodError implicit_euler_method(A, u₀, u₀, steps; tt_solver = MALS())
     @test_throws TypeError implicit_euler_method(A, u₀, u₀, steps; alg = "mals")
@@ -502,4 +502,45 @@ end
     alg = Krylov(; max_bond = 8)
     @test TTN._stepper_algorithm(alg; TTN._stepper_overrides(alg, 0)...).max_bond == 8
     @test TTN._stepper_algorithm(alg; TTN._stepper_overrides(alg, 5)...).max_bond == 5
+end
+
+@testset "time_evolve dispatches on the algorithm" begin
+    d = 4
+    A = -1.0 * Δ(d)
+    Random.seed!(11)
+    u₀ = orthogonalize(rand_tt(ntuple(_ -> 2, d), 2; normalize = true))
+    steps = fill(1.0e-3, 3)
+    dense(x) = tt_to_tensor(x)
+
+    @test dense(time_evolve(A, u₀, steps, Euler(show_progress = false))) ==
+        dense(euler_method(A, u₀, steps; show_progress = false))
+    @test dense(time_evolve(A, u₀, steps, RK4(max_bond = 4, show_progress = false))) ==
+        dense(rk4_method(A, u₀, steps; max_bond = 4, show_progress = false))
+    @test dense(time_evolve(A, u₀, steps, ImplicitEuler(linear_solver = ALS(), show_progress = false))) ==
+        dense(implicit_euler_method(A, u₀, u₀, steps; alg = ALS(), show_progress = false))
+    @test dense(time_evolve(A, u₀, steps, CrankNicolson(linear_solver = ALS(), show_progress = false))) ==
+        dense(crank_nicolson_method(A, u₀, u₀, steps; alg = ALS(), show_progress = false))
+    @test dense(time_evolve(A, u₀, steps, TDVP(imaginary_time = true, show_progress = false))) ≈
+        dense(tdvp(A, u₀, steps; imaginary_time = true, show_progress = false))
+    @test dense(time_evolve(A, u₀, steps, TDVP(nsites = 2, max_bond = 3, imaginary_time = true, show_progress = false))) ≈
+        dense(tdvp2(A, u₀, steps; max_bond = 3, imaginary_time = true, show_progress = false))
+
+    # Step sizes may be any collection of reals.
+    @test dense(time_evolve(A, u₀, (1.0e-3, 1.0e-3, 1.0e-3), Euler(show_progress = false))) ==
+        dense(euler_method(A, u₀, steps; show_progress = false))
+
+    guess = rand_tt(ntuple(_ -> 2, d), 2; normalize = true)
+    @test dense(time_evolve(A, u₀, steps, CrankNicolson(linear_solver = ALS(), show_progress = false); guess)) ==
+        dense(crank_nicolson_method(A, u₀, guess, steps; alg = ALS(), show_progress = false))
+
+    u, info = time_evolve(A, u₀, steps, Euler(return_info = true, show_progress = false))
+    @test u isa TTVector
+    @test info.error isa Real
+
+    @test_throws MethodError time_evolve(A, u₀, steps, Euler(); guess)
+    @test_throws UndefKeywordError RK4()
+    @test_throws "`nsites` must be 1 or 2" TDVP(nsites = 3)
+    @test_throws "apply only to `nsites = 2`" TDVP(max_bond = 4)
+    @test_throws "unsupported keyword argument" TDVP(not_a_keyword = 1)
+    @test TDVP(krylovdim = 10).exponentiate == (; krylovdim = 10)
 end

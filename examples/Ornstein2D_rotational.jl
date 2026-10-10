@@ -16,8 +16,8 @@ function generator(d, ω)
     ∂ = (1 / (2h)) * (shift(d) - (id_tto(d) - ∇(d)))   # central first derivative (∂ᵀ = -∂)
     ∂² = -(1 / h^2) * Δ(d)
     idd = id_tto(d)
-    Mx = ttv_to_diag_tto(qtt_polynom([-μx, 1.0], d; a = a, b = b))
-    My = ttv_to_diag_tto(qtt_polynom([-μy, 1.0], d; a = a, b = b))
+    Mx = tt_to_diag_tto(qtt_polynomial([-μx, 1.0], d; a = a, b = b))
+    My = tt_to_diag_tto(qtt_polynomial([-μy, 1.0], d; a = a, b = b))
     A = θ * ((∂ * Mx) ⊗ idd + idd ⊗ (∂ * My)) +    # diagonal drift
         ω * (∂ ⊗ My - Mx ⊗ ∂) +                    # antisymmetric rotational coupling
         D * (∂² ⊗ idd + idd ⊗ ∂²)                  # isotropic diffusion
@@ -42,7 +42,7 @@ d = 7
 N = 2^d
 h = (b - a) / (N - 1)
 xes = collect(range(a, b, N))
-toarr(v) = qttv_to_array(QTTvector(v, 2, d, :serial))
+toarr(v) = qttv_to_array(QTTVector(v, 2, d, :serial))
 mass(P) = sum(P) * h^2
 P∞ = [exp(-((xi - μx)^2 + (yj - μy)^2) / (2var∞)) / (2π * var∞) for xi in xes, yj in xes]
 
@@ -66,7 +66,7 @@ for ω in ωs_evo
     ψ = ic()
     err = [sum(abs.((P = toarr(ψ); P ./= mass(P); P) .- P∞)) * h^2]
     for _ in 1:nblk
-        ψ = crank_nicholson_method(A, ψ, ψ, fill(τ, blk); normalize = false, alg = ALS())
+        ψ = crank_nicolson_method(A, ψ, ψ, fill(τ, blk); normalize = false, alg = ALS())
         P = toarr(ψ); P ./= mass(P)
         push!(err, sum(abs.(P .- P∞)) * h^2)
     end

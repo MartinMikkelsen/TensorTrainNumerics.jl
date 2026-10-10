@@ -21,7 +21,7 @@ A  = -(1/h^2) * toeplitz_to_qtto(-2.0, 1.0, 1.0, d)
 
 # RHS and initial guess
 b   = π^2 * qtt_sin(d; a = h, b = 1 - h)
-x0  = rand_tt(b.ttv_dims, b.ttv_rks)
+x0  = rand_tt(b.dims, b.ranks)
 
 u_qtt   = linear_solve(A, b, x0, MALS(trunc_tol = 1e-6, return_info = false))
 u_sol   = qtt_to_function(u_qtt)
@@ -56,7 +56,7 @@ d      = 6
 domain = [collect(range(0.0, π, length = n)) for _ in 1:d]
 
 tt_mv = tt_cross(f, domain, MaxVol(tol = 1e-8, max_sweeps = 20, verbosity = 0); ranks = 4)
-tt_dg = tt_cross(f, domain, DMRGcross(tol  = 1e-8, max_sweeps = 25, verbosity = 0); ranks = 4)
+tt_dg = tt_cross(f, domain, DMRGCross(tol  = 1e-8, max_sweeps = 25, verbosity = 0); ranks = 4)
 ```
 
 Verify accuracy against the full reference tensor:
@@ -67,8 +67,8 @@ for idx in CartesianIndices(tensor_exact)
     tensor_exact[idx] = sin(sum(domain[k][idx[k]] for k in 1:d))
 end
 
-println("MaxVol relative error: ", norm(ttv_to_tensor(tt_mv) .- tensor_exact) / norm(tensor_exact))
-println("DMRGcross relative error: ", norm(ttv_to_tensor(tt_dg) .- tensor_exact) / norm(tensor_exact))
+println("MaxVol relative error: ", norm(tt_to_tensor(tt_mv) .- tensor_exact) / norm(tensor_exact))
+println("DMRGCross relative error: ", norm(tt_to_tensor(tt_dg) .- tensor_exact) / norm(tensor_exact))
 ```
 
 
