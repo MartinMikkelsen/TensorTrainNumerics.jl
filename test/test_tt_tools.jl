@@ -1393,3 +1393,28 @@ end
     @test_throws "expected a square TTOperator" TensorTrainNumerics._square_dims(A)
     @test_throws "expected a square TTOperator" linear_solve(A, y, y, AMEn())
 end
+
+@testset "tt_round for TTOperator" begin
+    A = Δ(4; bc = :periodic)
+    B = A + A - A                                  # same operator, inflated ranks
+    dense = qtto_to_matrix(A)
+    inflated = maximum(B.ranks)
+    @test inflated > maximum(A.ranks)
+
+    R = tt_round(B; trunc_tol = 1.0e-12)
+    @test R isa TTOperator
+    @test maximum(R.ranks) ≤ 3
+    @test qtto_to_matrix(R) ≈ dense
+    @test maximum(B.ranks) == inflated             # input untouched
+
+    @test tt_round!(B; trunc_tol = 1.0e-12) === B
+    @test maximum(B.ranks) ≤ 3
+    @test qtto_to_matrix(B) ≈ dense
+
+    row_dims, col_dims, ranks = (2, 3, 2), (3, 2, 4), [1, 2, 3, 1]
+    C = TTOperator([randn(row_dims[k], col_dims[k], ranks[k], ranks[k + 1]) for k in 1:3], row_dims, col_dims, ranks)
+    D = tt_round(C + C; trunc_tol = 1.0e-12)
+    @test D.row_dims == C.row_dims && D.col_dims == C.col_dims
+    @test maximum(D.ranks) ≤ maximum(C.ranks)
+    @test tto_to_tensor(D) ≈ 2 * tto_to_tensor(C)
+end

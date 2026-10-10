@@ -15,24 +15,17 @@ M = 2^n
 x = collect(range(-L, L; length = M))
 h = x[2] - x[1]
 
-# Dense single-slice objects → QTT
-compress(A; tol = 1.0e-12) = TensorTrainNumerics.ttv_to_tto(tt_round(tto_to_ttv(A); trunc_tol = tol))
+# Polynomial in the field variable of one slice, as a QTT
+poly(coef) = qtt_polynomial(coef, n; a = -L, b = L)
 
-function vec_to_qtt(v)
-    T = zeros(ntuple(_ -> 2, n))
-    for t in CartesianIndices(T)
-        T[t] = v[tuple_to_index(Tuple(t))]
-    end
-    return tt_round(ttv_decomp(T); trunc_tol = 1.0e-14)
-end
-
+# Dense single-slice matrix → QTT operator
 function mat_to_qtto(A)
     T = zeros(ntuple(_ -> 2, 2n))
     for t in CartesianIndices(T)
         i = Tuple(t)
         T[t] = A[tuple_to_index(i[1:n]), tuple_to_index(i[(n + 1):end])]
     end
-    return compress(tto_decomp(T); tol = 1.0e-13)
+    return tt_round(tto_decomp(T); trunc_tol = 1.0e-13)
 end
 
 # Derivatives with linear-extrapolation ghost points: linear functions are differentiated
@@ -45,8 +38,9 @@ for j in 2:(M - 1)
 end
 D1[1, 1], D1[1, 2], D1[M, M - 1], D1[M, M] = -1 / h, 1 / h, -1 / h, 1 / h
 
-D2q, D1q, Xq = mat_to_qtto(D2), mat_to_qtto(D1), mat_to_qtto(LA.diagm(x))
-xq, oneq = vec_to_qtt(x), vec_to_qtt(ones(M))
+D2q, D1q = mat_to_qtto(D2), mat_to_qtto(D1)
+xq, oneq = poly([0.0, 1.0]), poly([1.0])
+Xq = tt_to_diag_tto(xq)
 @assert qtto_to_matrix(D1q) ≈ D1 && qtt_to_vector(xq) ≈ x
 
 embed(ops) = reduce(⊗, [get(ops, t, id_tto(n)) for t in 1:N])   # operator acting on chosen slices
@@ -56,14 +50,14 @@ embed_vec(vs) = reduce(⊗, [get(vs, t, oneq) for t in 1:N])      # product of s
 function generator(λ)
     Lop = embed(Dict(1 => D2q))
     for t in 2:N
-        Lop = compress(Lop + embed(Dict(t => D2q)))
+        Lop = tt_round(Lop + embed(Dict(t => D2q)); trunc_tol = 1.0e-12)
     end
     for t in 1:N
         κ = ((t > 1) + (t < N)) / a + a * m2
-        drift = mat_to_qtto(LA.Diagonal(κ .* x .+ 4a * λ .* x .^ 3) * D1)
-        Lop = compress(Lop + (-1.0) * embed(Dict(t => drift)))
-        t > 1 && (Lop = compress(Lop + (1 / a) * embed(Dict(t - 1 => Xq, t => D1q))))
-        t < N && (Lop = compress(Lop + (1 / a) * embed(Dict(t => D1q, t + 1 => Xq))))
+        drift = tt_round(tt_to_diag_tto(poly([0.0, κ, 0.0, 4a * λ])) * D1q; trunc_tol = 1.0e-13)
+        Lop = tt_round(Lop + (-1.0) * embed(Dict(t => drift)); trunc_tol = 1.0e-12)
+        t > 1 && (Lop = tt_round(Lop + (1 / a) * embed(Dict(t - 1 => Xq, t => D1q)); trunc_tol = 1.0e-12))
+        t < N && (Lop = tt_round(Lop + (1 / a) * embed(Dict(t => D1q, t + 1 => Xq)); trunc_tol = 1.0e-12))
     end
     return Lop
 end
@@ -73,13 +67,13 @@ end
 # ‖L u + g‖ / ‖g‖ is below `rtol`, since the increments also shrink
 # when the rank cap or the inner solver limits the accuracy of each step.
 function solve_poisson(Lop, g; Δτ = 2.0, kmax = 200, tol = 1.0e-6, rtol = 1.0e-6, max_bond = 50, trunc_tol = 1.0e-10)
-    alg = AMEn(; local_solver = :direct, max_bond, tol, show_progress = true)
+    alg = ImplicitEuler(; linear_solver = AMEn(; local_solver = :direct, max_bond, tol, show_progress = true), show_progress = false)
     ones_all = embed_vec(Dict())
     nall = dot(ones_all, ones_all)
     w, w_raw, u = g, g, nothing
     increment = Inf
     for k in 1:kmax
-        w_raw = implicit_euler_method(Lop, w, w_raw, [Δτ]; alg, show_progress = false)
+        w_raw = time_evolve(Lop, w, [Δτ], alg; guess = w_raw)
         w = tt_round(w_raw - (dot(w_raw, ones_all) / nall) * ones_all; trunc_tol)
         u = u === nothing ? Δτ * w : tt_round(u + Δτ * w; trunc_tol)
         increment = Δτ * norm(w) / norm(u)
@@ -101,7 +95,7 @@ solutions = Dict{Float64, Array{Float64, N}}()
 for λ in (0.0, 1.0)
     Lop = generator(λ)
     seconds = @elapsed u = solve_poisson(Lop, g)
-    ranks[λ] = tt_round(u; trunc_tol = 1.0e-8).ttv_rks
+    ranks[λ] = tt_round(u; trunc_tol = 1.0e-8).ranks
     @info "TT ranks of u" λ ranks = ranks[λ]
     λ == 1 && @info "solve time" λ seconds
     # `qtt_to_vector` orders the grid points with slice 1 most significant, so the
