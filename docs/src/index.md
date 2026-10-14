@@ -57,9 +57,8 @@ cross interpolation behind one set of types.
   so it can be used directly with
   [KrylovKit.jl](https://github.com/Jutho/KrylovKit.jl) and
   [OptimKit.jl](https://github.com/Jutho/OptimKit.jl). Package extensions add
-  reverse-mode differentiation rules for ChainRulesCore.jl (and hence Zygote.jl),
-  Riemannian optimization with Manopt.jl, and conversion from
-  TensorCrossInterpolation.jl.
+  reverse-mode differentiation rules for ChainRulesCore.jl (and hence Zygote.jl)
+  and conversion from TensorCrossInterpolation.jl.
 
 ## Installation
 

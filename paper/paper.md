@@ -64,8 +64,7 @@ The package is registered in the Julia General registry, archived on Zenodo,
 and has had regular tagged releases since the first commit in July 2024. The package connects to the wider Julia ecosystem through package extensions rather than hard dependencies: 
 
 `ChainRulesCore.jl` [@frames_white_2026_19386492] for reverse-mode automatic differentiation of tensor train
-operations, `Manopt.jl` [@Bergmann:2022] for Riemannian optimization on fixed-rank tensor train
-manifolds, `VectorInterface.jl` for use with Krylov methods [@haegeman_2026_20820534] and optimization packages that accept generic vector types, and `InterpolativeQTT.jl` for interpolative quantics tensor train constructions based on this paper [@lindsey2023multiscale].
+operations, `VectorInterface.jl` for use with Krylov methods [@haegeman_2026_20820534] and optimization packages that accept generic vector types, and `InterpolativeQTT.jl` for interpolative quantics tensor train constructions based on this paper [@lindsey2023multiscale].
 
 The package is intended to lower the barrier to entry for students and researchers who are new to tensor train numerics while providing new algortihms from within the field. The repository contains several example scripts covering the heat equation, Burgers' equation, Allen-Cahn equation, Fokker-Planck equation, the Schrödinger equation, and the Gross-Pitaevskii equation. The package also contains several examples of tensor cross interpolation of high-dimensional functions.
 

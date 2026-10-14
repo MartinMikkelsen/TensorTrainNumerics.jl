@@ -81,5 +81,4 @@ These functions have methods only when the corresponding weak dependencies are l
 
 ```@docs
 to_ttvector
-ttvector_manifold
 ```

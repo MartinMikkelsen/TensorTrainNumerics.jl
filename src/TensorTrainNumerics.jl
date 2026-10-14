@@ -1,18 +1,6 @@
 module TensorTrainNumerics
 
-export AbstractTTVector, AbstractTTOperator, TTVector, TTOperator, nsites, eltype, complex, tt_decomp, tto_decomp, tt_to_tensor, tto_to_tensor, tto_to_tt, visualize, matricize, concatenate, orthogonalize, entanglement_entropy, copy, admissible_ranks, tt_compress!, tt_round!, tt_round, ttvector_manifold
-"""
-    ttvector_manifold(x::TTVector)
-
-Return a ManifoldsBase.jl manifold whose points are `TTVector`s with the
-physical dimensions of `x`, for use with Manopt.jl solvers. The space is flat:
-the inner product is `real(dot(X, Y))`, and the retraction is
-`orthogonalize(p + t X)`, which does not truncate ranks.
-
-Defined in the extension that loads when ManifoldsBase.jl and Manopt.jl are
-loaded; real element types only.
-"""
-function ttvector_manifold end
+export AbstractTTVector, AbstractTTOperator, TTVector, TTOperator, nsites, eltype, complex, tt_decomp, tto_decomp, tt_to_tensor, tto_to_tensor, tto_to_tt, visualize, matricize, concatenate, orthogonalize, entanglement_entropy, copy, admissible_ranks, tt_compress!, tt_round!, tt_round
 include("tt_tools.jl")
 
 export *, +, dot, -, /, add!, outer_product, hadamard, hadamard_ttm, kron, ⊕, ⊗, ⨝, ∙, euclidean_distance, euclidean_distance_normalized, tt_to_diag_tto, norm
