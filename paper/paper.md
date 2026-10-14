@@ -19,7 +19,7 @@ bibliography: paper.bib
 
 # Summary
 
-Low-rank numerical tensor methods has gained a lot of traction recently and one of these framworks is the tensor train formulation. There are already many software packages for tensor network methods but these focus primaily on physics applications. `TensorTrainNumerics.jl` offers a unified package for dealing with numerical problems, such as solving high-dimensional partial differential equations through a user-friendly interface using a math-like notation but doing all the tensor network operations under the hood. 
+Low-rank numerical tensor methods has gained a lot of traction recently and one of these frameworks is the tensor train formulation. There are already many software packages for tensor network methods but these focus primaily on physics applications. `TensorTrainNumerics.jl` offers a unified package for dealing with numerical problems, such as solving high-dimensional partial differential equations through a user-friendly interface using a math-like notation but doing all the tensor network operations under the hood. 
 
 # Statement of need
 
@@ -27,7 +27,8 @@ Low-rank numerical tensor methods has gained a lot of traction recently and one 
 
 `TensorTrainNumerics.jl` was developed as a learning tool for tensor numerics which could easily be extended to benchmark new results and test different formulations. The package has already been used a publication [@FastandFlexible] and a preprint [@mikkelsen2026tensor]. This package should be a convinient way for new students wanting to dive into quantics tensor train numerical methods with existing explicit representations of operators, numerous solvers for linear systems, eigenvalue problems and time evolution. The package also provides many different examples. 
 
-# State of the field                                                                                                                  
+# Statement of the field
+                                           
 There are already several tensor train related packages
 
 `ttpy` [@oseledets_software_ttpy] is a Python package for tensor computations allowing linear algebra in up to 100 dimensions
@@ -52,7 +53,7 @@ There are already several tensor train related packages
 
 The package also provides a common solver interface separates what is solved from how it is solved. The user first defines a problem object containing the operators, the discretization, and any physical constants. The user then selects an algorithm object, such as `DMRG` [@White] or `ALS` [@als_mals], which carries the method and its hyperparameters. Calling `linear_solve(problem, algorithm)` runs the method and returns the solution. This approach is consistent throughout the repository whenever more than one algorithm is available, for instance doing tensor cross interpolation. 
 
-This package has a specific focus on the quantics tensor train representation which is a decomposition as a chain of $N$ tensors connected through some internal indices refered to as the bond dimension. The total number of tensor cores $N$ controls our discretization level by $2^N$ points. The computational complexity grows linearly with the number of tensor cores making computations on exponentially fine grids possible. `TensorTrainNumerics.jl` provides explicit QTT representation of a series of functions in the QTT format, such as $sin(λπx)$, $cos(λπx)$, exp and the Chebyshev polynomials.
+This package has a specific focus on the quantics tensor train representation which is a decomposition as a chain of $N$ tensors connected through some internal indices refered to as the bond dimension. The total number of tensor cores $N$ controls our discretization level by $2^N$ points. The computational complexity grows linearly with the number of tensor cores making computations on exponentially fine grids possible. `TensorTrainNumerics.jl` provides explicit QTT representation of a series of functions in the QTT format, such as $\sin(λπx)$, $\cos(λπx)$, $\exp$ and the Chebyshev polynomials.
 
 
 # Research impact statement
@@ -68,14 +69,31 @@ manifolds, `VectorInterface.jl` for use with Krylov methods [@haegeman_2026_2082
 
 The package is intended to lower the barrier to entry for students and researchers who are new to tensor train numerics while providing new algortihms from within the field. The repository contains several example scripts covering the heat equation, Burgers' equation, Allen-Cahn equation, Fokker-Planck equation, the Schrödinger equation, and the Gross-Pitaevskii equation. The package also contains several examples of tensor cross interpolation of high-dimensional functions.
 
-# Figures
+# Usage
 
-Figures can be included like this:
-![Caption for example figure.\label{fig:example}](figure.png)
-and referenced from text using \autoref{fig:example}.
+Here we show how to solve the 2D Poisson equation. First, we define the dimensionality, grid spacing and use the function to build the QTT representation of the finite difference Laplacian. 
 
-Figure sizes can be customized by adding an optional second parameter:
-![Caption for example figure.](figure.png){ width=20% }
+```julia
+using TensorTrainNumerics
+
+d = 8; h = 1 / (2^d + 1)
+Δ1d = toeplitz_to_qtto(-2.0, 1.0, 1.0, d)
+A = (1 / h^2) * (Δ1d ⊗ id_tto(d) + id_tto(d) ⊗ Δ1d)
+```
+We then define the right-hand side and the initial guess
+```julia
+b = -(1 / h^2) * qtt_sin(d; a = h, b = 1 - h) ⊗ qtt_basis_vector(d, 1)
+x0 = rand_tt(b.dims, b.ranks)
+```
+We can then define a solver and solve the linear problem as
+```julia
+alg = AMEn(; tol = 1e-10, max_sweeps = 10)
+x = linear_solve(A, b, x0, alg)
+```
+We can recover the solution on the grid as 
+```julia
+qttv_to_array(QTTVector(x, 2, d, :serial))
+```
 
 # AI usage disclosure
 
