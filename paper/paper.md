@@ -14,7 +14,7 @@ authors:
 affiliations:
  - name: University of Copenhagen, Department of Computer Science, Denmark
    index: 1
-date: 5 October 2026
+date: 15 October 2026
 bibliography: paper.bib
 
 ---
@@ -33,7 +33,7 @@ Tensor train methods for numerical analysis are developed mainly in the applied 
 
 The packages closest in scope are the MATLAB TT-Toolbox [@oseledets_software_TT-toolbox] and its Python counterpart `ttpy` [@oseledets_software_ttpy], which provide TT arithmetic, cross approximation, linear and eigenvalue solvers, and QTT representations of Laplace operators, and the Python package `scikit_tt` [@gelss2022scikittt], which provides linear, eigenvalue and time-evolution solvers in the TT format with a focus on high-dimensional dynamical systems. In Julia, `ITensors.jl` [@itensor] and `MPSKit.jl` [@mpskitjl], the latter built on `TensorKit.jl` [@tensorkitjl], are designed primarily for quantum many-body physics, `MPSTime.jl` [@MPSTime2025] applies matrix product states to time-series machine learning, and `TensorCrossInterpolation.jl` [@nunez2025learning] constructs tensor trains by cross interpolation.
 
-`TensorTrainNumerics.jl` shares its numerical focus with TT-Toolbox and `scikit_tt`, and differs from them in combining three things in one Julia package: a library of QTT operators on multidimensional grids, including finite-difference, shift, Fourier and prolongation operators; solvers for linear systems, eigenvalue problems and time evolution that are interchangeable, including inside implicit time integrators; and integration with the Julia ecosystem, in particular reverse-mode automatic differentiation through tensor train operations. A separate package was warranted because no Julia package covered tensor train numerical analysis, and the existing toolboxes are written in MATLAB and Python, where combining their solvers with Julia's automatic differentiation and solver packages is not possible without rewriting them. The repository's Gross–Pitaevskii sensitivity example shows the resulting workflow: it assembles QTT operators on a sequence of grids, computes a ground state with a multigrid method [@mgr] and a penalty-based ALS solver, differentiates the ground-state energy with respect to the trap frequency and the interaction strength with `Zygote.jl`, and uses these derivatives in Newton's method to find the interaction strength that gives a prescribed energy, all in one program.
+Several of these packages cover parts of tensor train numerical analysis: TT-Toolbox and `scikit_tt` provide solvers in the TT format, `TensorCrossInterpolation.jl` builds tensor trains from function evaluations, and the physics-oriented Julia libraries provide DMRG-type eigenvalue solvers. `TensorTrainNumerics.jl` differs in combining three things in one Julia package: a library of QTT operators on multidimensional grids, including finite-difference, shift, Fourier and prolongation operators; solvers for linear systems, eigenvalue problems and time evolution that can be exchanged for one another, including inside implicit time integrators; and reverse-mode automatic differentiation through tensor train operations. The repository's Gross–Pitaevskii sensitivity example shows what this combination allows: it assembles QTT operators on a sequence of grids, computes a ground state with a multigrid method [@mgr] and a penalty-based ALS solver, differentiates the ground-state energy with respect to the trap frequency and the interaction strength with `Zygote.jl`, and uses these derivatives in Newton's method to find the interaction strength that gives a prescribed energy, all in one program.
 
 # Software design
 
@@ -75,7 +75,7 @@ The last line returns the solution as a $2^d \times 2^d$ array. The computed sol
 
 # AI usage disclosure
 
-No generative AI tools were used in the initial development of this software. After release `v1.1.1` agentic coding (Claude Code (Anthropic)) has been used to improve the code quality, docstrings and provide better code coverage. Generative AI was used to edit parts of this manuscript. All text produced with AI assistance was reviewed, revised, and verified by the author before inclusion in the code or paper.
+No generative AI tools were used in the initial development of this software. After release `v1.1.1` agentic coding with Claude Code (Anthropic) has been used to improve the code quality, write docstrings and extend code coverage. Generative AI was used to edit parts of this manuscript. All text produced with AI assistance was reviewed, revised, and verified by the author before inclusion in the code or paper.
 
 # Acknowledgements
 
