@@ -45,7 +45,7 @@ Solvers are selected by algorithm objects, such as `AMEn()` [@Dolgov_Savostyanov
 
 # Research impact statement
 
-`TensorTrainNumerics.jl` started as a tool to support the author's own research and to learn tensor train numerics, and it has since been used in two research projects. The numerical experiments on quantics tensor train solvers for differential equations with data integration in [@FastandFlexible] were carried out with the package, and the tensor train multidimensional inverse Laplace transform of [@mikkelsen2026tensor] is built on its tensor cross interpolation. The package has also received contributions from two external contributors, including an example that solves the Stein–Poisson equation for $\phi^4$ lattice field theory following the approach of [@butti2026variational].
+`TensorTrainNumerics.jl` started as a tool to support the author's own research and to learn tensor train numerics, and it has since been used in two research projects. The numerical experiments on quantics tensor train solvers for differential equations with data integration in @FastandFlexible were carried out with the package, and the tensor train multidimensional inverse Laplace transform of @mikkelsen2026tensor is built on its tensor cross interpolation. The package has also received contributions from two external contributors, including an example that solves the Stein–Poisson equation for $\phi^4$ lattice field theory following the approach of @butti2026variational.
 
 The package is registered in the Julia General registry and archived on Zenodo, and it has had 17 tagged releases since its first commit in July 2024. The repository contains about 40 runnable example scripts, covering the Allen–Cahn equation, Fokker–Planck equation, Schrödinger and Gross–Pitaevskii equations, ground states of spin chains, and tensor cross interpolation and integration of high-dimensional functions. Together with the explicit operator constructions, these examples are intended to lower the barrier to entry for students and researchers who are new to tensor train numerics.
 
@@ -75,7 +75,7 @@ The last line returns the solution as a $2^d \times 2^d$ array. The computed sol
 
 # AI usage disclosure
 
-No generative AI tools were used in the initial development of this software. After release `v1.1.1` agentic coding with Claude Code (Anthropic) has been used to improve the code quality, write docstrings and extend code coverage. Generative AI was used to edit parts of this manuscript. All text produced with AI assistance was reviewed, revised, and verified by the author before inclusion in the code or paper.
+No generative AI tools were used in the initial development of this software. After release `v1.1.1` agentic coding with Claude Code (Anthropic) has been used to improve the code quality, write docstrings and extend test coverage. Generative AI was used to edit parts of this manuscript. All text produced with AI assistance was reviewed, revised, and verified by the author before inclusion in the code or paper.
 
 # Acknowledgements
 

@@ -1,12 +1,26 @@
 @article{kazeev2012,
-    Author  = {Kazeev, Vladimir A. and Khoromskij, Boris N.},
-    Title   = {Low-rank explicit QTT representation of the Laplace operator and its inverse},
-    Journal = {SIAM Journal on Matrix Analysis and Applications},
-    Year    = {2012},
-    Pages   = {742--758},
-    Volume  = {33},
-    Number  = {3}
+author = {Kazeev, Vladimir A. and Khoromskij, Boris N.},
+title = {Low-Rank Explicit QTT Representation of the {Laplace} Operator and Its Inverse},
+journal = {SIAM Journal on Matrix Analysis and Applications},
+volume = {33},
+number = {3},
+pages = {742--758},
+year = {2012},
+doi = {10.1137/100820479},
+
+URL = { 
+        https://doi.org/10.1137/100820479
+},
+eprint = { 
+        https://doi.org/10.1137/100820479
+
 }
+,
+    abstract = { We focus on the construction of explicit low-rank representations of matrices in the tensor train (TT) and quantized tensor train (QTT) formats which have been proposed recently for the low-parametric structured representation of large-scale tensors. The matrices under consideration are discretizations of the Laplace operator in a hypercube (in one and many dimensions) and their inverses (in one dimension). For these matrices we derive explicit and exact QTT representations of low QTT ranks independent of the numbers \$d\$ and \$n^{2}\$ of dimensions and entries in each dimension. This implies that for the matrices considered the storage cost is \$\mathcal{O}\left(d\,\log n\right)\$, i.e., logarithmic with respect to the total number \$n^{2d}\$ of entries. The same applies to the computational complexity of the QTT-structured operations with these matrices, which now depends on the QTT ranks of the other operands. The general result of the paper is the notation and technique we introduce in order to examine the QTT structure of matrices analytically. They prove to be an efficient tool of studying other tensors related to particular computational problems, which are not considered in this paper. }
+}
+
+
+
 
 @article{tt_Oseledets,
     Author  = {Oseledets, Ivan},
@@ -53,14 +67,14 @@
 }
 
 @article{qtt_khoromskij,
-  title={O (d log N)-quantics approximation of N-d tensors in high-dimensional numerical modeling},
-  author={Khoromskij, Boris N},
-  journal={Constructive Approximation},
-  volume={34},
-  number={2},
-  pages={257--280},
-  year={2011},
-  publisher={Springer}
+  author  = {Khoromskij, Boris N.},
+  title   = {{$O(d \log N)$}-Quantics Approximation of {$N$}-$d$ Tensors in High-Dimensional Numerical Modeling},
+  journal = {Constructive Approximation},
+  year    = {2011},
+  volume  = {34},
+  number  = {2},
+  pages   = {257--280},
+  doi     = {10.1007/s00365-011-9131-1}
 }
 
 @article{oseledets_TT_cross,
@@ -94,8 +108,8 @@
 }
 
 @article{Dolgov2012,
-    Author  = {Dolgov, Sergey and Khoromskij, Boris and Savostyanov, Dmitry},
-    Title   = {Superfast Fourier Transform Using QTT Approximation},
+    Author  = {Dolgov, Sergey V. and Khoromskij, Boris N. and Savostyanov, Dmitry V.},
+    Title   = {Superfast {Fourier} Transform Using QTT Approximation},
     Journal = {Journal of Fourier Analysis and Applications},
     Year    = {2012},
     Doi     = {10.1007/s00041-012-9227-4},
@@ -128,7 +142,7 @@
 }
 
 @article{Dolgov_2020,
-    Author   = {Dolgov, Sergey and Savostyanov, Dmitry},
+    Author   = {Dolgov, Sergey V. and Savostyanov, Dmitry V.},
     Title    = {Parallel cross interpolation for high-precision calculation of high-dimensional integrals},
     Journal  = {Computer Physics Communications},
     Year     = {2020},
@@ -214,7 +228,7 @@
 
 @misc{QFT1,
     Author        = {Chen, Jielun and Lindsey, Michael},
-    Title         = {Direct interpolative construction of the discrete Fourier transform as a matrix product operator},
+    Title         = {Direct interpolative construction of the discrete {Fourier} transform as a matrix product operator},
     Year          = {2024},
     Eprint        = {2404.03182},
     Archiveprefix = {arXiv},
@@ -224,7 +238,7 @@
 
 @article{QFT2,
     Author  = {Chen, Jielun and Stoudenmire, E. M. and White, Steven R.},
-    Title   = {Quantum Fourier transform has small entanglement},
+    Title   = {Quantum {Fourier} transform has small entanglement},
     Journal = {PRX Quantum},
     Year    = {2023},
     Pages   = {040318},
@@ -307,16 +321,23 @@
     Url     = {http://dx.doi.org/10.1016/j.aop.2010.09.012}
 }
 
-@article{FastandFlexible,
-  title={Fast and flexible quantum-inspired differential equation solvers with data integration},
-  author={Arenstein, Lucas and Mikkelsen, Martin and Kastoryano, Michael},
-  journal={Mathematics},
-  volume={14},
-  number={12},
-  pages={2069},
-  year={2026},
-  publisher={MDPI}
+@Article{FastandFlexible,
+AUTHOR = {Arenstein, Lucas and Mikkelsen, Martin and Kastoryano, Michael},
+TITLE = {Fast and Flexible Quantum-Inspired Differential Equation Solvers with Data Integration},
+JOURNAL = {Mathematics},
+VOLUME = {14},
+YEAR = {2026},
+NUMBER = {12},
+ARTICLE-NUMBER = {2069},
+URL = {https://www.mdpi.com/2227-7390/14/12/2069},
+ISSN = {2227-7390},
+ABSTRACT = {Accurately solving high-dimensional partial differential equations (PDEs) remains a central challenge in computational mathematics. Traditional numerical methods, while effective in low-dimensional settings or on coarse grids, often struggle to deliver the precision required in practical applications. Recent machine learning-based approaches offer flexibility but frequently fall short in terms of accuracy and reliability, particularly in industrial contexts. In this work, we explore a quantum-inspired method based on quantized tensor trains (QTT), enabling efficient and accurate solutions to PDEs in a variety of challenging scenarios. Through several representative examples, we show that the QTT approach can achieve logarithmic scaling in memory and computational cost for linear PDEs when the relevant QTT ranks remain moderate. We also develop QTT space-time formulations that treat time as an additional dimension, allowing the full temporal evolution to be represented and solved globally rather than through sequential time stepping. For the nonlinear Burgers equation, we study both time-stepping and a frozen-coefficient space-time Picard scheme in QTT form, and report empirical convergence behavior on smooth one-dimensional viscous test problems. Additionally, we present a proof-of-concept data-driven workflow within the quantum-inspired framework, in which sampled source data are interpolated into QTT form and then incorporated directly into the structured PDE solver.},
+DOI = {10.3390/math14122069}
 }
+
+
+
+
 
 @article{SAVOSTYANOV2014217,
     title = {Quasioptimality of maximum-volume cross interpolation of tensors},
@@ -331,7 +352,7 @@
 }
 
 @INPROCEEDINGS{6076873,
-  author={Savostyanov, Dmitry and Oseledets, Ivan},
+  author={Savostyanov, Dmitry V. and Oseledets, Ivan},
   booktitle={The 2011 International Workshop on Multidimensional (nD) Systems}, 
   title={Fast adaptive interpolation of multi-dimensional arrays in tensor train format}, 
   year={2011},
@@ -384,8 +405,9 @@
 
 @misc{oseledets_software_ttpy,
   author       = {Oseledets, Ivan and {ttpy contributors}},
-  title        = {{ttpy}: Tensor Train Toolbox in Python},
+  title        = {{ttpy}: Tensor Train Toolbox in {Python}},
   version      = {1.2.0},
+  year         = {2017},
   url          = {https://github.com/oseledets/ttpy},
   note         = {MIT license. Ivan Oseledets ORCID: 0000-0003-2071-2163. Contributors: https://github.com/oseledets/ttpy/graphs/contributors},
   abstract     = {Tensor Train toolbox for TT/QTT decompositions, cross approximation, and AMEn solvers, implemented in pure Python with NumPy.},
@@ -393,9 +415,10 @@
 }
 
 @misc{oseledets_software_TT-toolbox,
-  author       = {Oseledets, Ivan and {ttpy contributors}},
-  title        = {{TT-Toolbox}: Tensor Train Toolbox in Matlab},
-  version      = {1.2.0},
+  author       = {Oseledets, Ivan and {TT-Toolbox contributors}},
+  title        = {{TT-Toolbox}: Tensor Train Toolbox in {MATLAB}},
+  version      = {2.3},
+  year         = {2014},
   url          = {https://github.com/oseledets/TT-toolbox},
   note         = {MIT license. Ivan Oseledets ORCID: 0000-0003-2071-2163. Contributors: https://github.com/oseledets/TT-toolbox/graphs/contributors},
   abstract     = {Tensor Train toolbox for TT/QTT decompositions, cross approximation, and AMEn solvers, implemented in pure Matlab.},
@@ -403,7 +426,7 @@
 }
 
 @article{mikkelsen2026tensor,
-  title={A tensor-train multidimensional inverse Laplace transform},
+  title={A tensor-train multidimensional inverse {Laplace} transform},
   author={Mikkelsen, Martin and Kastoryano, Michael},
   journal={arXiv preprint arXiv:2606.06093},
   year={2026}
@@ -420,13 +443,13 @@
 
 @article{tensorkitjl,
   author  = {Devos, Lukas and Haegeman, Jutho},
-  title   = {{TensorKit.jl}: A Julia package for large-scale tensor computations, with a hint of category theory},
+  title   = {{TensorKit.jl}: A {Julia} package for large-scale tensor computations, with a hint of category theory},
   journal = {arXiv preprint arXiv:2508.10076},
   doi     = {10.48550/arXiv.2508.10076},
   year    = {2025}
 }
 
-@misc{MPSTime2025,
+@article{MPSTime2025,
   title = {Using matrix-product states for time-series machine learning},
   author = {Moore, Joshua B. and Stackhouse, Hugo P. and Fulcher, Ben D. and Mahmoodian, Sahand},
   journal = {Phys. Rev. Res.},
@@ -438,7 +461,9 @@
   month = {Oct},
   publisher = {American Physical Society},
   doi = {10.1103/61h8-8qr5},
-  url = {https://link.aps.org/doi/10.1103/61h8-8qr5}}
+  url = {https://link.aps.org/doi/10.1103/61h8-8qr5}
+}
+
 
 @misc{gelss2022scikittt,
   author       = {Gel{\ss}, Patrick and {Scikit-TT contributors}},
@@ -452,14 +477,18 @@
 }
 
 @article{nunez2025learning,
-  title={Learning tensor networks with tensor cross interpolation: New algorithms and libraries},
-  author={N{\'u}{\~n}ez Fern{\'a}ndez, Yuriel and Ritter, Marc K and Jeannin, Matthieu and Li, Jheng-Wei and Kloss, Thomas and Louvet, Thibaud and Terasaki, Satoshi and Parcollet, Olivier and Von Delft, Jan and Shinaoka, Hiroshi and others},
-  journal={SciPost Physics},
-  volume={18},
-  number={3},
-  pages={104},
-  year={2025}
-}
+   title={Learning tensor networks with tensor cross interpolation: New algorithms and libraries},
+   volume={18},
+   ISSN={2542-4653},
+   url={http://dx.doi.org/10.21468/SciPostPhys.18.3.104},
+   DOI={10.21468/scipostphys.18.3.104},
+   number={3},
+   journal={SciPost Physics},
+   publisher={Stichting SciPost},
+   author={Núñez Fernández, Yuriel and Ritter, Marc K and Jeannin, Matthieu and Li, Jheng-Wei and Kloss, Thomas and Louvet, Thibaud and Terasaki, Satoshi and Parcollet, Olivier and von Delft, Jan and Shinaoka, Hiroshi and Waintal, Xavier},
+   year={2025},
+   month=Mar }
+
 
 @article{butti2026variational,
   title={A variational framework for variance reduction in lattice field theory},
