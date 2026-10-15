@@ -71,7 +71,7 @@ alg = AMEn(; tol = 1e-10, max_sweeps = 10)
 x = linear_solve(A, b, x0, alg)
 u = qttv_to_array(QTTVector(x, 2, d, :serial))
 ```
-The last line returns the solution as a $2^d \times 2^d$ array. The computed solution has maximum rank 2 and is stored in 112 numbers instead of the 65536 grid values.
+The last line returns the solution as a $2^d \times 2^d$ array. The computed solution has maximum rank 2 and is stored in 112 numbers instead of the 65,536 grid values. Its relative error with respect to the exact solution is $7.6 \times 10^{-6}$. 
 
 # AI usage disclosure
 
