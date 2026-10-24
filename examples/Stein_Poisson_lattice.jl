@@ -3,9 +3,13 @@
 # Background: P. Butti et al., arXiv:2609.28142.
 # Free theory (λ = 0): the exact solution is linear, u = (K⁻¹e_{t0})·φ, with TT rank 2.
 # Interacting theory (λ > 0): the solution is nonlinear and its TT ranks grow.
+# The solution gives the transport field f = ∇u of the variance-reduced correlator estimator
+#     X_t = (φ_t0 + ∇·f − ∇S·f) φ_t + f_t,
+# which is unbiased for any f; it is compared with the standard estimator φ_t0 φ_t on Monte Carlo samples.
 
 using TensorTrainNumerics
 using CairoMakie
+using Random, Statistics
 import LinearAlgebra as LA
 
 m2, a = 1.0, 0.5
@@ -89,10 +93,87 @@ function solve_poisson(Lop, g; Δτ = 2.0, kmax = 200, tol = 1.0e-6, rtol = 1.0e
     error("no convergence after $kmax steps: relative increment $increment, tol = $tol")
 end
 
+# --- Monte Carlo comparison ---
+# f = ∇u at arbitrary φ: per-slice tables of TT blocks, multilinear interpolation between grid
+# points. ∇·f is the exact derivative of the interpolant, which keeps the estimator unbiased.
+function tables(F)
+    return map(1:N) do t
+        cores = F.cores[((t - 1) * n + 1):(t * n)]
+        r = size(cores[1], 2)
+        B = [Matrix{Float64}(LA.I, r, r)]
+        for G in cores
+            B = [b * G[i, :, :] for b in B for i in 1:2]
+        end
+        B
+    end
+end
+
+function interp(tab, j, w, dax = 0)
+    v = ones(1, 1)
+    for t in 1:N
+        lo, hi = tab[t][j[t] + 1], tab[t][j[t] + 2]
+        v = v * (t == dax ? (hi - lo) / h : (1 - w[t]) * lo + w[t] * hi)
+    end
+    return v[1, 1]
+end
+
+V(z, λ) = m2 * z^2 / 2 + λ * z^4
+gradS(φ, λ) = [
+    a * (m2 * φ[t] + 4λ * φ[t]^3) + (t > 1 ? (φ[t] - φ[t - 1]) / a : 0.0) + (t < N ? (φ[t] - φ[t + 1]) / a : 0.0)
+        for t in 1:N
+]
+
+function sample(λ, nsamp; δ = 0.8, therm = 2_000, every = 2, rng = Xoshiro(1))
+    Sloc(φ, t, z) = a * V(z, λ) + (t > 1 ? (z - φ[t - 1])^2 / (2a) : 0.0) + (t < N ? (φ[t + 1] - z)^2 / (2a) : 0.0)
+    φ = zeros(N)
+    out = zeros(nsamp, N)
+    for s in 1:(therm + every * nsamp)
+        for t in 1:N
+            z = φ[t] + δ * (2rand(rng) - 1)
+            dS = Sloc(φ, t, z) - Sloc(φ, t, φ[t])
+            (dS <= 0 || rand(rng) < exp(-dS)) && (φ[t] = z)
+        end
+        s > therm && (s - therm) % every == 0 && (out[(s - therm) ÷ every, :] .= φ)
+    end
+    return out
+end
+
+# Exact ⟨φ_t φ_t0⟩ of the open chain from the transfer matrix
+function exact_correlator(λ; ng = 601)
+    xg = collect(range(-L, L; length = ng))
+    dx = xg[2] - xg[1]
+    T = [dx * exp(-(p - q)^2 / (2a) - a * (V(p, λ) + V(q, λ)) / 2) for p in xg, q in xg]
+    b = sqrt(dx) .* exp.(-a .* V.(xg, λ) ./ 2)
+    X = LA.Diagonal(xg)
+    Z = b' * T^(N - 1) * b
+    return [(b' * T^(min(t, t0) - 1) * X * T^abs(t - t0) * X * T^(N - max(t, t0)) * b) / Z for t in 1:N]
+end
+
+block_err(v; nb = 20) = std([mean(c) for c in Iterators.partition(v, length(v) ÷ nb)][1:nb]) / sqrt(nb)
+
+function estimators(u, λ; nsamp = 20_000)
+    tab = [tables(tt_round(embed(Dict(t => D1q)) * u; trunc_tol = 1.0e-12)) for t in 1:N]
+    Φ = sample(λ, nsamp)
+    naive = Φ[:, t0] .* Φ
+    improved = similar(naive)
+    for s in axes(Φ, 1)
+        φ = Φ[s, :]
+        pos = (φ .+ L) ./ h
+        j = clamp.(floor.(Int, pos), 0, M - 2)
+        w = pos .- j
+        f = [interp(tab[t], j, w) for t in 1:N]
+        weight = φ[t0] + sum(interp(tab[t], j, w, t) for t in 1:N) - sum(gradS(φ, λ) .* f)
+        improved[s, :] .= weight .* φ .+ f
+    end
+    return naive, improved
+end
+
 g = embed_vec(Dict(t0 => xq))
 ranks = Dict{Float64, Vector{Int}}()
 solutions = Dict{Float64, Array{Float64, N}}()
+correlators = Dict{Float64, Any}()
 for λ in (0.0, 1.0)
+    local u, naive, improved, C
     Lop = generator(λ)
     seconds = @elapsed u = solve_poisson(Lop, g)
     ranks[λ] = tt_round(u; trunc_tol = 1.0e-8).ranks
@@ -108,6 +189,19 @@ for λ in (0.0, 1.0)
         err = norm(orthogonalize(u - u_exact)) / norm(u_exact)
         @info "relative error to exact solution (K⁻¹e_t0)·φ" err
         @assert maximum(ranks[λ]) <= 2 && err < 1.0e-6
+    end
+
+    naive, improved = estimators(u, λ)
+    C = exact_correlator(λ)
+    correlators[λ] = (; C, naive, improved)
+    println("\nλ = $λ: ⟨φ_t φ_$t0⟩, exact vs. standard MC vs. Stein–Poisson")
+    for t in 1:N
+        println(
+            "  t = $t   exact ", round(C[t], sigdigits = 5),
+            "   MC ", round(mean(naive[:, t]), sigdigits = 5), " ± ", round(block_err(naive[:, t]), sigdigits = 2),
+            "   SP ", round(mean(improved[:, t]), sigdigits = 5), " ± ", round(block_err(improved[:, t]), sigdigits = 2),
+            "   variance ratio ", round(var(improved[:, t]) / var(naive[:, t]), sigdigits = 3)
+        )
     end
 end
 
@@ -137,6 +231,28 @@ let
         )
         hm = heatmap!(axh, x, x, plane; colormap = :balance, colorrange = (-umax, umax))
         Colorbar(fig[2, 2col], hm)
+    end
+    display(fig)
+end
+
+# Correlator: exact, standard MC and Stein–Poisson estimator (negative noisy means are not shown)
+let
+    fig = Figure(size = (900, 400))
+    for (col, λ) in enumerate((0.0, 1.0))
+        (; C, naive, improved) = correlators[λ]
+        ax = Axis(
+            fig[1, col]; yscale = log10, xlabel = "t",
+            ylabel = rich("⟨φ", subscript("t"), "φ", subscript("$t0"), "⟩"), title = "λ = $λ"
+        )
+        lines!(ax, 1:N, C; color = :black, label = "exact")
+        for (X, label, color) in ((naive, "standard MC", :tomato), (improved, "Stein-Poisson", :dodgerblue))
+            m = vec(mean(X; dims = 1))
+            e = [block_err(X[:, t]) for t in 1:N]
+            ok = findall(m .> 0)
+            errorbars!(ax, ok, m[ok], min.(e[ok], 0.99 .* m[ok]), e[ok]; color)
+            scatter!(ax, ok, m[ok]; color, label)
+        end
+        col == 1 && axislegend(ax; position = :lb)
     end
     display(fig)
 end
